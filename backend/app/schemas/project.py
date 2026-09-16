@@ -16,7 +16,7 @@ class ProjectStatus(str, Enum):
 class ProjectDraftPayload(CamelModel):
     name: str = Field(min_length=1, max_length=160)
     description: str = Field(min_length=1, max_length=2000)
-    task_employee_limit: int | None = Field(default=None, ge=1)
+    task_employee_limit: int | None = Field(default=None, ge=1, le=2_147_483_647)
     status: ProjectStatus = ProjectStatus.active
 
     @field_validator("name", "description")

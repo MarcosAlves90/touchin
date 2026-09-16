@@ -136,6 +136,8 @@ class ApiClient {
       'The company account is inactive.' =>
         'A conta da empresa está inativa.',
       'This account is inactive.' => 'Esta conta está inativa.',
+      'Project task employee limit is below current task membership.' =>
+        'O limite por tarefa não pode ser menor que a quantidade de funcionários já associados a uma tarefa. Remova participantes antes de reduzir o limite.',
       _ => null,
     };
   }

@@ -19,7 +19,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Projetos e tarefas'), findsOneWidget);
+    expect(find.text('Administrar projetos'), findsOneWidget);
+    expect(find.text('Projetos'), findsWidgets);
+    expect(find.text('Tarefas'), findsWidgets);
+    expect(find.text('Acessos'), findsWidgets);
+    expect(find.text('Ocupação'), findsOneWidget);
     expect(find.text('Projeto principal'), findsWidgets);
     expect(find.text('Implementar tela'), findsWidgets);
     expect(find.text('Novo projeto'), findsOneWidget);
@@ -30,7 +34,7 @@ void main() {
     expect(find.text('Adicionar membro'), findsOneWidget);
   });
 
-  testWidgets('selected project icon keeps contrast in dark theme',
+  testWidgets('selected project list icon keeps accent contrast in dark theme',
       (tester) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -44,20 +48,12 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final projectChip = find.byType(ChoiceChip);
-    final projectIcon = find.descendant(
-      of: projectChip,
-      matching: find.byIcon(Icons.folder_open_rounded),
-    );
+    final projectIcon = find.byIcon(Icons.folder_open_rounded);
 
     expect(projectIcon, findsOneWidget);
     expect(
       tester.widget<Icon>(projectIcon).color,
-      AppTheme.darkTheme.colorScheme.primary,
-    );
-    expect(
-      tester.widget<ChoiceChip>(projectChip).checkmarkColor,
-      AppTheme.darkTheme.colorScheme.primary,
+      AppTheme.accent,
     );
   });
 
@@ -111,6 +107,10 @@ void main() {
     );
     expect(projectNameField.maxLength, projectNameMaxLength);
     expect(projectDescriptionField.maxLength, projectDescriptionMaxLength);
+    expect(
+      find.textContaining('Ao reduzir, o limite não pode ficar abaixo'),
+      findsNothing,
+    );
 
     await tester.tap(find.text('Cancelar'));
     await tester.pumpAndSettle();
@@ -135,6 +135,29 @@ void main() {
     );
     expect(taskNameField.maxLength, taskNameMaxLength);
     expect(taskDescriptionField.maxLength, taskDescriptionMaxLength);
+  });
+
+
+  testWidgets('editing project explains the occupied-task limit constraint',
+      (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ProjectTasksPage(
+          api: _FakeProjectTasksApi(role: 'manager', employeeId: 'emp-02'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Editar projeto'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.textContaining(
+        'Ao reduzir, o limite não pode ficar abaixo da quantidade de funcionários',
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('full task does not offer join action', (tester) async {
