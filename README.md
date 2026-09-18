@@ -32,6 +32,7 @@ flowchart LR
     Admin[Admin]
     Settings[Settings]
     Time[Time tracking]
+    Projects[Projects and tasks]
   end
 
   subgraph Api["FastAPI backend"]
@@ -133,6 +134,7 @@ flowchart LR
 | Autenticação | Login, logout, sessão persistida e revogação individual |
 | Ponto | Clock-in, clock-out, pausa, retorno e histórico paginado |
 | Gestão de equipe | CRUD de funcionários, vínculo com projetos e regras por papel |
+| Projetos e tarefas | CRUD gerencial de projetos, tarefas hierárquicas, tipos, capacidade e participação de funcionários |
 | Admin | Operação interna com permissões separadas |
 | Configurações | Tema global com modos claro, escuro e seguir sistema |
 | E-mail transacional | Fluxos de convite, redefinição e boas-vindas via Brevo |
@@ -186,6 +188,7 @@ frontend/
   lib/
     core/
     features/
+      projects/
     theme/
     main.dart
   test/

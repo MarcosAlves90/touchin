@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import overload
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.pool import StaticPool
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
@@ -52,6 +52,16 @@ SessionLocal = sessionmaker(
     autocommit=False,
     expire_on_commit=False,
 )
+
+
+def begin_serialized_write(db: Session) -> None:
+    if db.bind is None or db.bind.dialect.name != "sqlite":
+        return
+    if db.in_transaction():
+        if db.new or db.dirty or db.deleted:
+            raise RuntimeError("Cannot restart a SQLite transaction with pending changes.")
+        db.rollback()
+    db.execute(text("BEGIN IMMEDIATE"))
 
 
 def init_database() -> None:

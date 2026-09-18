@@ -3,7 +3,16 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import uuid4
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base, utcnow
@@ -96,6 +105,10 @@ class Employee(Base):
         back_populates="employee",
         cascade=_CASCADE_ALL_DELETE_ORPHAN,
     )
+    task_links: Mapped[list["TaskEmployee"]] = relationship(
+        back_populates="employee",
+        cascade=_CASCADE_ALL_DELETE_ORPHAN,
+    )
 
 
 class Project(Base):
@@ -105,6 +118,7 @@ class Project(Base):
     company_id: Mapped[str] = mapped_column(ForeignKey(_COL_COMPANIES_ID), index=True)
     name_ciphertext: Mapped[str] = mapped_column(Text)
     description_ciphertext: Mapped[str | None] = mapped_column(Text, nullable=True)
+    task_employee_limit: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
     status: Mapped[str] = mapped_column(String(32), default="active", index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(
@@ -119,6 +133,10 @@ class Project(Base):
         cascade=_CASCADE_ALL_DELETE_ORPHAN,
     )
     punches: Mapped[list["Punch"]] = relationship(back_populates="project")
+    tasks: Mapped[list["Task"]] = relationship(
+        back_populates="project",
+        cascade=_CASCADE_ALL_DELETE_ORPHAN,
+    )
 
 
 class EmployeeProject(Base):
@@ -138,6 +156,67 @@ class EmployeeProject(Base):
 
     employee: Mapped[Employee] = relationship(back_populates="project_links")
     project: Mapped[Project] = relationship(back_populates="employee_links")
+
+
+class Task(Base):
+    __tablename__ = "tasks"
+    __table_args__ = (
+        CheckConstraint(
+            "parent_task_id IS NULL OR parent_task_id <> id",
+            name="ck_task_not_self_parent",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=generate_id)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), index=True)
+    parent_task_id: Mapped[str | None] = mapped_column(
+        ForeignKey("tasks.id"),
+        nullable=True,
+        index=True,
+    )
+    name_ciphertext: Mapped[str] = mapped_column(Text)
+    description_ciphertext: Mapped[str] = mapped_column(Text)
+    type: Mapped[str] = mapped_column(String(32), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=utcnow,
+        onupdate=utcnow,
+    )
+
+    project: Mapped[Project] = relationship(back_populates="tasks")
+    parent: Mapped["Task | None"] = relationship(
+        remote_side="Task.id",
+        back_populates="children",
+        foreign_keys=[parent_task_id],
+    )
+    children: Mapped[list["Task"]] = relationship(
+        back_populates="parent",
+        foreign_keys=[parent_task_id],
+    )
+    employee_links: Mapped[list["TaskEmployee"]] = relationship(
+        back_populates="task",
+        cascade=_CASCADE_ALL_DELETE_ORPHAN,
+    )
+
+
+class TaskEmployee(Base):
+    __tablename__ = "task_employees"
+
+    task_id: Mapped[str] = mapped_column(
+        ForeignKey("tasks.id", ondelete="CASCADE"),
+        primary_key=True,
+        index=True,
+    )
+    employee_id: Mapped[str] = mapped_column(
+        ForeignKey(_COL_EMPLOYEES_ID, ondelete="CASCADE"),
+        primary_key=True,
+        index=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    task: Mapped[Task] = relationship(back_populates="employee_links")
+    employee: Mapped[Employee] = relationship(back_populates="task_links")
 
 
 class UserAccount(Base):

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from sqlalchemy import select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
+from app.db import begin_serialized_write
 from app.domain.project_policy import validate_project_for_punch as _validate_project_for_punch
 from app.domain.project_read import (
     cipher,
@@ -12,8 +13,19 @@ from app.domain.project_read import (
     serialize_project,
     status_value,
 )
-from app.models import EmployeeProject, Project
+from app.errors import DomainError, ErrorKind
+from app.models import EmployeeProject, Project, Task, TaskEmployee
 from app.schemas.project import ProjectDraftPayload, ProjectMemberSummary, ProjectResponse, ProjectStatus
+
+
+def _locked_project_or_404(db: Session, *, company_id: str, project_id: str) -> Project:
+    query = select(Project).where(Project.company_id == company_id, Project.id == project_id)
+    if db.bind is not None and db.bind.dialect.name != "sqlite":
+        query = query.with_for_update()
+    project = db.scalar(query)
+    if project is None:
+        raise DomainError(ErrorKind.not_found, "Project not found.")
+    return project
 
 
 def create_project(db: Session, *, company_id: str, payload: ProjectDraftPayload) -> ProjectResponse:
@@ -22,6 +34,7 @@ def create_project(db: Session, *, company_id: str, payload: ProjectDraftPayload
         company_id=company_id,
         name_ciphertext=field_cipher.encrypt(payload.name) or "",
         description_ciphertext=field_cipher.encrypt(payload.description),
+        task_employee_limit=payload.task_employee_limit or 1,
         status=status_value(payload.status),
     )
     db.add(project)
@@ -37,10 +50,31 @@ def update_project(
     project_id: str,
     payload: ProjectDraftPayload,
 ) -> ProjectResponse:
+    begin_serialized_write(db)
+
+    project = _locked_project_or_404(db, company_id=company_id, project_id=project_id)
+
+    new_limit = payload.task_employee_limit
+    if new_limit is None:
+        new_limit = project.task_employee_limit
+
+    if new_limit < project.task_employee_limit:
+        counts = db.scalars(
+            select(func.count(TaskEmployee.employee_id))
+            .join(Task, Task.id == TaskEmployee.task_id)
+            .where(Task.project_id == project.id)
+            .group_by(TaskEmployee.task_id),
+        ).all()
+        if any(count > new_limit for count in counts):
+            raise DomainError(
+                ErrorKind.conflict,
+                "Project task employee limit is below current task membership.",
+            )
+
     field_cipher = cipher()
-    project = project_or_404(db, company_id=company_id, project_id=project_id)
     project.name_ciphertext = field_cipher.encrypt(payload.name) or ""
     project.description_ciphertext = field_cipher.encrypt(payload.description)
+    project.task_employee_limit = new_limit
     project.status = status_value(payload.status)
     db.commit()
     db.refresh(project)
@@ -60,28 +94,32 @@ def assign_project_member(
     project_id: str,
     employee_id: str,
 ) -> tuple[ProjectMemberSummary, bool]:
+    begin_serialized_write(db)
     field_cipher = cipher()
-    project_or_404(db, company_id=company_id, project_id=project_id)
+    _locked_project_or_404(db, company_id=company_id, project_id=project_id)
     employee = employee_or_404(db, company_id=company_id, employee_id=employee_id)
     link = db.scalar(
-        select(EmployeeProject).where(
+        select(EmployeeProject)
+        .where(
             EmployeeProject.project_id == project_id,
             EmployeeProject.employee_id == employee_id,
-        ),
+        )
     )
     created = False
     if link is None:
-        link = EmployeeProject(employee_id=employee.id, project_id=project_id)
+        link = EmployeeProject(employee=employee, project_id=project_id)
         db.add(link)
         db.commit()
         db.refresh(link)
-        link.employee = employee
         created = True
+    elif link.employee is None:
+        link.employee = employee
     return serialize_member(link, cipher=field_cipher), created
 
 
 def remove_project_member(db: Session, *, company_id: str, project_id: str, employee_id: str) -> None:
-    project_or_404(db, company_id=company_id, project_id=project_id)
+    begin_serialized_write(db)
+    _locked_project_or_404(db, company_id=company_id, project_id=project_id)
     employee_or_404(db, company_id=company_id, employee_id=employee_id)
     link = db.scalar(
         select(EmployeeProject).where(
@@ -89,9 +127,17 @@ def remove_project_member(db: Session, *, company_id: str, project_id: str, empl
             EmployeeProject.employee_id == employee_id,
         ),
     )
+
+    task_ids = select(Task.id).where(Task.project_id == project_id)
+    db.execute(
+        delete(TaskEmployee).where(
+            TaskEmployee.employee_id == employee_id,
+            TaskEmployee.task_id.in_(task_ids),
+        ),
+    )
     if link is not None:
         db.delete(link)
-        db.commit()
+    db.commit()
 
 
 def validate_project_for_punch(

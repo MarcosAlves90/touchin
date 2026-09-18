@@ -1,0 +1,243 @@
+{
+  "schema_version": 4,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      "backend/app/models.py",
+      "backend/app/schemas/project.py",
+      "backend/app/services/projects.py",
+      "backend/tests/test_project_task_management_regressions.py",
+      "backend/tests/test_projects.py",
+      "docs/contracts/pr34-review-request-changes-v1.polis.json",
+      "frontend/lib/features/projects/presentation/project_tasks_controller.dart",
+      "frontend/test/features/projects/presentation/project_tasks_controller_test.dart"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "backend/tests/test_project_task_management_regressions.py",
+      "backend/tests/test_projects.py",
+      "frontend/test/features/projects/presentation/project_tasks_controller_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Address only the technically valid request-changes findings from pull request #34 while preserving existing project/task behavior and API compatibility.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "Changing the selected project must clear task state and task errors before the first listener notification for the new project."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "The active project management list must never retain or add projects whose returned status is inactive, and selection must move when the selected project becomes inactive."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "A task creation response must not mutate task state if the user selected another project while the request was pending."
+      },
+      {
+        "id": "REQ-004",
+        "statement": "Project description must remain nullable as on main; omitted or explicit null descriptions are accepted and round-trip as null, while non-null blank text remains invalid."
+      },
+      {
+        "id": "REQ-005",
+        "statement": "The locked POLIS Change Contract for these PR #34 review fixes must be versioned under docs/contracts/pr34-review-request-changes-v1.polis.json."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "selectProject clears tasks and tasksError before notifyListeners.",
+        "requirements": [
+          "REQ-001"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "createProject excludes inactive results and updateProject removes an inactive result while reselecting when necessary.",
+        "requirements": [
+          "REQ-002"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-003",
+        "statement": "createTask checks that selectedProjectId still matches the captured project before mutating tasks or selectedTaskId.",
+        "requirements": [
+          "REQ-003"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-004",
+        "statement": "POST and PUT project payloads with description null succeed and return description null.",
+        "requirements": [
+          "REQ-004"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-005",
+        "statement": "The locked schema-v4 Change Contract is present and parseable at the declared repository path.",
+        "requirements": [
+          "REQ-005"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "Project soft deletion remains status=inactive rather than physical deletion."
+      },
+      {
+        "id": "INV-002",
+        "statement": "Existing task authorization, hierarchy, membership and capacity semantics remain unchanged."
+      },
+      {
+        "id": "INV-003",
+        "statement": "Only active projects are presented by the project management controller after synchronization."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "The UI can notify a new selected project while still exposing tasks from the previous project."
+      },
+      {
+        "id": "FORB-002",
+        "statement": "An inactive project remains in or is inserted into the controller active list."
+      },
+      {
+        "id": "FORB-003",
+        "statement": "A late createTask response for project A mutates state after project B has become selected."
+      },
+      {
+        "id": "FORB-004",
+        "statement": "A payload accepted by main with description null now fails validation or is coerced to an empty string."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "Project selection changes and asynchronous project/task API responses."
+      },
+      {
+        "id": "IN-002",
+        "statement": "Project create/update payloads with active or inactive status and nullable description."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "Consistent project/task controller state across project changes and delayed responses."
+      },
+      {
+        "id": "OUT-002",
+        "statement": "Backward-compatible nullable project descriptions."
+      },
+      {
+        "id": "OUT-003",
+        "statement": "A versioned POLIS contract recording the accepted review fixes."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "Stale asynchronous results are ignored rather than applied to a newer selection."
+      },
+      {
+        "id": "FAIL-002",
+        "statement": "Non-null blank descriptions still fail request validation."
+      },
+      {
+        "id": "FAIL-003",
+        "statement": "Flutter tests are not claimed as executed when Flutter is unavailable locally."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "66c727b35be6a2655dce563aa4b208254c29d76c",
+    "base_tree": "ae123a4e676deb28e9c1d1719c254b6e7d751acf",
+    "policy_sha256": "cb60d7751236c799472a2e7166df0637c20f183f26a61900706bbdb69232ab34",
+    "specification_sha256": "ddfe51dd6bfeb22eeee31676f0f9eac7bf3fdace8b78c99f2c92a8d1ec321c8a"
+  },
+  "behavior": {
+    "argv": [
+      "python",
+      "-m",
+      "pytest",
+      "tests/test_project_task_management_regressions.py",
+      "tests/test_projects.py",
+      "-q"
+    ],
+    "cwd": "backend",
+    "timeout_seconds": 300,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "python",
+      "-m",
+      "pytest",
+      "tests",
+      "-q"
+    ],
+    "cwd": "backend",
+    "timeout_seconds": 1200,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "python",
+        "-m",
+        "pytest",
+        "tests/test_project_task_management_regressions.py",
+        "tests/test_projects.py",
+        "-q"
+      ],
+      "cwd": "backend",
+      "timeout_seconds": 300,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "test_project_switch_clears_previous_task_state_before_notifying",
+      "test_inactive_projects_never_remain_in_active_controller_list",
+      "test_stale_task_creation_does_not_mutate_new_project_selection",
+      "test_project_description_remains_nullable_for_api_compatibility"
+    ]
+  }
+}

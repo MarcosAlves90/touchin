@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.orm import Session
 
-from app.authorization import require_permission
+from app.authorization import is_managerial_role, require_permission
 from app.dependencies import get_db
 from app.schemas.project import (
     ProjectDraftPayload,
@@ -26,13 +26,26 @@ from app.domain.project_read import get_project, list_project_members, list_proj
 router = APIRouter()
 
 
+def _project_read_employee_id(context: AuthenticatedContext) -> str | None:
+    if is_managerial_role(context.user.role):
+        return None
+    if context.employee is None:
+        return ""
+    return context.employee.id
+
+
 @router.get("", response_model=list[ProjectResponse])
 def list_projects_route(
     status: ProjectStatus | None = None,
     context: AuthenticatedContext = Depends(require_permission("projects.read")),
     db: Session = Depends(get_db),
 ) -> list[ProjectResponse]:
-    return list_projects(db, company_id=context.company.id, status_filter=status)
+    return list_projects(
+        db,
+        company_id=context.company.id,
+        status_filter=status,
+        employee_id=_project_read_employee_id(context),
+    )
 
 
 @router.post("", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
@@ -50,7 +63,12 @@ def get_project_route(
     context: AuthenticatedContext = Depends(require_permission("projects.read")),
     db: Session = Depends(get_db),
 ) -> ProjectResponse:
-    return get_project(db, company_id=context.company.id, project_id=project_id)
+    return get_project(
+        db,
+        company_id=context.company.id,
+        project_id=project_id,
+        employee_id=_project_read_employee_id(context),
+    )
 
 
 @router.put("/{project_id}", response_model=ProjectResponse)
@@ -85,7 +103,12 @@ def list_project_members_route(
     context: AuthenticatedContext = Depends(require_permission("projects.read")),
     db: Session = Depends(get_db),
 ) -> list[ProjectMemberSummary]:
-    return list_project_members(db, company_id=context.company.id, project_id=project_id)
+    return list_project_members(
+        db,
+        company_id=context.company.id,
+        project_id=project_id,
+        employee_id=_project_read_employee_id(context),
+    )
 
 
 @router.post("/{project_id}/members", response_model=ProjectMemberSummary, status_code=status.HTTP_201_CREATED)

@@ -1,0 +1,284 @@
+{
+  "schema_version": 4,
+  "kind": "feature",
+  "scope": {
+    "allowed_paths": [
+      "backend/app/schemas/project.py",
+      "backend/tests/test_project_task_management_regressions.py",
+      "docs/contracts/project-task-management-bugfixes-v2.polis.json",
+      "docs/contracts/project-management-ui-standardization-v1.polis.json",
+      "frontend/lib/core/network/api_client.dart",
+      "frontend/lib/features/projects/presentation/project_tasks_controller.dart",
+      "frontend/lib/features/projects/presentation/project_tasks_page.dart",
+      "frontend/test/features/projects/presentation/project_tasks_controller_test.dart",
+      "frontend/test/features/projects/presentation/project_tasks_page_test.dart"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "backend/tests/test_project_task_management_regressions.py",
+      "frontend/test/features/projects/presentation/project_tasks_controller_test.dart",
+      "frontend/test/features/projects/presentation/project_tasks_page_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Preserve the uncommitted project/task reliability fixes while standardizing the Projects page to the same workspace visual grammar as Administer Team and providing actionable UX when a manager tries to reduce taskEmployeeLimit below existing task membership.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "The project-management controller must request only active projects for the management list."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "Project members, tasks, and task members loaded asynchronously must be applied only when the response still belongs to the current selection and latest request."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "Project taskEmployeeLimit must be constrained to the signed PostgreSQL INTEGER range and invalid larger values must fail validation before persistence."
+      },
+      {
+        "id": "REQ-004",
+        "statement": "The previously locked project/task bugfix Change Contract must remain versioned under docs/contracts/project-task-management-bugfixes-v2.polis.json."
+      },
+      {
+        "id": "REQ-005",
+        "statement": "Regression validation of versioned JSON Change Contracts must remain semantic and independent of LF versus CRLF working-tree representation."
+      },
+      {
+        "id": "REQ-006",
+        "statement": "The Projects page must use the same workspace hierarchy as Administer Team: compact header/action treatment, responsive metric grid, split project list/detail layout, and split task/participant master-detail layout while preserving existing project actions."
+      },
+      {
+        "id": "REQ-007",
+        "statement": "When editing a project, the UI must explain that taskEmployeeLimit cannot be reduced below existing task membership, and the existing authoritative backend conflict must be surfaced in actionable pt-BR instead of the raw English domain message."
+      },
+      {
+        "id": "REQ-008",
+        "statement": "The locked Change Contract for this combined uncommitted change must be stored under docs/contracts/project-management-ui-standardization-v1.polis.json."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "Controller startup requests ProjectStatus.active and does not reload soft-deleted projects into active management.",
+        "requirements": [
+          "REQ-001"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "Obsolete project/task/member request completions cannot overwrite current selection state.",
+        "requirements": [
+          "REQ-002"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-003",
+        "statement": "taskEmployeeLimit above 2147483647 is rejected with request validation before persistence.",
+        "requirements": [
+          "REQ-003"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-004",
+        "statement": "The previous bugfix contract remains parseable and versioned without EOL-dependent byte assertions.",
+        "requirements": [
+          "REQ-004",
+          "REQ-005"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-005",
+        "statement": "The Projects page exposes the title Administrar projetos, a four-item metric grid, a responsive project list/detail section, and a responsive task/participant section using the same spacing and accent treatment as Administer Team.",
+        "requirements": [
+          "REQ-006"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-006",
+        "statement": "Editing a project displays the occupied-task limit constraint, and the backend conflict Project task employee limit is below current task membership. is translated to an actionable Portuguese message instructing the user to remove participants before reducing the limit.",
+        "requirements": [
+          "REQ-007"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-007",
+        "statement": "The locked schema-v4 contract produced by POLIS is present and parseable at docs/contracts/project-management-ui-standardization-v1.polis.json.",
+        "requirements": [
+          "REQ-008"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "Project soft delete remains status=inactive rather than physical deletion."
+      },
+      {
+        "id": "INV-002",
+        "statement": "Existing authorization and project/task membership permissions remain unchanged."
+      },
+      {
+        "id": "INV-003",
+        "statement": "The backend remains the authoritative concurrency-safe validator for lowering taskEmployeeLimit below task membership."
+      },
+      {
+        "id": "INV-004",
+        "statement": "Manager and employee actions currently exposed by the Projects page remain available according to their existing permissions."
+      },
+      {
+        "id": "INV-005",
+        "statement": "The existing project/task editor text limits and task hierarchy behavior remain unchanged."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "An inactive project reappears in the active project-management list after reload."
+      },
+      {
+        "id": "FORB-002",
+        "statement": "An obsolete asynchronous response mutates state for a newer project or task selection."
+      },
+      {
+        "id": "FORB-003",
+        "statement": "A taskEmployeeLimit above PostgreSQL INTEGER max is accepted."
+      },
+      {
+        "id": "FORB-004",
+        "statement": "The Projects page falls back to the previous chip-only project picker without the standardized list/detail workspace structure."
+      },
+      {
+        "id": "FORB-005",
+        "statement": "A manager sees the raw English task membership conflict when attempting an invalid capacity reduction."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "Project-management startup, project/task selection, and existing project/task/member data."
+      },
+      {
+        "id": "IN-002",
+        "statement": "Project edit payload including taskEmployeeLimit."
+      },
+      {
+        "id": "IN-003",
+        "statement": "Viewport width controlling responsive workspace layout."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "A Projects workspace visually aligned with Administer Team while retaining project/task operations."
+      },
+      {
+        "id": "OUT-002",
+        "statement": "An actionable Portuguese explanation when a capacity reduction conflicts with existing task membership."
+      },
+      {
+        "id": "OUT-003",
+        "statement": "Versioned POLIS contracts for both the previous defect slice and the current combined uncommitted change."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "If project/task data loading fails, existing retry/error behavior remains available."
+      },
+      {
+        "id": "FAIL-002",
+        "statement": "If a capacity reduction violates current task membership, the backend rejects it with conflict and the frontend presents an actionable pt-BR message without weakening the invariant."
+      },
+      {
+        "id": "FAIL-003",
+        "statement": "Flutter-specific tests that cannot execute locally are not claimed as passed; the authoritative CI remains responsible for flutter test."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "573e1b4f6867a586da7d2d3bf3733e6bff5d287a",
+    "base_tree": "953f1cf1a7cef78210fbffb57b74cda470957919",
+    "policy_sha256": "17fc4dda9ef5836bd1fba08d20380a598a5c84f907f9247d684cdda1b159913c",
+    "specification_sha256": "f60fb7fb7e646324f6d796994f0562913460b8a5eb3713124c3d84ecc56355d6"
+  },
+  "behavior": {
+    "argv": [
+      "python",
+      "-m",
+      "pytest",
+      "tests/test_project_task_management_regressions.py",
+      "-q"
+    ],
+    "cwd": "backend",
+    "timeout_seconds": 180,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "python",
+      "-m",
+      "pytest",
+      "tests",
+      "-q"
+    ],
+    "cwd": "backend",
+    "timeout_seconds": 1200,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "python",
+        "-m",
+        "pytest",
+        "tests/test_project_task_management_regressions.py",
+        "-q"
+      ],
+      "cwd": "backend",
+      "timeout_seconds": 180,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "test_project_management_page_matches_admin_workspace_structure"
+    ]
+  }
+}

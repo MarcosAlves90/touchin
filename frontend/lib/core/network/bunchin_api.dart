@@ -2,6 +2,8 @@ import 'package:bunchin_flutter/contracts/auth.dart';
 import 'package:bunchin_flutter/contracts/contract_parsing.dart';
 import 'package:bunchin_flutter/contracts/employee.dart';
 import 'package:bunchin_flutter/contracts/punch.dart';
+import 'package:bunchin_flutter/contracts/project.dart';
+import 'package:bunchin_flutter/contracts/task.dart';
 import 'package:bunchin_flutter/contracts/time_clock.dart';
 import 'package:bunchin_flutter/core/network/api_client.dart';
 import 'package:bunchin_flutter/core/storage/token_storage.dart';
@@ -242,6 +244,226 @@ class BunchinApi {
       () => PunchRecord.fromJson(
         requireJsonMap(response, 'create punch response'),
       ),
+    );
+  }
+
+  Future<List<ProjectSummary>> listProjects({ProjectStatus? status}) async {
+    final response = await _client.get(
+      '/projects',
+      withAuth: true,
+      queryParameters: status == null
+          ? null
+          : <String, Object?>{'status': projectStatusToApi(status)},
+    );
+    return _parseContract('projects', () {
+      final payload = requireJsonList(response, 'projects response');
+      return payload
+          .map(
+            (item) => ProjectSummary.fromJson(
+              requireJsonMap(item, 'projects[]'),
+            ),
+          )
+          .toList();
+    });
+  }
+
+  Future<ProjectSummary> createProject(ProjectDraft draft) async {
+    final response = await _client.post(
+      '/projects',
+      withAuth: true,
+      body: draft.toApiJson(),
+    );
+    return _parseContract(
+      'create project',
+      () => ProjectSummary.fromJson(
+        requireJsonMap(response, 'create project response'),
+      ),
+    );
+  }
+
+  Future<ProjectSummary> updateProject(
+    String projectId,
+    ProjectDraft draft,
+  ) async {
+    final response = await _client.put(
+      '/projects/$projectId',
+      withAuth: true,
+      body: draft.toApiJson(),
+    );
+    return _parseContract(
+      'update project',
+      () => ProjectSummary.fromJson(
+        requireJsonMap(response, 'update project response'),
+      ),
+    );
+  }
+
+  Future<void> deleteProject(String projectId) async {
+    await _client.delete('/projects/$projectId', withAuth: true);
+  }
+
+  Future<List<ProjectMemberSummary>> listProjectMembers(String projectId) async {
+    final response = await _client.get(
+      '/projects/$projectId/members',
+      withAuth: true,
+    );
+    return _parseContract('project members', () {
+      final payload = requireJsonList(response, 'project members response');
+      return payload
+          .map(
+            (item) => ProjectMemberSummary.fromJson(
+              requireJsonMap(item, 'project members[]'),
+            ),
+          )
+          .toList();
+    });
+  }
+
+  Future<ProjectMemberSummary> addProjectMember(
+    String projectId,
+    String employeeId,
+  ) async {
+    final response = await _client.post(
+      '/projects/$projectId/members',
+      withAuth: true,
+      body: <String, dynamic>{'employeeId': employeeId},
+    );
+    return _parseContract(
+      'add project member',
+      () => ProjectMemberSummary.fromJson(
+        requireJsonMap(response, 'add project member response'),
+      ),
+    );
+  }
+
+  Future<void> removeProjectMember(
+    String projectId,
+    String employeeId,
+  ) async {
+    await _client.delete(
+      '/projects/$projectId/members/$employeeId',
+      withAuth: true,
+    );
+  }
+
+  Future<List<TaskRecord>> listTasks(String projectId) async {
+    final response = await _client.get(
+      '/projects/$projectId/tasks',
+      withAuth: true,
+    );
+    return _parseContract('project tasks', () {
+      final payload = requireJsonList(response, 'project tasks response');
+      return payload
+          .map(
+            (item) => TaskRecord.fromJson(
+              requireJsonMap(item, 'project tasks[]'),
+            ),
+          )
+          .toList();
+    });
+  }
+
+  Future<TaskRecord> createTask(String projectId, TaskDraft draft) async {
+    final response = await _client.post(
+      '/projects/$projectId/tasks',
+      withAuth: true,
+      body: draft.toApiJson(),
+    );
+    return _parseContract(
+      'create task',
+      () => TaskRecord.fromJson(
+        requireJsonMap(response, 'create task response'),
+      ),
+    );
+  }
+
+  Future<TaskRecord> updateTask(
+    String projectId,
+    String taskId,
+    TaskDraft draft,
+  ) async {
+    final response = await _client.put(
+      '/projects/$projectId/tasks/$taskId',
+      withAuth: true,
+      body: draft.toApiJson(),
+    );
+    return _parseContract(
+      'update task',
+      () => TaskRecord.fromJson(
+        requireJsonMap(response, 'update task response'),
+      ),
+    );
+  }
+
+  Future<List<TaskMemberSummary>> listTaskMembers(
+    String projectId,
+    String taskId,
+  ) async {
+    final response = await _client.get(
+      '/projects/$projectId/tasks/$taskId/members',
+      withAuth: true,
+    );
+    return _parseContract('task members', () {
+      final payload = requireJsonList(response, 'task members response');
+      return payload
+          .map(
+            (item) => TaskMemberSummary.fromJson(
+              requireJsonMap(item, 'task members[]'),
+            ),
+          )
+          .toList();
+    });
+  }
+
+  Future<TaskMemberSummary> joinTask(
+    String projectId,
+    String taskId,
+  ) async {
+    final response = await _client.post(
+      '/projects/$projectId/tasks/$taskId/members/me',
+      withAuth: true,
+    );
+    return _parseContract(
+      'join task',
+      () => TaskMemberSummary.fromJson(
+        requireJsonMap(response, 'join task response'),
+      ),
+    );
+  }
+
+  Future<void> leaveTask(String projectId, String taskId) async {
+    await _client.delete(
+      '/projects/$projectId/tasks/$taskId/members/me',
+      withAuth: true,
+    );
+  }
+
+  Future<TaskMemberSummary> addTaskMember(
+    String projectId,
+    String taskId,
+    String employeeId,
+  ) async {
+    final response = await _client.post(
+      '/projects/$projectId/tasks/$taskId/members',
+      withAuth: true,
+      body: <String, dynamic>{'employeeId': employeeId},
+    );
+    return _parseContract(
+      'add task member',
+      () => TaskMemberSummary.fromJson(
+        requireJsonMap(response, 'add task member response'),
+      ),
+    );
+  }
+
+  Future<void> removeTaskMember(
+    String projectId,
+    String taskId,
+    String employeeId,
+  ) async {
+    await _client.delete(
+      '/projects/$projectId/tasks/$taskId/members/$employeeId',
+      withAuth: true,
     );
   }
 
