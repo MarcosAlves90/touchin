@@ -1,11 +1,11 @@
 import 'dart:ui';
 
-import 'package:bunchin_flutter/features/admin/presentation/admin_employees_page.dart';
-import 'package:bunchin_flutter/features/auth/presentation/logout_navigation.dart';
-import 'package:bunchin_flutter/features/projects/presentation/project_tasks_page.dart';
-import 'package:bunchin_flutter/features/settings/presentation/settings_page.dart';
-import 'package:bunchin_flutter/features/time_tracking/presentation/time_clock_page.dart';
-import 'package:bunchin_flutter/theme/app_theme.dart';
+import 'package:touchin_flutter/features/admin/presentation/admin_employees_page.dart';
+import 'package:touchin_flutter/features/auth/presentation/logout_navigation.dart';
+import 'package:touchin_flutter/features/projects/presentation/project_tasks_page.dart';
+import 'package:touchin_flutter/features/settings/presentation/settings_page.dart';
+import 'package:touchin_flutter/features/time_tracking/presentation/time_clock_page.dart';
+import 'package:touchin_flutter/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 
 typedef WorkspaceLogoutHandler = Future<void> Function(BuildContext context);
@@ -167,7 +167,7 @@ class _AppNavigationDrawer extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'BUNCHIN',
+                  'TOUCHIN',
                   style: theme.textTheme.titleLarge?.copyWith(
                     color: colorScheme.onPrimary,
                     letterSpacing: 2,
@@ -309,7 +309,7 @@ class WorkspaceSidebar extends StatelessWidget {
     required this.description,
     required this.summaryChildren,
     required this.highlightChips,
-    this.brandLabel = 'BUNCHIN',
+    this.brandLabel = 'TOUCHIN',
   });
 
   final String title;

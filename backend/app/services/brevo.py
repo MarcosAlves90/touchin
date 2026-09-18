@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 BREVO_SMTP_EMAIL_URL = "https://api.brevo.com/v3/smtp/email"
 BREVO_TIMEOUT_SECONDS = 10.0
+JSON_MEDIA_TYPE = "application/json"
 
 
 def _is_brevo_enabled(settings: Settings) -> bool:
@@ -22,18 +23,18 @@ def _is_brevo_enabled(settings: Settings) -> bool:
     )
 
 
-def _welcome_subject(display_name: str) -> str:
-    return "Confirmação de cadastro — Bunchin"
+def _welcome_subject() -> str:
+    return "Confirmação de cadastro — TouchIn"
 
 
 def _welcome_text(display_name: str, recipient_email: str) -> str:
     return (
         f"Prezado(a) {display_name},\n\n"
-        "Seu cadastro na plataforma Bunchin foi concluído com sucesso.\n"
+        "Seu cadastro na plataforma TouchIn foi concluído com sucesso.\n"
         f"Você poderá acessar sua conta utilizando o endereço de e-mail: {recipient_email}.\n\n"
         "Caso não reconheça esta ação, por favor responda a esta mensagem ou entre em contato com nossa equipe de suporte.\n\n"
         "Atenciosamente,\n"
-        "Equipe Bunchin\n"
+        "Equipe TouchIn\n"
     )
 
 
@@ -42,27 +43,27 @@ def _welcome_html(display_name: str, recipient_email: str) -> str:
     safe_email = escape(recipient_email)
     return (
         f"<p>Prezado(a) {safe_display_name},</p>"
-        "<p>Seu cadastro na plataforma <strong>Bunchin</strong> foi concluído com sucesso.</p>"
+        "<p>Seu cadastro na plataforma <strong>TouchIn</strong> foi concluído com sucesso.</p>"
         "<p>Você poderá acessar sua conta utilizando o endereço de e-mail: "
         f"<strong>{safe_email}</strong>.</p>"
         "<p>Caso não reconheça esta ação, por favor responda a esta mensagem ou entre em contato com nossa equipe de suporte.</p>"
-        "<p>Atenciosamente,<br>Equipe Bunchin</p>"
+        "<p>Atenciosamente,<br>Equipe TouchIn</p>"
     )
 
 
-def _credentials_subject(display_name: str) -> str:
-    return "Credenciais de acesso — Bunchin"
+def _credentials_subject() -> str:
+    return "Credenciais de acesso — TouchIn"
 
 
 def _credentials_text(display_name: str, recipient_email: str, temp_password: str) -> str:
     return (
         f"Prezado(a) {display_name},\n\n"
-        "Sua conta na plataforma Bunchin foi criada.\n"
+        "Sua conta na plataforma TouchIn foi criada.\n"
         f"E-mail de acesso: {recipient_email}\n"
         f"Senha temporária: {temp_password}\n\n"
         "Por segurança, altere sua senha após o primeiro acesso.\n\n"
         "Atenciosamente,\n"
-        "Equipe Bunchin\n"
+        "Equipe TouchIn\n"
     )
 
 
@@ -72,17 +73,17 @@ def _credentials_html(display_name: str, recipient_email: str, temp_password: st
     safe_password = escape(temp_password)
     return (
         f"<p>Prezado(a) {safe_display_name},</p>"
-        "<p>Sua conta na plataforma <strong>Bunchin</strong> foi criada.</p>"
+        "<p>Sua conta na plataforma <strong>TouchIn</strong> foi criada.</p>"
         "<p>E-mail de acesso: "
         f"<strong>{safe_email}</strong><br>"
         f"Senha temporária: <strong>{safe_password}</strong></p>"
         "<p>Por segurança, altere sua senha após o primeiro acesso.</p>"
-        "<p>Atenciosamente,<br>Equipe Bunchin</p>"
+        "<p>Atenciosamente,<br>Equipe TouchIn</p>"
     )
 
 
-def _password_reset_subject(display_name: str) -> str:
-    return "Redefinição de senha — Bunchin"
+def _password_reset_subject() -> str:
+    return "Redefinição de senha — TouchIn"
 
 
 def _password_reset_text(display_name: str, recipient_email: str, temp_password: str) -> str:
@@ -93,7 +94,7 @@ def _password_reset_text(display_name: str, recipient_email: str, temp_password:
         f"Senha temporária: {temp_password}\n\n"
         "Por segurança, altere sua senha após o primeiro acesso.\n\n"
         "Atenciosamente,\n"
-        "Equipe Bunchin\n"
+        "Equipe TouchIn\n"
     )
 
 
@@ -108,12 +109,12 @@ def _password_reset_html(display_name: str, recipient_email: str, temp_password:
         f"<strong>{safe_email}</strong><br>"
         f"Senha temporária: <strong>{safe_password}</strong></p>"
         "<p>Por segurança, altere sua senha após o primeiro acesso.</p>"
-        "<p>Atenciosamente,<br>Equipe Bunchin</p>"
+        "<p>Atenciosamente,<br>Equipe TouchIn</p>"
     )
 
 
-def _password_changed_subject(display_name: str) -> str:
-    return "Senha atualizada — Bunchin"
+def _password_changed_subject() -> str:
+    return "Senha atualizada — TouchIn"
 
 
 def _password_changed_text(display_name: str, recipient_email: str) -> str:
@@ -123,7 +124,7 @@ def _password_changed_text(display_name: str, recipient_email: str) -> str:
         f"E-mail de acesso: {recipient_email}\n\n"
         "Se você não realizou esta alteração, entre em contato com nossa equipe de suporte.\n\n"
         "Atenciosamente,\n"
-        "Equipe Bunchin\n"
+        "Equipe TouchIn\n"
     )
 
 
@@ -136,7 +137,7 @@ def _password_changed_html(display_name: str, recipient_email: str) -> str:
         "<p>E-mail de acesso: "
         f"<strong>{safe_email}</strong>.</p>"
         "<p>Se você não realizou esta alteração, entre em contato com nossa equipe de suporte.</p>"
-        "<p>Atenciosamente,<br>Equipe Bunchin</p>"
+        "<p>Atenciosamente,<br>Equipe TouchIn</p>"
     )
 
 
@@ -157,14 +158,14 @@ def send_employee_credentials_email(
             "name": settings.brevo_sender_name,
         },
         "to": [{"email": recipient_email.strip(), "name": display_name}],
-        "subject": _credentials_subject(display_name),
+        "subject": _credentials_subject(),
         "textContent": _credentials_text(display_name, recipient_email.strip(), temp_password),
         "htmlContent": _credentials_html(display_name, recipient_email.strip(), temp_password),
     }
     headers = {
-        "accept": "application/json",
+        "accept": JSON_MEDIA_TYPE,
         "api-key": settings.brevo_api_key or "",
-        "content-type": "application/json",
+        "content-type": JSON_MEDIA_TYPE,
     }
 
     try:
@@ -199,14 +200,14 @@ def send_password_reset_email(
             "name": settings.brevo_sender_name,
         },
         "to": [{"email": recipient_email.strip(), "name": display_name.strip()}],
-        "subject": _password_reset_subject(display_name),
+        "subject": _password_reset_subject(),
         "textContent": _password_reset_text(display_name, recipient_email.strip(), temp_password),
         "htmlContent": _password_reset_html(display_name, recipient_email.strip(), temp_password),
     }
     headers = {
-        "accept": "application/json",
+        "accept": JSON_MEDIA_TYPE,
         "api-key": settings.brevo_api_key or "",
-        "content-type": "application/json",
+        "content-type": JSON_MEDIA_TYPE,
     }
 
     try:
@@ -240,14 +241,14 @@ def send_password_changed_email(
             "name": settings.brevo_sender_name,
         },
         "to": [{"email": recipient_email.strip(), "name": display_name.strip()}],
-        "subject": _password_changed_subject(display_name),
+        "subject": _password_changed_subject(),
         "textContent": _password_changed_text(display_name, recipient_email.strip()),
         "htmlContent": _password_changed_html(display_name, recipient_email.strip()),
     }
     headers = {
-        "accept": "application/json",
+        "accept": JSON_MEDIA_TYPE,
         "api-key": settings.brevo_api_key or "",
-        "content-type": "application/json",
+        "content-type": JSON_MEDIA_TYPE,
     }
 
     try:
@@ -283,14 +284,14 @@ def send_company_welcome_email(
             "name": settings.brevo_sender_name,
         },
         "to": [{"email": recipient_email.strip(), "name": display_name}],
-        "subject": _welcome_subject(display_name),
+        "subject": _welcome_subject(),
         "textContent": _welcome_text(display_name, recipient_email.strip()),
         "htmlContent": _welcome_html(display_name, recipient_email.strip()),
     }
     headers = {
-        "accept": "application/json",
+        "accept": JSON_MEDIA_TYPE,
         "api-key": settings.brevo_api_key or "",
-        "content-type": "application/json",
+        "content-type": JSON_MEDIA_TYPE,
     }
 
     try:

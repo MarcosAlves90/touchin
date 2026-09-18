@@ -1,8 +1,8 @@
-import 'package:bunchin_flutter/contracts/auth.dart';
-import 'package:bunchin_flutter/core/network/api_client.dart';
-import 'package:bunchin_flutter/core/network/bunchin_api.dart';
-import 'package:bunchin_flutter/core/storage/token_storage.dart';
-import 'package:bunchin_flutter/main.dart';
+import 'package:touchin_flutter/contracts/auth.dart';
+import 'package:touchin_flutter/core/network/api_client.dart';
+import 'package:touchin_flutter/core/network/touchin_api.dart';
+import 'package:touchin_flutter/core/storage/token_storage.dart';
+import 'package:touchin_flutter/main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -16,7 +16,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Entrar'), findsNWidgets(2));
-    expect(find.text('BUNCHIN'), findsWidgets);
+    expect(find.text('TOUCHIN'), findsWidgets);
     expect(find.text('Cadastrar empresa'), findsOneWidget);
   });
 
@@ -30,32 +30,32 @@ void main() {
         expiresAt: DateTime.parse('2099-04-26T18:00:00Z'),
         company: const AuthCompanySummary(
           id: 'cmp-01',
-          legalName: 'Bunchin Tecnologia LTDA',
-          tradeName: 'Bunchin',
+          legalName: 'TouchIn Tecnologia LTDA',
+          tradeName: 'TouchIn',
           cnpjMasked: '12.***.***/****-90',
-          emailMasked: 'co*****@bunchin.com',
+          emailMasked: 'co*****@touchin.com',
           phoneMasked: '11*****0000',
         ),
         user: const AuthUserSummary(
           id: 'usr-01',
-          email: 'super.admin@bunchin.com',
+          email: 'super.admin@touchin.com',
           role: 'super_admin',
         ),
       );
-    final api = _FakeBunchinApi(
+    final api = _FakeTouchInApi(
       tokenStorage: tokenStorage,
       authContext: const AuthContext(
         company: AuthCompanySummary(
           id: 'cmp-01',
-          legalName: 'Bunchin Tecnologia LTDA',
-          tradeName: 'Bunchin',
+          legalName: 'TouchIn Tecnologia LTDA',
+          tradeName: 'TouchIn',
           cnpjMasked: '12.***.***/****-90',
-          emailMasked: 'co*****@bunchin.com',
+          emailMasked: 'co*****@touchin.com',
           phoneMasked: '11*****0000',
         ),
         user: AuthUserSummary(
           id: 'usr-01',
-          email: 'super.admin@bunchin.com',
+          email: 'super.admin@touchin.com',
           role: 'super_admin',
         ),
       ),
@@ -85,19 +85,19 @@ void main() {
         expiresAt: DateTime.parse('2099-04-26T18:00:00Z'),
         company: const AuthCompanySummary(
           id: 'cmp-01',
-          legalName: 'Bunchin Tecnologia LTDA',
-          tradeName: 'Bunchin',
+          legalName: 'TouchIn Tecnologia LTDA',
+          tradeName: 'TouchIn',
           cnpjMasked: '12.***.***/****-90',
-          emailMasked: 'co*****@bunchin.com',
+          emailMasked: 'co*****@touchin.com',
           phoneMasked: '11*****0000',
         ),
         user: const AuthUserSummary(
           id: 'usr-01',
-          email: 'super.admin@bunchin.com',
+          email: 'super.admin@touchin.com',
           role: 'super_admin',
         ),
       );
-    final api = _FakeBunchinApi(
+    final api = _FakeTouchInApi(
       tokenStorage: tokenStorage,
       authContextError: ApiException('Sessao expirada.', statusCode: 401),
     );
@@ -117,8 +117,8 @@ void main() {
   });
 }
 
-class _FakeBunchinApi extends BunchinApi {
-  _FakeBunchinApi({
+class _FakeTouchInApi extends TouchInApi {
+  _FakeTouchInApi({
     required this.tokenStorage,
     this.authContext,
     this.authContextError,

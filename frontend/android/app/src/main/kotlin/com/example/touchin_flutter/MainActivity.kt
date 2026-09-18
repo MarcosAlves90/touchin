@@ -1,4 +1,4 @@
-package com.example.bunchin_flutter
+package com.example.touchin_flutter
 
 import io.flutter.embedding.android.FlutterActivity
 

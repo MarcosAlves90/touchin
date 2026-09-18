@@ -1,16 +1,16 @@
 import 'dart:async';
 
-import 'package:bunchin_flutter/contracts/employee.dart';
-import 'package:bunchin_flutter/contracts/location.dart';
-import 'package:bunchin_flutter/contracts/punch.dart';
-import 'package:bunchin_flutter/contracts/time_clock.dart';
-import 'package:bunchin_flutter/core/network/bunchin_api.dart';
-import 'package:bunchin_flutter/features/time_tracking/application/punch_location_service.dart';
-import 'package:bunchin_flutter/features/time_tracking/presentation/time_clock_controller.dart';
+import 'package:touchin_flutter/contracts/employee.dart';
+import 'package:touchin_flutter/contracts/location.dart';
+import 'package:touchin_flutter/contracts/punch.dart';
+import 'package:touchin_flutter/contracts/time_clock.dart';
+import 'package:touchin_flutter/core/network/touchin_api.dart';
+import 'package:touchin_flutter/features/time_tracking/application/punch_location_service.dart';
+import 'package:touchin_flutter/features/time_tracking/presentation/time_clock_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-class _FakeBunchinApi extends BunchinApi {
-  _FakeBunchinApi(this.state, {this.refreshStateCompleter});
+class _FakeTouchInApi extends TouchInApi {
+  _FakeTouchInApi(this.state, {this.refreshStateCompleter});
 
   final TimeClockState state;
   final Completer<TimeClockState>? refreshStateCompleter;
@@ -106,7 +106,7 @@ void main() {
   test('start loads time clock state without waiting for location permission',
       () async {
     final permission = Completer<PunchLocationResult>();
-    final api = _FakeBunchinApi(_timeClockState());
+    final api = _FakeTouchInApi(_timeClockState());
     final controller = TimeClockController(
       api: api,
       punchLocationService: _BlockingPunchLocationService(permission),
@@ -131,7 +131,7 @@ void main() {
   test(
     'handlePunch sends location when capture is available',
     () async {
-      final api = _FakeBunchinApi(_timeClockState());
+      final api = _FakeTouchInApi(_timeClockState());
       final controller = TimeClockController(
         api: api,
         punchLocationService: _ReadyPunchLocationService(
@@ -161,7 +161,7 @@ void main() {
     'handlePunch returns without waiting for the refresh load',
     () async {
       final refreshCompleter = Completer<TimeClockState>();
-      final api = _FakeBunchinApi(
+      final api = _FakeTouchInApi(
         _timeClockState(),
         refreshStateCompleter: refreshCompleter,
       );
@@ -205,7 +205,7 @@ void main() {
   test(
     'handlePunch stops when location capture fails',
     () async {
-      final api = _FakeBunchinApi(_timeClockState());
+      final api = _FakeTouchInApi(_timeClockState());
       final controller = TimeClockController(
         api: api,
         punchLocationService: const _FailingPunchLocationService(),

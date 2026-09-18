@@ -161,7 +161,7 @@ Se uma seção não se aplicar ao projeto, remova a seção em vez de deixá-la 
 ## 6. Exemplo de Uso
 
 ```markdown
-# CONTEXT.md — Bunchin App
+# CONTEXT.md — TouchIn App
 
 - Última atualização: 2026-05-24
 - Versão do documento: 1.1.0

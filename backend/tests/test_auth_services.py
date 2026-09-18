@@ -15,7 +15,7 @@ from app.schemas.auth import LoginRequest
 
 def test_resolve_user_returns_user_and_email_hash(client):
     with SessionLocal() as db:
-        user, _, _ = _resolve_user(db, email="marina.costa@bunchin.com")
+        user, _, _ = _resolve_user(db, email="marina.costa@touchin.com")
         assert user is not None
         assert user.id is not None
 
@@ -55,7 +55,7 @@ def test_reset_password_sets_must_change_password_flag(client):
     with SessionLocal() as db:
         user_before = db.query(UserAccount).filter(
             UserAccount.email_hash == lookup_digest(
-                "marina.costa@bunchin.com",
+                "marina.costa@touchin.com",
                 get_settings().encryption_secret or "",
             )
         ).first()
@@ -64,13 +64,13 @@ def test_reset_password_sets_must_change_password_flag(client):
 
     _, _, _ = reset_password(
         db=SessionLocal(),
-        email="marina.costa@bunchin.com",
+        email="marina.costa@touchin.com",
     )
 
     with SessionLocal() as db:
         user_after = db.query(UserAccount).filter(
             UserAccount.email_hash == lookup_digest(
-                "marina.costa@bunchin.com",
+                "marina.costa@touchin.com",
                 get_settings().encryption_secret or "",
             )
         ).first()
@@ -84,13 +84,13 @@ def test_change_password_clears_must_change_password_flag(client):
 
     try:
         # First reset to set the flag and get temp password
-        _, _, temp_password = reset_password(db=db, email="marina.costa@bunchin.com")
+        _, _, temp_password = reset_password(db=db, email="marina.costa@touchin.com")
 
         # Login with the temporary password
         auth_response = login(
             db=db,
             payload=LoginRequest(
-                email="marina.costa@bunchin.com",
+                email="marina.costa@touchin.com",
                 password=temp_password,
                 keep_connected=True,
             ),
@@ -108,7 +108,7 @@ def test_change_password_clears_must_change_password_flag(client):
 
         user = db.query(UserAccount).filter(
             UserAccount.email_hash == lookup_digest(
-                "marina.costa@bunchin.com",
+                "marina.costa@touchin.com",
                 get_settings().encryption_secret or "",
             )
         ).first()
@@ -122,7 +122,7 @@ def test_login_response_includes_must_change_password(client):
     auth_response = login(
         db=SessionLocal(),
         payload=LoginRequest(
-            email="marina.costa@bunchin.com",
+            email="marina.costa@touchin.com",
             password=get_settings().seed_admin_password,
             keep_connected=True,
         ),
@@ -136,7 +136,7 @@ def test_resolve_context_throttles_last_used_touch(client, monkeypatch):
         auth_response = login(
             db=db,
             payload=LoginRequest(
-                email="marina.costa@bunchin.com",
+                email="marina.costa@touchin.com",
                 password=get_settings().seed_admin_password,
                 keep_connected=True,
             ),
@@ -166,12 +166,12 @@ def test_resolve_context_throttles_last_used_touch(client, monkeypatch):
 
 
 def test_seed_on_startup_defaults_off_in_production(monkeypatch):
-    monkeypatch.setenv("BUNCHIN_ENV", "production")
-    monkeypatch.delenv("BUNCHIN_SEED_ON_STARTUP", raising=False)
-    monkeypatch.delenv("BUNCHIN_BOOTSTRAP_DATABASE_ON_STARTUP", raising=False)
-    monkeypatch.setenv("BUNCHIN_TOKEN_SECRET", "token-secret")
-    monkeypatch.setenv("BUNCHIN_ENCRYPTION_SECRET", "encryption-secret")
-    monkeypatch.setenv("BUNCHIN_SEED_ADMIN_PASSWORD", "admin-password")
+    monkeypatch.setenv("TOUCHIN_ENV", "production")
+    monkeypatch.delenv("TOUCHIN_SEED_ON_STARTUP", raising=False)
+    monkeypatch.delenv("TOUCHIN_BOOTSTRAP_DATABASE_ON_STARTUP", raising=False)
+    monkeypatch.setenv("TOUCHIN_TOKEN_SECRET", "token-secret")
+    monkeypatch.setenv("TOUCHIN_ENCRYPTION_SECRET", "encryption-secret")
+    monkeypatch.setenv("TOUCHIN_SEED_ADMIN_PASSWORD", "admin-password")
 
     settings = Settings()
 

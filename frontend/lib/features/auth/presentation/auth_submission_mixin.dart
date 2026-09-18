@@ -1,4 +1,4 @@
-import 'package:bunchin_flutter/core/network/api_client.dart';
+import 'package:touchin_flutter/core/network/api_client.dart';
 import 'package:flutter/material.dart';
 
 mixin AuthSubmissionMixin<T extends StatefulWidget> on State<T> {

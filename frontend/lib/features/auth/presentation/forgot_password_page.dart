@@ -1,6 +1,6 @@
-import 'package:bunchin_flutter/core/network/bunchin_api.dart';
-import 'package:bunchin_flutter/features/auth/presentation/auth_submission_mixin.dart';
-import 'package:bunchin_flutter/features/auth/presentation/widgets/auth_shell.dart';
+import 'package:touchin_flutter/core/network/touchin_api.dart';
+import 'package:touchin_flutter/features/auth/presentation/auth_submission_mixin.dart';
+import 'package:touchin_flutter/features/auth/presentation/widgets/auth_shell.dart';
 import 'package:flutter/material.dart';
 
 class ForgotPasswordPage extends StatefulWidget {
@@ -12,7 +12,7 @@ class ForgotPasswordPage extends StatefulWidget {
 
 class _ForgotPasswordPageState extends State<ForgotPasswordPage>
     with AuthSubmissionMixin<ForgotPasswordPage> {
-  final BunchinApi _api = BunchinApi();
+  final TouchInApi _api = TouchInApi();
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
 

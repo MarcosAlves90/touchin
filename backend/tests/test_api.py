@@ -19,7 +19,7 @@ def login_headers(client):
     response = client.post(
         "/api/v1/auth/login",
         json={
-            "email": "marina.costa@bunchin.com",
+            "email": "marina.costa@touchin.com",
             "password": TEST_SEED_SECRET,
             "keepConnected": True,
         },
@@ -71,7 +71,7 @@ def test_login_and_get_employees(client):
 def test_employee_cannot_list_employees(client):
     headers = login_headers_for(
         client,
-        email="joao.lima@bunchin.com",
+        email="joao.lima@touchin.com",
         password=TEST_SEED_SECRET,
     )
     response = client.get("/api/v1/employees", headers=headers)
@@ -87,7 +87,7 @@ def test_create_and_update_employee(client):
             "name": "Renata Souza",
             "role": "Analista Financeira",
             "department": "Financeiro",
-            "email": "renata.souza@bunchin.com",
+            "email": "renata.souza@touchin.com",
             "phone": "(11) 94444-6060",
             "unit": "Backoffice Centro",
             "expectedShiftStart": "08:00",
@@ -103,7 +103,7 @@ def test_create_and_update_employee(client):
     )
     assert create_response.status_code == 201
     employee = create_response.json()
-    assert employee["email"] == "renata.souza@bunchin.com"
+    assert employee["email"] == "renata.souza@touchin.com"
     assert employee["expectedShiftStart"] == "08:00:00"
     assert employee["expectedShiftEnd"] == "17:00:00"
     assert employee["todayWorkedMinutes"] == 0
@@ -112,7 +112,7 @@ def test_create_and_update_employee(client):
         user = db.scalar(select(UserAccount).where(UserAccount.employee_id == employee["id"]))
         assert user is not None
         cipher = _cipher()
-        assert cipher.decrypt(user.email_ciphertext) == "renata.souza@bunchin.com"
+        assert cipher.decrypt(user.email_ciphertext) == "renata.souza@touchin.com"
         assert user.role == "manager"
 
     update_response = client.put(
@@ -122,7 +122,7 @@ def test_create_and_update_employee(client):
             "name": "Renata Souza",
             "role": "Analista Financeira Senior",
             "department": "Financeiro",
-            "email": "renata.souza@bunchin.com",
+            "email": "renata.souza@touchin.com",
             "phone": "(11) 94444-6060",
             "unit": "Backoffice Centro",
             "expectedShiftStart": "08:00",
@@ -148,7 +148,7 @@ def test_create_and_update_employee(client):
             "name": "Renata Souza",
             "role": "Analista Financeira Lead",
             "department": "Financeiro",
-            "email": "renata.souza@bunchin.com",
+            "email": "renata.souza@touchin.com",
             "phone": "(11) 94444-6060",
             "unit": "Backoffice Centro",
             "expectedShiftStart": "08:00",
@@ -180,7 +180,7 @@ def test_admin_can_edit_self(client):
             "name": "Marina Costa",
             "role": "Coordenadora de Operacoes",
             "department": "Operacoes",
-            "email": "marina.costa@bunchin.com",
+            "email": "marina.costa@touchin.com",
             "phone": "(11) 99123-1001",
             "unit": "Unidade Paulista",
             "expectedShiftStart": "08:00",
@@ -201,7 +201,7 @@ def test_admin_can_edit_self(client):
 def test_manager_cannot_edit_self_or_admin(client):
     headers = login_headers_for(
         client,
-        email="caio.martins@bunchin.com",
+        email="caio.martins@touchin.com",
         password=TEST_SEED_SECRET,
     )
 
@@ -212,7 +212,7 @@ def test_manager_cannot_edit_self_or_admin(client):
             "name": "Caio Martins",
             "role": "Analista de RH",
             "department": "People Ops",
-            "email": "caio.martins@bunchin.com",
+            "email": "caio.martins@touchin.com",
             "phone": "(11) 98888-2020",
             "unit": "Backoffice Centro",
             "expectedShiftStart": "09:00",
@@ -235,7 +235,7 @@ def test_manager_cannot_edit_self_or_admin(client):
             "name": "Marina Costa",
             "role": "Coordenadora de Operacoes",
             "department": "Operacoes",
-            "email": "marina.costa@bunchin.com",
+            "email": "marina.costa@touchin.com",
             "phone": "(11) 99123-1001",
             "unit": "Unidade Paulista",
             "expectedShiftStart": "08:00",
@@ -260,7 +260,7 @@ def test_manager_can_edit_other_manager(client):
             "name": "Renata Souza",
             "role": "Analista Financeira",
             "department": "Financeiro",
-            "email": "renata.souza@bunchin.com",
+            "email": "renata.souza@touchin.com",
             "phone": "(11) 94444-6060",
             "unit": "Backoffice Centro",
             "expectedShiftStart": "08:00",
@@ -279,7 +279,7 @@ def test_manager_can_edit_other_manager(client):
 
     manager_headers = login_headers_for(
         client,
-        email="caio.martins@bunchin.com",
+        email="caio.martins@touchin.com",
         password=TEST_SEED_SECRET,
     )
     update_response = client.put(
@@ -289,7 +289,7 @@ def test_manager_can_edit_other_manager(client):
             "name": "Renata Souza",
             "role": "Analista Financeira Senior",
             "department": "Financeiro",
-            "email": "renata.souza@bunchin.com",
+            "email": "renata.souza@touchin.com",
             "phone": "(11) 94444-6060",
             "unit": "Backoffice Centro",
             "expectedShiftStart": "08:00",
@@ -339,7 +339,7 @@ def test_create_employee_triggers_credentials_email_task(client, monkeypatch):
             "name": "Gabriel Paiva",
             "role": "Analista de Operacoes",
             "department": "Operacoes",
-            "email": "gabriel.paiva@bunchin.com",
+            "email": "gabriel.paiva@touchin.com",
             "phone": "(11) 95555-7070",
             "unit": "Operacoes Central",
             "expectedShiftStart": "09:00",
@@ -355,14 +355,14 @@ def test_create_employee_triggers_credentials_email_task(client, monkeypatch):
 
     assert response.status_code == 201
     assert len(calls) == 1
-    assert calls[0]["recipient_email"] == "gabriel.paiva@bunchin.com"
+    assert calls[0]["recipient_email"] == "gabriel.paiva@touchin.com"
     assert calls[0]["employee_name"] == "Gabriel Paiva"
     assert len(calls[0]["temp_password"]) >= 12
 
     login_response = client.post(
         "/api/v1/auth/login",
         json={
-            "email": "gabriel.paiva@bunchin.com",
+            "email": "gabriel.paiva@touchin.com",
             "password": calls[0]["temp_password"],
             "keepConnected": True,
         },
@@ -380,7 +380,7 @@ def test_delete_employee(client):
             "name": "Renata Souza",
             "role": "Analista Financeira",
             "department": "Financeiro",
-            "email": "renata.souza@bunchin.com",
+            "email": "renata.souza@touchin.com",
             "phone": "(11) 94444-6060",
             "unit": "Backoffice Centro",
             "expectedShiftStart": "08:00",
@@ -505,7 +505,7 @@ def test_time_clock_state_paginates_records(client):
 def test_employee_cannot_manage_employee_punches(client):
     headers = login_headers_for(
         client,
-        email="joao.lima@bunchin.com",
+        email="joao.lima@touchin.com",
         password=TEST_SEED_SECRET,
     )
     response = client.get("/api/v1/time-clock/employees/emp-02/punches", headers=headers)
@@ -515,7 +515,7 @@ def test_employee_cannot_manage_employee_punches(client):
 def test_manager_can_manage_employee_punches(client):
     headers = login_headers_for(
         client,
-        email="caio.martins@bunchin.com",
+        email="caio.martins@touchin.com",
         password=TEST_SEED_SECRET,
     )
     _clear_employee_punches("emp-02")
@@ -577,7 +577,7 @@ def test_manager_can_manage_employee_punches(client):
 def test_manager_paginates_employee_punches(client):
     headers = login_headers_for(
         client,
-        email="caio.martins@bunchin.com",
+        email="caio.martins@touchin.com",
         password=TEST_SEED_SECRET,
     )
     _clear_employee_punches("emp-02")
@@ -625,8 +625,8 @@ def test_pii_is_not_stored_in_plain_text(client):
     with SessionLocal() as db:
         employee = db.scalar(select(Employee).where(Employee.id == "emp-01"))
         assert employee is not None
-        assert employee.email_ciphertext != "marina.costa@bunchin.com"
-        assert "@bunchin.com" not in employee.email_ciphertext
+        assert employee.email_ciphertext != "marina.costa@touchin.com"
+        assert "@touchin.com" not in employee.email_ciphertext
 
 
 def test_list_employees_handles_legacy_invalid_shift_payload(client):
@@ -649,12 +649,12 @@ def test_list_employees_handles_legacy_invalid_shift_payload(client):
 def test_super_admin_can_list_companies(client):
     headers = login_headers_for(
         client,
-        email="super.admin@bunchin.com",
+        email="super.admin@touchin.com",
         password=TEST_SEED_SECRET,
     )
     response = client.get("/api/v1/admin/companies", headers=headers)
     assert response.status_code == 200
-    assert response.json()[0]["tradeName"] == "Bunchin Servicos Digitais"
+    assert response.json()[0]["tradeName"] == "TouchIn Servicos Digitais"
 
 
 def test_register_company_triggers_welcome_email_task(client, monkeypatch):
@@ -724,18 +724,18 @@ def test_reset_password_triggers_email_task(client, monkeypatch):
 
     response = client.post(
         "/api/v1/auth/reset-password",
-        json={"email": "marina.costa@bunchin.com"},
+        json={"email": "marina.costa@touchin.com"},
     )
 
     assert response.status_code == 200
     assert len(calls) == 1
-    assert calls[0]["recipient_email"] == "marina.costa@bunchin.com"
+    assert calls[0]["recipient_email"] == "marina.costa@touchin.com"
     assert len(calls[0]["temp_password"]) >= 12
 
     login_response = client.post(
         "/api/v1/auth/login",
         json={
-            "email": "marina.costa@bunchin.com",
+            "email": "marina.costa@touchin.com",
             "password": calls[0]["temp_password"],
             "keepConnected": True,
         },
@@ -778,7 +778,7 @@ def test_change_password_triggers_email_task(client, monkeypatch):
     assert response.status_code == 200
     assert calls == [
         {
-            "recipient_email": "marina.costa@bunchin.com",
+            "recipient_email": "marina.costa@touchin.com",
             "display_name": "Marina Costa",
         },
     ]
@@ -786,7 +786,7 @@ def test_change_password_triggers_email_task(client, monkeypatch):
     login_response = client.post(
         "/api/v1/auth/login",
         json={
-            "email": "marina.costa@bunchin.com",
+            "email": "marina.costa@touchin.com",
             "password": new_password,
             "keepConnected": True,
         },

@@ -1,12 +1,12 @@
 import 'dart:async';
 
-import 'package:bunchin_flutter/contracts/location.dart';
-import 'package:bunchin_flutter/contracts/punch.dart';
-import 'package:bunchin_flutter/contracts/time_clock.dart';
-import 'package:bunchin_flutter/features/shared/presentation/widgets/pagination_controls.dart';
-import 'package:bunchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
-import 'package:bunchin_flutter/features/time_tracking/presentation/time_clock_controller.dart';
-import 'package:bunchin_flutter/theme/app_theme.dart';
+import 'package:touchin_flutter/contracts/location.dart';
+import 'package:touchin_flutter/contracts/punch.dart';
+import 'package:touchin_flutter/contracts/time_clock.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/pagination_controls.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
+import 'package:touchin_flutter/features/time_tracking/presentation/time_clock_controller.dart';
+import 'package:touchin_flutter/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 
 class TimeClockPage extends StatefulWidget {

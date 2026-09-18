@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:bunchin_flutter/features/time_tracking/application/punch_location_service.dart';
+import 'package:touchin_flutter/features/time_tracking/application/punch_location_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:geolocator/geolocator.dart';
 

@@ -1,4 +1,4 @@
-# Bunchin Backend
+# TouchIn Backend
 
 API FastAPI + SQLAlchemy para autenticação empresarial, gestão de funcionários, projetos e controle de ponto.
 
@@ -7,7 +7,7 @@ API FastAPI + SQLAlchemy para autenticação empresarial, gestão de funcionári
 - Base path: `/api/v1`
 - Stack principal: FastAPI, SQLAlchemy, Pydantic, cryptography, pytest
 - Autenticação: bearer token opaco, armazenado como hash no banco
-- Banco padrão: SQLite em desenvolvimento; PostgreSQL via `BUNCHIN_DATABASE_URL`
+- Banco padrão: SQLite em desenvolvimento; PostgreSQL via `TOUCHIN_DATABASE_URL`
 - Documentação interativa: `http://127.0.0.1:8000/docs`
 
 ## Estrutura Atual
@@ -53,8 +53,8 @@ Copy-Item backend\.env.example backend\.env
 ### 2. Ajustar segredos obrigatórios
 
 ```env
-BUNCHIN_TOKEN_SECRET=troque-este-token-secret
-BUNCHIN_ENCRYPTION_SECRET=troque-este-encryption-secret
+TOUCHIN_TOKEN_SECRET=troque-este-token-secret
+TOUCHIN_ENCRYPTION_SECRET=troque-este-encryption-secret
 ```
 
 ### 3. Instalar dependências
@@ -80,32 +80,32 @@ py -3 -m pytest -q
 
 Variáveis mais importantes:
 
-- `BUNCHIN_DATABASE_URL`: URL SQLAlchemy. Exemplo: `sqlite:///./bunchin.db`
-- `BUNCHIN_TOKEN_SECRET`: segredo para tokens opacos
-- `BUNCHIN_ENCRYPTION_SECRET`: segredo para criptografia de PII
-- `BUNCHIN_ALLOWED_ORIGINS`: CSV de origens liberadas no CORS
-- `BUNCHIN_ENFORCE_HTTPS`: exige HTTPS fora de localhost quando `true`
-- `BUNCHIN_BOOTSTRAP_DATABASE_ON_STARTUP`: cria tabelas e faz upgrade legado na inicialização
-- `BUNCHIN_SEED_ON_STARTUP`: cria seed de desenvolvimento quando `true`
-- `BUNCHIN_SEED_ADMIN_PASSWORD`: senha usada pelos usuários seed
-- `BUNCHIN_BREVO_API_KEY`: chave opcional da Brevo
-- `BUNCHIN_BREVO_SENDER_EMAIL`: remetente das mensagens
-- `BUNCHIN_BREVO_SENDER_NAME`: nome do remetente
-- `BUNCHIN_BREVO_WELCOME_ENABLED`: habilita e-mails de boas-vindas
+- `TOUCHIN_DATABASE_URL`: URL SQLAlchemy. Exemplo: `sqlite:///./touchin.db`
+- `TOUCHIN_TOKEN_SECRET`: segredo para tokens opacos
+- `TOUCHIN_ENCRYPTION_SECRET`: segredo para criptografia de PII
+- `TOUCHIN_ALLOWED_ORIGINS`: CSV de origens liberadas no CORS
+- `TOUCHIN_ENFORCE_HTTPS`: exige HTTPS fora de localhost quando `true`
+- `TOUCHIN_BOOTSTRAP_DATABASE_ON_STARTUP`: cria tabelas e faz upgrade legado na inicialização
+- `TOUCHIN_SEED_ON_STARTUP`: cria seed de desenvolvimento quando `true`
+- `TOUCHIN_SEED_ADMIN_PASSWORD`: senha usada pelos usuários seed
+- `TOUCHIN_BREVO_API_KEY`: chave opcional da Brevo
+- `TOUCHIN_BREVO_SENDER_EMAIL`: remetente das mensagens
+- `TOUCHIN_BREVO_SENDER_NAME`: nome do remetente
+- `TOUCHIN_BREVO_WELCOME_ENABLED`: habilita e-mails de boas-vindas
 
-Em produção, mantenha `BUNCHIN_BOOTSTRAP_DATABASE_ON_STARTUP=false` quando o banco já tiver o schema provisionado. Isso evita trabalho extra no boot do Render.
+Em produção, mantenha `TOUCHIN_BOOTSTRAP_DATABASE_ON_STARTUP=false` quando o banco já tiver o schema provisionado. Isso evita trabalho extra no boot do Render.
 
 ## Seed de Desenvolvimento
 
-Com `BUNCHIN_SEED_ON_STARTUP=true`, a inicialização cria uma empresa e usuários de apoio.
+Com `TOUCHIN_SEED_ON_STARTUP=true`, a inicialização cria uma empresa e usuários de apoio.
 
 | Role | Email | Senha |
 | --- | --- | --- |
-| admin | `marina.costa@bunchin.com` | `BUNCHIN_SEED_ADMIN_PASSWORD` |
-| manager | `caio.martins@bunchin.com` | `BUNCHIN_SEED_ADMIN_PASSWORD` |
-| employee | `bianca.nogueira@bunchin.com` | `BUNCHIN_SEED_ADMIN_PASSWORD` |
-| employee | `joao.lima@bunchin.com` | `BUNCHIN_SEED_ADMIN_PASSWORD` |
-| super_admin | `super.admin@bunchin.com` | `BUNCHIN_SEED_ADMIN_PASSWORD` |
+| admin | `marina.costa@touchin.com` | `TOUCHIN_SEED_ADMIN_PASSWORD` |
+| manager | `caio.martins@touchin.com` | `TOUCHIN_SEED_ADMIN_PASSWORD` |
+| employee | `bianca.nogueira@touchin.com` | `TOUCHIN_SEED_ADMIN_PASSWORD` |
+| employee | `joao.lima@touchin.com` | `TOUCHIN_SEED_ADMIN_PASSWORD` |
+| super_admin | `super.admin@touchin.com` | `TOUCHIN_SEED_ADMIN_PASSWORD` |
 
 `emp-03` também tem `user-account` vinculado, então mudanças de `accessRole` funcionam no front quando esse funcionário é editado.
 
@@ -118,8 +118,8 @@ POST /api/v1/auth/login
 Content-Type: application/json
 
 {
-  "email": "marina.costa@bunchin.com",
-  "password": "BUNCHIN_SEED_ADMIN_PASSWORD",
+  "email": "marina.costa@touchin.com",
+  "password": "TOUCHIN_SEED_ADMIN_PASSWORD",
   "keepConnected": true
 }
 ```
@@ -135,8 +135,8 @@ Authorization: Bearer <accessToken>
 - O token nunca é salvo em texto puro no banco.
 - O banco guarda apenas `token_hash`.
 - `POST /api/v1/auth/logout` revoga a sessão atual.
-- `keepConnected=true` usa o TTL longo configurado em `BUNCHIN_REMEMBER_ME_TTL_DAYS`.
-- `keepConnected=false` usa o TTL curto configurado em `BUNCHIN_TOKEN_TTL_HOURS`; o frontend ainda pode reaproveitar a sessão salva localmente até `expiresAt`, então isso não faz logout imediato.
+- `keepConnected=true` usa o TTL longo configurado em `TOUCHIN_REMEMBER_ME_TTL_DAYS`.
+- `keepConnected=false` usa o TTL curto configurado em `TOUCHIN_TOKEN_TTL_HOURS`; o frontend ainda pode reaproveitar a sessão salva localmente até `expiresAt`, então isso não faz logout imediato.
 
 ### Rotas de auth
 
@@ -203,7 +203,7 @@ Payload de criação/edição:
   "name": "Renata Souza",
   "role": "Analista Financeira",
   "department": "Financeiro",
-  "email": "renata.souza@bunchin.com",
+  "email": "renata.souza@touchin.com",
   "phone": "(11) 94444-6060",
   "unit": "Backoffice Centro",
   "expectedShiftStart": "08:00",
@@ -309,4 +309,4 @@ Regras operacionais:
 
 - não logar payload sensível
 - usar HTTPS fora de localhost em ambientes reais
-- manter `BUNCHIN_TOKEN_SECRET` e `BUNCHIN_ENCRYPTION_SECRET` definidos
+- manter `TOUCHIN_TOKEN_SECRET` e `TOUCHIN_ENCRYPTION_SECRET` definidos

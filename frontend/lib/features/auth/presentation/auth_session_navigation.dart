@@ -1,7 +1,7 @@
-import 'package:bunchin_flutter/contracts/auth.dart';
-import 'package:bunchin_flutter/features/admin/presentation/admin_employees_page.dart';
-import 'package:bunchin_flutter/features/auth/presentation/must_change_password_page.dart';
-import 'package:bunchin_flutter/features/time_tracking/presentation/time_clock_page.dart';
+import 'package:touchin_flutter/contracts/auth.dart';
+import 'package:touchin_flutter/features/admin/presentation/admin_employees_page.dart';
+import 'package:touchin_flutter/features/auth/presentation/must_change_password_page.dart';
+import 'package:touchin_flutter/features/time_tracking/presentation/time_clock_page.dart';
 import 'package:flutter/material.dart';
 
 Route<void> buildAuthenticatedWorkspaceRoute(AuthSession session) {

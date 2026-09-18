@@ -1,6 +1,6 @@
 import 'dart:ui';
 
-import 'package:bunchin_flutter/theme/app_theme.dart';
+import 'package:touchin_flutter/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 
 part 'auth_form_widgets.dart';
@@ -184,7 +184,7 @@ class _AuthBrandMark extends StatelessWidget {
         ),
         SizedBox(width: compact ? 8 : 10),
         Text(
-          'BUNCHIN',
+          'TOUCHIN',
           style: theme.textTheme.labelLarge?.copyWith(
             color: foregroundColor,
             letterSpacing: compact ? 2.0 : 2.4,

@@ -1,4 +1,4 @@
-import 'package:bunchin_flutter/contracts/contract_parsing.dart';
+import 'package:touchin_flutter/contracts/contract_parsing.dart';
 
 const int taskNameMaxLength = 160;
 const int taskDescriptionMaxLength = 2000;

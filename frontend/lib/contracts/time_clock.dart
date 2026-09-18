@@ -1,7 +1,7 @@
-import 'package:bunchin_flutter/contracts/contract_parsing.dart';
-import 'package:bunchin_flutter/contracts/employee.dart';
-import 'package:bunchin_flutter/contracts/location.dart';
-import 'package:bunchin_flutter/contracts/punch.dart';
+import 'package:touchin_flutter/contracts/contract_parsing.dart';
+import 'package:touchin_flutter/contracts/employee.dart';
+import 'package:touchin_flutter/contracts/location.dart';
+import 'package:touchin_flutter/contracts/punch.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'time_clock.freezed.dart';

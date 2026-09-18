@@ -1,4 +1,4 @@
-import 'package:bunchin_flutter/features/shared/presentation/widgets/pagination_controls.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/pagination_controls.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

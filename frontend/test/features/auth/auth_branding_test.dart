@@ -1,5 +1,5 @@
-import 'package:bunchin_flutter/features/auth/presentation/login_page.dart';
-import 'package:bunchin_flutter/features/auth/presentation/register_page.dart';
+import 'package:touchin_flutter/features/auth/presentation/login_page.dart';
+import 'package:touchin_flutter/features/auth/presentation/register_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

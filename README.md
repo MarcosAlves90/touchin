@@ -1,7 +1,7 @@
-# Bunchin App
+# TouchIn App
 
 <p align="left">
-  <img alt="CI" src="https://img.shields.io/github/actions/workflow/status/MarcosAlves90/self-bunchin-app/ci.yml?branch=main&label=CI">
+  <img alt="CI" src="https://img.shields.io/badge/CI-GitHub_Actions-2088FF?logo=githubactions&logoColor=white">
   <img alt="Flutter" src="https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter&logoColor=white">
   <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-0.115.x-009688?logo=fastapi&logoColor=white">
   <img alt="Python" src="https://img.shields.io/badge/Python-3.x-3776AB?logo=python&logoColor=white">
@@ -14,7 +14,7 @@ Sistema de ponto eletrônico e gestão de equipe com frontend em Flutter e backe
 
 ## Visão Geral
 
-O Bunchin App reúne:
+O TouchIn App reúne:
 
 - app Flutter para operação diária, autenticação, configurações e time tracking
 - API FastAPI para autenticação, funcionários, projetos, admin e ponto
@@ -110,7 +110,7 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-  Root["self-bunchin-app"]
+  Root["TouchIn"]
   Root --> Frontend["frontend/"]
   Root --> Backend["backend/"]
   Root --> Docs["CONTEXT.md + README.md"]
@@ -227,7 +227,7 @@ O frontend pode ser publicado como site estático no Vercel usando o diretório 
 - Build Command: `bash scripts/vercel-build.sh`
 - Output Directory: `build/web`
 - Environment Variable: `API_BASE_URL` com a URL pública da API, por exemplo `https://api.suaempresa.com/api/v1`
-- O backend precisa permitir o origin do domínio do Vercel em `BUNCHIN_ALLOWED_ORIGINS`
+- O backend precisa permitir o origin do domínio do Vercel em `TOUCHIN_ALLOWED_ORIGINS`
 
 O build script baixa o Flutter SDK quando necessário, gera o web build e falha com mensagem clara se o `API_BASE_URL` não estiver definido no ambiente do Vercel.
 
@@ -235,16 +235,16 @@ O build script baixa o Flutter SDK quando necessário, gera o web build e falha 
 
 As variáveis mais importantes são:
 
-- `BUNCHIN_TOKEN_SECRET`
-- `BUNCHIN_ENCRYPTION_SECRET`
-- `BUNCHIN_ALLOWED_ORIGINS`
-- `BUNCHIN_ENFORCE_HTTPS`
-- `BUNCHIN_SEED_ON_STARTUP`
-- `BUNCHIN_SEED_ADMIN_PASSWORD`
-- `BUNCHIN_BREVO_API_KEY`
-- `BUNCHIN_BREVO_SENDER_EMAIL`
-- `BUNCHIN_BREVO_SENDER_NAME`
-- `BUNCHIN_BREVO_WELCOME_ENABLED`
+- `TOUCHIN_TOKEN_SECRET`
+- `TOUCHIN_ENCRYPTION_SECRET`
+- `TOUCHIN_ALLOWED_ORIGINS`
+- `TOUCHIN_ENFORCE_HTTPS`
+- `TOUCHIN_SEED_ON_STARTUP`
+- `TOUCHIN_SEED_ADMIN_PASSWORD`
+- `TOUCHIN_BREVO_API_KEY`
+- `TOUCHIN_BREVO_SENDER_EMAIL`
+- `TOUCHIN_BREVO_SENDER_NAME`
+- `TOUCHIN_BREVO_WELCOME_ENABLED`
 - `API_BASE_URL` para o frontend web publicado no Vercel
 
 O backend também documenta seed, autenticação, permissões e endpoints em [backend/README.md](backend/README.md).

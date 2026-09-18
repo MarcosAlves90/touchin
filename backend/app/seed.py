@@ -13,13 +13,14 @@ from app.crypto import FieldCipher, lookup_digest
 from app.models import Company, Employee, Punch, UserAccount
 from app.security import hash_password
 
-COMPANY_ID = "company-bunchin"
-COMPANY_EMAIL = "contato@bunchin.com"
+COMPANY_ID = "company-touchin"
+COMPANY_EMAIL = "contato@touchin.com"
 COMPANY_CNPJ = "12345678000190"
-MARINA_EMAIL = "marina.costa@bunchin.com"
-CAIO_EMAIL = "caio.martins@bunchin.com"
-JOAO_EMAIL = "joao.lima@bunchin.com"
-SUPER_ADMIN_EMAIL = "super.admin@bunchin.com"
+MARINA_EMAIL = "marina.costa@touchin.com"
+CAIO_EMAIL = "caio.martins@touchin.com"
+BIANCA_EMAIL = "bianca.nogueira@touchin.com"
+JOAO_EMAIL = "joao.lima@touchin.com"
+SUPER_ADMIN_EMAIL = "super.admin@touchin.com"
 
 
 @dataclass(frozen=True)
@@ -123,7 +124,7 @@ def _employee_seed_rows() -> list[EmployeeSeed]:
             name="Bianca Nogueira",
             role="Fiscal de Loja",
             department="Campo",
-            email="bianca.nogueira@bunchin.com",
+            email=BIANCA_EMAIL,
             phone="(11) 97777-3030",
             unit="Loja Santo Andre",
             expected_shift_start=time(13, 40),
@@ -159,7 +160,7 @@ def _employee_seed_rows() -> list[EmployeeSeed]:
             name="Larissa Araujo",
             role="Assistente Administrativa",
             department="Financeiro",
-            email="larissa.araujo@bunchin.com",
+            email="larissa.araujo@touchin.com",
             phone="(11) 95555-5050",
             unit="Backoffice Centro",
             expected_shift_start=time(8, 30),
@@ -178,8 +179,8 @@ def _employee_seed_rows() -> list[EmployeeSeed]:
 def _build_company(cipher: FieldCipher, settings) -> Company:
     return Company(
         id=COMPANY_ID,
-        legal_name_ciphertext=cipher.encrypt("Bunchin Servicos Digitais LTDA") or "",
-        trade_name_ciphertext=cipher.encrypt("Bunchin Servicos Digitais") or "",
+        legal_name_ciphertext=cipher.encrypt("TouchIn Servicos Digitais LTDA") or "",
+        trade_name_ciphertext=cipher.encrypt("TouchIn Servicos Digitais") or "",
         cnpj_ciphertext=cipher.encrypt(COMPANY_CNPJ) or "",
         cnpj_hash=lookup_digest(COMPANY_CNPJ, settings.encryption_secret or ""),
         contact_email_ciphertext=cipher.encrypt(COMPANY_EMAIL) or "",
@@ -254,8 +255,8 @@ def _build_users(company_id: str, cipher: FieldCipher, settings) -> list[UserAcc
             id="user-bianca",
             company_id=company_id,
             employee_id="emp-03",
-            email_ciphertext=cipher.encrypt("bianca.nogueira@bunchin.com") or "",
-            email_hash=_email_hash("bianca.nogueira@bunchin.com"),
+            email_ciphertext=cipher.encrypt(BIANCA_EMAIL) or "",
+            email_hash=_email_hash(BIANCA_EMAIL),
             password_hash=hash_password(settings.seed_admin_password),
             role="employee",
         ),

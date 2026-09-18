@@ -1,23 +1,23 @@
-import 'package:bunchin_flutter/contracts/auth.dart';
+import 'package:touchin_flutter/contracts/auth.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('exposes role helpers for admin, manager and super admin', () {
     const admin = AuthUserSummary(
       id: 'usr-01',
-      email: 'admin@bunchin.com',
+      email: 'admin@touchin.com',
       role: 'admin',
       employeeId: 'emp-01',
     );
     const manager = AuthUserSummary(
       id: 'usr-02',
-      email: 'manager@bunchin.com',
+      email: 'manager@touchin.com',
       role: 'manager',
       employeeId: 'emp-02',
     );
     const superAdmin = AuthUserSummary(
       id: 'usr-03',
-      email: 'super.admin@bunchin.com',
+      email: 'super.admin@touchin.com',
       role: 'super_admin',
     );
 

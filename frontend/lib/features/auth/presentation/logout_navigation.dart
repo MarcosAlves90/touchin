@@ -1,6 +1,6 @@
-import 'package:bunchin_flutter/core/network/api_client.dart';
-import 'package:bunchin_flutter/core/network/bunchin_api.dart';
-import 'package:bunchin_flutter/features/auth/presentation/login_page.dart';
+import 'package:touchin_flutter/core/network/api_client.dart';
+import 'package:touchin_flutter/core/network/touchin_api.dart';
+import 'package:touchin_flutter/features/auth/presentation/login_page.dart';
 import 'package:flutter/material.dart';
 
 Route<void> buildLoggedOutRoute() {
@@ -11,10 +11,10 @@ Route<void> buildLoggedOutRoute() {
 
 Future<void> logoutFromWorkspace(
   BuildContext context, {
-  BunchinApi? api,
+  TouchInApi? api,
 }) async {
   try {
-    await (api ?? BunchinApi()).logout();
+    await (api ?? TouchInApi()).logout();
   } on ApiException {
     // O token local ja foi limpo; nao mantenha a sessão ativa por erro remoto.
   } catch (_) {
