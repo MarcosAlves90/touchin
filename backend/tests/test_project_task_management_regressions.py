@@ -175,3 +175,42 @@ def test_project_task_buttons_use_square_global_button_shape():
     assert "filledButtonTheme: FilledButtonThemeData(" in source
     assert "textButtonTheme: TextButtonThemeData(" in source
     assert source.count("shape: const RoundedRectangleBorder(borderRadius: _radius)") >= 4
+
+
+def test_project_switch_clears_previous_task_state_before_notifying():
+    source = _controller_source()
+    method = source.split("Future<void> selectProject(String projectId) async {", 1)[1].split(
+        "Future<void> reloadProjectMembers()", 1
+    )[0]
+
+    notify_index = method.index("notifyListeners();")
+    assert method.index("tasks = <TaskRecord>[];") < notify_index
+    assert method.index("tasksError = null;") < notify_index
+
+
+def test_inactive_projects_never_remain_in_active_controller_list():
+    source = _controller_source()
+
+    create_method = source.split("Future<ProjectSummary> createProject", 1)[1].split(
+        "Future<ProjectSummary> updateProject", 1
+    )[0]
+    update_method = source.split("Future<ProjectSummary> updateProject", 1)[1].split(
+        "Future<void> deleteProject", 1
+    )[0]
+
+    assert "created.status == ProjectStatus.active" in create_method
+    assert "updated.status == ProjectStatus.inactive" in update_method
+    assert "projects = projects.where((current) => current.id != updated.id).toList();" in update_method
+
+
+def test_stale_task_creation_does_not_mutate_new_project_selection():
+    source = _controller_source()
+    method = source.split("Future<TaskRecord> createTask", 1)[1].split(
+        "Future<TaskRecord> updateTask", 1
+    )[0]
+
+    create_index = method.index("await _api.createTask(projectId, draft)")
+    guard_index = method.index("selectedProjectId != projectId")
+    mutation_index = method.index("tasks = <TaskRecord>[created, ...tasks]")
+
+    assert create_index < guard_index < mutation_index

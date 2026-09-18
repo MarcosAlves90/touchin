@@ -99,6 +99,86 @@ void main() {
       <String>['emp-current'],
     );
   });
+
+  test('clears previous task state immediately when project changes', () async {
+    final api = _ControlledProjectApi();
+    final controller = ProjectTasksController(api: api);
+    await controller.start();
+
+    expect(controller.tasks, isNotEmpty);
+    api.controlProjectMembers = true;
+
+    final switching = controller.selectProject('project-b');
+    await Future<void>.delayed(Duration.zero);
+
+    expect(controller.selectedProjectId, 'project-b');
+    expect(controller.tasks, isEmpty);
+    expect(controller.tasksError, isNull);
+
+    api.projectMemberCompleters['project-b']!.complete(<ProjectMemberSummary>[
+      _projectMember('project-b', 'emp-04'),
+    ]);
+    await switching;
+  });
+
+  test('does not keep inactive projects in the active management list', () async {
+    final api = _ControlledProjectApi();
+    final controller = ProjectTasksController(api: api);
+    await controller.start();
+
+    final created = await controller.createProject(
+      const ProjectDraft(
+        name: 'Inactive create',
+        description: 'Should not enter active list',
+        taskEmployeeLimit: 2,
+        status: ProjectStatus.inactive,
+      ),
+    );
+    expect(created.status, ProjectStatus.inactive);
+    expect(controller.projects.any((project) => project.id == created.id), isFalse);
+
+    final selected = controller.selectedProject!;
+    await controller.updateProject(
+      selected,
+      ProjectDraft(
+        name: selected.name,
+        description: selected.description ?? '',
+        taskEmployeeLimit: selected.taskEmployeeLimit,
+        status: ProjectStatus.inactive,
+      ),
+    );
+
+    expect(controller.projects.any((project) => project.id == selected.id), isFalse);
+    expect(controller.selectedProjectId, isNot(selected.id));
+  });
+
+  test('discards a created task response after project selection changes', () async {
+    final api = _ControlledProjectApi()..controlCreateTasks = true;
+    final controller = ProjectTasksController(api: api);
+    await controller.start();
+
+    final creating = controller.createTask(
+      const TaskDraft(
+        name: 'Late task',
+        description: 'Created for project A',
+        type: TaskType.feature,
+      ),
+    );
+    await Future<void>.delayed(Duration.zero);
+    expect(api.createTaskCompleters.containsKey('project-a'), isTrue);
+
+    await controller.selectProject('project-b');
+    api.createTaskCompleters['project-a']!.complete(
+      _task('project-a', 'project-a-task-late'),
+    );
+    final created = await creating;
+
+    expect(created.projectId, 'project-a');
+    expect(controller.selectedProjectId, 'project-b');
+    expect(controller.tasks.every((task) => task.projectId == 'project-b'), isTrue);
+    expect(controller.selectedTaskId, isNot('project-a-task-late'));
+  });
+
 }
 
 class _ControlledProjectApi extends BunchinApi {
@@ -106,6 +186,10 @@ class _ControlledProjectApi extends BunchinApi {
   bool controlTasks = false;
   bool controlProjectMembers = false;
   bool controlTaskMembers = false;
+  bool controlCreateTasks = false;
+
+  final Map<String, Completer<TaskRecord>> createTaskCompleters =
+      <String, Completer<TaskRecord>>{};
 
   final Map<String, Completer<List<TaskRecord>>> taskCompleters =
       <String, Completer<List<TaskRecord>>>{};
@@ -157,6 +241,45 @@ class _ControlledProjectApi extends BunchinApi {
     return Future<List<ProjectMemberSummary>>.value(<ProjectMemberSummary>[
       _projectMember(projectId, 'emp-04'),
     ]);
+  }
+
+  @override
+  Future<ProjectSummary> createProject(ProjectDraft draft) async {
+    return ProjectSummary(
+      id: 'created-${draft.status.name}',
+      name: draft.name,
+      description: draft.description,
+      taskEmployeeLimit: draft.taskEmployeeLimit,
+      status: draft.status,
+      createdAt: DateTime(2026, 9, 17),
+      updatedAt: DateTime(2026, 9, 17),
+    );
+  }
+
+  @override
+  Future<ProjectSummary> updateProject(
+    String projectId,
+    ProjectDraft draft,
+  ) async {
+    return ProjectSummary(
+      id: projectId,
+      name: draft.name,
+      description: draft.description,
+      taskEmployeeLimit: draft.taskEmployeeLimit,
+      status: draft.status,
+      createdAt: DateTime(2026, 9, 15),
+      updatedAt: DateTime(2026, 9, 17),
+    );
+  }
+
+  @override
+  Future<TaskRecord> createTask(String projectId, TaskDraft draft) {
+    if (controlCreateTasks) {
+      return createTaskCompleters
+          .putIfAbsent(projectId, () => Completer<TaskRecord>())
+          .future;
+    }
+    return Future<TaskRecord>.value(_task(projectId, '$projectId-task-created'));
   }
 
   @override

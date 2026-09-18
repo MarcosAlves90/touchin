@@ -298,13 +298,12 @@ def test_punch_accepts_optional_project_only_when_employee_is_linked_to_active_p
     assert missing_response.status_code == 404
 
 
-def test_project_requires_non_empty_name_and_description(client):
+def test_project_requires_non_empty_name_and_valid_optional_description(client):
     headers = login_headers(client)
 
     for payload in (
         {"description": "Descrição válida."},
         {"name": "   ", "description": "Descrição válida."},
-        {"name": "Projeto válido"},
         {"name": "Projeto válido", "description": "   "},
         {"name": "Projeto válido", "description": "Descrição válida.", "taskEmployeeLimit": 0},
     ):
@@ -388,3 +387,31 @@ def test_manager_can_manage_project_and_employee_cannot(client):
         json={"employeeId": "emp-05"},
     )
     assert employee_assign.status_code == 403
+
+
+def test_project_description_remains_nullable_for_api_compatibility(client):
+    headers = login_headers(client)
+
+    create_response = client.post(
+        "/api/v1/projects",
+        headers=headers,
+        json={
+            "name": "Projeto sem descrição",
+            "description": None,
+        },
+    )
+    assert create_response.status_code == 201, create_response.text
+    created = create_response.json()
+    assert created["description"] is None
+
+    update_response = client.put(
+        f"/api/v1/projects/{created['id']}",
+        headers=headers,
+        json={
+            "name": "Projeto ainda sem descrição",
+            "description": None,
+            "status": "active",
+        },
+    )
+    assert update_response.status_code == 200, update_response.text
+    assert update_response.json()["description"] is None

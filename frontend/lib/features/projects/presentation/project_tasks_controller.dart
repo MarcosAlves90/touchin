@@ -142,8 +142,10 @@ class ProjectTasksController extends ChangeNotifier {
     _invalidateProjectScopedRequests();
     selectedProjectId = projectId;
     selectedTaskId = null;
+    tasks = <TaskRecord>[];
     projectMembers = <ProjectMemberSummary>[];
     taskMembers = <TaskMemberSummary>[];
+    tasksError = null;
     projectMembersError = null;
     membersError = null;
     notifyListeners();
@@ -310,15 +312,20 @@ class ProjectTasksController extends ChangeNotifier {
   Future<ProjectSummary> createProject(ProjectDraft draft) async {
     return _mutate(() async {
       final created = await _api.createProject(draft);
-      projects = <ProjectSummary>[created, ...projects];
-      _invalidateProjectScopedRequests();
-      selectedProjectId = created.id;
-      selectedTaskId = null;
-      tasks = <TaskRecord>[];
-      projectMembers = <ProjectMemberSummary>[];
-      taskMembers = <TaskMemberSummary>[];
-      await _loadProjectMembersForSelectedProject(notifyLoading: false);
-      await _loadTasksForSelectedProject(notifyLoading: false);
+      if (created.status == ProjectStatus.active) {
+        projects = <ProjectSummary>[created, ...projects];
+        _invalidateProjectScopedRequests();
+        selectedProjectId = created.id;
+        selectedTaskId = null;
+        tasks = <TaskRecord>[];
+        projectMembers = <ProjectMemberSummary>[];
+        taskMembers = <TaskMemberSummary>[];
+        tasksError = null;
+        projectMembersError = null;
+        membersError = null;
+        await _loadProjectMembersForSelectedProject(notifyLoading: false);
+        await _loadTasksForSelectedProject(notifyLoading: false);
+      }
       return created;
     });
   }
@@ -329,9 +336,28 @@ class ProjectTasksController extends ChangeNotifier {
   ) async {
     return _mutate(() async {
       final updated = await _api.updateProject(project.id, draft);
-      projects = projects
-          .map((current) => current.id == updated.id ? updated : current)
-          .toList();
+      if (updated.status == ProjectStatus.inactive) {
+        projects = projects.where((current) => current.id != updated.id).toList();
+        if (selectedProjectId == updated.id) {
+          _invalidateProjectScopedRequests();
+          selectedProjectId = projects.isEmpty ? null : projects.first.id;
+          selectedTaskId = null;
+          tasks = <TaskRecord>[];
+          projectMembers = <ProjectMemberSummary>[];
+          taskMembers = <TaskMemberSummary>[];
+          tasksError = null;
+          projectMembersError = null;
+          membersError = null;
+          if (selectedProjectId != null) {
+            await _loadProjectMembersForSelectedProject(notifyLoading: false);
+            await _loadTasksForSelectedProject(notifyLoading: false);
+          }
+        }
+      } else {
+        projects = projects
+            .map((current) => current.id == updated.id ? updated : current)
+            .toList();
+      }
       return updated;
     });
   }
@@ -386,6 +412,9 @@ class ProjectTasksController extends ChangeNotifier {
 
     return _mutate(() async {
       final created = await _api.createTask(projectId, draft);
+      if (selectedProjectId != projectId) {
+        return created;
+      }
       tasks = <TaskRecord>[created, ...tasks];
       selectedTaskId = created.id;
       taskMembers = <TaskMemberSummary>[];

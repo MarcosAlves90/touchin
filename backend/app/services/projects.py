@@ -33,7 +33,7 @@ def create_project(db: Session, *, company_id: str, payload: ProjectDraftPayload
     project = Project(
         company_id=company_id,
         name_ciphertext=field_cipher.encrypt(payload.name) or "",
-        description_ciphertext=field_cipher.encrypt(payload.description) or "",
+        description_ciphertext=field_cipher.encrypt(payload.description),
         task_employee_limit=payload.task_employee_limit or 1,
         status=status_value(payload.status),
     )
@@ -73,7 +73,7 @@ def update_project(
 
     field_cipher = cipher()
     project.name_ciphertext = field_cipher.encrypt(payload.name) or ""
-    project.description_ciphertext = field_cipher.encrypt(payload.description) or ""
+    project.description_ciphertext = field_cipher.encrypt(payload.description)
     project.task_employee_limit = new_limit
     project.status = status_value(payload.status)
     db.commit()

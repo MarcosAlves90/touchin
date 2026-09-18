@@ -15,13 +15,23 @@ class ProjectStatus(str, Enum):
 
 class ProjectDraftPayload(CamelModel):
     name: str = Field(min_length=1, max_length=160)
-    description: str = Field(min_length=1, max_length=2000)
+    description: str | None = Field(default=None, max_length=2000)
     task_employee_limit: int | None = Field(default=None, ge=1, le=2_147_483_647)
     status: ProjectStatus = ProjectStatus.active
 
-    @field_validator("name", "description")
+    @field_validator("name")
     @classmethod
-    def validate_non_empty_text(cls, value: str) -> str:
+    def validate_non_empty_name(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Value must not be empty.")
+        return value
+
+    @field_validator("description")
+    @classmethod
+    def validate_optional_description(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
         value = value.strip()
         if not value:
             raise ValueError("Value must not be empty.")

@@ -117,7 +117,7 @@ class Project(Base):
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=generate_id)
     company_id: Mapped[str] = mapped_column(ForeignKey(_COL_COMPANIES_ID), index=True)
     name_ciphertext: Mapped[str] = mapped_column(Text)
-    description_ciphertext: Mapped[str] = mapped_column(Text)
+    description_ciphertext: Mapped[str | None] = mapped_column(Text, nullable=True)
     task_employee_limit: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
     status: Mapped[str] = mapped_column(String(32), default="active", index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
