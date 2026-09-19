@@ -1,15 +1,15 @@
-import 'package:bunchin_flutter/contracts/auth.dart';
-import 'package:bunchin_flutter/contracts/contract_parsing.dart';
-import 'package:bunchin_flutter/contracts/employee.dart';
-import 'package:bunchin_flutter/contracts/punch.dart';
-import 'package:bunchin_flutter/contracts/project.dart';
-import 'package:bunchin_flutter/contracts/task.dart';
-import 'package:bunchin_flutter/contracts/time_clock.dart';
-import 'package:bunchin_flutter/core/network/api_client.dart';
-import 'package:bunchin_flutter/core/storage/token_storage.dart';
+import 'package:touchin_flutter/contracts/auth.dart';
+import 'package:touchin_flutter/contracts/contract_parsing.dart';
+import 'package:touchin_flutter/contracts/employee.dart';
+import 'package:touchin_flutter/contracts/punch.dart';
+import 'package:touchin_flutter/contracts/project.dart';
+import 'package:touchin_flutter/contracts/task.dart';
+import 'package:touchin_flutter/contracts/time_clock.dart';
+import 'package:touchin_flutter/core/network/api_client.dart';
+import 'package:touchin_flutter/core/storage/token_storage.dart';
 
-class BunchinApi {
-  BunchinApi({ApiClient? client, TokenStorage? tokenStorage})
+class TouchInApi {
+  TouchInApi({ApiClient? client, TokenStorage? tokenStorage})
       : _client = client ?? ApiClient(),
         _tokenStorage = tokenStorage ?? TokenStorage();
 

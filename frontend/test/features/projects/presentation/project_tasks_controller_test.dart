@@ -1,10 +1,10 @@
 import 'dart:async';
 
-import 'package:bunchin_flutter/contracts/auth.dart';
-import 'package:bunchin_flutter/contracts/project.dart';
-import 'package:bunchin_flutter/contracts/task.dart';
-import 'package:bunchin_flutter/core/network/bunchin_api.dart';
-import 'package:bunchin_flutter/features/projects/presentation/project_tasks_controller.dart';
+import 'package:touchin_flutter/contracts/auth.dart';
+import 'package:touchin_flutter/contracts/project.dart';
+import 'package:touchin_flutter/contracts/task.dart';
+import 'package:touchin_flutter/core/network/touchin_api.dart';
+import 'package:touchin_flutter/features/projects/presentation/project_tasks_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -181,7 +181,7 @@ void main() {
 
 }
 
-class _ControlledProjectApi extends BunchinApi {
+class _ControlledProjectApi extends TouchInApi {
   ProjectStatus? requestedProjectStatus;
   bool controlTasks = false;
   bool controlProjectMembers = false;
@@ -204,15 +204,15 @@ class _ControlledProjectApi extends BunchinApi {
     return const AuthContext(
       company: AuthCompanySummary(
         id: 'company-01',
-        legalName: 'Bunchin Tecnologia LTDA',
-        tradeName: 'Bunchin',
+        legalName: 'TouchIn Tecnologia LTDA',
+        tradeName: 'TouchIn',
         cnpjMasked: '12.***.***/****-90',
-        emailMasked: 'co*****@bunchin.com',
+        emailMasked: 'co*****@touchin.com',
         phoneMasked: '11*****0000',
       ),
       user: AuthUserSummary(
         id: 'user-01',
-        email: 'employee@bunchin.com',
+        email: 'employee@touchin.com',
         role: 'employee',
         employeeId: 'emp-04',
       ),

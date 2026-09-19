@@ -1,10 +1,10 @@
-import 'package:bunchin_flutter/contracts/auth.dart';
-import 'package:bunchin_flutter/core/network/api_client.dart';
-import 'package:bunchin_flutter/core/network/bunchin_api.dart';
-import 'package:bunchin_flutter/core/storage/token_storage.dart';
-import 'package:bunchin_flutter/features/auth/presentation/login_page.dart';
-import 'package:bunchin_flutter/features/auth/presentation/logout_navigation.dart';
-import 'package:bunchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
+import 'package:touchin_flutter/contracts/auth.dart';
+import 'package:touchin_flutter/core/network/api_client.dart';
+import 'package:touchin_flutter/core/network/touchin_api.dart';
+import 'package:touchin_flutter/core/storage/token_storage.dart';
+import 'package:touchin_flutter/features/auth/presentation/login_page.dart';
+import 'package:touchin_flutter/features/auth/presentation/logout_navigation.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -19,7 +19,7 @@ void main() {
         ),
       );
       final tokenStorage = _InMemoryTokenStorage()..savedToken = 'token-123';
-      final api = BunchinApi(client: client, tokenStorage: tokenStorage);
+      final api = TouchInApi(client: client, tokenStorage: tokenStorage);
 
       await tester.pumpWidget(
         MaterialApp(

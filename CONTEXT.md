@@ -1,4 +1,4 @@
-# CONTEXT.md — Bunchin App
+# CONTEXT.md — TouchIn App
 
 - Última atualização: 2026-05-25
 - Versão do documento: 1.2.1
@@ -192,11 +192,11 @@ frontend/
 
 - **Senhas:** PBKDF2-SHA256 com 310.000 iterações e salt de 16 bytes
 - **Tokens:** `secrets.token_urlsafe(32)` com hash SHA-256 armazenado em `auth_sessions.token_hash`
-- **PII:** AES-GCM com chave de 256 bits via `BUNCHIN_ENCRYPTION_SECRET`
+- **PII:** AES-GCM com chave de 256 bits via `TOUCHIN_ENCRYPTION_SECRET`
 - **Lookup:** campos sensíveis também recebem hash para busca e unicidade
-- **CORS:** Configurável via `BUNCHIN_ALLOWED_ORIGINS`
+- **CORS:** Configurável via `TOUCHIN_ALLOWED_ORIGINS`
 - **HTTPS:** Middleware `https_guard` bloqueia tráfego não seguro quando ativado
-- **Secrets:** `BUNCHIN_TOKEN_SECRET` e `BUNCHIN_ENCRYPTION_SECRET` são obrigatórios
+- **Secrets:** `TOUCHIN_TOKEN_SECRET` e `TOUCHIN_ENCRYPTION_SECRET` são obrigatórios
 - **RBAC:** `authorization.py` concentra permissões por papel e checagem de acesso
 - **Seed:** `seed.py` tem builders pequenos e `seed_database` como entrada simples para testes e bootstrap
 - **Frontend:** sessão auth fica no `flutter_secure_storage`, não em armazenamento comum
@@ -207,7 +207,7 @@ frontend/
 
 | Ambiente | URL | DB | Acesso | Deploy automático |
 |---|---|---|---|---|
-| dev | `http://localhost:8000` | SQLite (`./bunchin.db`) | equipe | `uvicorn app.main:app --reload` |
+| dev | `http://localhost:8000` | SQLite (`./touchin.db`) | equipe | `uvicorn app.main:app --reload` |
 | staging | TBD | PostgreSQL | QA | TBD |
 | prod | TBD | PostgreSQL | usuários finais | TBD |
 
@@ -217,8 +217,8 @@ frontend/
 
 ### Brevo
 
-- **API Key:** `BUNCHIN_BREVO_API_KEY`
-- **Remetente:** `BUNCHIN_BREVO_SENDER_EMAIL` e `BUNCHIN_BREVO_SENDER_NAME`
+- **API Key:** `TOUCHIN_BREVO_API_KEY`
+- **Remetente:** `TOUCHIN_BREVO_SENDER_EMAIL` e `TOUCHIN_BREVO_SENDER_NAME`
 - **Uso:** e-mail de boas-vindas, reset de senha, confirmação de senha alterada e credenciais temporárias
 - **Comportamento em falha:** registra log e não bloqueia o fluxo principal
 
@@ -288,7 +288,7 @@ frontend/
 
 | Termo | Definição |
 |---|---|
-| Bunchin | Nome do app |
+| TouchIn | Nome do app |
 | Punch | Registro de ponto |
 | Company | Empresa cliente |
 | Employee | Funcionário vinculado a uma empresa |

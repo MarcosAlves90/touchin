@@ -1,7 +1,7 @@
-import 'package:bunchin_flutter/contracts/project.dart';
-import 'package:bunchin_flutter/contracts/task.dart';
-import 'package:bunchin_flutter/core/network/api_client.dart';
-import 'package:bunchin_flutter/core/network/bunchin_api.dart';
+import 'package:touchin_flutter/contracts/project.dart';
+import 'package:touchin_flutter/contracts/task.dart';
+import 'package:touchin_flutter/core/network/api_client.dart';
+import 'package:touchin_flutter/core/network/touchin_api.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -26,7 +26,7 @@ void main() {
         '/projects/project-01/members/emp-05': null,
       },
     );
-    final api = BunchinApi(client: client);
+    final api = TouchInApi(client: client);
 
     final projects = await api.listProjects();
     expect(projects.single.taskEmployeeLimit, 2);
@@ -100,7 +100,7 @@ void main() {
         '/projects/project-01/tasks/task-01/members/emp-05': null,
       },
     );
-    final api = BunchinApi(client: client);
+    final api = TouchInApi(client: client);
 
     final tasks = await api.listTasks('project-01');
     expect(tasks.single.type, TaskType.feature);

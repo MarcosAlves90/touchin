@@ -1,7 +1,7 @@
 import 'dart:convert';
 
-import 'package:bunchin_flutter/core/config/app_config.dart';
-import 'package:bunchin_flutter/core/storage/token_storage.dart';
+import 'package:touchin_flutter/core/config/app_config.dart';
+import 'package:touchin_flutter/core/storage/token_storage.dart';
 import 'package:http/http.dart' as http;
 
 class ApiException implements Exception {

@@ -1,6 +1,6 @@
 {
-    "name": "Bunchin",
-    "short_name": "Bunchin",
+    "name": "TouchIn",
+    "short_name": "TouchIn",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#FFB020",

@@ -8,8 +8,8 @@ from app.models import Task, TaskEmployee
 from test_api import TEST_SEED_SECRET, login_headers_for
 
 
-MANAGER_EMAIL = "caio.martins@bunchin.com"
-EMPLOYEE_EMAIL = "joao.lima@bunchin.com"
+MANAGER_EMAIL = "caio.martins@touchin.com"
+EMPLOYEE_EMAIL = "joao.lima@touchin.com"
 
 
 def _manager_headers(client):
@@ -408,7 +408,7 @@ def test_concurrent_task_membership_cannot_exceed_capacity(tmp_path):
         seed_database(db)
         project = create_project(
             db,
-            company_id="company-bunchin",
+            company_id="company-touchin",
             payload=ProjectDraftPayload(
                 name="Concorrência",
                 description="Validação de capacidade concorrente.",
@@ -418,13 +418,13 @@ def test_concurrent_task_membership_cannot_exceed_capacity(tmp_path):
         for employee_id in ("emp-04", "emp-05"):
             assign_project_member(
                 db,
-                company_id="company-bunchin",
+                company_id="company-touchin",
                 project_id=project.id,
                 employee_id=employee_id,
             )
         task = create_task(
             db,
-            company_id="company-bunchin",
+            company_id="company-touchin",
             project_id=project.id,
             payload=TaskDraftPayload(
                 name="Slot único",
@@ -441,7 +441,7 @@ def test_concurrent_task_membership_cannot_exceed_capacity(tmp_path):
             try:
                 add_task_member(
                     db,
-                    company_id="company-bunchin",
+                    company_id="company-touchin",
                     project_id=project.id,
                     task_id=task.id,
                     employee_id=employee_id,

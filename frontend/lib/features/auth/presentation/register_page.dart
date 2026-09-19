@@ -1,9 +1,9 @@
-import 'package:bunchin_flutter/contracts/auth.dart';
-import 'package:bunchin_flutter/core/forms/br_input_masks.dart';
-import 'package:bunchin_flutter/core/network/bunchin_api.dart';
-import 'package:bunchin_flutter/features/auth/presentation/auth_session_navigation.dart';
-import 'package:bunchin_flutter/features/auth/presentation/auth_submission_mixin.dart';
-import 'package:bunchin_flutter/features/auth/presentation/widgets/auth_shell.dart';
+import 'package:touchin_flutter/contracts/auth.dart';
+import 'package:touchin_flutter/core/forms/br_input_masks.dart';
+import 'package:touchin_flutter/core/network/touchin_api.dart';
+import 'package:touchin_flutter/features/auth/presentation/auth_session_navigation.dart';
+import 'package:touchin_flutter/features/auth/presentation/auth_submission_mixin.dart';
+import 'package:touchin_flutter/features/auth/presentation/widgets/auth_shell.dart';
 import 'package:flutter/material.dart';
 
 class RegisterPage extends StatefulWidget {
@@ -15,7 +15,7 @@ class RegisterPage extends StatefulWidget {
 
 class _RegisterPageState extends State<RegisterPage>
     with AuthSubmissionMixin<RegisterPage> {
-  final BunchinApi _api = BunchinApi();
+  final TouchInApi _api = TouchInApi();
   final _formKey = GlobalKey<FormState>();
   final _companyNameController = TextEditingController();
   final _tradeNameController = TextEditingController();

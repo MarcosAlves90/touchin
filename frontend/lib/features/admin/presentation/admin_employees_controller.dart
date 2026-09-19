@@ -1,14 +1,14 @@
-import 'package:bunchin_flutter/contracts/auth.dart';
-import 'package:bunchin_flutter/contracts/employee.dart';
-import 'package:bunchin_flutter/contracts/time_clock.dart';
-import 'package:bunchin_flutter/core/network/api_client.dart';
-import 'package:bunchin_flutter/core/network/bunchin_api.dart';
+import 'package:touchin_flutter/contracts/auth.dart';
+import 'package:touchin_flutter/contracts/employee.dart';
+import 'package:touchin_flutter/contracts/time_clock.dart';
+import 'package:touchin_flutter/core/network/api_client.dart';
+import 'package:touchin_flutter/core/network/touchin_api.dart';
 import 'package:flutter/material.dart';
 
 class AdminEmployeesController extends ChangeNotifier {
-  AdminEmployeesController({BunchinApi? api}) : _api = api ?? BunchinApi();
+  AdminEmployeesController({TouchInApi? api}) : _api = api ?? TouchInApi();
 
-  final BunchinApi _api;
+  final TouchInApi _api;
 
   final TextEditingController searchController = TextEditingController();
   List<EmployeeProfile> employees = <EmployeeProfile>[];

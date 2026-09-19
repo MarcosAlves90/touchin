@@ -1,11 +1,11 @@
-import 'package:bunchin_flutter/contracts/auth.dart';
-import 'package:bunchin_flutter/core/network/api_client.dart';
-import 'package:bunchin_flutter/core/network/bunchin_api.dart';
-import 'package:bunchin_flutter/core/storage/token_storage.dart';
-import 'package:bunchin_flutter/core/theme/theme_mode_controller.dart';
-import 'package:bunchin_flutter/features/auth/presentation/auth_session_navigation.dart';
-import 'package:bunchin_flutter/features/auth/presentation/login_page.dart';
-import 'package:bunchin_flutter/theme/app_theme.dart';
+import 'package:touchin_flutter/contracts/auth.dart';
+import 'package:touchin_flutter/core/network/api_client.dart';
+import 'package:touchin_flutter/core/network/touchin_api.dart';
+import 'package:touchin_flutter/core/storage/token_storage.dart';
+import 'package:touchin_flutter/core/theme/theme_mode_controller.dart';
+import 'package:touchin_flutter/features/auth/presentation/auth_session_navigation.dart';
+import 'package:touchin_flutter/features/auth/presentation/login_page.dart';
+import 'package:touchin_flutter/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
@@ -18,7 +18,7 @@ Future<void> main() async {
 class MyApp extends StatefulWidget {
   const MyApp({super.key, this.api, this.tokenStorage});
 
-  final BunchinApi? api;
+  final TouchInApi? api;
   final TokenStorage? tokenStorage;
 
   @override
@@ -28,7 +28,7 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   late final Future<AuthSession?> _bootstrapFuture = _bootstrapSession();
 
-  BunchinApi get _api => widget.api ?? BunchinApi();
+  TouchInApi get _api => widget.api ?? TouchInApi();
 
   TokenStorage get _tokenStorage => widget.tokenStorage ?? TokenStorage();
 
@@ -64,7 +64,7 @@ class _MyAppState extends State<MyApp> {
       animation: ThemeModeController.instance,
       builder: (context, _) {
         return MaterialApp(
-          title: 'Bunchin',
+          title: 'TouchIn',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,

@@ -9,7 +9,7 @@ from app.config import get_settings
 from app.db import init_database
 
 
-def create_postgres_database() -> str:
+def create_postgres_database() -> tuple[str, bool]:
     settings = get_settings()
     url = make_url(settings.database_url)
     if not url.drivername.startswith("postgresql"):
@@ -20,9 +20,9 @@ def create_postgres_database() -> str:
 
     database_name = url.database
     if not database_name:
-        raise RuntimeError("Database name is missing in BUNCHIN_DATABASE_URL.")
+        raise RuntimeError("Database name is missing in TOUCHIN_DATABASE_URL.")
 
-    if not re.fullmatch(r"[A-Za-z0-9_]+", database_name):
+    if not re.fullmatch(r"\w+", database_name, flags=re.ASCII):
         raise RuntimeError(
             "Database name contains unsupported characters. "
             "Use only letters, numbers, and underscores.",

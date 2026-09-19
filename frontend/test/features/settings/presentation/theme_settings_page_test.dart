@@ -1,5 +1,5 @@
-import 'package:bunchin_flutter/core/theme/theme_mode_controller.dart';
-import 'package:bunchin_flutter/features/settings/presentation/settings_page.dart';
+import 'package:touchin_flutter/core/theme/theme_mode_controller.dart';
+import 'package:touchin_flutter/features/settings/presentation/settings_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

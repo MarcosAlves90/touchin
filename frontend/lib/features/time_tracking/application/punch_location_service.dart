@@ -1,10 +1,10 @@
 import 'dart:async';
 
-import 'package:bunchin_flutter/contracts/location.dart';
+import 'package:touchin_flutter/contracts/location.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 
-export 'package:bunchin_flutter/contracts/location.dart';
+export 'package:touchin_flutter/contracts/location.dart';
 
 class PunchLocationService {
   const PunchLocationService({PunchLocationGateway? gateway})

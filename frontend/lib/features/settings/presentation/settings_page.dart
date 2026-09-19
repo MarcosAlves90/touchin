@@ -1,8 +1,8 @@
 import 'dart:async';
 
-import 'package:bunchin_flutter/core/theme/theme_mode_controller.dart';
-import 'package:bunchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
-import 'package:bunchin_flutter/theme/app_theme.dart';
+import 'package:touchin_flutter/core/theme/theme_mode_controller.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
+import 'package:touchin_flutter/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 
 class ThemeSettingsPage extends StatelessWidget {

@@ -1,10 +1,10 @@
-import 'package:bunchin_flutter/contracts/auth.dart';
-import 'package:bunchin_flutter/contracts/employee.dart';
-import 'package:bunchin_flutter/contracts/project.dart';
-import 'package:bunchin_flutter/contracts/task.dart';
-import 'package:bunchin_flutter/core/network/bunchin_api.dart';
-import 'package:bunchin_flutter/features/projects/presentation/project_tasks_page.dart';
-import 'package:bunchin_flutter/theme/app_theme.dart';
+import 'package:touchin_flutter/contracts/auth.dart';
+import 'package:touchin_flutter/contracts/employee.dart';
+import 'package:touchin_flutter/contracts/project.dart';
+import 'package:touchin_flutter/contracts/task.dart';
+import 'package:touchin_flutter/core/network/touchin_api.dart';
+import 'package:touchin_flutter/features/projects/presentation/project_tasks_page.dart';
+import 'package:touchin_flutter/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -191,7 +191,7 @@ void main() {
   });
 }
 
-class _FakeProjectTasksApi extends BunchinApi {
+class _FakeProjectTasksApi extends TouchInApi {
   _FakeProjectTasksApi({
     required this.role,
     required this.employeeId,
@@ -209,15 +209,15 @@ class _FakeProjectTasksApi extends BunchinApi {
     return AuthContext(
       company: const AuthCompanySummary(
         id: 'company-01',
-        legalName: 'Bunchin Tecnologia LTDA',
-        tradeName: 'Bunchin',
+        legalName: 'TouchIn Tecnologia LTDA',
+        tradeName: 'TouchIn',
         cnpjMasked: '12.***.***/****-90',
-        emailMasked: 'co*****@bunchin.com',
+        emailMasked: 'co*****@touchin.com',
         phoneMasked: '11*****0000',
       ),
       user: AuthUserSummary(
         id: 'user-01',
-        email: 'usuario@bunchin.com',
+        email: 'usuario@touchin.com',
         role: role,
         employeeId: employeeId,
       ),

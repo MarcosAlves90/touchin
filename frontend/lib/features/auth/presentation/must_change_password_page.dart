@@ -1,7 +1,7 @@
-import 'package:bunchin_flutter/core/network/bunchin_api.dart';
-import 'package:bunchin_flutter/features/admin/presentation/admin_employees_page.dart';
-import 'package:bunchin_flutter/features/auth/presentation/auth_submission_mixin.dart';
-import 'package:bunchin_flutter/features/auth/presentation/widgets/auth_shell.dart';
+import 'package:touchin_flutter/core/network/touchin_api.dart';
+import 'package:touchin_flutter/features/admin/presentation/admin_employees_page.dart';
+import 'package:touchin_flutter/features/auth/presentation/auth_submission_mixin.dart';
+import 'package:touchin_flutter/features/auth/presentation/widgets/auth_shell.dart';
 import 'package:flutter/material.dart';
 
 class MustChangePasswordPage extends StatefulWidget {
@@ -13,7 +13,7 @@ class MustChangePasswordPage extends StatefulWidget {
 
 class _MustChangePasswordPageState extends State<MustChangePasswordPage>
     with AuthSubmissionMixin<MustChangePasswordPage> {
-  final BunchinApi _api = BunchinApi();
+  final TouchInApi _api = TouchInApi();
   final _formKey = GlobalKey<FormState>();
   final _currentPasswordController = TextEditingController();
   final _newPasswordController = TextEditingController();

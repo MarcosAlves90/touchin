@@ -1,9 +1,9 @@
-import 'package:bunchin_flutter/contracts/auth.dart';
-import 'package:bunchin_flutter/contracts/employee.dart';
-import 'package:bunchin_flutter/contracts/punch.dart';
-import 'package:bunchin_flutter/contracts/time_clock.dart';
-import 'package:bunchin_flutter/core/network/bunchin_api.dart';
-import 'package:bunchin_flutter/features/admin/presentation/admin_employees_page.dart';
+import 'package:touchin_flutter/contracts/auth.dart';
+import 'package:touchin_flutter/contracts/employee.dart';
+import 'package:touchin_flutter/contracts/punch.dart';
+import 'package:touchin_flutter/contracts/time_clock.dart';
+import 'package:touchin_flutter/core/network/touchin_api.dart';
+import 'package:touchin_flutter/features/admin/presentation/admin_employees_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -24,7 +24,7 @@ void main() {
     expect(find.text('Editar selecionado'), findsNothing);
     expect(find.byTooltip('Editar funcionário'), findsOneWidget);
     expect(find.byTooltip('Remover funcionário'), findsOneWidget);
-    expect(find.text('renata.souza@bunchin.com'), findsOneWidget);
+    expect(find.text('renata.souza@touchin.com'), findsOneWidget);
     expect(find.text('Sem batida recente'), findsNothing);
     expect(find.textContaining('Hoje:'), findsNothing);
     expect(find.text('Ativo'), findsOneWidget);
@@ -71,11 +71,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Bunchin'), findsOneWidget);
-    expect(find.text('Bunchin Tecnologia LTDA'), findsOneWidget);
+    expect(find.text('TouchIn'), findsOneWidget);
+    expect(find.text('TouchIn Tecnologia LTDA'), findsOneWidget);
     expect(find.textContaining('CNPJ'), findsNothing);
     expect(find.text('Contato'), findsNothing);
-    expect(find.text('co*****@bunchin.com'), findsNothing);
+    expect(find.text('co*****@touchin.com'), findsNothing);
     expect(find.text('Tel. 11*****0000'), findsNothing);
     expect(find.text('Perfil administrador'), findsOneWidget);
     expect(find.text('Dados mascarados'), findsOneWidget);
@@ -155,7 +155,7 @@ void main() {
   });
 }
 
-class _FakeAdminApi extends BunchinApi {
+class _FakeAdminApi extends TouchInApi {
   _FakeAdminApi(
       {Map<String, List<ManagedPunchRecord>>? managedPunchesByEmployeeId})
       : managedPunchesByEmployeeId =
@@ -168,15 +168,15 @@ class _FakeAdminApi extends BunchinApi {
     return AuthContext(
       company: const AuthCompanySummary(
         id: 'cmp-01',
-        legalName: 'Bunchin Tecnologia LTDA',
-        tradeName: 'Bunchin',
+        legalName: 'TouchIn Tecnologia LTDA',
+        tradeName: 'TouchIn',
         cnpjMasked: '12.***.***/****-90',
-        emailMasked: 'co*****@bunchin.com',
+        emailMasked: 'co*****@touchin.com',
         phoneMasked: '11*****0000',
       ),
       user: const AuthUserSummary(
         id: 'usr-01',
-        email: 'admin@bunchin.com',
+        email: 'admin@touchin.com',
         role: 'admin',
         employeeId: null,
       ),
@@ -191,7 +191,7 @@ class _FakeAdminApi extends BunchinApi {
         name: 'Renata Souza',
         role: 'Analista Financeira',
         department: 'Financeiro',
-        email: 'renata.souza@bunchin.com',
+        email: 'renata.souza@touchin.com',
         phone: '(11) 94444-6060',
         unit: 'Backoffice Centro',
         expectedShiftStart: const TimeOfDay(hour: 8, minute: 0),

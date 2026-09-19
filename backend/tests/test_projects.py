@@ -144,7 +144,7 @@ def test_removing_project_member_revokes_task_assignments(client):
     admin_headers = login_headers(client)
     employee_headers = login_headers_for(
         client,
-        email="joao.lima@bunchin.com",
+        email="joao.lima@touchin.com",
         password=TEST_SEED_SECRET,
     )
     project = _create_project(client, admin_headers, name="Projeto revogável")
@@ -195,7 +195,7 @@ def test_employee_can_read_only_assigned_projects_and_cannot_create_projects(cli
     admin_headers = login_headers(client)
     employee_headers = login_headers_for(
         client,
-        email="joao.lima@bunchin.com",
+        email="joao.lima@touchin.com",
         password=TEST_SEED_SECRET,
     )
     assigned = _create_project(client, admin_headers, name="Projeto permitido")
@@ -230,7 +230,7 @@ def test_punch_accepts_optional_project_only_when_employee_is_linked_to_active_p
     admin_headers = login_headers(client)
     employee_headers = login_headers_for(
         client,
-        email="joao.lima@bunchin.com",
+        email="joao.lima@touchin.com",
         password=TEST_SEED_SECRET,
     )
     _clear_employee_punches("emp-04")
@@ -328,12 +328,12 @@ def test_project_task_employee_limit_defaults_for_legacy_clients(client):
 def test_manager_can_manage_project_and_employee_cannot(client):
     manager_headers = login_headers_for(
         client,
-        email="caio.martins@bunchin.com",
+        email="caio.martins@touchin.com",
         password=TEST_SEED_SECRET,
     )
     employee_headers = login_headers_for(
         client,
-        email="joao.lima@bunchin.com",
+        email="joao.lima@touchin.com",
         password=TEST_SEED_SECRET,
     )
     project = _create_project(client, manager_headers, name="Gestão autorizada")

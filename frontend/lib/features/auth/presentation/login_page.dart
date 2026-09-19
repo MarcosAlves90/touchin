@@ -1,10 +1,10 @@
-import 'package:bunchin_flutter/contracts/auth.dart';
-import 'package:bunchin_flutter/core/network/bunchin_api.dart';
-import 'package:bunchin_flutter/features/auth/presentation/auth_session_navigation.dart';
-import 'package:bunchin_flutter/features/auth/presentation/auth_submission_mixin.dart';
-import 'package:bunchin_flutter/features/auth/presentation/forgot_password_page.dart';
-import 'package:bunchin_flutter/features/auth/presentation/register_page.dart';
-import 'package:bunchin_flutter/features/auth/presentation/widgets/auth_shell.dart';
+import 'package:touchin_flutter/contracts/auth.dart';
+import 'package:touchin_flutter/core/network/touchin_api.dart';
+import 'package:touchin_flutter/features/auth/presentation/auth_session_navigation.dart';
+import 'package:touchin_flutter/features/auth/presentation/auth_submission_mixin.dart';
+import 'package:touchin_flutter/features/auth/presentation/forgot_password_page.dart';
+import 'package:touchin_flutter/features/auth/presentation/register_page.dart';
+import 'package:touchin_flutter/features/auth/presentation/widgets/auth_shell.dart';
 import 'package:flutter/material.dart';
 
 class LoginPage extends StatefulWidget {
@@ -16,7 +16,7 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage>
     with AuthSubmissionMixin<LoginPage> {
-  final BunchinApi _api = BunchinApi();
+  final TouchInApi _api = TouchInApi();
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();

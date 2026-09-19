@@ -1,7 +1,7 @@
-import 'package:bunchin_flutter/contracts/auth.dart';
-import 'package:bunchin_flutter/features/admin/presentation/admin_employees_page.dart';
-import 'package:bunchin_flutter/features/auth/presentation/auth_session_navigation.dart';
-import 'package:bunchin_flutter/features/time_tracking/presentation/time_clock_page.dart';
+import 'package:touchin_flutter/contracts/auth.dart';
+import 'package:touchin_flutter/features/admin/presentation/admin_employees_page.dart';
+import 'package:touchin_flutter/features/auth/presentation/auth_session_navigation.dart';
+import 'package:touchin_flutter/features/time_tracking/presentation/time_clock_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -14,15 +14,15 @@ void main() {
       expiresAt: DateTime.parse('2026-04-26T18:00:00Z'),
       company: const AuthCompanySummary(
         id: 'cmp-01',
-        legalName: 'Bunchin Tecnologia LTDA',
-        tradeName: 'Bunchin',
+        legalName: 'TouchIn Tecnologia LTDA',
+        tradeName: 'TouchIn',
         cnpjMasked: '12.***.***/****-90',
-        emailMasked: 'co*****@bunchin.com',
+        emailMasked: 'co*****@touchin.com',
         phoneMasked: '11*****0000',
       ),
       user: const AuthUserSummary(
         id: 'usr-01',
-        email: 'super.admin@bunchin.com',
+        email: 'super.admin@touchin.com',
         role: 'super_admin',
       ),
     );
@@ -43,15 +43,15 @@ void main() {
       expiresAt: DateTime.parse('2026-04-26T18:00:00Z'),
       company: const AuthCompanySummary(
         id: 'cmp-01',
-        legalName: 'Bunchin Tecnologia LTDA',
-        tradeName: 'Bunchin',
+        legalName: 'TouchIn Tecnologia LTDA',
+        tradeName: 'TouchIn',
         cnpjMasked: '12.***.***/****-90',
-        emailMasked: 'co*****@bunchin.com',
+        emailMasked: 'co*****@touchin.com',
         phoneMasked: '11*****0000',
       ),
       user: const AuthUserSummary(
         id: 'usr-02',
-        email: 'manager@bunchin.com',
+        email: 'manager@touchin.com',
         role: 'manager',
         employeeId: 'emp-02',
       ),
