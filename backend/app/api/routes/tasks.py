@@ -9,7 +9,10 @@ from app.domain.project_read import project_or_404
 from app.domain.task_read import get_task, list_task_members, list_tasks
 from app.schemas.task import TaskDraftPayload, TaskMemberPayload, TaskMemberSummary, TaskResponse
 from app.services.auth import AuthenticatedContext
-from app.services.tasks import add_task_member, create_task, remove_task_member, update_task
+from app.services.tasks import add_task_member, create_task, delete_task, remove_task_member, update_task
+
+
+_PROJECTS_READ_PERMISSION = "projects.read"
 
 
 router = APIRouter()
@@ -50,7 +53,7 @@ def _ensure_project_access(
 @router.get("/{project_id}/tasks", response_model=list[TaskResponse])
 def list_tasks_route(
     project_id: str,
-    context: AuthenticatedContext = Depends(require_permission("projects.read")),
+    context: AuthenticatedContext = Depends(require_permission(_PROJECTS_READ_PERMISSION)),
     db: Session = Depends(get_db),
 ) -> list[TaskResponse]:
     return list_tasks(
@@ -80,7 +83,7 @@ def create_task_route(
 def get_task_route(
     project_id: str,
     task_id: str,
-    context: AuthenticatedContext = Depends(require_permission("projects.read")),
+    context: AuthenticatedContext = Depends(require_permission(_PROJECTS_READ_PERMISSION)),
     db: Session = Depends(get_db),
 ) -> TaskResponse:
     return get_task(
@@ -110,11 +113,28 @@ def update_task_route(
     )
 
 
+
+
+@router.delete("/{project_id}/tasks/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_task_route(
+    project_id: str,
+    task_id: str,
+    context: AuthenticatedContext = Depends(require_permission("tasks.delete")),
+    db: Session = Depends(get_db),
+) -> Response:
+    delete_task(
+        db,
+        company_id=context.company.id,
+        project_id=project_id,
+        task_id=task_id,
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
 @router.get("/{project_id}/tasks/{task_id}/members", response_model=list[TaskMemberSummary])
 def list_task_members_route(
     project_id: str,
     task_id: str,
-    context: AuthenticatedContext = Depends(require_permission("projects.read")),
+    context: AuthenticatedContext = Depends(require_permission(_PROJECTS_READ_PERMISSION)),
     db: Session = Depends(get_db),
 ) -> list[TaskMemberSummary]:
     return list_task_members(

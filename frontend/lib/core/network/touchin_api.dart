@@ -1,6 +1,7 @@
 import 'package:touchin_flutter/contracts/auth.dart';
 import 'package:touchin_flutter/contracts/contract_parsing.dart';
 import 'package:touchin_flutter/contracts/employee.dart';
+import 'package:touchin_flutter/contracts/kanban.dart';
 import 'package:touchin_flutter/contracts/punch.dart';
 import 'package:touchin_flutter/contracts/project.dart';
 import 'package:touchin_flutter/contracts/task.dart';
@@ -463,6 +464,171 @@ class TouchInApi {
   ) async {
     await _client.delete(
       '/projects/$projectId/tasks/$taskId/members/$employeeId',
+      withAuth: true,
+    );
+  }
+
+
+  Future<KanbanBoard> getKanbanBoard(String projectId) async {
+    final response = await _client.get(
+      '/projects/$projectId/kanban',
+      withAuth: true,
+    );
+    return _parseContract(
+      'project kanban',
+      () => KanbanBoard.fromJson(
+        requireJsonMap(response, 'project kanban response'),
+      ),
+    );
+  }
+
+  Future<KanbanBoard> createKanbanColumn(
+    String projectId, {
+    required String name,
+    required int expectedVersion,
+  }) async {
+    final response = await _client.post(
+      '/projects/$projectId/kanban/columns',
+      withAuth: true,
+      body: <String, dynamic>{
+        'name': name,
+        'expectedVersion': expectedVersion,
+      },
+    );
+    return _parseContract(
+      'create kanban column',
+      () => KanbanBoard.fromJson(
+        requireJsonMap(response, 'create kanban column response'),
+      ),
+    );
+  }
+
+  Future<KanbanBoard> renameKanbanColumn(
+    String projectId,
+    String columnId, {
+    required String name,
+    required int expectedVersion,
+  }) async {
+    final response = await _client.put(
+      '/projects/$projectId/kanban/columns/$columnId',
+      withAuth: true,
+      body: <String, dynamic>{
+        'name': name,
+        'expectedVersion': expectedVersion,
+      },
+    );
+    return _parseContract(
+      'rename kanban column',
+      () => KanbanBoard.fromJson(
+        requireJsonMap(response, 'rename kanban column response'),
+      ),
+    );
+  }
+
+  Future<KanbanBoard> reorderKanbanColumns(
+    String projectId, {
+    required int expectedVersion,
+    required List<String> columnIds,
+  }) async {
+    final response = await _client.put(
+      '/projects/$projectId/kanban/columns/order',
+      withAuth: true,
+      body: <String, dynamic>{
+        'expectedVersion': expectedVersion,
+        'columnIds': columnIds,
+      },
+    );
+    return _parseContract(
+      'reorder kanban columns',
+      () => KanbanBoard.fromJson(
+        requireJsonMap(response, 'reorder kanban columns response'),
+      ),
+    );
+  }
+
+  Future<KanbanBoard> deleteKanbanColumn(
+    String projectId,
+    String columnId, {
+    required int expectedVersion,
+  }) async {
+    final response = await _client.delete(
+      '/projects/$projectId/kanban/columns/$columnId'
+      '?expectedVersion=$expectedVersion',
+      withAuth: true,
+    );
+    return _parseContract(
+      'delete kanban column',
+      () => KanbanBoard.fromJson(
+        requireJsonMap(response, 'delete kanban column response'),
+      ),
+    );
+  }
+
+  Future<KanbanBoard> reorderKanbanCards(
+    String projectId, {
+    required int expectedVersion,
+    required Map<String, List<String>> columnTaskIds,
+  }) async {
+    final response = await _client.put(
+      '/projects/$projectId/kanban/cards/order',
+      withAuth: true,
+      body: <String, dynamic>{
+        'expectedVersion': expectedVersion,
+        'columns': columnTaskIds.entries
+            .map(
+              (entry) => <String, dynamic>{
+                'columnId': entry.key,
+                'taskIds': entry.value,
+              },
+            )
+            .toList(),
+      },
+    );
+    return _parseContract(
+      'reorder kanban cards',
+      () => KanbanBoard.fromJson(
+        requireJsonMap(response, 'reorder kanban cards response'),
+      ),
+    );
+  }
+
+  Future<KanbanCard> addKanbanAssignee(
+    String projectId,
+    String taskId,
+    String employeeId,
+  ) async {
+    final response = await _client.post(
+      '/projects/$projectId/kanban/cards/$taskId/assignees/$employeeId',
+      withAuth: true,
+    );
+    return _parseContract(
+      'add kanban assignee',
+      () => KanbanCard.fromJson(
+        requireJsonMap(response, 'add kanban assignee response'),
+      ),
+    );
+  }
+
+  Future<KanbanCard> removeKanbanAssignee(
+    String projectId,
+    String taskId,
+    String employeeId,
+  ) async {
+    final response = await _client.delete(
+      '/projects/$projectId/kanban/cards/$taskId/assignees/$employeeId',
+      withAuth: true,
+    );
+    return _parseContract(
+      'remove kanban assignee',
+      () => KanbanCard.fromJson(
+        requireJsonMap(response, 'remove kanban assignee response'),
+      ),
+    );
+  }
+
+  Future<void> deleteTask(String projectId, String taskId) async {
+    await _client.delete(
+      '/projects/$projectId/tasks/$taskId',
       withAuth: true,
     );
   }

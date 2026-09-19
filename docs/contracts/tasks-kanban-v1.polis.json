@@ -1,0 +1,313 @@
+{
+  "schema_version": 4,
+  "kind": "feature",
+  "scope": {
+    "allowed_paths": [
+      "backend/app/models.py",
+      "backend/app/database_schema.py",
+      "backend/app/authorization.py",
+      "backend/app/domain/project_read.py",
+      "backend/app/domain/task_read.py",
+      "backend/app/domain/kanban_read.py",
+      "backend/app/services/tasks.py",
+      "backend/app/services/kanban.py",
+      "backend/app/api/router.py",
+      "backend/app/api/routes/tasks.py",
+      "backend/app/api/routes/kanban.py",
+      "backend/app/schemas/task.py",
+      "backend/app/schemas/kanban.py",
+      "backend/tests/test_db_schema.py",
+      "backend/tests/test_permissions.py",
+      "backend/tests/test_project_tasks.py",
+      "backend/tests/test_kanban.py",
+      "frontend/lib/contracts/task.dart",
+      "frontend/lib/contracts/kanban.dart",
+      "frontend/lib/core/network/touchin_api.dart",
+      "frontend/lib/features/projects/presentation/project_tasks_controller.dart",
+      "frontend/lib/features/projects/presentation/project_tasks_page.dart",
+      "frontend/lib/features/projects/presentation/kanban_controller.dart",
+      "frontend/lib/features/projects/presentation/widgets/kanban_board.dart",
+      "frontend/test/core/network/project_task_api_test.dart",
+      "frontend/test/features/projects/presentation/project_tasks_controller_test.dart",
+      "frontend/test/features/projects/presentation/project_tasks_page_test.dart",
+      "frontend/test/features/projects/presentation/kanban_controller_test.dart",
+      "docs/contracts/tasks-kanban-v1.polis.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "backend/tests/test_db_schema.py",
+      "backend/tests/test_permissions.py",
+      "backend/tests/test_project_tasks.py",
+      "backend/tests/test_kanban.py",
+      "frontend/test/core/network/project_task_api_test.dart",
+      "frontend/test/features/projects/presentation/project_tasks_controller_test.dart",
+      "frontend/test/features/projects/presentation/project_tasks_page_test.dart",
+      "frontend/test/features/projects/presentation/kanban_controller_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Add a persistent per-project Kanban using Task as the canonical card, with ordered encrypted columns, monotonic human card numbers, safe concurrent ordering, project-scoped assignees, tenant isolation, and role-aware Flutter interaction.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "Each project exposes an isolated Kanban snapshot; managerial roles may access same-company projects without EmployeeProject, while employees require project membership."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "Task remains the canonical card and gains an immutable per-project card number plus persisted Kanban column and position."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "Project owns next_card_number and kanban_version; card numbers are unique per project, monotonic, concurrency-safe and never reused after deletion."
+      },
+      {
+        "id": "REQ-004",
+        "statement": "KanbanColumn is project-owned, ordered, encrypted, manager-administered and never deletable while non-empty or when it is the last column."
+      },
+      {
+        "id": "REQ-005",
+        "statement": "Card move/reorder and column reorder use expectedVersion, serialize on Project, normalize contiguous positions, increment kanban_version, and reject stale writes with 409."
+      },
+      {
+        "id": "REQ-006",
+        "statement": "TaskEmployee remains the assignee model and project.task_employee_limit remains the backend-enforced capacity; employees may manage Kanban assignees only for cards in projects they belong to."
+      },
+      {
+        "id": "REQ-007",
+        "statement": "Legacy Task create/update/list contracts remain compatible; old task creation places the task in the system initial column and does not weaken existing hierarchy or encryption rules."
+      },
+      {
+        "id": "REQ-008",
+        "statement": "Flutter represents the authoritative board snapshot, exposes a project Kanban entry, supports native drag/drop intents, gates actions by role, and reloads after 409 conflicts."
+      },
+      {
+        "id": "REQ-009",
+        "statement": "Schema upgrade backfills existing projects/tasks deterministically and idempotently, creating an initial A fazer column and assigning card numbers by created_at,id."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "Manager without membership can read and mutate same-company Kanban; employee requires membership and cannot administer columns or textual card content.",
+        "requirements": [
+          "REQ-001"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "Two projects may each have card #1, one project cannot duplicate a card number, and deleted numbers are not reused.",
+        "requirements": [
+          "REQ-002",
+          "REQ-003"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-003",
+        "statement": "A stale expectedVersion fails with 409 and accepted move/reorder persists contiguous positions after reload.",
+        "requirements": [
+          "REQ-005"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-004",
+        "statement": "Only project members can be assigned and capacity remains enforced by the backend.",
+        "requirements": [
+          "REQ-006"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-005",
+        "statement": "Legacy schema upgrades preserve tasks and assign each migrated task a stable number, valid column and position on repeated upgrade.",
+        "requirements": [
+          "REQ-009"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-006",
+        "statement": "Legacy Task APIs remain accepted and return additive cardNumber, kanbanColumnId and kanbanPosition fields.",
+        "requirements": [
+          "REQ-007"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-007",
+        "statement": "Flutter contracts/controller/widgets represent ordered columns/cards, role gating, drag/drop mutation intents and conflict reload semantics.",
+        "requirements": [
+          "REQ-008"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-008",
+        "statement": "Managers can create, rename, reorder and conservatively delete columns; employees cannot administer structure; non-empty and last-column deletion fail with 409.",
+        "requirements": [
+          "REQ-004"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "All Project access remains scoped by company_id before project membership or role checks."
+      },
+      {
+        "id": "INV-002",
+        "statement": "Task UUID, type, parent_task_id, encryption, timestamps and hierarchy remain authoritative."
+      },
+      {
+        "id": "INV-003",
+        "statement": "Project soft deletion remains status=inactive."
+      },
+      {
+        "id": "INV-004",
+        "statement": "Removing an EmployeeProject continues removing TaskEmployee links for that project."
+      },
+      {
+        "id": "INV-005",
+        "statement": "No Kanban mutation trusts client-supplied task, column or employee IDs without validating same project/company ownership."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "A card exists without a project-valid column, duplicate card number, or non-contiguous persisted position."
+      },
+      {
+        "id": "FORB-002",
+        "statement": "A stale board mutation silently overwrites an accepted newer mutation."
+      },
+      {
+        "id": "FORB-003",
+        "statement": "An employee outside a project can read or mutate its Kanban or become an assignee."
+      },
+      {
+        "id": "FORB-004",
+        "statement": "Deleting a column or card implicitly orphans cards or child tasks."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "Authenticated company/user context, project IDs, task/card IDs, column IDs, employee IDs and expected Kanban version."
+      },
+      {
+        "id": "IN-002",
+        "statement": "Existing Project, Task, EmployeeProject and TaskEmployee rows during schema upgrade."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "Authorized ordered Kanban snapshots with version, columns, cards and assignees."
+      },
+      {
+        "id": "OUT-002",
+        "statement": "Persisted, conflict-safe card/column lifecycle mutations with explicit 409 on stale state."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "Stale expectedVersion mutations fail with HTTP 409 and no partial ordering change is committed."
+      },
+      {
+        "id": "FAIL-002",
+        "statement": "Cross-company, cross-project and invalid membership identifiers fail closed without exposing foreign data."
+      },
+      {
+        "id": "FAIL-003",
+        "statement": "Deleting the last or a non-empty column, or deleting a task with children, fails with conflict and preserves data."
+      },
+      {
+        "id": "FAIL-004",
+        "statement": "If Flutter tooling is unavailable locally, frontend tests are not claimed as passed; source changes remain subject to CI flutter test."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "45147ed5fa5c3e31f4d5855c6f6c925d45d14637",
+    "base_tree": "3f1630f92951b187721fe7c286493dd8febb410e",
+    "policy_sha256": "cb60d7751236c799472a2e7166df0637c20f183f26a61900706bbdb69232ab34",
+    "specification_sha256": "78dc925cd28b1d396bae7135199f146f07b47a582ebc5ef56347009de1285b3c"
+  },
+  "behavior": {
+    "argv": [
+      "python",
+      "-m",
+      "pytest",
+      "tests/test_kanban.py",
+      "-q"
+    ],
+    "cwd": "backend",
+    "timeout_seconds": 180,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "python",
+      "-m",
+      "pytest",
+      "tests",
+      "-q"
+    ],
+    "cwd": "backend",
+    "timeout_seconds": 1200,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "python",
+        "-m",
+        "pytest",
+        "tests/test_kanban.py",
+        "-q"
+      ],
+      "cwd": "backend",
+      "timeout_seconds": 180,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "test_manager_can_read_board_without_project_membership"
+    ]
+  }
+}

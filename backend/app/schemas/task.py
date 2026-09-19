@@ -8,6 +8,9 @@ from pydantic import Field, field_validator
 from app.schemas.base import CamelModel
 
 
+_VALUE_MUST_NOT_BE_EMPTY = "Value must not be empty."
+
+
 class TaskType(str, Enum):
     bug = "bug"
     improvement = "improvement"
@@ -19,23 +22,24 @@ class TaskDraftPayload(CamelModel):
     description: str = Field(min_length=1, max_length=2000)
     type: TaskType
     parent_task_id: str | None = Field(default=None, min_length=1)
+    column_id: str | None = Field(default=None, min_length=1)
 
     @field_validator("name", "description")
     @classmethod
     def validate_non_empty_text(cls, value: str) -> str:
         value = value.strip()
         if not value:
-            raise ValueError("Value must not be empty.")
+            raise ValueError(_VALUE_MUST_NOT_BE_EMPTY)
         return value
 
-    @field_validator("parent_task_id")
+    @field_validator("parent_task_id", "column_id")
     @classmethod
-    def validate_parent_task_id(cls, value: str | None) -> str | None:
+    def validate_optional_id(cls, value: str | None) -> str | None:
         if value is None:
             return None
         value = value.strip()
         if not value:
-            raise ValueError("Value must not be empty.")
+            raise ValueError(_VALUE_MUST_NOT_BE_EMPTY)
         return value
 
 
@@ -43,6 +47,9 @@ class TaskResponse(CamelModel):
     id: str
     project_id: str
     parent_task_id: str | None
+    card_number: int
+    kanban_column_id: str
+    kanban_position: int
     name: str
     description: str
     type: TaskType
@@ -58,7 +65,7 @@ class TaskMemberPayload(CamelModel):
     def validate_employee_id(cls, value: str) -> str:
         value = value.strip()
         if not value:
-            raise ValueError("Value must not be empty.")
+            raise ValueError(_VALUE_MUST_NOT_BE_EMPTY)
         return value
 
 

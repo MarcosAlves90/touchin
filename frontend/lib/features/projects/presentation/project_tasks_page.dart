@@ -1,9 +1,11 @@
 import 'package:touchin_flutter/contracts/employee.dart';
 import 'package:touchin_flutter/contracts/project.dart';
+import 'package:touchin_flutter/contracts/kanban.dart';
 import 'package:touchin_flutter/contracts/task.dart';
 import 'package:touchin_flutter/core/network/api_client.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
 import 'package:touchin_flutter/features/projects/presentation/project_tasks_controller.dart';
+import 'package:touchin_flutter/features/projects/presentation/widgets/kanban_board.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
 import 'package:touchin_flutter/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -124,6 +126,8 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
             _buildProjectAccessCard(),
             const SizedBox(height: 20),
             _buildTaskWorkspace(isWide),
+            const SizedBox(height: 20),
+            _buildKanbanWorkspace(),
           ],
         ],
       ),
@@ -720,6 +724,291 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
                 );
               }).toList(),
             ),
+        ],
+      ),
+    );
+  }
+
+
+  Widget _buildKanbanWorkspace() {
+    return WorkspaceSectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          if (_controller.kanbanError != null) ...<Widget>[
+            _InfoBanner(message: _controller.kanbanError!),
+          ],
+          if (_controller.isLoadingKanban)
+            const SizedBox(
+              height: 240,
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (_controller.kanbanBoard == null)
+            _InlineError(
+              message:
+                  _controller.kanbanError ?? 'Não foi possível carregar o Kanban.',
+              onRetry: _controller.reloadKanban,
+            )
+          else
+            KanbanBoardView(
+              board: _controller.kanbanBoard!,
+              isBusy: _controller.isMutating,
+              canMoveCards: _controller.canMoveKanbanCards,
+              canManageStructure: _controller.canManageKanbanStructure,
+              canManageCards: _controller.canManageTasks,
+              canManageAssignees: _controller.canManageKanbanAssignees,
+              onMoveCard: (
+                taskId,
+                columnId,
+                index,
+              ) =>
+                  _controller.moveKanbanCard(
+                taskId: taskId,
+                toColumnId: columnId,
+                toIndex: index,
+              ),
+              onReorderColumns: _controller.reorderKanbanColumns,
+              onCreateColumn: _openCreateKanbanColumn,
+              onRenameColumn: _openRenameKanbanColumn,
+              onDeleteColumn: _confirmDeleteKanbanColumn,
+              onCreateCard: _openCreateKanbanCard,
+              onEditCard: _openEditKanbanCard,
+              onDeleteCard: _confirmDeleteKanbanCard,
+              onManageAssignees: _openManageKanbanAssignees,
+            ),
+        ],
+      ),
+    );
+  }
+
+  Future<String?> _promptKanbanColumnName({
+    required String title,
+    String initialValue = '',
+  }) async {
+    final controller = TextEditingController(text: initialValue);
+    final result = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text(title),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            maxLength: 160,
+            decoration: const InputDecoration(labelText: 'Nome da coluna'),
+            onSubmitted: (value) {
+              final trimmed = value.trim();
+              if (trimmed.isNotEmpty) {
+                Navigator.of(dialogContext).pop(trimmed);
+              }
+            },
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final trimmed = controller.text.trim();
+                if (trimmed.isNotEmpty) {
+                  Navigator.of(dialogContext).pop(trimmed);
+                }
+              },
+              child: const Text('Salvar'),
+            ),
+          ],
+        );
+      },
+    );
+    controller.dispose();
+    return result;
+  }
+
+  Future<void> _openCreateKanbanColumn() async {
+    final name = await _promptKanbanColumnName(title: 'Nova coluna');
+    if (name == null) {
+      return;
+    }
+    await _runAction(
+      () => _controller.createKanbanColumn(name),
+      successMessage: 'Coluna criada.',
+    );
+  }
+
+  Future<void> _openRenameKanbanColumn(KanbanColumn column) async {
+    final name = await _promptKanbanColumnName(
+      title: 'Renomear coluna',
+      initialValue: column.name,
+    );
+    if (name == null || name == column.name) {
+      return;
+    }
+    await _runAction(
+      () => _controller.renameKanbanColumn(column.id, name),
+      successMessage: 'Coluna atualizada.',
+    );
+  }
+
+  Future<void> _confirmDeleteKanbanColumn(KanbanColumn column) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Excluir coluna?'),
+        content: Text(
+          'A coluna "${column.name}" só pode ser excluída quando estiver vazia '
+          'e não for a última coluna do quadro.',
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Excluir'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) {
+      return;
+    }
+    await _runAction(
+      () => _controller.deleteKanbanColumn(column.id),
+      successMessage: 'Coluna excluída.',
+    );
+  }
+
+
+  Future<void> _openCreateKanbanCard(KanbanColumn column) async {
+    final project = _controller.selectedProject;
+    if (project == null) {
+      return;
+    }
+    final draft = await showDialog<TaskDraft>(
+      context: context,
+      builder: (_) => _TaskEditorDialog(
+        project: project,
+        tasks: _controller.tasks,
+      ),
+    );
+    if (draft == null) {
+      return;
+    }
+    final kanbanDraft = TaskDraft(
+      name: draft.name,
+      description: draft.description,
+      type: draft.type,
+      parentTaskId: draft.parentTaskId,
+      columnId: column.id,
+    );
+    await _runAction(
+      () => _controller.createTask(kanbanDraft),
+      successMessage: 'Card criado em ${column.name}.',
+    );
+  }
+
+  Future<void> _openEditKanbanCard(KanbanCard card) async {
+    await _openEditTask(card.toTaskRecord());
+  }
+
+  Future<void> _confirmDeleteKanbanCard(KanbanCard card) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('Excluir #${card.cardNumber}?'),
+        content: Text(
+          'O card "${card.name}" será removido. O número '
+          '#${card.cardNumber} não será reutilizado.',
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Excluir'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) {
+      return;
+    }
+    await _runAction(
+      () => _controller.deleteKanbanCard(card.id),
+      successMessage: 'Card excluído.',
+    );
+  }
+
+  Future<void> _openManageKanbanAssignees(KanbanCard card) async {
+    final project = _controller.selectedProject;
+    if (project == null) {
+      return;
+    }
+    final assignedIds = card.assignees.map((item) => item.employeeId).toSet();
+    final atCapacity = assignedIds.length >= project.taskEmployeeLimit;
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('Responsáveis de #${card.cardNumber}'),
+        content: SizedBox(
+          width: 420,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(
+                '${assignedIds.length}/${project.taskEmployeeLimit} responsável(is)',
+              ),
+              const SizedBox(height: 12),
+              Flexible(
+                child: ListView(
+                  shrinkWrap: true,
+                  children: _controller.projectMembers.map((member) {
+                    final assigned = assignedIds.contains(member.employeeId);
+                    return CheckboxListTile(
+                      value: assigned,
+                      title: Text(member.employeeName),
+                      controlAffinity: ListTileControlAffinity.leading,
+                      onChanged: _controller.isMutating ||
+                              (!assigned && atCapacity)
+                          ? null
+                          : (selected) async {
+                              Navigator.of(dialogContext).pop();
+                              if (selected == true) {
+                                await _runAction(
+                                  () => _controller.addKanbanAssignee(
+                                    card.id,
+                                    member.employeeId,
+                                  ),
+                                  successMessage: 'Responsável adicionado.',
+                                );
+                              } else {
+                                await _runAction(
+                                  () => _controller.removeKanbanAssignee(
+                                    card.id,
+                                    member.employeeId,
+                                  ),
+                                  successMessage: 'Responsável removido.',
+                                );
+                              }
+                            },
+                    );
+                  }).toList(),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Fechar'),
+          ),
         ],
       ),
     );

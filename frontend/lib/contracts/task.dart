@@ -29,6 +29,9 @@ class TaskRecord {
     required this.id,
     required this.projectId,
     required this.parentTaskId,
+    this.cardNumber = 0,
+    this.kanbanColumnId = '',
+    this.kanbanPosition = 0,
     required this.name,
     required this.description,
     required this.type,
@@ -39,6 +42,9 @@ class TaskRecord {
   final String id;
   final String projectId;
   final String? parentTaskId;
+  final int cardNumber;
+  final String kanbanColumnId;
+  final int kanbanPosition;
   final String name;
   final String description;
   final TaskType type;
@@ -50,6 +56,14 @@ class TaskRecord {
       id: requireString(json, 'id'),
       projectId: requireString(json, 'projectId'),
       parentTaskId: optionalString(json, 'parentTaskId'),
+      cardNumber:
+          json['cardNumber'] == null ? 0 : requireInt(json, 'cardNumber'),
+      kanbanColumnId: json['kanbanColumnId'] == null
+          ? ''
+          : requireString(json, 'kanbanColumnId'),
+      kanbanPosition: json['kanbanPosition'] == null
+          ? 0
+          : requireInt(json, 'kanbanPosition'),
       name: requireString(json, 'name'),
       description: requireString(json, 'description'),
       type: taskTypeFromApi(requireString(json, 'type')),
@@ -65,12 +79,14 @@ class TaskDraft {
     required this.description,
     required this.type,
     this.parentTaskId,
+    this.columnId,
   });
 
   final String name;
   final String description;
   final TaskType type;
   final String? parentTaskId;
+  final String? columnId;
 
   factory TaskDraft.fromTask(TaskRecord task) {
     return TaskDraft(
@@ -78,6 +94,7 @@ class TaskDraft {
       description: task.description,
       type: task.type,
       parentTaskId: task.parentTaskId,
+      columnId: task.kanbanColumnId.isEmpty ? null : task.kanbanColumnId,
     );
   }
 
@@ -87,6 +104,7 @@ class TaskDraft {
       'description': description.trim(),
       'type': taskTypeToApi(type),
       'parentTaskId': parentTaskId,
+      if (columnId != null) 'columnId': columnId,
     };
   }
 }
