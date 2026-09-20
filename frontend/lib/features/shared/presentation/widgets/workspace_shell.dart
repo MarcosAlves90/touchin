@@ -61,6 +61,7 @@ class WorkspaceScaffold extends StatelessWidget {
                 size: 260,
               ),
             ),
+            _buildStaticBackdrop(colorScheme),
             SafeArea(
               child: LayoutBuilder(
                 builder: (context, constraints) {
@@ -68,27 +69,35 @@ class WorkspaceScaffold extends StatelessWidget {
 
                   return DecoratedBox(
                     decoration: BoxDecoration(
-                      color: colorScheme.surface.withValues(alpha: 0.74),
                       border: Border.all(
                         color: colorScheme.outlineVariant.withValues(
                           alpha: 0.6,
                         ),
                       ),
                     ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.zero,
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                        child: isWide
-                            ? _buildWideLayout(context, constraints)
-                            : _buildNarrowLayout(context, constraints),
-                      ),
-                    ),
+                    child: isWide
+                        ? _buildWideLayout(context, constraints)
+                        : _buildNarrowLayout(context, constraints),
                   );
                 },
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStaticBackdrop(ColorScheme colorScheme) {
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: ClipRect(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+            child: ColoredBox(
+              color: colorScheme.surface.withValues(alpha: 0.74),
+            ),
+          ),
         ),
       ),
     );
