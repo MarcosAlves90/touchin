@@ -104,7 +104,7 @@ void main() {
   );
 
   testWidgets(
-    'real workspace drawer navigation reaches ProjectKanbanPage',
+    'real workspace drawer navigation settles before asserting destination',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(1440, 900));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -126,9 +126,45 @@ void main() {
       expect(kanbanEntry, findsOneWidget);
 
       await tester.tap(kanbanEntry);
-      await tester.pump();
+      await tester.pumpAndSettle();
 
       expect(find.byType(ProjectKanbanPage), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'normal replacement navigation settles on ProjectKanbanPage',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1440, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pushReplacement(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const ProjectKanbanPage(),
+                      ),
+                    );
+                  },
+                  child: const Text('Abrir Kanban'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Abrir Kanban'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ProjectKanbanPage), findsOneWidget);
+      expect(tester.takeException(), isNull);
     },
   );
 
