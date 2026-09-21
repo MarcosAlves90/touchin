@@ -70,15 +70,9 @@ class KanbanBoardView extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         Expanded(
-          child: ReorderableListView.builder(
+          child: ListView.builder(
             scrollDirection: Axis.horizontal,
-            buildDefaultDragHandles: false,
             itemCount: board.columns.length,
-            onReorder: canManageStructure && !isBusy
-                ? (oldIndex, newIndex) {
-                    onReorderColumns(oldIndex, newIndex);
-                  }
-                : (_, __) {},
             itemBuilder: (context, columnIndex) {
               final column = board.columns[columnIndex];
               return Padding(

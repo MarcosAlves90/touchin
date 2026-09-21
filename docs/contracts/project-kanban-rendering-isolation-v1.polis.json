@@ -1,0 +1,237 @@
+{
+  "schema_version": 4,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      "frontend/lib/features/projects/presentation/widgets/kanban_board.dart",
+      "frontend/web/flutter_bootstrap.js",
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart",
+      "frontend/test/web_renderer_policy_test.dart",
+      "docs/contracts/project-kanban-rendering-isolation-v1.polis.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart",
+      "frontend/test/web_renderer_policy_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Remove the unsuccessful global Firefox CPU-rendering workaround and isolate the remaining Kanban rendering defect by replacing only the horizontal column ReorderableListView with a plain horizontal ListView. Preserve the dedicated Kanban page, vertical card reordering, backend/API behavior, and all project/task functionality while reducing renderer and overlay complexity.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "The source tree must not provide a custom frontend/web/flutter_bootstrap.js; Flutter Web must use its generated bootstrap while frontend/web/index.html continues loading flutter_bootstrap.js."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "KanbanBoardView must render columns with a plain horizontal ListView rather than a horizontal ReorderableListView."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "Vertical card ordering inside non-empty columns must continue using the existing ReorderableListView and existing card movement callbacks."
+      },
+      {
+        "id": "REQ-004",
+        "statement": "ProjectKanbanPage must remain a dedicated screen with contentScrollable false; the Kanban must not be reinserted into ProjectTasksPage."
+      },
+      {
+        "id": "REQ-005",
+        "statement": "Column create, rename, delete, card CRUD, cross-column card movement, assignee management, optimistic concurrency, backend models, API routes, and persistence must remain unchanged."
+      },
+      {
+        "id": "REQ-006",
+        "statement": "Horizontal drag reordering of columns is intentionally not mounted in this isolation slice; the existing controller/API capability remains untouched for later reintroduction after rendering stability is verified."
+      },
+      {
+        "id": "REQ-007",
+        "statement": "The locked Change Contract must be versioned at docs/contracts/project-kanban-rendering-isolation-v1.polis.json."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "frontend/web/flutter_bootstrap.js is absent, index.html still references flutter_bootstrap.js, and the renderer-policy regression test protects use of Flutter's generated bootstrap.",
+        "requirements": [
+          "REQ-001"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "KanbanBoardView contains a horizontal ListView for columns and no horizontal ReorderableListView.",
+        "requirements": [
+          "REQ-002",
+          "REQ-006"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-003",
+        "statement": "KanbanBoardView still contains exactly one ReorderableListView for card ordering in non-empty columns.",
+        "requirements": [
+          "REQ-003"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-004",
+        "statement": "ProjectKanbanPage remains dedicated and outside the workspace's outer vertical scroll.",
+        "requirements": [
+          "REQ-004"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-005",
+        "statement": "The payload does not modify backend, API, database, authorization, controller, or project/task management behavior.",
+        "requirements": [
+          "REQ-005"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-006",
+        "statement": "The locked schema-v4 contract is present at docs/contracts/project-kanban-rendering-isolation-v1.polis.json.",
+        "requirements": [
+          "REQ-007"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "The dedicated Kanban route/page introduced previously remains in place."
+      },
+      {
+        "id": "INV-002",
+        "statement": "No new Flutter package or drag-and-drop dependency is introduced."
+      },
+      {
+        "id": "INV-003",
+        "statement": "Vertical card reorder and cross-column DragTarget/LongPressDraggable behavior are not rewritten in this slice."
+      },
+      {
+        "id": "INV-004",
+        "statement": "Existing historical POLIS contracts remain versioned under docs/contracts even when superseded by this diagnostic correction."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "canvasKitForceCpuOnly remains configured by application-owned web bootstrap code."
+      },
+      {
+        "id": "FORB-002",
+        "statement": "The horizontal Kanban column viewport is still a ReorderableListView."
+      },
+      {
+        "id": "FORB-003",
+        "statement": "The change rewrites card drag-and-drop, backend behavior, authorization, or persistence."
+      },
+      {
+        "id": "FORB-004",
+        "statement": "The Kanban is moved back into ProjectTasksPage."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "The published feature/tasks-kanban state at commit c4ed9c3e95a903bbf572c15fc5db9ca1cae37e39, where the dedicated Kanban page still exhibits the rendering defect and Firefox is globally forced to CanvasKit CPU-only rendering."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "Normal Flutter-generated web bootstrap with no application-level CPU-only renderer override."
+      },
+      {
+        "id": "OUT-002",
+        "statement": "Dedicated Kanban page whose horizontal column viewport is a plain ListView while vertical card reordering remains intact."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "If a custom CPU-only bootstrap remains, the horizontal column ReorderableListView remains, the vertical card ReorderableListView is removed, or the dedicated page is lost, validation fails closed with project_kanban_rendering_isolation_missing."
+      },
+      {
+        "id": "FAIL-002",
+        "statement": "Flutter/Dart tooling is unavailable in the artifact-production environment, so widget tests are included but must not be claimed as executed here; CI/local Flutter execution remains required."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "c4ed9c3e95a903bbf572c15fc5db9ca1cae37e39",
+    "base_tree": "f94072230c125cb7a3b7a7359a5fa5f551a6e52a",
+    "policy_sha256": "cb60d7751236c799472a2e7166df0637c20f183f26a61900706bbdb69232ab34",
+    "specification_sha256": "a8c014539b59cd163fdbf06feababb844148f52f8b4010131af34133790feebf"
+  },
+  "behavior": {
+    "argv": [
+      "python3",
+      "-c",
+      "from pathlib import Path; import sys; root=Path('.'); board=(root/'lib/features/projects/presentation/widgets/kanban_board.dart').read_text(); page=(root/'lib/features/projects/presentation/project_kanban_page.dart').read_text(); index=(root/'web/index.html').read_text(); bootstrap=root/'web/flutter_bootstrap.js'; tests=(root/'test/features/projects/presentation/project_kanban_page_test.dart').read_text(); webtest=(root/'test/web_renderer_policy_test.dart').read_text(); ok=(not bootstrap.exists() and '<script src=\\\"flutter_bootstrap.js\\\" async></script>' in index and 'child: ListView.builder(\\n            scrollDirection: Axis.horizontal' in board and 'child: ReorderableListView.builder(\\n            scrollDirection: Axis.horizontal' not in board and board.count('ReorderableListView.builder(')==1 and 'class ProjectKanbanPage' in page and 'contentScrollable: false' in page and 'Kanban columns avoid horizontal ReorderableListView' in tests and 'web startup uses the Flutter-generated bootstrap' in webtest); print('project_kanban_rendering_isolation_ok' if ok else 'project_kanban_rendering_isolation_missing'); sys.exit(0 if ok else 1)"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 30,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "python3",
+      "-c",
+      "from pathlib import Path; import sys; root=Path('.'); board=(root/'lib/features/projects/presentation/widgets/kanban_board.dart').read_text(); page=(root/'lib/features/projects/presentation/project_kanban_page.dart').read_text(); index=(root/'web/index.html').read_text(); bootstrap=root/'web/flutter_bootstrap.js'; tests=(root/'test/features/projects/presentation/project_kanban_page_test.dart').read_text(); webtest=(root/'test/web_renderer_policy_test.dart').read_text(); ok=(not bootstrap.exists() and '<script src=\\\"flutter_bootstrap.js\\\" async></script>' in index and 'child: ListView.builder(\\n            scrollDirection: Axis.horizontal' in board and 'child: ReorderableListView.builder(\\n            scrollDirection: Axis.horizontal' not in board and board.count('ReorderableListView.builder(')==1 and 'class ProjectKanbanPage' in page and 'contentScrollable: false' in page and 'Kanban columns avoid horizontal ReorderableListView' in tests and 'web startup uses the Flutter-generated bootstrap' in webtest); print('project_kanban_rendering_isolation_ok' if ok else 'project_kanban_rendering_isolation_missing'); sys.exit(0 if ok else 1)"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 30,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "python3",
+        "-c",
+        "from pathlib import Path; import sys; root=Path('.'); board=(root/'lib/features/projects/presentation/widgets/kanban_board.dart').read_text(); page=(root/'lib/features/projects/presentation/project_kanban_page.dart').read_text(); index=(root/'web/index.html').read_text(); bootstrap=root/'web/flutter_bootstrap.js'; tests=(root/'test/features/projects/presentation/project_kanban_page_test.dart').read_text(); webtest=(root/'test/web_renderer_policy_test.dart').read_text(); ok=(not bootstrap.exists() and '<script src=\\\"flutter_bootstrap.js\\\" async></script>' in index and 'child: ListView.builder(\\n            scrollDirection: Axis.horizontal' in board and 'child: ReorderableListView.builder(\\n            scrollDirection: Axis.horizontal' not in board and board.count('ReorderableListView.builder(')==1 and 'class ProjectKanbanPage' in page and 'contentScrollable: false' in page and 'Kanban columns avoid horizontal ReorderableListView' in tests and 'web startup uses the Flutter-generated bootstrap' in webtest); print('project_kanban_rendering_isolation_ok' if ok else 'project_kanban_rendering_isolation_missing'); sys.exit(0 if ok else 1)"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 30,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "project_kanban_rendering_isolation_missing"
+    ]
+  }
+}

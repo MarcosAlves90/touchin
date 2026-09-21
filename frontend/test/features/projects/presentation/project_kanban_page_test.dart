@@ -44,6 +44,35 @@ void main() {
   );
 
   testWidgets(
+    'Kanban columns avoid horizontal ReorderableListView',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1440, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ProjectKanbanPage(api: _FakeKanbanApi()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final reorderables = tester.widgetList<ReorderableListView>(
+        find.byType(ReorderableListView),
+      );
+      expect(
+        reorderables.any((list) => list.scrollDirection == Axis.horizontal),
+        isFalse,
+      );
+
+      final lists = tester.widgetList<ListView>(find.byType(ListView));
+      expect(
+        lists.any((list) => list.scrollDirection == Axis.horizontal),
+        isTrue,
+      );
+    },
+  );
+
+  testWidgets(
     'dedicated Kanban page remains bounded on narrow viewport',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(390, 844));
