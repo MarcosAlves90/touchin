@@ -12,7 +12,7 @@ import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_s
 
 void main() {
   testWidgets(
-    'uses a single-pane workspace on wide viewports',
+    'bypasses the workspace compositor on wide viewports',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(1440, 900));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -22,18 +22,16 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final shell = tester.widget<WorkspaceScaffold>(
-        find.byType(WorkspaceScaffold),
-      );
-      expect(shell.contentScrollable, isFalse);
-      expect(shell.wideBreakpoint, double.infinity);
+      expect(find.byType(WorkspaceScaffold), findsNothing);
+      expect(find.byType(BackdropFilter), findsNothing);
+      expect(find.byType(WorkspaceNavigationDrawer), findsOneWidget);
       expect(find.byType(KanbanBoardView), findsOneWidget);
       expect(find.text('#1'), findsOneWidget);
     },
   );
 
   testWidgets(
-    'restores native card drag and drop without reorderable board viewports',
+    'virtualizes columns and card slots with direct drag handles',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(1440, 900));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -48,10 +46,22 @@ void main() {
       expect(find.text('A fazer (1)'), findsOneWidget);
       expect(find.text('#1'), findsOneWidget);
       expect(find.text('Implementar tela'), findsOneWidget);
+
+      final listViews = tester.widgetList<ListView>(
+        find.descendant(of: board, matching: find.byType(ListView)),
+      );
+      expect(
+        listViews.any((list) => list.scrollDirection == Axis.horizontal),
+        isTrue,
+      );
+      expect(
+        listViews.any((list) => list.scrollDirection == Axis.vertical),
+        isTrue,
+      );
       expect(
         find.descendant(
           of: board,
-          matching: find.byType(LongPressDraggable<KanbanCard>),
+          matching: find.byType(Draggable<KanbanCard>),
         ),
         findsOneWidget,
       );
@@ -65,7 +75,21 @@ void main() {
       expect(
         find.descendant(
           of: board,
+          matching: find.byType(SingleChildScrollView),
+        ),
+        findsNothing,
+      );
+      expect(
+        find.descendant(
+          of: board,
           matching: find.byType(ReorderableListView),
+        ),
+        findsNothing,
+      );
+      expect(
+        find.descendant(
+          of: board,
+          matching: find.byType(LongPressDraggable<KanbanCard>),
         ),
         findsNothing,
       );
@@ -73,7 +97,7 @@ void main() {
   );
 
   testWidgets(
-    'single-pane Kanban remains bounded on narrow viewport',
+    'dedicated Kanban remains bounded on narrow viewport',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(390, 844));
       addTearDown(() => tester.binding.setSurfaceSize(null));

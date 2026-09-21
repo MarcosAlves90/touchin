@@ -34,7 +34,7 @@ class WorkspaceScaffold extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      drawer: _AppNavigationDrawer(onLogoutRequested: onLogoutRequested),
+      drawer: WorkspaceNavigationDrawer(onLogoutRequested: onLogoutRequested),
       body: DecoratedBox(
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -156,8 +156,11 @@ class WorkspaceScaffold extends StatelessWidget {
   }
 }
 
-class _AppNavigationDrawer extends StatelessWidget {
-  const _AppNavigationDrawer({required this.onLogoutRequested});
+class WorkspaceNavigationDrawer extends StatelessWidget {
+  const WorkspaceNavigationDrawer({
+    super.key,
+    this.onLogoutRequested = logoutFromWorkspace,
+  });
 
   final WorkspaceLogoutHandler onLogoutRequested;
 
@@ -349,7 +352,6 @@ class WorkspaceSidebar extends StatelessWidget {
     required this.summaryChildren,
     required this.highlightChips,
     this.brandLabel = 'TOUCHIN',
-    this.forceCompact = false,
   });
 
   final String title;
@@ -357,7 +359,6 @@ class WorkspaceSidebar extends StatelessWidget {
   final List<Widget> summaryChildren;
   final List<Widget> highlightChips;
   final String brandLabel;
-  final bool forceCompact;
 
   @override
   Widget build(BuildContext context) {
@@ -365,7 +366,7 @@ class WorkspaceSidebar extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final isWide = MediaQuery.of(context).size.width >= 1080;
 
-    if (forceCompact || !isWide) {
+    if (!isWide) {
       return _buildMobileHeader(context);
     }
 

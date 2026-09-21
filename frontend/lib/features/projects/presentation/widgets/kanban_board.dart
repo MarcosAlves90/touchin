@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:touchin_flutter/contracts/kanban.dart';
 
-class KanbanBoardView extends StatelessWidget {
+class KanbanBoardView extends StatefulWidget {
   const KanbanBoardView({
     super.key,
     required this.board,
@@ -39,77 +39,100 @@ class KanbanBoardView extends StatelessWidget {
   final void Function(KanbanCard card) onManageAssignees;
 
   @override
+  State<KanbanBoardView> createState() => _KanbanBoardViewState();
+}
+
+class _KanbanBoardViewState extends State<KanbanBoardView> {
+  final ScrollController _columnsController = ScrollController();
+
+  @override
+  void dispose() {
+    _columnsController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
         Row(
           children: <Widget>[
             Expanded(
               child: Text(
-                'Kanban',
+                'Quadro',
                 style: theme.textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.w700,
                 ),
               ),
             ),
             Text(
-              'v${board.kanbanVersion}',
+              'v${widget.board.kanbanVersion}',
               style: theme.textTheme.bodySmall,
             ),
-            if (canManageStructure) ...<Widget>[
+            if (widget.canManageStructure) ...<Widget>[
               const SizedBox(width: 8),
               FilledButton.tonalIcon(
-                onPressed: isBusy ? null : onCreateColumn,
+                onPressed: widget.isBusy ? null : widget.onCreateColumn,
                 icon: const Icon(Icons.add),
                 label: const Text('Coluna'),
               ),
             ],
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         Expanded(
-          child: board.columns.isEmpty
+          child: widget.board.columns.isEmpty
               ? const Center(child: Text('Nenhuma coluna disponível'))
-              : SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: <Widget>[
-                      for (var index = 0; index < board.columns.length; index++)
-                        Padding(
-                          key: ValueKey<String>(
-                            'kanban-column-${board.columns[index].id}',
-                          ),
-                          padding: EdgeInsets.only(
-                            right: index == board.columns.length - 1 ? 0 : 16,
-                          ),
-                          child: SizedBox(
-                            width: 320,
-                            child: _KanbanColumnPanel(
-                              column: board.columns[index],
+              : LayoutBuilder(
+                  builder: (context, constraints) {
+                    final laneWidth = constraints.maxWidth < 360
+                        ? constraints.maxWidth
+                        : constraints.maxWidth < 760
+                            ? 320.0
+                            : 340.0;
+
+                    return Scrollbar(
+                      controller: _columnsController,
+                      thumbVisibility: constraints.maxWidth >= 760,
+                      child: ListView.separated(
+                        key: const ValueKey<String>('kanban-column-list'),
+                        controller: _columnsController,
+                        primary: false,
+                        scrollDirection: Axis.horizontal,
+                        physics: const ClampingScrollPhysics(),
+                        itemCount: widget.board.columns.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: 12),
+                        itemBuilder: (context, index) {
+                          final column = widget.board.columns[index];
+                          return SizedBox(
+                            key: ValueKey<String>('kanban-column-${column.id}'),
+                            width: laneWidth,
+                            child: _KanbanColumnLane(
+                              column: column,
                               columnIndex: index,
-                              columnCount: board.columns.length,
-                              isBusy: isBusy,
-                              canMoveCards: canMoveCards,
-                              canManageStructure: canManageStructure,
-                              canManageCards: canManageCards,
-                              canManageAssignees: canManageAssignees,
+                              columnCount: widget.board.columns.length,
+                              isBusy: widget.isBusy,
+                              canMoveCards: widget.canMoveCards,
+                              canManageStructure: widget.canManageStructure,
+                              canManageCards: widget.canManageCards,
+                              canManageAssignees: widget.canManageAssignees,
                               onMoveCard: _moveCardToSlot,
-                              onReorderColumns: onReorderColumns,
-                              onRenameColumn: onRenameColumn,
-                              onDeleteColumn: onDeleteColumn,
-                              onCreateCard: onCreateCard,
-                              onEditCard: onEditCard,
-                              onDeleteCard: onDeleteCard,
-                              onManageAssignees: onManageAssignees,
+                              onReorderColumns: widget.onReorderColumns,
+                              onRenameColumn: widget.onRenameColumn,
+                              onDeleteColumn: widget.onDeleteColumn,
+                              onCreateCard: widget.onCreateCard,
+                              onEditCard: widget.onEditCard,
+                              onDeleteCard: widget.onDeleteCard,
+                              onManageAssignees: widget.onManageAssignees,
                             ),
-                          ),
-                        ),
-                    ],
-                  ),
+                          );
+                        },
+                      ),
+                    );
+                  },
                 ),
         ),
       ],
@@ -137,12 +160,12 @@ class KanbanBoardView extends StatelessWidget {
       }
     }
 
-    await onMoveCard(card.id, targetColumn.id, targetIndex);
+    await widget.onMoveCard(card.id, targetColumn.id, targetIndex);
   }
 }
 
-class _KanbanColumnPanel extends StatelessWidget {
-  const _KanbanColumnPanel({
+class _KanbanColumnLane extends StatelessWidget {
+  const _KanbanColumnLane({
     required this.column,
     required this.columnIndex,
     required this.columnCount,
@@ -185,18 +208,25 @@ class _KanbanColumnPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
 
-    return Card(
-      clipBehavior: Clip.antiAlias,
+    return Material(
+      clipBehavior: Clip.hardEdge,
+      color: colorScheme.surfaceContainerHighest,
+      shape: RoundedRectangleBorder(
+        side: BorderSide(color: colorScheme.outlineVariant),
+      ),
       child: Column(
         children: <Widget>[
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 8, 10),
+            padding: const EdgeInsets.fromLTRB(14, 10, 6, 8),
             child: Row(
               children: <Widget>[
                 Expanded(
                   child: Text(
                     '${column.name} (${column.cards.length})',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
@@ -229,6 +259,7 @@ class _KanbanColumnPanel extends StatelessWidget {
                 if (canManageCards)
                   IconButton(
                     tooltip: 'Novo card',
+                    visualDensity: VisualDensity.compact,
                     onPressed: isBusy ? null : () => onCreateCard(column),
                     icon: const Icon(Icons.add_task_outlined),
                   ),
@@ -305,52 +336,48 @@ class _KanbanCardList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (column.cards.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.all(10),
-        child: _KanbanDropZone(
-          expanded: true,
-          enabled: canMoveCards && !isBusy,
-          onAccept: (card) => onMoveCard(card, column, 0),
-          child: const Center(child: Text('Solte um card aqui')),
-        ),
-      );
-    }
+    final itemCount = column.cards.length * 2 + 1;
 
-    return SingleChildScrollView(
+    return ListView.builder(
+      key: ValueKey<String>('kanban-card-list-${column.id}'),
+      primary: false,
       padding: const EdgeInsets.all(10),
-      child: Column(
-        children: <Widget>[
-          _KanbanDropZone(
+      itemCount: itemCount,
+      itemBuilder: (context, itemIndex) {
+        if (itemIndex.isEven) {
+          final slot = itemIndex ~/ 2;
+          return _KanbanDropSlot(
+            key: ValueKey<String>('kanban-drop-${column.id}-$slot'),
+            expanded: column.cards.isEmpty,
             enabled: canMoveCards && !isBusy,
-            onAccept: (card) => onMoveCard(card, column, 0),
-          ),
-          for (var index = 0; index < column.cards.length; index++) ...<Widget>[
-            _KanbanCardTile(
-              key: ValueKey<String>('kanban-card-${column.cards[index].id}'),
-              card: column.cards[index],
-              isBusy: isBusy,
-              canMove: canMoveCards,
-              canManageCards: canManageCards,
-              canManageAssignees: canManageAssignees,
-              onEdit: () => onEditCard(column.cards[index]),
-              onDelete: () => onDeleteCard(column.cards[index]),
-              onManageAssignees: () =>
-                  onManageAssignees(column.cards[index]),
-            ),
-            _KanbanDropZone(
-              enabled: canMoveCards && !isBusy,
-              onAccept: (card) => onMoveCard(card, column, index + 1),
-            ),
-          ],
-        ],
-      ),
+            onAccept: (card) => onMoveCard(card, column, slot),
+            child: column.cards.isEmpty
+                ? const Center(child: Text('Solte um card aqui'))
+                : null,
+          );
+        }
+
+        final cardIndex = itemIndex ~/ 2;
+        final card = column.cards[cardIndex];
+        return _KanbanCardTile(
+          key: ValueKey<String>('kanban-card-${card.id}'),
+          card: card,
+          isBusy: isBusy,
+          canMove: canMoveCards,
+          canManageCards: canManageCards,
+          canManageAssignees: canManageAssignees,
+          onEdit: () => onEditCard(card),
+          onDelete: () => onDeleteCard(card),
+          onManageAssignees: () => onManageAssignees(card),
+        );
+      },
     );
   }
 }
 
-class _KanbanDropZone extends StatelessWidget {
-  const _KanbanDropZone({
+class _KanbanDropSlot extends StatelessWidget {
+  const _KanbanDropSlot({
+    super.key,
     required this.enabled,
     required this.onAccept,
     this.expanded = false,
@@ -372,12 +399,13 @@ class _KanbanDropZone extends StatelessWidget {
       builder: (context, candidates, rejected) {
         final isActive = candidates.isNotEmpty;
         return AnimatedContainer(
-          duration: const Duration(milliseconds: 120),
+          duration: const Duration(milliseconds: 100),
           width: double.infinity,
-          height: expanded ? 112 : (isActive ? 28 : 8),
+          height: expanded ? 112 : (isActive ? 34 : 10),
+          margin: const EdgeInsets.symmetric(vertical: 2),
           decoration: BoxDecoration(
             color: isActive
-                ? colorScheme.primaryContainer.withValues(alpha: 0.5)
+                ? colorScheme.primary.withValues(alpha: 0.12)
                 : Colors.transparent,
             border: isActive
                 ? Border.all(color: colorScheme.primary, width: 1.5)
@@ -415,9 +443,11 @@ class _KanbanCardTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
 
     return Card(
       margin: EdgeInsets.zero,
+      color: colorScheme.surface,
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
@@ -428,31 +458,41 @@ class _KanbanCardTile extends StatelessWidget {
                 Text(
                   '#${card.cardNumber}',
                   style: theme.textTheme.labelLarge?.copyWith(
-                    color: theme.colorScheme.primary,
+                    color: colorScheme.primary,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
                 const Spacer(),
                 if (canMove && !isBusy)
-                  LongPressDraggable<KanbanCard>(
+                  Draggable<KanbanCard>(
                     data: card,
                     feedback: Material(
                       elevation: 8,
-                      child: SizedBox(
-                        width: 280,
+                      color: colorScheme.surface,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 280),
                         child: Padding(
                           padding: const EdgeInsets.all(12),
-                          child: Text('#${card.cardNumber} ${card.name}'),
+                          child: Text(
+                            '#${card.cardNumber} ${card.name}',
+                            style: theme.textTheme.bodyMedium,
+                          ),
                         ),
                       ),
                     ),
                     childWhenDragging: const Opacity(
                       opacity: 0.35,
-                      child: Icon(Icons.open_with, size: 20),
+                      child: Icon(Icons.drag_indicator, size: 20),
                     ),
                     child: const Tooltip(
-                      message: 'Mover card',
-                      child: Icon(Icons.open_with, size: 20),
+                      message: 'Arraste para mover',
+                      child: MouseRegion(
+                        cursor: SystemMouseCursors.grab,
+                        child: Padding(
+                          padding: EdgeInsets.all(4),
+                          child: Icon(Icons.drag_indicator, size: 20),
+                        ),
+                      ),
                     ),
                   ),
                 if (canManageCards)
@@ -492,7 +532,7 @@ class _KanbanCardTile extends StatelessWidget {
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+                  color: colorScheme.onSurfaceVariant,
                 ),
               ),
             ],

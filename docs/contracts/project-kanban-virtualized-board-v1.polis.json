@@ -1,0 +1,236 @@
+{
+  "schema_version": 4,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      "frontend/lib/features/projects/presentation/project_kanban_page.dart",
+      "frontend/lib/features/projects/presentation/widgets/kanban_board.dart",
+      "frontend/lib/features/shared/presentation/widgets/workspace_shell.dart",
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart",
+      "docs/contracts/project-kanban-virtualized-board-v1.polis.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Replace the repeatedly failing Kanban rendering approach with an isolated standard Flutter Scaffold and a lazy two-axis board: horizontally virtualized columns and vertically virtualized card/drop slots. Remove the Kanban route from WorkspaceScaffold/BackdropFilter composition, preserve the existing backend/controller contracts, and keep drag/drop native without nested reorderable or eager scroll/row compositions.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "ProjectKanbanPage must render through its own plain Scaffold/AppBar/body coordinate system and must not mount WorkspaceScaffold, WorkspaceSidebar, BackdropFilter, ambient Stack layers, or the failed compact-sidebar workaround."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "The shared navigation drawer remains reusable by exposing the existing drawer widget publicly without changing navigation behavior for other workspace pages; WorkspaceSidebar returns to its original responsive behavior with no forceCompact flag."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "KanbanBoardView must render columns lazily with a horizontal ListView and cards/drop slots lazily with vertical ListView.builder rather than SingleChildScrollView + Row/Column eager composition."
+      },
+      {
+        "id": "REQ-004",
+        "statement": "Card movement must use a direct draggable handle with native Draggable\u003cKanbanCard\u003e and DragTarget\u003cKanbanCard\u003e slots, preserving same-column index normalization and cross-column moves without ReorderableListView."
+      },
+      {
+        "id": "REQ-005",
+        "statement": "Column create/rename/delete/reorder controls, card CRUD, assignees, card numbers, board version, role gating, 409 recovery, controller state, API, persistence, authorization, and backend behavior remain unchanged."
+      },
+      {
+        "id": "REQ-006",
+        "statement": "No third-party Flutter drag/drop or Kanban dependency and no browser-specific renderer override may be added."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "ProjectKanbanPage contains a standard Scaffold with AppBar and shared navigation drawer and does not contain WorkspaceScaffold; its widget regression test verifies no WorkspaceScaffold or BackdropFilter is mounted.",
+        "requirements": [
+          "REQ-001",
+          "REQ-002"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "KanbanBoardView uses a horizontal ListView.separated for lanes and a vertical ListView.builder for each lane's interleaved drop slots/cards, with no SingleChildScrollView or ReorderableListView.",
+        "requirements": [
+          "REQ-003"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-003",
+        "statement": "Visible cards retain #cardNumber, title, description, assignees and actions; movable cards expose Draggable\u003cKanbanCard\u003e and lanes expose DragTarget\u003cKanbanCard\u003e drop slots.",
+        "requirements": [
+          "REQ-004",
+          "REQ-005"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-004",
+        "statement": "The failed forceCompact/wideBreakpoint workaround is removed and non-Kanban workspace layout remains otherwise unchanged.",
+        "requirements": [
+          "REQ-001",
+          "REQ-002",
+          "REQ-005"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-005",
+        "statement": "The focused source-structural POLIS regression transitions from Red on commit a733b56 to Green on the redesigned target, and backend pytest remains green as protected-behavior evidence.",
+        "requirements": [
+          "REQ-005",
+          "REQ-006"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "The exact incremental baseline is remote feature/tasks-kanban commit a733b5644e68460a9d756738a1cb4aca03506bbc with tree adab691085a0c344e3e2b2a2ee9d98de5a238d89."
+      },
+      {
+        "id": "INV-002",
+        "statement": "ProjectTasksController remains the source of frontend authorization/capabilities and the backend remains the authorization boundary."
+      },
+      {
+        "id": "INV-003",
+        "statement": "Board mutations continue sending the existing expectedVersion through the controller; the renderer does not invent optimistic authoritative state."
+      },
+      {
+        "id": "INV-004",
+        "statement": "No backend, schema, API, contract model, pubspec, or web bootstrap file is modified."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "The Kanban page is still rendered beneath WorkspaceScaffold's Stack/BackdropFilter/sidebar layout path."
+      },
+      {
+        "id": "FORB-002",
+        "statement": "Kanban columns or cards are eagerly built by SingleChildScrollView + Row/Column or by nested ReorderableListView."
+      },
+      {
+        "id": "FORB-003",
+        "statement": "The redesign changes backend/domain/API/controller concurrency semantics or adds a third-party drag/drop dependency."
+      },
+      {
+        "id": "FORB-004",
+        "statement": "The old wideBreakpoint double.infinity / forceCompact workaround remains as the Kanban positioning strategy."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "Runtime screenshot after commit a733b56 still shows Kanban content painted underneath/through the compact orange header instead of respecting its layout origin."
+      },
+      {
+        "id": "IN-002",
+        "statement": "Earlier wide-layout evidence showed an offset approximately equal to the 360px workspace sidebar; converting that axis to a compact top header changed the manifestation but did not eliminate it, implicating the shared composited workspace layout path rather than Kanban business state."
+      },
+      {
+        "id": "IN-003",
+        "statement": "Existing STEP-10 requirements call for horizontal Flutter Kanban rendering with native drag/drop and do not require WorkspaceScaffold, ReorderableListView, or an external package."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "Dedicated Kanban screen using standard Scaffold geometry with no workspace backdrop/sidebar compositor in its paint ancestry."
+      },
+      {
+        "id": "OUT-002",
+        "statement": "Lazy horizontal lane list and lazy vertical card-slot lists with native handle drag/drop and existing management actions."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "If the dedicated plain Scaffold, public shared drawer, lazy two-axis lists, direct Draggable/DragTarget interaction, removal of eager/reorderable compositions, or removal of forceCompact is absent, the regression command fails closed with kanban_virtualized_board_redesign_missing."
+      },
+      {
+        "id": "FAIL-002",
+        "statement": "Flutter/Dart tooling is unavailable in this execution environment. POLIS development proof is therefore source-structural; flutter test/analyze/web build/browser smoke must not be claimed as locally executed."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "a733b5644e68460a9d756738a1cb4aca03506bbc",
+    "base_tree": "adab691085a0c344e3e2b2a2ee9d98de5a238d89",
+    "policy_sha256": "cb60d7751236c799472a2e7166df0637c20f183f26a61900706bbdb69232ab34",
+    "specification_sha256": "40c266c35da8402d54347926fa1986d9c38c2f22273b4b3bdab419bcb133cde6"
+  },
+  "behavior": {
+    "argv": [
+      "python3",
+      "-c",
+      "from pathlib import Path; import sys\nroot=Path('.')\npage=(root/'lib/features/projects/presentation/project_kanban_page.dart').read_text()\nboard=(root/'lib/features/projects/presentation/widgets/kanban_board.dart').read_text()\nshell=(root/'lib/features/shared/presentation/widgets/workspace_shell.dart').read_text()\ntests=(root/'test/features/projects/presentation/project_kanban_page_test.dart').read_text()\nchecks=[\n  'return Scaffold(' in page,\n  'WorkspaceNavigationDrawer(' in page,\n  'WorkspaceScaffold(' not in page,\n  'wideBreakpoint: double.infinity' not in page,\n  'forceCompact: true' not in page,\n  'class WorkspaceNavigationDrawer extends StatelessWidget' in shell,\n  'this.forceCompact = false' not in shell,\n  'final bool forceCompact;' not in shell,\n  'class KanbanBoardView extends StatefulWidget' in board,\n  'ListView.separated(' in board,\n  'scrollDirection: Axis.horizontal' in board,\n  'ListView.builder(' in board,\n  'Draggable\u003cKanbanCard\u003e' in board,\n  'DragTarget\u003cKanbanCard\u003e' in board,\n  'SingleChildScrollView' not in board,\n  'ReorderableListView' not in board,\n  'LongPressDraggable' not in board,\n  \"'#${card.cardNumber}'\" in board,\n  'bypasses the workspace compositor on wide viewports' in tests,\n  'virtualizes columns and card slots' in tests,\n]\nok=all(checks)\nprint('kanban_virtualized_board_redesign_ok' if ok else 'kanban_virtualized_board_redesign_missing')\nsys.exit(0 if ok else 1)\n"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 30,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "python3",
+      "-c",
+      "from pathlib import Path; import sys\nroot=Path('.')\npage=(root/'lib/features/projects/presentation/project_kanban_page.dart').read_text()\nboard=(root/'lib/features/projects/presentation/widgets/kanban_board.dart').read_text()\nshell=(root/'lib/features/shared/presentation/widgets/workspace_shell.dart').read_text()\ntests=(root/'test/features/projects/presentation/project_kanban_page_test.dart').read_text()\nchecks=[\n  'return Scaffold(' in page,\n  'WorkspaceNavigationDrawer(' in page,\n  'WorkspaceScaffold(' not in page,\n  'wideBreakpoint: double.infinity' not in page,\n  'forceCompact: true' not in page,\n  'class WorkspaceNavigationDrawer extends StatelessWidget' in shell,\n  'this.forceCompact = false' not in shell,\n  'final bool forceCompact;' not in shell,\n  'class KanbanBoardView extends StatefulWidget' in board,\n  'ListView.separated(' in board,\n  'scrollDirection: Axis.horizontal' in board,\n  'ListView.builder(' in board,\n  'Draggable\u003cKanbanCard\u003e' in board,\n  'DragTarget\u003cKanbanCard\u003e' in board,\n  'SingleChildScrollView' not in board,\n  'ReorderableListView' not in board,\n  'LongPressDraggable' not in board,\n  \"'#${card.cardNumber}'\" in board,\n  'bypasses the workspace compositor on wide viewports' in tests,\n  'virtualizes columns and card slots' in tests,\n]\nok=all(checks)\nprint('kanban_virtualized_board_redesign_ok' if ok else 'kanban_virtualized_board_redesign_missing')\nsys.exit(0 if ok else 1)\n"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 30,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "python3",
+        "-c",
+        "from pathlib import Path; import sys\nroot=Path('.')\npage=(root/'lib/features/projects/presentation/project_kanban_page.dart').read_text()\nboard=(root/'lib/features/projects/presentation/widgets/kanban_board.dart').read_text()\nshell=(root/'lib/features/shared/presentation/widgets/workspace_shell.dart').read_text()\ntests=(root/'test/features/projects/presentation/project_kanban_page_test.dart').read_text()\nchecks=[\n  'return Scaffold(' in page,\n  'WorkspaceNavigationDrawer(' in page,\n  'WorkspaceScaffold(' not in page,\n  'wideBreakpoint: double.infinity' not in page,\n  'forceCompact: true' not in page,\n  'class WorkspaceNavigationDrawer extends StatelessWidget' in shell,\n  'this.forceCompact = false' not in shell,\n  'final bool forceCompact;' not in shell,\n  'class KanbanBoardView extends StatefulWidget' in board,\n  'ListView.separated(' in board,\n  'scrollDirection: Axis.horizontal' in board,\n  'ListView.builder(' in board,\n  'Draggable\u003cKanbanCard\u003e' in board,\n  'DragTarget\u003cKanbanCard\u003e' in board,\n  'SingleChildScrollView' not in board,\n  'ReorderableListView' not in board,\n  'LongPressDraggable' not in board,\n  \"'#${card.cardNumber}'\" in board,\n  'bypasses the workspace compositor on wide viewports' in tests,\n  'virtualizes columns and card slots' in tests,\n]\nok=all(checks)\nprint('kanban_virtualized_board_redesign_ok' if ok else 'kanban_virtualized_board_redesign_missing')\nsys.exit(0 if ok else 1)\n"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 30,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "kanban_virtualized_board_redesign_missing"
+    ]
+  }
+}
