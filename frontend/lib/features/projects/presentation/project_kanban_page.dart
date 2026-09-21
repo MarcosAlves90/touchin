@@ -130,7 +130,10 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
       key: ValueKey<String?>(_controller.selectedProjectId),
       initialValue: _controller.selectedProjectId,
       isExpanded: true,
-      decoration: const InputDecoration(labelText: 'Projeto'),
+      decoration: const InputDecoration(
+        labelText: 'Projeto',
+        isDense: true,
+      ),
       items: _controller.projects
           .map(
             (project) => DropdownMenuItem<String>(
@@ -149,69 +152,39 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
             },
     );
 
-    final metrics = <Widget>[
-      _KanbanMetricItem(
-        icon: Icons.view_column_outlined,
-        label: 'Colunas',
-        value: board == null ? '—' : '${board.columns.length}',
-        compact: true,
-      ),
-      _KanbanMetricItem(
-        icon: Icons.task_alt_outlined,
-        label: 'Cards',
-        value: board == null ? '—' : '$cardCount',
-        compact: true,
-      ),
-      _KanbanMetricItem(
-        icon: Icons.groups_2_outlined,
-        label: 'Equipe',
-        value: '${_controller.projectMembers.length}',
-        compact: true,
-      ),
-    ];
+    final metrics = _KanbanMetricsStrip(
+      columns: board?.columns.length,
+      cards: board == null ? null : cardCount,
+      team: _controller.projectMembers.length,
+    );
 
-    Widget metricRow() {
-      return Row(
-        children: metrics.asMap().entries.map((entry) {
-          return Expanded(
-            child: Padding(
-              padding: EdgeInsets.only(
-                right: entry.key == metrics.length - 1 ? 0 : 6,
-              ),
-              child: entry.value,
-            ),
-          );
-        }).toList(),
-      );
-    }
+    final refresh = IconButton(
+      tooltip: 'Atualizar quadro',
+      visualDensity: VisualDensity.compact,
+      onPressed: _controller.isMutating || _controller.isLoadingBoard
+          ? null
+          : () => _controller.reload(),
+      icon: const Icon(Icons.refresh_rounded),
+    );
 
     return Material(
       key: const ValueKey<String>('kanban-project-overview'),
-      color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.42),
+      color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.28),
       shape: RoundedRectangleBorder(
         side: BorderSide(color: colorScheme.outlineVariant),
       ),
       child: Padding(
-        padding: EdgeInsets.all(compact ? 8 : 10),
+        padding: EdgeInsets.all(compact ? 7 : 8),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final horizontal = !compact && constraints.maxWidth >= 760;
-            if (horizontal) {
+            if (!compact && constraints.maxWidth >= 780) {
               return Row(
                 children: <Widget>[
-                  Expanded(flex: 5, child: selector),
-                  const SizedBox(width: 10),
-                  Expanded(flex: 4, child: metricRow()),
-                  const SizedBox(width: 6),
-                  IconButton(
-                    tooltip: 'Atualizar quadro',
-                    visualDensity: VisualDensity.compact,
-                    onPressed:
-                        _controller.isMutating || _controller.isLoadingBoard
-                            ? null
-                            : () => _controller.reload(),
-                    icon: const Icon(Icons.refresh_rounded),
-                  ),
+                  Expanded(child: selector),
+                  const SizedBox(width: 8),
+                  SizedBox(width: 292, child: metrics),
+                  const SizedBox(width: 2),
+                  refresh,
                 ],
               );
             }
@@ -220,23 +193,14 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: <Widget>[
                     Expanded(child: selector),
-                    const SizedBox(width: 6),
-                    IconButton(
-                      tooltip: 'Atualizar quadro',
-                      visualDensity: VisualDensity.compact,
-                      onPressed:
-                          _controller.isMutating || _controller.isLoadingBoard
-                              ? null
-                              : () => _controller.reload(),
-                      icon: const Icon(Icons.refresh_rounded),
-                    ),
+                    const SizedBox(width: 4),
+                    refresh,
                   ],
                 ),
                 const SizedBox(height: 6),
-                metricRow(),
+                metrics,
               ],
             );
           },
@@ -422,14 +386,12 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
   }
 
   Future<void> _openCreateKanbanCard(KanbanColumn column) async {
-    final project = _controller.selectedProject;
-    if (project == null) {
+    if (_controller.selectedProject == null) {
       return;
     }
     final draft = await showDialog<TaskDraft>(
       context: context,
       builder: (_) => ProjectTaskEditorDialog(
-        project: project,
         tasks: _controller.tasks,
       ),
     );
@@ -451,14 +413,12 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
   }
 
   Future<void> _openEditKanbanCard(KanbanCard card) async {
-    final project = _controller.selectedProject;
-    if (project == null) {
+    if (_controller.selectedProject == null) {
       return;
     }
     final draft = await showDialog<TaskDraft>(
       context: context,
       builder: (_) => ProjectTaskEditorDialog(
-        project: project,
         tasks: _controller.tasks,
         task: card.toTaskRecord(),
       ),
@@ -618,7 +578,7 @@ class _KanbanTopBar extends StatelessWidget {
     return Material(
       color: AppTheme.accent,
       child: SizedBox(
-        height: 58,
+        height: 54,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8),
           child: LayoutBuilder(
@@ -643,16 +603,16 @@ class _KanbanTopBar extends StatelessWidget {
                       fontWeight: FontWeight.w900,
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 10),
                   Container(
                     width: 1,
-                    height: 24,
+                    height: 20,
                     color: colorScheme.onPrimary.withValues(alpha: 0.2),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 10),
                   Icon(
                     Icons.view_kanban_outlined,
-                    size: 20,
+                    size: 18,
                     color: colorScheme.onPrimary,
                   ),
                   const SizedBox(width: 7),
@@ -688,94 +648,106 @@ class _KanbanTopBar extends StatelessWidget {
   }
 }
 
-class _KanbanMetricItem extends StatelessWidget {
-  const _KanbanMetricItem({
+class _KanbanMetricsStrip extends StatelessWidget {
+  const _KanbanMetricsStrip({
+    required this.columns,
+    required this.cards,
+    required this.team,
+  });
+
+  final int? columns;
+  final int? cards;
+  final int team;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      key: const ValueKey<String>('kanban-project-metrics'),
+      height: 48,
+      decoration: BoxDecoration(
+        color: colorScheme.surface.withValues(alpha: 0.58),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Row(
+        children: <Widget>[
+          Expanded(
+            child: _KanbanMetricCell(
+              icon: Icons.view_column_outlined,
+              label: 'Colunas',
+              value: columns?.toString() ?? '—',
+            ),
+          ),
+          VerticalDivider(width: 1, color: colorScheme.outlineVariant),
+          Expanded(
+            child: _KanbanMetricCell(
+              icon: Icons.task_alt_outlined,
+              label: 'Cards',
+              value: cards?.toString() ?? '—',
+            ),
+          ),
+          VerticalDivider(width: 1, color: colorScheme.outlineVariant),
+          Expanded(
+            child: _KanbanMetricCell(
+              icon: Icons.groups_2_outlined,
+              label: 'Equipe',
+              value: team.toString(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _KanbanMetricCell extends StatelessWidget {
+  const _KanbanMetricCell({
     required this.icon,
     required this.label,
     required this.value,
-    this.compact = false,
   });
 
   final IconData icon;
   final String label;
   final String value;
-  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-
-    if (compact) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-        decoration: BoxDecoration(
-          color: colorScheme.surface.withValues(alpha: 0.68),
-          border: Border.all(color: colorScheme.outlineVariant),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Icon(icon, size: 15, color: colorScheme.primary),
-            const SizedBox(height: 4),
-            Text(
-              value,
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w700,
-                fontSize: 10,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
-      decoration: BoxDecoration(
-        color: colorScheme.surface.withValues(alpha: 0.68),
-        border: Border.all(color: colorScheme.outlineVariant),
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: <Widget>[
-          Container(
-            width: 30,
-            height: 30,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: colorScheme.primary.withValues(alpha: 0.1),
-              border: Border.all(
-                color: colorScheme.primary.withValues(alpha: 0.2),
-              ),
-            ),
-            child: Icon(icon, size: 16, color: colorScheme.primary),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Text(
-            value,
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w900,
+          Icon(icon, size: 14, color: colorScheme.primary),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  value,
+                  maxLines: 1,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.w900,
+                    height: 1,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w600,
+                    height: 1,
+                  ),
+                ),
+              ],
             ),
           ),
         ],

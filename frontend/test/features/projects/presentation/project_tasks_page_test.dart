@@ -227,7 +227,7 @@ void main() {
     final shape = dialog.shape as RoundedRectangleBorder;
     expect(shape.borderRadius, BorderRadius.zero);
     expect(find.text('Detalhes da tarefa'), findsOneWidget);
-    expect(find.text('Projeto atual'), findsOneWidget);
+    expect(find.text('Projeto atual'), findsNothing);
     final taskNameField = tester.widget<TextFormField>(
       find.byWidgetPredicate(
         (widget) =>

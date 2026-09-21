@@ -1,18 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:touchin_flutter/contracts/project.dart';
 import 'package:touchin_flutter/contracts/task.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_editor_dialog.dart';
 
 class ProjectTaskEditorDialog extends StatefulWidget {
   const ProjectTaskEditorDialog({
     super.key,
-    required this.project,
     required this.tasks,
     this.task,
   });
 
-  final ProjectSummary project;
   final List<TaskRecord> tasks;
   final TaskRecord? task;
 
@@ -67,8 +64,6 @@ class _ProjectTaskEditorDialogState extends State<ProjectTaskEditorDialog> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
-            _ProjectContext(projectName: widget.project.name),
-            SizedBox(height: compact ? 14 : 18),
             TextFormField(
               controller: _nameController,
               autofocus: !compact,
@@ -190,58 +185,6 @@ class _ProjectTaskEditorDialogState extends State<ProjectTaskEditorDialog> {
   }
 }
 
-class _ProjectContext extends StatelessWidget {
-  const _ProjectContext({required this.projectName});
-
-  final String projectName;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-        border: Border.all(color: colorScheme.outlineVariant),
-      ),
-      child: Row(
-        children: <Widget>[
-          Icon(
-            Icons.folder_open_outlined,
-            size: 18,
-            color: colorScheme.primary,
-          ),
-          const SizedBox(width: 9),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  'Projeto atual',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 1),
-                Text(
-                  projectName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 String? _requiredTextWithinLimit(
   String? value, {

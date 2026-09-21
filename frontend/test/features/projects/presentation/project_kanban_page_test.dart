@@ -40,7 +40,7 @@ void main() {
     );
     final boardRect = tester.getRect(find.byType(ProjectKanbanBoard));
 
-    expect(overviewRect.height, lessThan(120));
+    expect(overviewRect.height, lessThan(80));
     expect(boardRect.top, greaterThan(overviewRect.bottom));
     expect(boardRect.width, greaterThan(0));
     expect(boardRect.height, greaterThan(0));
@@ -114,9 +114,15 @@ void main() {
     expect(find.text('Cards'), findsOneWidget);
     expect(find.text('Equipe'), findsOneWidget);
     expect(find.byTooltip('Atualizar quadro'), findsOneWidget);
+    final metrics = find.byKey(
+      const ValueKey<String>('kanban-project-metrics'),
+    );
+    expect(metrics, findsOneWidget);
+    expect(tester.getRect(metrics).height, 48);
     expect(find.text('Quadro'), findsOneWidget);
+    expect(find.text('v1'), findsNothing);
     expect(
-      find.text('Arraste cards pelo ícone para reorganizar o fluxo.'),
+      find.text('Arraste pelo ícone para mover cards entre etapas.'),
       findsOneWidget,
     );
     expect(find.text('Feature'), findsOneWidget);
@@ -126,7 +132,7 @@ void main() {
       const ValueKey<String>('kanban-project-overview'),
     );
     expect(overview, findsOneWidget);
-    expect(tester.getRect(overview).height, lessThan(120));
+    expect(tester.getRect(overview).height, lessThan(80));
     expect(tester.takeException(), isNull);
   });
 

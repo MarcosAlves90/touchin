@@ -566,7 +566,7 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
                 FilledButton.tonalIcon(
                   onPressed: _controller.isMutating
                       ? null
-                      : () => _openCreateTask(_controller.selectedProject!),
+                      : _openCreateTask,
                   icon: const Icon(Icons.add_task_rounded),
                   label: const Text('Nova tarefa'),
                 ),
@@ -797,11 +797,10 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
     );
   }
 
-  Future<void> _openCreateTask(ProjectSummary project) async {
+  Future<void> _openCreateTask() async {
     final draft = await showDialog<TaskDraft>(
       context: context,
       builder: (_) => ProjectTaskEditorDialog(
-        project: project,
         tasks: _controller.tasks,
       ),
     );
@@ -818,7 +817,6 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
     final draft = await showDialog<TaskDraft>(
       context: context,
       builder: (_) => ProjectTaskEditorDialog(
-        project: _controller.selectedProject!,
         tasks: _controller.tasks,
         task: task,
       ),

@@ -102,7 +102,6 @@ class _ProjectKanbanBoardState extends State<ProjectKanbanBoard> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
                 _BoardHeader(
-                  version: widget.board.kanbanVersion,
                   columnCount: widget.board.columns.length,
                   isBusy: widget.isBusy,
                   canMoveCards: widget.canMoveCards,
@@ -111,7 +110,7 @@ class _ProjectKanbanBoardState extends State<ProjectKanbanBoard> {
                   onScrollPrevious: () => _scrollBoard(-laneWidth),
                   onScrollNext: () => _scrollBoard(laneWidth),
                 ),
-                SizedBox(height: isCompact ? 10 : 14),
+                SizedBox(height: isCompact ? 8 : 10),
                 Expanded(
                   child: widget.board.columns.isEmpty
                       ? _EmptyBoardState(
@@ -282,11 +281,9 @@ class _ProjectKanbanBoardState extends State<ProjectKanbanBoard> {
               columnCount: widget.board.columns.length,
               isBusy: widget.isBusy,
               canManageStructure: widget.canManageStructure,
-              canManageCards: widget.canManageCards,
               onMoveColumn: widget.onMoveColumn,
               onRenameColumn: widget.onRenameColumn,
               onDeleteColumn: widget.onDeleteColumn,
-              onCreateCard: widget.onCreateCard,
             ),
             const Divider(height: 1),
             Expanded(
@@ -509,7 +506,6 @@ class _ProjectKanbanBoardState extends State<ProjectKanbanBoard> {
 
 class _BoardHeader extends StatelessWidget {
   const _BoardHeader({
-    required this.version,
     required this.columnCount,
     required this.isBusy,
     required this.canMoveCards,
@@ -519,7 +515,6 @@ class _BoardHeader extends StatelessWidget {
     required this.onScrollNext,
   });
 
-  final int version;
   final int columnCount;
   final bool isBusy;
   final bool canMoveCards;
@@ -538,7 +533,7 @@ class _BoardHeader extends StatelessWidget {
       children: <Widget>[
         Text(
           'Quadro',
-          style: theme.textTheme.titleLarge?.copyWith(
+          style: theme.textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.w800,
           ),
         ),
@@ -555,8 +550,8 @@ class _BoardHeader extends StatelessWidget {
             Flexible(
               child: Text(
                 canMoveCards
-                    ? 'Arraste cards pelo ícone para reorganizar o fluxo.'
-                    : 'Visualize o fluxo atual do projeto.',
+                    ? 'Arraste pelo ícone para mover cards entre etapas.'
+                    : 'Fluxo atual do projeto.',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.bodySmall?.copyWith(
@@ -574,11 +569,6 @@ class _BoardHeader extends StatelessWidget {
         icon: isBusy ? Icons.sync_rounded : Icons.cloud_done_outlined,
         label: isBusy ? 'Salvando' : 'Sincronizado',
         emphasized: isBusy,
-      ),
-      const SizedBox(width: 8),
-      _BoardMetaChip(
-        icon: Icons.tag_rounded,
-        label: 'v$version',
       ),
       if (columnCount > 1) ...<Widget>[
         const SizedBox(width: 6),
@@ -599,8 +589,8 @@ class _BoardHeader extends StatelessWidget {
         const SizedBox(width: 6),
         FilledButton.tonalIcon(
           style: FilledButton.styleFrom(
-            minimumSize: const Size(0, 42),
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            minimumSize: const Size(0, 38),
+            padding: const EdgeInsets.symmetric(horizontal: 10),
           ),
           onPressed: isBusy ? null : onCreateColumn,
           icon: const Icon(Icons.add_rounded, size: 18),
@@ -659,7 +649,7 @@ class _BoardMetaChip extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final tone = emphasized ? colorScheme.primary : colorScheme.onSurfaceVariant;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(
         color: emphasized
             ? colorScheme.primary.withValues(alpha: 0.12)
@@ -673,8 +663,8 @@ class _BoardMetaChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          Icon(icon, size: 15, color: tone),
-          const SizedBox(width: 6),
+          Icon(icon, size: 14, color: tone),
+          const SizedBox(width: 5),
           Text(
             label,
             style: theme.textTheme.labelSmall?.copyWith(
@@ -695,11 +685,9 @@ class _LaneHeader extends StatelessWidget {
     required this.columnCount,
     required this.isBusy,
     required this.canManageStructure,
-    required this.canManageCards,
     required this.onMoveColumn,
     required this.onRenameColumn,
     required this.onDeleteColumn,
-    required this.onCreateCard,
   });
 
   final KanbanColumn column;
@@ -707,11 +695,9 @@ class _LaneHeader extends StatelessWidget {
   final int columnCount;
   final bool isBusy;
   final bool canManageStructure;
-  final bool canManageCards;
   final Future<void> Function(String columnId, int index) onMoveColumn;
   final void Function(KanbanColumn column) onRenameColumn;
   final void Function(KanbanColumn column) onDeleteColumn;
-  final void Function(KanbanColumn column) onCreateCard;
 
   @override
   Widget build(BuildContext context) {
@@ -719,7 +705,7 @@ class _LaneHeader extends StatelessWidget {
     final colorScheme = theme.colorScheme;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(10, 8, 4, 7),
+      padding: const EdgeInsets.fromLTRB(10, 7, 4, 6),
       child: Row(
         children: <Widget>[
           Expanded(
@@ -757,13 +743,6 @@ class _LaneHeader extends StatelessWidget {
               ],
             ),
           ),
-          if (canManageCards)
-            IconButton(
-              tooltip: 'Adicionar card em ${column.name}',
-              visualDensity: VisualDensity.compact,
-              onPressed: isBusy ? null : () => onCreateCard(column),
-              icon: const Icon(Icons.add_task_outlined),
-            ),
           if (canManageStructure)
             PopupMenuButton<String>(
               tooltip: 'Opções da coluna',
@@ -1191,10 +1170,10 @@ class _EmptyLaneState extends StatelessWidget {
           children: <Widget>[
             Icon(
               Icons.inbox_outlined,
-              size: 28,
+              size: 26,
               color: colorScheme.onSurfaceVariant,
             ),
-            const SizedBox(height: 7),
+            const SizedBox(height: 6),
             Text(
               'Nenhum card nesta coluna',
               textAlign: TextAlign.center,
