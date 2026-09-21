@@ -42,6 +42,28 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('intrinsic layout regression keeps the board on finite flex constraints', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ProjectKanbanPage(api: _FakeKanbanApi(includeCard: false)),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SliverFillRemaining), findsNothing);
+    expect(find.byType(ProjectKanbanBoard), findsOneWidget);
+
+    final boardRect = tester.getRect(find.byType(ProjectKanbanBoard));
+    expect(boardRect.width, greaterThan(0));
+    expect(boardRect.height, greaterThan(0));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('manager actions remain interactive after reconstruction', (
     tester,
   ) async {

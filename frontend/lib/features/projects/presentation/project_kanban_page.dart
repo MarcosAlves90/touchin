@@ -89,37 +89,21 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final horizontalPadding = constraints.maxWidth >= 900 ? 28.0 : 16.0;
-        return CustomScrollView(
-          key: const ValueKey<String>('project-kanban-page-scroll'),
-          physics: const ClampingScrollPhysics(),
-          slivers: <Widget>[
-            SliverPadding(
-              padding: EdgeInsets.fromLTRB(
-                horizontalPadding,
-                20,
-                horizontalPadding,
-                0,
-              ),
-              sliver: SliverToBoxAdapter(
-                child: _buildProjectToolbar(constraints.maxWidth),
-              ),
-            ),
-            SliverPadding(
-              padding: EdgeInsets.fromLTRB(
-                horizontalPadding,
-                16,
-                horizontalPadding,
-                20,
-              ),
-              sliver: SliverFillRemaining(
-                hasScrollBody: false,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(minHeight: 360),
-                  child: _buildBoardContent(),
-                ),
-              ),
-            ),
-          ],
+        return Padding(
+          padding: EdgeInsets.fromLTRB(
+            horizontalPadding,
+            20,
+            horizontalPadding,
+            20,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              _buildProjectToolbar(constraints.maxWidth),
+              const SizedBox(height: 16),
+              Expanded(child: _buildBoardContent()),
+            ],
+          ),
         );
       },
     );
