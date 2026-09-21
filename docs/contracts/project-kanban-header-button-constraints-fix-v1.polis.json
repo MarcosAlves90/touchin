@@ -1,0 +1,226 @@
+{
+  "schema_version": 4,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      "frontend/lib/features/projects/presentation/widgets/project_kanban_board.dart",
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart",
+      "docs/contracts/project-kanban-header-button-constraints-fix-v1.polis.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Fix the reconstructed Kanban board's concrete Flutter layout failure where the production FilledButtonTheme uses Size.fromHeight(52), which carries an infinite minimum width, and the board header places FilledButton.tonalIcon as a non-flex child of Row. Preserve the global application theme and constrain only the compact Kanban toolbar action to a finite-width minimum while keeping the rebuilt board architecture unchanged.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "The fix must address the observed runtime mechanism directly: AppTheme's FilledButtonTheme uses minimumSize Size.fromHeight(52), while Row lays out non-flex children with unbounded horizontal constraints; the Kanban header FilledButton must therefore override its local minimum width with a finite value."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "The Kanban 'Coluna' toolbar action must preserve its 52px minimum height while allowing its width to be content-driven, using a local finite minimumSize rather than a fixed arbitrary width."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "The global AppTheme button configuration must remain unchanged because it is shared application behavior and the failure is specific to this compact Row placement."
+      },
+      {
+        "id": "REQ-004",
+        "statement": "Regression coverage must render ProjectKanbanPage with the actual AppTheme dark configuration, locate the 'Coluna' FilledButton, assert finite positive width, and observe no Flutter rendering exception."
+      },
+      {
+        "id": "REQ-005",
+        "statement": "No external dependency, backend/API/controller behavior, persistent ordering semantics, raw-pointer drag mechanism, sliver board structure, browser renderer workaround, or unrelated component may change."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "_BoardHeader's FilledButton.tonalIcon supplies a local minimumSize of Size(0, 52), preventing an infinite width while preserving the theme's intended button height.",
+        "requirements": [
+          "REQ-001",
+          "REQ-002"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "frontend/lib/theme/app_theme.dart is outside scope and remains byte-for-byte unchanged.",
+        "requirements": [
+          "REQ-003"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-003",
+        "statement": "The focused page widget test imports AppTheme, renders dark production theme, finds exactly one FilledButton labelled 'Coluna', asserts width \u003e 0 and \u003c 300, and expects tester.takeException() to be null.",
+        "requirements": [
+          "REQ-004"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-004",
+        "statement": "project_kanban_board.dart still uses the reconstructed LayoutBuilder/CustomScrollView/SliverFixedExtentList/Listener architecture and does not reintroduce Draggable, DragTarget, ReorderableListView, or external packages.",
+        "requirements": [
+          "REQ-005"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "ProjectKanbanController remains the sole Kanban presentation-state owner and the server remains authoritative for persistent ordering."
+      },
+      {
+        "id": "INV-002",
+        "statement": "The intrinsic-layout fix from the previous increment remains in place; ProjectKanbanPage does not reintroduce SliverFillRemaining around the board."
+      },
+      {
+        "id": "INV-003",
+        "statement": "pubspec.yaml and the dependency graph remain unchanged."
+      },
+      {
+        "id": "INV-004",
+        "statement": "The global FilledButtonTheme retains Size.fromHeight(52); only the compact Kanban Row action overrides the infinite minimum width locally."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "The Kanban header button inherits Size.fromHeight(52) unchanged while remaining a non-flex Row child, recreating BoxConstraints(w=Infinity, ...)."
+      },
+      {
+        "id": "FORB-002",
+        "statement": "The fix changes the global AppTheme merely to make the Kanban header work."
+      },
+      {
+        "id": "FORB-003",
+        "statement": "The fix assigns an arbitrary fixed button width or wraps the button in intrinsic measurement widgets."
+      },
+      {
+        "id": "FORB-004",
+        "statement": "A dependency, renderer flag, navigation workaround, or prior failed Kanban implementation primitive is introduced."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "Runtime Flutter Web failure: 'BoxConstraints forces an infinite width' with offending constraints BoxConstraints(w=Infinity, 44.0\u003c=h\u003c=Infinity), pointing to FilledButton at project_kanban_board.dart:426."
+      },
+      {
+        "id": "IN-002",
+        "statement": "The failing render stack is FilledButton \u003c- Row \u003c- _BoardHeader \u003c- Column \u003c- Stack \u003c- LayoutBuilder \u003c- ProjectKanbanBoard."
+      },
+      {
+        "id": "IN-003",
+        "statement": "AppTheme configures FilledButtonTheme with minimumSize: Size.fromHeight(52), whose width component is infinite; the board header currently provides no local minimumSize override."
+      },
+      {
+        "id": "IN-004",
+        "statement": "The previous intrinsic-layout increment target tree is 1ff23ceadd43ad7be61479f52d6907863038e208."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "A compact Kanban toolbar button with finite content-driven width and preserved minimum height."
+      },
+      {
+        "id": "OUT-002",
+        "statement": "A production-theme regression test that would reproduce the prior infinite-width assertion before the fix."
+      },
+      {
+        "id": "OUT-003",
+        "statement": "No changes outside the board widget, focused test, and this Change Contract."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "If the local button minimumSize override is absent, the regression command fails with kanban_header_button_infinite_width_risk."
+      },
+      {
+        "id": "FAIL-002",
+        "statement": "If the production-theme widget test still reports a rendering exception after this fix, diagnosis must proceed from the new first exception and must not revert to renderer/navigation workarounds without evidence."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "dce2213c8dde2e39440b1345b12d648f72d1471f",
+    "base_tree": "1ff23ceadd43ad7be61479f52d6907863038e208",
+    "policy_sha256": "cb60d7751236c799472a2e7166df0637c20f183f26a61900706bbdb69232ab34",
+    "specification_sha256": "98cc509709df004c318947b1993db402f64dfc7247e7ad8c0c7f75148363101c"
+  },
+  "behavior": {
+    "argv": [
+      "python3",
+      "-c",
+      "from pathlib import Path; import sys; board=Path('frontend/lib/features/projects/presentation/widgets/project_kanban_board.dart').read_text(); theme=Path('frontend/lib/theme/app_theme.dart').read_text(); test=Path('frontend/test/features/projects/presentation/project_kanban_page_test.dart').read_text(); header=board[board.index('class _BoardHeader'):board.index('class _LaneHeader')]; ok=('minimumSize: const Size(0, 52)' in header and 'FilledButton.tonalIcon(' in header and 'minimumSize: const Size.fromHeight(52)' in theme and \"package:touchin_flutter/theme/app_theme.dart\" in test and 'themeMode: ThemeMode.dark' in test and \"find.widgetWithText(FilledButton, 'Coluna')\" in test and 'lessThan(300)' in test and 'Draggable\u003c' not in board and 'DragTarget\u003c' not in board and 'ReorderableListView' not in board); print('kanban_header_button_constraints_ok' if ok else 'kanban_header_button_constraints_incomplete'); sys.exit(0 if ok else 1)"
+    ],
+    "cwd": ".",
+    "timeout_seconds": 30,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "python3",
+      "-c",
+      "from pathlib import Path; import sys; board=Path('frontend/lib/features/projects/presentation/widgets/project_kanban_board.dart').read_text(); theme=Path('frontend/lib/theme/app_theme.dart').read_text(); test=Path('frontend/test/features/projects/presentation/project_kanban_page_test.dart').read_text(); header=board[board.index('class _BoardHeader'):board.index('class _LaneHeader')]; ok=('minimumSize: const Size(0, 52)' in header and 'FilledButton.tonalIcon(' in header and 'minimumSize: const Size.fromHeight(52)' in theme and \"package:touchin_flutter/theme/app_theme.dart\" in test and 'themeMode: ThemeMode.dark' in test and \"find.widgetWithText(FilledButton, 'Coluna')\" in test and 'lessThan(300)' in test); print('kanban_header_button_constraints_ok' if ok else 'kanban_header_button_constraints_incomplete'); sys.exit(0 if ok else 1)"
+    ],
+    "cwd": ".",
+    "timeout_seconds": 30,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "python3",
+        "-c",
+        "from pathlib import Path; import sys; board=Path('frontend/lib/features/projects/presentation/widgets/project_kanban_board.dart').read_text(); header=board[board.index('class _BoardHeader'):board.index('class _LaneHeader')]; safe='minimumSize: const Size(0, 52)' in header; print('kanban_header_button_finite_width' if safe else 'kanban_header_button_infinite_width_risk'); sys.exit(0 if safe else 1)"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 30,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "kanban_header_button_infinite_width_risk"
+    ]
+  }
+}

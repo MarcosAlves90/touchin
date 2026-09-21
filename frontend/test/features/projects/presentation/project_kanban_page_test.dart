@@ -7,6 +7,7 @@ import 'package:touchin_flutter/contracts/task.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
 import 'package:touchin_flutter/features/projects/presentation/project_kanban_page.dart';
 import 'package:touchin_flutter/features/projects/presentation/widgets/project_kanban_board.dart';
+import 'package:touchin_flutter/theme/app_theme.dart';
 
 void main() {
   testWidgets('builds Kanban with an in-body header and bounded board', (
@@ -61,6 +62,29 @@ void main() {
     final boardRect = tester.getRect(find.byType(ProjectKanbanBoard));
     expect(boardRect.width, greaterThan(0));
     expect(boardRect.height, greaterThan(0));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('production theme keeps the board header button finitely constrained', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        darkTheme: AppTheme.dark(),
+        themeMode: ThemeMode.dark,
+        home: ProjectKanbanPage(api: _FakeKanbanApi(includeCard: false)),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final createColumn = find.widgetWithText(FilledButton, 'Coluna');
+    expect(createColumn, findsOneWidget);
+    expect(tester.getRect(createColumn).width, greaterThan(0));
+    expect(tester.getRect(createColumn).width, lessThan(300));
     expect(tester.takeException(), isNull);
   });
 
