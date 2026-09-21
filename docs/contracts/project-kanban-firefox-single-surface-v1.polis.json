@@ -1,0 +1,224 @@
+{
+  "schema_version": 4,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      "frontend/web/flutter_bootstrap.js",
+      "frontend/test/web_renderer_policy_test.dart",
+      "docs/contracts/project-kanban-firefox-single-surface-v1.polis.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/web_renderer_policy_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Fix the Firefox-only visual/input coordinate divergence without changing the Kanban implementation by constraining Flutter CanvasKit to one surface on Firefox through the documented web-loader configuration. Preserve default renderer behavior on other browsers and preserve all application/domain contracts.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "Firefox web startup must configure CanvasKit with canvasKitMaximumSurfaces=1 so the app does not depend on Firefox multi-surface canvas composition for ordinary Flutter UI."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "Non-Firefox browsers must receive no renderer override from this compatibility policy and continue using Flutter defaults."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "The previous canvasKitForceCpuOnly experiment must not return; CPU/GPU selection is independent from the multi-surface composition mechanism implicated by the current evidence."
+      },
+      {
+        "id": "REQ-004",
+        "statement": "No Kanban widget, controller, backend, API, domain model, authorization rule, drag/drop behavior, or project workspace component may be changed by this increment."
+      },
+      {
+        "id": "REQ-005",
+        "statement": "The custom bootstrap must follow Flutter loader requirements: include {{flutter_js}}, include {{flutter_build_config}}, and call _flutter.loader.load exactly once."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "An executable bootstrap harness observes canvasKitMaximumSurfaces=1 for a Firefox user agent and an empty config for a Chromium user agent.",
+        "requirements": [
+          "REQ-001",
+          "REQ-002"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "The harness proves canvasKitForceCpuOnly is absent and the loader is invoked exactly once.",
+        "requirements": [
+          "REQ-003",
+          "REQ-005"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-003",
+        "statement": "The repository diff for this increment is restricted to the bootstrap, its policy test, and this change contract; no Kanban Dart implementation file changes.",
+        "requirements": [
+          "REQ-004"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-004",
+        "statement": "The user runtime scenario on Firefox must be re-tested after application because this environment cannot run Flutter or Firefox; POLIS success alone does not claim the visual defect is resolved.",
+        "requirements": [
+          "REQ-001",
+          "REQ-004"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "The exact baseline is remote feature/tasks-kanban commit a039e83b744cadece19da52e14651f9076da0539 with tree ac68a60d7be3853c48e72df484d8f1ba149839ea."
+      },
+      {
+        "id": "INV-002",
+        "statement": "The redesigned Kanban at baseline a039e83 remains untouched; this increment changes only browser initialization policy."
+      },
+      {
+        "id": "INV-003",
+        "statement": "The project metadata identifies Flutter stable revision db50e20168db8fee486b9abf32fc912de3bc5b6a; no SDK or dependency version is changed in this increment."
+      },
+      {
+        "id": "INV-004",
+        "statement": "Chrome/Chromium and other non-Firefox browsers keep the generated Flutter renderer defaults."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "A browser-specific layout offset, transform, padding, hit-test compensation, CSS coordinate patch, or Kanban widget workaround is introduced."
+      },
+      {
+        "id": "FORB-002",
+        "statement": "canvasKitForceCpuOnly is reintroduced."
+      },
+      {
+        "id": "FORB-003",
+        "statement": "The compatibility setting applies globally to non-Firefox browsers."
+      },
+      {
+        "id": "FORB-004",
+        "statement": "Kanban Dart source is modified as part of this renderer-boundary increment."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "After a complete Kanban renderer rewrite at a039e83, Firefox still paints the project toolbar/board at visual coordinates inconsistent with the standard Scaffold/AppBar layout and the user reports that visible controls cannot be clicked."
+      },
+      {
+        "id": "IN-002",
+        "statement": "Earlier forcing CanvasKit CPU-only on Firefox did not resolve the defect, so GPU acceleration is not sufficient as the causal mechanism."
+      },
+      {
+        "id": "IN-003",
+        "statement": "Flutter 3.41.6 uses CanvasKit MultiSurfaceRasterizer by default on Firefox; the project metadata records the 3.41.6 stable revision."
+      },
+      {
+        "id": "IN-004",
+        "statement": "Flutter exposes canvasKitMaximumSurfaces as an official runtime loader configuration for limiting CanvasKit overlay canvases."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "A standards-compliant custom flutter_bootstrap.js that selects a single CanvasKit surface only for Firefox."
+      },
+      {
+        "id": "OUT-002",
+        "statement": "Regression coverage that distinguishes the Firefox configuration from the unchanged Chromium/default path."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "If the Firefox single-surface configuration is absent, leaks to Chromium, reintroduces CPU-only rendering, or invokes the loader incorrectly, the regression exits nonzero and emits kanban_firefox_single_surface_missing."
+      },
+      {
+        "id": "FAIL-002",
+        "statement": "Flutter/Dart and a Firefox runtime are unavailable in this execution environment; runtime visual/input verification remains explicitly pending after artifact validation."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "a039e83b744cadece19da52e14651f9076da0539",
+    "base_tree": "ac68a60d7be3853c48e72df484d8f1ba149839ea",
+    "policy_sha256": "cb60d7751236c799472a2e7166df0637c20f183f26a61900706bbdb69232ab34",
+    "specification_sha256": "3a0730c24dee759d5084c01c14864384163ac3ab7486944c1649b4a475f606ea"
+  },
+  "behavior": {
+    "argv": [
+      "node",
+      "-e",
+      "const fs = require('fs');\nconst vm = require('vm');\nconst path = 'web/flutter_bootstrap.js';\nif (!fs.existsSync(path)) {\n  console.log('kanban_firefox_single_surface_missing');\n  process.exit(1);\n}\nlet source = fs.readFileSync(path, 'utf8');\nsource = source.replace('{{flutter_js}}', '').replace('{{flutter_build_config}}', '');\nfunction loadFor(userAgent) {\n  let received = null;\n  const context = {\n    navigator: { userAgent },\n    _flutter: { loader: { load: (args) =\u003e { received = args; } } },\n  };\n  vm.createContext(context);\n  vm.runInContext(source, context);\n  return received;\n}\nconst firefox = loadFor('Mozilla/5.0 Firefox/155.0');\nconst chromium = loadFor('Mozilla/5.0 Chrome/140.0.0.0 Safari/537.36');\nconst firefoxConfig = firefox \u0026\u0026 firefox.config;\nconst chromiumConfig = chromium \u0026\u0026 chromium.config;\nconst ok =\n  firefoxConfig \u0026\u0026\n  firefoxConfig.canvasKitMaximumSurfaces === 1 \u0026\u0026\n  !Object.prototype.hasOwnProperty.call(firefoxConfig, 'canvasKitForceCpuOnly') \u0026\u0026\n  chromiumConfig \u0026\u0026\n  Object.keys(chromiumConfig).length === 0 \u0026\u0026\n  (source.match(/_flutter\\.loader\\.load\\(/g) || []).length === 1;\nconsole.log(ok ? 'kanban_firefox_single_surface_ok' : 'kanban_firefox_single_surface_missing');\nprocess.exit(ok ? 0 : 1);"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 30,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "node",
+      "-e",
+      "const fs = require('fs');\nconst vm = require('vm');\nconst path = 'web/flutter_bootstrap.js';\nif (!fs.existsSync(path)) {\n  console.log('kanban_firefox_single_surface_missing');\n  process.exit(1);\n}\nlet source = fs.readFileSync(path, 'utf8');\nsource = source.replace('{{flutter_js}}', '').replace('{{flutter_build_config}}', '');\nfunction loadFor(userAgent) {\n  let received = null;\n  const context = {\n    navigator: { userAgent },\n    _flutter: { loader: { load: (args) =\u003e { received = args; } } },\n  };\n  vm.createContext(context);\n  vm.runInContext(source, context);\n  return received;\n}\nconst firefox = loadFor('Mozilla/5.0 Firefox/155.0');\nconst chromium = loadFor('Mozilla/5.0 Chrome/140.0.0.0 Safari/537.36');\nconst firefoxConfig = firefox \u0026\u0026 firefox.config;\nconst chromiumConfig = chromium \u0026\u0026 chromium.config;\nconst ok =\n  firefoxConfig \u0026\u0026\n  firefoxConfig.canvasKitMaximumSurfaces === 1 \u0026\u0026\n  !Object.prototype.hasOwnProperty.call(firefoxConfig, 'canvasKitForceCpuOnly') \u0026\u0026\n  chromiumConfig \u0026\u0026\n  Object.keys(chromiumConfig).length === 0 \u0026\u0026\n  (source.match(/_flutter\\.loader\\.load\\(/g) || []).length === 1;\nconsole.log(ok ? 'kanban_firefox_single_surface_ok' : 'kanban_firefox_single_surface_missing');\nprocess.exit(ok ? 0 : 1);"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 30,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "node",
+        "-e",
+        "const fs = require('fs');\nconst vm = require('vm');\nconst path = 'web/flutter_bootstrap.js';\nif (!fs.existsSync(path)) {\n  console.log('kanban_firefox_single_surface_missing');\n  process.exit(1);\n}\nlet source = fs.readFileSync(path, 'utf8');\nsource = source.replace('{{flutter_js}}', '').replace('{{flutter_build_config}}', '');\nfunction loadFor(userAgent) {\n  let received = null;\n  const context = {\n    navigator: { userAgent },\n    _flutter: { loader: { load: (args) =\u003e { received = args; } } },\n  };\n  vm.createContext(context);\n  vm.runInContext(source, context);\n  return received;\n}\nconst firefox = loadFor('Mozilla/5.0 Firefox/155.0');\nconst chromium = loadFor('Mozilla/5.0 Chrome/140.0.0.0 Safari/537.36');\nconst firefoxConfig = firefox \u0026\u0026 firefox.config;\nconst chromiumConfig = chromium \u0026\u0026 chromium.config;\nconst ok =\n  firefoxConfig \u0026\u0026\n  firefoxConfig.canvasKitMaximumSurfaces === 1 \u0026\u0026\n  !Object.prototype.hasOwnProperty.call(firefoxConfig, 'canvasKitForceCpuOnly') \u0026\u0026\n  chromiumConfig \u0026\u0026\n  Object.keys(chromiumConfig).length === 0 \u0026\u0026\n  (source.match(/_flutter\\.loader\\.load\\(/g) || []).length === 1;\nconsole.log(ok ? 'kanban_firefox_single_surface_ok' : 'kanban_firefox_single_surface_missing');\nprocess.exit(ok ? 0 : 1);"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 30,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "kanban_firefox_single_surface_missing"
+    ]
+  }
+}
