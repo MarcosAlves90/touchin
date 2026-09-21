@@ -12,7 +12,28 @@ import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_s
 
 void main() {
   testWidgets(
-    'KanbanBoardView uses minimal inner layout probe',
+    'uses a single-pane workspace on wide viewports',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1440, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        MaterialApp(home: ProjectKanbanPage(api: _FakeKanbanApi())),
+      );
+      await tester.pumpAndSettle();
+
+      final shell = tester.widget<WorkspaceScaffold>(
+        find.byType(WorkspaceScaffold),
+      );
+      expect(shell.contentScrollable, isFalse);
+      expect(shell.wideBreakpoint, double.infinity);
+      expect(find.byType(KanbanBoardView), findsOneWidget);
+      expect(find.text('#1'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'restores native card drag and drop without reorderable board viewports',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(1440, 900));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -24,37 +45,35 @@ void main() {
 
       final board = find.byType(KanbanBoardView);
       expect(board, findsOneWidget);
-      expect(find.text('KanbanBoardView'), findsOneWidget);
-      expect(find.text('Versão: 1'), findsOneWidget);
-      expect(find.text('Colunas: 1'), findsOneWidget);
-      expect(find.text('Cards: 1'), findsOneWidget);
-      expect(find.text('A fazer (1)'), findsNothing);
-      expect(find.text('#1'), findsNothing);
-      expect(find.text('Implementar tela'), findsNothing);
-
-      for (final primitive in <Type>[
-        Row,
-        Expanded,
-        Align,
-        SingleChildScrollView,
-        Card,
-      ]) {
-        expect(
-          find.descendant(of: board, matching: find.byType(primitive)),
-          findsNothing,
-          reason: '$primitive must stay out of the diagnostic board subtree',
-        );
-      }
-
-      final shell = tester.widget<WorkspaceScaffold>(
-        find.byType(WorkspaceScaffold),
+      expect(find.text('A fazer (1)'), findsOneWidget);
+      expect(find.text('#1'), findsOneWidget);
+      expect(find.text('Implementar tela'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: board,
+          matching: find.byType(LongPressDraggable<KanbanCard>),
+        ),
+        findsOneWidget,
       );
-      expect(shell.contentScrollable, isFalse);
+      expect(
+        find.descendant(
+          of: board,
+          matching: find.byType(DragTarget<KanbanCard>),
+        ),
+        findsWidgets,
+      );
+      expect(
+        find.descendant(
+          of: board,
+          matching: find.byType(ReorderableListView),
+        ),
+        findsNothing,
+      );
     },
   );
 
   testWidgets(
-    'minimal inner layout probe remains valid on narrow viewport',
+    'single-pane Kanban remains bounded on narrow viewport',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(390, 844));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -65,9 +84,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(KanbanBoardView), findsOneWidget);
-      expect(find.text('Versão: 1'), findsOneWidget);
-      expect(find.text('Colunas: 1'), findsOneWidget);
-      expect(find.text('Cards: 1'), findsOneWidget);
+      expect(find.text('#1'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );

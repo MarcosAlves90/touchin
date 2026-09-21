@@ -349,6 +349,7 @@ class WorkspaceSidebar extends StatelessWidget {
     required this.summaryChildren,
     required this.highlightChips,
     this.brandLabel = 'TOUCHIN',
+    this.forceCompact = false,
   });
 
   final String title;
@@ -356,6 +357,7 @@ class WorkspaceSidebar extends StatelessWidget {
   final List<Widget> summaryChildren;
   final List<Widget> highlightChips;
   final String brandLabel;
+  final bool forceCompact;
 
   @override
   Widget build(BuildContext context) {
@@ -363,7 +365,7 @@ class WorkspaceSidebar extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final isWide = MediaQuery.of(context).size.width >= 1080;
 
-    if (!isWide) {
+    if (forceCompact || !isWide) {
       return _buildMobileHeader(context);
     }
 

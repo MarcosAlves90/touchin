@@ -47,6 +47,7 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
       animation: _controller,
       builder: (context, _) {
         return WorkspaceScaffold(
+          wideBreakpoint: double.infinity,
           contentScrollable: false,
           sidebar: _buildSidebar(),
           contentBuilder: (context, isWide) => _buildContent(isWide),
@@ -65,6 +66,7 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
         0;
 
     return WorkspaceSidebar(
+      forceCompact: true,
       title: 'Kanban por projeto.',
       description:
           'Organize o fluxo de trabalho do projeto selecionado em colunas e cards.',
