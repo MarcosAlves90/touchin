@@ -12,22 +12,21 @@ import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_s
 
 void main() {
   testWidgets(
-    'Kanban rendering probe isolates board subtree',
+    'static Kanban renderer mounts real board content',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(1440, 900));
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
       await tester.pumpWidget(
-        MaterialApp(
-          home: ProjectKanbanPage(api: _FakeKanbanApi()),
-        ),
+        MaterialApp(home: ProjectKanbanPage(api: _FakeKanbanApi())),
       );
       await tester.pumpAndSettle();
 
-      expect(find.byType(KanbanBoardView), findsNothing);
-      expect(find.text('Diagnóstico do quadro'), findsOneWidget);
-      expect(find.text('Colunas carregadas: 1'), findsOneWidget);
-      expect(find.text('Cards carregados: 1'), findsOneWidget);
+      expect(find.byType(KanbanBoardView), findsOneWidget);
+      expect(find.text('Diagnóstico do quadro'), findsNothing);
+      expect(find.text('A fazer (1)'), findsOneWidget);
+      expect(find.text('#1'), findsOneWidget);
+      expect(find.text('Implementar tela'), findsWidgets);
 
       final shell = tester.widget<WorkspaceScaffold>(
         find.byType(WorkspaceScaffold),
@@ -37,74 +36,43 @@ void main() {
   );
 
   testWidgets(
-    'dedicated Kanban page renders outside workspace vertical scrolling',
+    'static Kanban renderer contains no list reorder or drag primitives',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(1440, 900));
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
       await tester.pumpWidget(
-        MaterialApp(
-          home: ProjectKanbanPage(api: _FakeKanbanApi()),
-        ),
+        MaterialApp(home: ProjectKanbanPage(api: _FakeKanbanApi())),
       );
       await tester.pumpAndSettle();
 
-      expect(find.byType(ProjectKanbanPage), findsOneWidget);
-      expect(find.byType(KanbanBoardView), findsNothing);
-      expect(find.text('Projeto principal'), findsWidgets);
-      expect(find.text('Diagnóstico do quadro'), findsOneWidget);
-
-      final shell = tester.widget<WorkspaceScaffold>(
-        find.byType(WorkspaceScaffold),
-      );
-      expect(shell.contentScrollable, isFalse);
+      expect(find.byType(KanbanBoardView), findsOneWidget);
+      expect(find.byType(ListView), findsNothing);
+      expect(find.byType(ReorderableListView), findsNothing);
       expect(
-        find.ancestor(
-          of: find.text('Diagnóstico do quadro'),
+        find.descendant(
+          of: find.byType(KanbanBoardView),
           matching: find.byType(SingleChildScrollView),
         ),
-        findsNothing,
+        findsOneWidget,
       );
     },
   );
 
   testWidgets(
-    'diagnostic probe contains no Kanban board viewport subtree',
-    (tester) async {
-      await tester.binding.setSurfaceSize(const Size(1440, 900));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: ProjectKanbanPage(api: _FakeKanbanApi()),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(find.byType(KanbanBoardView), findsNothing);
-      expect(find.byType(ReorderableListView), findsNothing);
-      expect(find.byType(ListView), findsNothing);
-      expect(find.text('Diagnóstico do quadro'), findsOneWidget);
-    },
-  );
-
-  testWidgets(
-    'dedicated Kanban page remains bounded on narrow viewport',
+    'static Kanban renderer remains bounded on narrow viewport',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(390, 844));
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
       await tester.pumpWidget(
-        MaterialApp(
-          home: ProjectKanbanPage(api: _FakeKanbanApi()),
-        ),
+        MaterialApp(home: ProjectKanbanPage(api: _FakeKanbanApi())),
       );
       await tester.pumpAndSettle();
 
-      expect(find.byType(KanbanBoardView), findsNothing);
-      expect(find.text('Diagnóstico do quadro'), findsOneWidget);
-      expect(find.text('Colunas carregadas: 1'), findsOneWidget);
-      expect(find.text('Cards carregados: 1'), findsOneWidget);
+      expect(find.byType(KanbanBoardView), findsOneWidget);
+      expect(find.text('A fazer (1)'), findsOneWidget);
+      expect(find.text('#1'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );

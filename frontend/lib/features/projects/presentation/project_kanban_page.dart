@@ -4,6 +4,7 @@ import 'package:touchin_flutter/contracts/task.dart';
 import 'package:touchin_flutter/core/network/api_client.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
 import 'package:touchin_flutter/features/projects/presentation/project_tasks_controller.dart';
+import 'package:touchin_flutter/features/projects/presentation/widgets/kanban_board.dart';
 import 'package:touchin_flutter/features/projects/presentation/widgets/task_editor_dialog.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
 
@@ -184,12 +185,6 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
       );
     }
 
-    final columnCount = board.columns.length;
-    final cardCount = board.columns.fold<int>(
-      0,
-      (total, column) => total + column.cards.length,
-    );
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
@@ -198,35 +193,27 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
           const SizedBox(height: 12),
         ],
         Expanded(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              border: Border.all(
-                color: Theme.of(context).colorScheme.outlineVariant,
-              ),
+          child: KanbanBoardView(
+            board: board,
+            isBusy: _controller.isMutating,
+            canMoveCards: _controller.canMoveKanbanCards,
+            canManageStructure: _controller.canManageKanbanStructure,
+            canManageCards: _controller.canManageTasks,
+            canManageAssignees: _controller.canManageKanbanAssignees,
+            onMoveCard: (taskId, columnId, index) =>
+                _controller.moveKanbanCard(
+              taskId: taskId,
+              toColumnId: columnId,
+              toIndex: index,
             ),
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  Text(
-                    'Diagnóstico do quadro',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text('Colunas carregadas: $columnCount'),
-                  const SizedBox(height: 4),
-                  Text('Cards carregados: $cardCount'),
-                  const SizedBox(height: 12),
-                  Text(
-                    'KanbanBoardView temporariamente isolado para verificar o deslocamento de pintura.',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                ],
-              ),
-            ),
+            onReorderColumns: _controller.reorderKanbanColumns,
+            onCreateColumn: _openCreateKanbanColumn,
+            onRenameColumn: _openRenameKanbanColumn,
+            onDeleteColumn: _confirmDeleteKanbanColumn,
+            onCreateCard: _openCreateKanbanCard,
+            onEditCard: _openEditKanbanCard,
+            onDeleteCard: _confirmDeleteKanbanCard,
+            onManageAssignees: _openManageKanbanAssignees,
           ),
         ),
       ],

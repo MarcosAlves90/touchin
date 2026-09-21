@@ -41,6 +41,7 @@ class KanbanBoardView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -70,34 +71,34 @@ class KanbanBoardView extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         Expanded(
-          child: ListView.builder(
+          child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
-            itemCount: board.columns.length,
-            itemBuilder: (context, columnIndex) {
-              final column = board.columns[columnIndex];
-              return Padding(
-                key: ValueKey<String>('kanban-column-${column.id}'),
-                padding: const EdgeInsets.only(right: 16),
-                child: SizedBox(
-                  width: 320,
-                  child: _KanbanColumnPanel(
-                    column: column,
-                    isBusy: isBusy,
-                    canMoveCards: canMoveCards,
-                    canManageStructure: canManageStructure,
-                    canManageCards: canManageCards,
-                    canManageAssignees: canManageAssignees,
-                    onMoveCard: onMoveCard,
-                    onRenameColumn: onRenameColumn,
-                    onDeleteColumn: onDeleteColumn,
-                    onCreateCard: onCreateCard,
-                    onEditCard: onEditCard,
-                    onDeleteCard: onDeleteCard,
-                    onManageAssignees: onManageAssignees,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                for (final column in board.columns)
+                  Padding(
+                    key: ValueKey<String>('kanban-column-${column.id}'),
+                    padding: const EdgeInsets.only(right: 16),
+                    child: SizedBox(
+                      width: 320,
+                      child: _StaticKanbanColumnPanel(
+                        column: column,
+                        isBusy: isBusy,
+                        canManageStructure: canManageStructure,
+                        canManageCards: canManageCards,
+                        canManageAssignees: canManageAssignees,
+                        onRenameColumn: onRenameColumn,
+                        onDeleteColumn: onDeleteColumn,
+                        onCreateCard: onCreateCard,
+                        onEditCard: onEditCard,
+                        onDeleteCard: onDeleteCard,
+                        onManageAssignees: onManageAssignees,
+                      ),
+                    ),
                   ),
-                ),
-              );
-            },
+              ],
+            ),
           ),
         ),
       ],
@@ -105,15 +106,13 @@ class KanbanBoardView extends StatelessWidget {
   }
 }
 
-class _KanbanColumnPanel extends StatelessWidget {
-  const _KanbanColumnPanel({
+class _StaticKanbanColumnPanel extends StatelessWidget {
+  const _StaticKanbanColumnPanel({
     required this.column,
     required this.isBusy,
-    required this.canMoveCards,
     required this.canManageStructure,
     required this.canManageCards,
     required this.canManageAssignees,
-    required this.onMoveCard,
     required this.onRenameColumn,
     required this.onDeleteColumn,
     required this.onCreateCard,
@@ -124,12 +123,9 @@ class _KanbanColumnPanel extends StatelessWidget {
 
   final KanbanColumn column;
   final bool isBusy;
-  final bool canMoveCards;
   final bool canManageStructure;
   final bool canManageCards;
   final bool canManageAssignees;
-  final Future<void> Function(String taskId, String columnId, int index)
-      onMoveCard;
   final void Function(KanbanColumn column) onRenameColumn;
   final void Function(KanbanColumn column) onDeleteColumn;
   final void Function(KanbanColumn column) onCreateCard;
@@ -140,127 +136,92 @@ class _KanbanColumnPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return DragTarget<KanbanCard>(
-      onWillAccept: canMoveCards && !isBusy
-          ? (card) => card != null
-          : null,
-      onAccept: canMoveCards && !isBusy
-          ? (card) {
-              onMoveCard(card.id, column.id, column.cards.length);
-            }
-          : null,
-      builder: (context, candidates, rejected) {
-        return Card(
-          clipBehavior: Clip.antiAlias,
-          child: Container(
-            decoration: candidates.isEmpty
-                ? null
-                : BoxDecoration(
-                    border: Border.all(
-                      color: theme.colorScheme.primary,
-                      width: 2,
+
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: <Widget>[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 8, 10),
+            child: Row(
+              children: <Widget>[
+                Expanded(
+                  child: Text(
+                    '${column.name} (${column.cards.length})',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-            child: Column(
-              children: <Widget>[
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 8, 10),
-                  child: Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: Text(
-                          '${column.name} (${column.cards.length})',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
+                ),
+                if (canManageCards)
+                  IconButton(
+                    tooltip: 'Novo card',
+                    onPressed: isBusy ? null : () => onCreateCard(column),
+                    icon: const Icon(Icons.add_task_outlined),
+                  ),
+                if (canManageStructure)
+                  PopupMenuButton<String>(
+                    enabled: !isBusy,
+                    onSelected: (value) {
+                      if (value == 'rename') {
+                        onRenameColumn(column);
+                      } else if (value == 'delete') {
+                        onDeleteColumn(column);
+                      }
+                    },
+                    itemBuilder: (_) => const <PopupMenuEntry<String>>[
+                      PopupMenuItem(
+                        value: 'rename',
+                        child: Text('Renomear'),
                       ),
-                      if (canManageCards)
-                        IconButton(
-                          tooltip: 'Novo card',
-                          onPressed: isBusy ? null : () => onCreateCard(column),
-                          icon: const Icon(Icons.add_task_outlined),
-                        ),
-                      if (canManageStructure)
-                        PopupMenuButton<String>(
-                          enabled: !isBusy,
-                          onSelected: (value) {
-                            if (value == 'rename') {
-                              onRenameColumn(column);
-                            } else if (value == 'delete') {
-                              onDeleteColumn(column);
-                            }
-                          },
-                          itemBuilder: (_) => const <PopupMenuEntry<String>>[
-                            PopupMenuItem(
-                              value: 'rename',
-                              child: Text('Renomear'),
-                            ),
-                            PopupMenuItem(
-                              value: 'delete',
-                              child: Text('Excluir'),
-                            ),
-                          ],
-                        ),
+                      PopupMenuItem(
+                        value: 'delete',
+                        child: Text('Excluir'),
+                      ),
                     ],
                   ),
-                ),
-                const Divider(height: 1),
-                Expanded(
-                  child: column.cards.isEmpty
-                      ? Center(
-                          child: Text(
-                            'Solte um card aqui',
-                            style: theme.textTheme.bodyMedium,
-                          ),
-                        )
-                      : ReorderableListView.builder(
-                          padding: const EdgeInsets.all(10),
-                          buildDefaultDragHandles: false,
-                          itemCount: column.cards.length,
-                          onReorder: canMoveCards && !isBusy
-                              ? (oldIndex, newIndex) {
-                                  if (newIndex > oldIndex) {
-                                    newIndex -= 1;
-                                  }
-                                  final card = column.cards[oldIndex];
-                                  onMoveCard(card.id, column.id, newIndex);
-                                }
-                              : (_, __) {},
-                          itemBuilder: (context, index) {
-                            final card = column.cards[index];
-                            return _KanbanCardTile(
-                              key: ValueKey<String>('kanban-card-${card.id}'),
-                              card: card,
-                              index: index,
-                              isBusy: isBusy,
-                              canMove: canMoveCards,
-                              canDelete: canManageCards,
-                              canManageAssignees: canManageAssignees,
-                              onEdit: () => onEditCard(card),
-                              onDelete: () => onDeleteCard(card),
-                              onManageAssignees: () =>
-                                  onManageAssignees(card),
-                            );
-                          },
-                        ),
-                ),
               ],
             ),
           ),
-        );
-      },
+          const Divider(height: 1),
+          Expanded(
+            child: column.cards.isEmpty
+                ? Center(
+                    child: Text(
+                      'Nenhum card nesta coluna',
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                  )
+                : Padding(
+                    padding: const EdgeInsets.all(10),
+                    child: Column(
+                      children: <Widget>[
+                        for (final card in column.cards)
+                          _StaticKanbanCardTile(
+                            key: ValueKey<String>('kanban-card-${card.id}'),
+                            card: card,
+                            isBusy: isBusy,
+                            canDelete: canManageCards,
+                            canManageAssignees: canManageAssignees,
+                            onEdit: () => onEditCard(card),
+                            onDelete: () => onDeleteCard(card),
+                            onManageAssignees: () => onManageAssignees(card),
+                          ),
+                      ],
+                    ),
+                  ),
+          ),
+        ],
+      ),
     );
   }
 }
 
-class _KanbanCardTile extends StatelessWidget {
-  const _KanbanCardTile({
+class _StaticKanbanCardTile extends StatelessWidget {
+  const _StaticKanbanCardTile({
     super.key,
     required this.card,
-    required this.index,
     required this.isBusy,
-    required this.canMove,
     required this.canDelete,
     required this.canManageAssignees,
     required this.onEdit,
@@ -269,9 +230,7 @@ class _KanbanCardTile extends StatelessWidget {
   });
 
   final KanbanCard card;
-  final int index;
   final bool isBusy;
-  final bool canMove;
   final bool canDelete;
   final bool canManageAssignees;
   final VoidCallback onEdit;
@@ -281,7 +240,8 @@ class _KanbanCardTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final content = Card(
+
+    return Card(
       margin: const EdgeInsets.only(bottom: 10),
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -298,31 +258,6 @@ class _KanbanCardTile extends StatelessWidget {
                   ),
                 ),
                 const Spacer(),
-                if (canMove && !isBusy)
-                  LongPressDraggable<KanbanCard>(
-                    data: card,
-                    feedback: Material(
-                      elevation: 8,
-                      child: SizedBox(
-                        width: 280,
-                        child: Card(
-                          child: Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Text('#${card.cardNumber} ${card.name}'),
-                          ),
-                        ),
-                      ),
-                    ),
-                    child: const Icon(Icons.open_with, size: 20),
-                  ),
-                if (canMove && !isBusy)
-                  ReorderableDragStartListener(
-                    index: index,
-                    child: const Padding(
-                      padding: EdgeInsets.only(left: 8),
-                      child: Icon(Icons.drag_handle, size: 20),
-                    ),
-                  ),
                 if (canDelete)
                   PopupMenuButton<String>(
                     enabled: !isBusy,
@@ -375,7 +310,5 @@ class _KanbanCardTile extends StatelessWidget {
         ),
       ),
     );
-
-    return content;
   }
 }
