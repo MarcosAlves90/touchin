@@ -1,0 +1,223 @@
+{
+  "schema_version": 4,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      "frontend/lib/features/projects/presentation/project_kanban_page.dart",
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart",
+      "docs/contracts/project-kanban-board-subtree-isolation-v1.polis.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Run a reversible diagnostic isolation on the dedicated Kanban screen to determine whether the remaining wide-viewport paint offset originates inside KanbanBoardView or in the WorkspaceScaffold non-scrollable content path. Keep the dedicated route, contentScrollable=false shell mode, controller/API loading, sidebar, project selector, and renderer configuration unchanged while replacing only the mounted KanbanBoardView subtree with a simple bounded diagnostic probe.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "ProjectKanbanPage must remain a dedicated screen and must continue using WorkspaceScaffold with contentScrollable set to false."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "The page must continue loading the selected project's Kanban board through the existing ProjectTasksController and must preserve the existing loading, unavailable-board, and kanbanError states."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "When a board is loaded, ProjectKanbanPage must not construct KanbanBoardView during this diagnostic slice."
+      },
+      {
+        "id": "REQ-004",
+        "statement": "The loaded-board region must instead render a simple bounded diagnostic probe with no ListView, ReorderableListView, Draggable, DragTarget, overlay, or board-specific viewport subtree."
+      },
+      {
+        "id": "REQ-005",
+        "statement": "The diagnostic probe must expose deterministic text that confirms the board was loaded and reports the loaded column and card counts so a blank/offset render can be visually distinguished from a data-loading failure."
+      },
+      {
+        "id": "REQ-006",
+        "statement": "KanbanBoardView implementation, WorkspaceScaffold, renderer/bootstrap, controller, backend, API, authorization, persistence, and Kanban domain behavior must not be modified by this payload."
+      },
+      {
+        "id": "REQ-007",
+        "statement": "The locked Change Contract must be versioned at docs/contracts/project-kanban-board-subtree-isolation-v1.polis.json."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "ProjectKanbanPage still contains contentScrollable: false and its existing project header and project selector while no longer constructing KanbanBoardView for a loaded board.",
+        "requirements": [
+          "REQ-001",
+          "REQ-003"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "A loaded board renders a diagnostic marker with the text 'Diagnóstico do quadro' and deterministic column/card counts derived from the loaded KanbanBoard.",
+        "requirements": [
+          "REQ-002",
+          "REQ-004",
+          "REQ-005"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-003",
+        "statement": "Frontend regression expectations assert that KanbanBoardView is absent while the diagnostic probe is present on wide and narrow viewports.",
+        "requirements": [
+          "REQ-003",
+          "REQ-004",
+          "REQ-005"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-004",
+        "statement": "No file outside ProjectKanbanPage, its widget test, and the locked contract is changed.",
+        "requirements": [
+          "REQ-006",
+          "REQ-007"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "The dedicated Kanban navigation destination and ProjectKanbanPage lifecycle remain intact."
+      },
+      {
+        "id": "INV-002",
+        "statement": "ProjectTasksController continues to fetch auth context, projects, project-scoped data, and Kanban exactly as before this slice."
+      },
+      {
+        "id": "INV-003",
+        "statement": "The existing KanbanBoardView source remains untouched and can be remounted in a later slice after the paint-offset source is identified."
+      },
+      {
+        "id": "INV-004",
+        "statement": "The Firefox CPU-only bootstrap workaround remains absent."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "ProjectKanbanPage still constructs KanbanBoardView after a board is loaded."
+      },
+      {
+        "id": "FORB-002",
+        "statement": "The diagnostic changes WorkspaceScaffold, BackdropFilter, web bootstrap, KanbanBoardView, controller, backend, API, database, or authorization behavior."
+      },
+      {
+        "id": "FORB-003",
+        "statement": "The diagnostic probe introduces a scrollable, draggable, reorderable, or overlay-based widget tree."
+      },
+      {
+        "id": "FORB-004",
+        "statement": "The page stops loading the Kanban board, making the experiment unable to distinguish rendering from data-loading behavior."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "The published feature/tasks-kanban state at commit 6b513a2e4f591efafa6492718b8c556738dac602, where global lag is resolved but the dedicated Kanban screen still paints its content with an apparent sidebar-width horizontal offset."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "A diagnostic Kanban screen that preserves the exact shell/contentScrollable path and data loading while replacing the board widget subtree with a simple bounded probe."
+      },
+      {
+        "id": "OUT-002",
+        "statement": "A build suitable for deciding whether the paint offset persists without KanbanBoardView construction."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "If ProjectKanbanPage still mounts KanbanBoardView, loses contentScrollable=false, omits the diagnostic marker/counts, or the regression expectation is absent, validation fails closed with project_kanban_board_subtree_isolation_missing."
+      },
+      {
+        "id": "FAIL-002",
+        "statement": "Flutter/Dart tooling is unavailable in the artifact-production environment, so widget tests are included but must not be represented as executed here; structural POLIS validation remains mandatory."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "6b513a2e4f591efafa6492718b8c556738dac602",
+    "base_tree": "390a1a3a5647904cf79ec585d74dfd9d8c64bc0e",
+    "policy_sha256": "cb60d7751236c799472a2e7166df0637c20f183f26a61900706bbdb69232ab34",
+    "specification_sha256": "c8cf0afb6bb31fa1aaa4c077a9bf274155b62039d0150ade4628d33545604367"
+  },
+  "behavior": {
+    "argv": [
+      "python3",
+      "-c",
+      "from pathlib import Path; import sys; p=Path('lib/features/projects/presentation/project_kanban_page.dart').read_text(); t=Path('test/features/projects/presentation/project_kanban_page_test.dart').read_text(); loaded=p[p.index('Widget _buildBoardContent'):p.index('Future\u003cString?\u003e _promptKanbanColumnName')]; ok=('contentScrollable: false' in p and 'KanbanBoardView(' not in loaded and \"'Diagnóstico do quadro'\" in loaded and \"'Colunas carregadas: $columnCount'\" in loaded and \"'Cards carregados: $cardCount'\" in loaded and 'Kanban rendering probe isolates board subtree' in t and 'find.byType(KanbanBoardView), findsNothing' in t); print('project_kanban_board_subtree_isolation_ok' if ok else 'project_kanban_board_subtree_isolation_missing'); sys.exit(0 if ok else 1)"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 30,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "python3",
+      "-c",
+      "from pathlib import Path; import sys; p=Path('lib/features/projects/presentation/project_kanban_page.dart').read_text(); t=Path('test/features/projects/presentation/project_kanban_page_test.dart').read_text(); loaded=p[p.index('Widget _buildBoardContent'):p.index('Future\u003cString?\u003e _promptKanbanColumnName')]; ok=('contentScrollable: false' in p and 'KanbanBoardView(' not in loaded and \"'Diagnóstico do quadro'\" in loaded and \"'Colunas carregadas: $columnCount'\" in loaded and \"'Cards carregados: $cardCount'\" in loaded and 'Kanban rendering probe isolates board subtree' in t and 'find.byType(KanbanBoardView), findsNothing' in t); print('project_kanban_board_subtree_isolation_ok' if ok else 'project_kanban_board_subtree_isolation_missing'); sys.exit(0 if ok else 1)"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 30,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "python3",
+        "-c",
+        "from pathlib import Path; import sys; p=Path('lib/features/projects/presentation/project_kanban_page.dart').read_text(); t=Path('test/features/projects/presentation/project_kanban_page_test.dart').read_text(); loaded=p[p.index('Widget _buildBoardContent'):p.index('Future\u003cString?\u003e _promptKanbanColumnName')]; ok=('contentScrollable: false' in p and 'KanbanBoardView(' not in loaded and \"'Diagnóstico do quadro'\" in loaded and \"'Colunas carregadas: $columnCount'\" in loaded and \"'Cards carregados: $cardCount'\" in loaded and 'Kanban rendering probe isolates board subtree' in t and 'find.byType(KanbanBoardView), findsNothing' in t); print('project_kanban_board_subtree_isolation_ok' if ok else 'project_kanban_board_subtree_isolation_missing'); sys.exit(0 if ok else 1)"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 30,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "project_kanban_board_subtree_isolation_missing"
+    ]
+  }
+}
