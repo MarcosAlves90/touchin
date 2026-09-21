@@ -126,8 +126,6 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
             _buildProjectAccessCard(),
             const SizedBox(height: 20),
             _buildTaskWorkspace(isWide),
-            const SizedBox(height: 20),
-            _buildKanbanWorkspace(),
           ],
         ],
       ),

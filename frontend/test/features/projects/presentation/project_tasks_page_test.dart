@@ -5,6 +5,7 @@ import 'package:touchin_flutter/contracts/project.dart';
 import 'package:touchin_flutter/contracts/task.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
 import 'package:touchin_flutter/features/projects/presentation/project_tasks_page.dart';
+import 'package:touchin_flutter/features/projects/presentation/widgets/kanban_board.dart';
 import 'package:touchin_flutter/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -33,9 +34,25 @@ void main() {
     expect(find.text('Adicionar ao projeto'), findsOneWidget);
     expect(find.text('Entrar na tarefa'), findsOneWidget);
     expect(find.text('Adicionar membro'), findsOneWidget);
-    expect(find.text('Kanban'), findsOneWidget);
-    expect(find.text('#1'), findsOneWidget);
-    expect(find.text('Coluna'), findsOneWidget);
+    expect(find.text('Kanban'), findsNothing);
+    expect(find.text('#1'), findsNothing);
+    expect(find.text('Coluna'), findsNothing);
+  });
+
+  testWidgets('kanban workspace is isolated from project tasks rendering',
+      (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ProjectTasksPage(
+          api: _FakeProjectTasksApi(role: 'manager', employeeId: 'emp-02'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(KanbanBoardView), findsNothing);
+    expect(find.text('Projeto principal'), findsWidgets);
+    expect(find.text('Implementar tela'), findsWidgets);
   });
 
   testWidgets('selected project list icon keeps accent contrast in dark theme',
@@ -80,10 +97,10 @@ void main() {
     expect(find.text('Entrar na tarefa'), findsOneWidget);
     expect(find.text('Adicionar membro'), findsNothing);
     expect(find.byTooltip('Remover da tarefa'), findsNothing);
-    expect(find.text('Kanban'), findsOneWidget);
-    expect(find.text('#1'), findsOneWidget);
+    expect(find.text('Kanban'), findsNothing);
+    expect(find.text('#1'), findsNothing);
     expect(find.text('Coluna'), findsNothing);
-    expect(find.text('Responsáveis'), findsOneWidget);
+    expect(find.text('Responsáveis'), findsNothing);
   });
 
   testWidgets('project and task editors mirror backend text limits',
