@@ -46,9 +46,9 @@ class ProjectKanbanBoard extends StatefulWidget {
 }
 
 class _ProjectKanbanBoardState extends State<ProjectKanbanBoard> {
-  static const double _laneWidth = 348;
-  static const double _laneGap = 14;
-  static const double _cardExtent = 184;
+  static const double _laneWidth = 320;
+  static const double _laneGap = 12;
+  static const double _cardExtent = 144;
 
   final ScrollController _boardScrollController = ScrollController();
   final Map<String, ScrollController> _laneScrollControllers =
@@ -88,10 +88,13 @@ class _ProjectKanbanBoardState extends State<ProjectKanbanBoard> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final laneWidth = math.min(
-          _laneWidth,
-          math.max(272.0, constraints.maxWidth - 16),
-        );
+        final isCompact = constraints.maxWidth < 560;
+        final laneWidth = isCompact
+            ? math.max(240.0, constraints.maxWidth - 2)
+            : math.min(
+                _laneWidth,
+                math.max(280.0, constraints.maxWidth - 16),
+              );
         return Stack(
           clipBehavior: Clip.hardEdge,
           children: <Widget>[
@@ -108,7 +111,7 @@ class _ProjectKanbanBoardState extends State<ProjectKanbanBoard> {
                   onScrollPrevious: () => _scrollBoard(-laneWidth),
                   onScrollNext: () => _scrollBoard(laneWidth),
                 ),
-                const SizedBox(height: 14),
+                SizedBox(height: isCompact ? 10 : 14),
                 Expanded(
                   child: widget.board.columns.isEmpty
                       ? _EmptyBoardState(
@@ -179,8 +182,8 @@ class _ProjectKanbanBoardState extends State<ProjectKanbanBoard> {
 
   Widget _buildDragPreview(ThemeData theme, _PointerDragSession drag) {
     return Positioned(
-      left: drag.pointer.dx - 124,
-      top: drag.pointer.dy - 32,
+      left: drag.pointer.dx - 108,
+      top: drag.pointer.dy - 28,
       child: IgnorePointer(
         child: Material(
           elevation: 10,
@@ -193,9 +196,9 @@ class _ProjectKanbanBoardState extends State<ProjectKanbanBoard> {
             ),
           ),
           child: SizedBox(
-            width: 248,
+            width: 216,
             child: Padding(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
@@ -390,12 +393,12 @@ class _ProjectKanbanBoardState extends State<ProjectKanbanBoard> {
             if (widget.canManageCards) ...<Widget>[
               const Divider(height: 1),
               Padding(
-                padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+                padding: const EdgeInsets.fromLTRB(8, 5, 8, 7),
                 child: SizedBox(
                   width: double.infinity,
                   child: TextButton.icon(
                     style: TextButton.styleFrom(
-                      minimumSize: const Size(0, 44),
+                      minimumSize: const Size(0, 38),
                       alignment: Alignment.centerLeft,
                     ),
                     onPressed: widget.isBusy
@@ -566,44 +569,45 @@ class _BoardHeader extends StatelessWidget {
       ],
     );
 
-    final actions = Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: <Widget>[
-        _BoardMetaChip(
-          icon: isBusy ? Icons.sync_rounded : Icons.cloud_done_outlined,
-          label: isBusy ? 'Salvando' : 'Sincronizado',
-          emphasized: isBusy,
+    final actionItems = <Widget>[
+      _BoardMetaChip(
+        icon: isBusy ? Icons.sync_rounded : Icons.cloud_done_outlined,
+        label: isBusy ? 'Salvando' : 'Sincronizado',
+        emphasized: isBusy,
+      ),
+      const SizedBox(width: 8),
+      _BoardMetaChip(
+        icon: Icons.tag_rounded,
+        label: 'v$version',
+      ),
+      if (columnCount > 1) ...<Widget>[
+        const SizedBox(width: 6),
+        IconButton(
+          tooltip: 'Ver colunas anteriores',
+          visualDensity: VisualDensity.compact,
+          onPressed: onScrollPrevious,
+          icon: const Icon(Icons.chevron_left_rounded),
         ),
-        _BoardMetaChip(
-          icon: Icons.tag_rounded,
-          label: 'v$version',
+        IconButton(
+          tooltip: 'Ver próximas colunas',
+          visualDensity: VisualDensity.compact,
+          onPressed: onScrollNext,
+          icon: const Icon(Icons.chevron_right_rounded),
         ),
-        if (columnCount > 1) ...<Widget>[
-          IconButton(
-            tooltip: 'Ver colunas anteriores',
-            onPressed: onScrollPrevious,
-            icon: const Icon(Icons.chevron_left_rounded),
-          ),
-          IconButton(
-            tooltip: 'Ver próximas colunas',
-            onPressed: onScrollNext,
-            icon: const Icon(Icons.chevron_right_rounded),
-          ),
-        ],
-        if (canManageStructure)
-          FilledButton.tonalIcon(
-            style: FilledButton.styleFrom(
-              minimumSize: const Size(0, 48),
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-            ),
-            onPressed: isBusy ? null : onCreateColumn,
-            icon: const Icon(Icons.add_rounded),
-            label: const Text('Coluna'),
-          ),
       ],
-    );
+      if (canManageStructure) ...<Widget>[
+        const SizedBox(width: 6),
+        FilledButton.tonalIcon(
+          style: FilledButton.styleFrom(
+            minimumSize: const Size(0, 42),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+          ),
+          onPressed: isBusy ? null : onCreateColumn,
+          icon: const Icon(Icons.add_rounded, size: 18),
+          label: const Text('Coluna'),
+        ),
+      ],
+    ];
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -612,8 +616,12 @@ class _BoardHeader extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
               heading,
-              const SizedBox(height: 10),
-              actions,
+              const SizedBox(height: 8),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                physics: const ClampingScrollPhysics(),
+                child: Row(children: actionItems),
+              ),
             ],
           );
         }
@@ -622,7 +630,11 @@ class _BoardHeader extends StatelessWidget {
           children: <Widget>[
             Expanded(child: heading),
             const SizedBox(width: 16),
-            actions,
+            Wrap(
+              spacing: 0,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: actionItems,
+            ),
           ],
         );
       },
@@ -707,7 +719,7 @@ class _LaneHeader extends StatelessWidget {
     final colorScheme = theme.colorScheme;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 11, 6, 10),
+      padding: const EdgeInsets.fromLTRB(10, 8, 4, 7),
       child: Row(
         children: <Widget>[
           Expanded(
@@ -726,8 +738,8 @@ class _LaneHeader extends StatelessWidget {
                 const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
+                    horizontal: 7,
+                    vertical: 3,
                   ),
                   decoration: BoxDecoration(
                     color: colorScheme.surface,
@@ -886,7 +898,7 @@ class _KanbanCardTileState extends State<_KanbanCardTile> {
           child: Material(
             color: Colors.transparent,
             child: Padding(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.fromLTRB(9, 8, 7, 7),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
@@ -899,6 +911,7 @@ class _KanbanCardTileState extends State<_KanbanCardTile> {
                         style: theme.textTheme.labelMedium?.copyWith(
                           color: colorScheme.onSurfaceVariant,
                           fontWeight: FontWeight.w800,
+                          fontSize: 11,
                         ),
                       ),
                       if (widget.canMove && !widget.isBusy) ...<Widget>[
@@ -916,10 +929,10 @@ class _KanbanCardTileState extends State<_KanbanCardTile> {
                                 onPointerUp: widget.onPointerUp,
                                 onPointerCancel: widget.onPointerCancel,
                                 child: const Padding(
-                                  padding: EdgeInsets.all(5),
+                                  padding: EdgeInsets.all(3),
                                   child: Icon(
                                     Icons.drag_indicator_rounded,
-                                    size: 20,
+                                    size: 18,
                                   ),
                                 ),
                               ),
@@ -930,6 +943,14 @@ class _KanbanCardTileState extends State<_KanbanCardTile> {
                       if (widget.canManageCards)
                         PopupMenuButton<String>(
                           tooltip: 'Ações do card',
+                          padding: EdgeInsets.zero,
+                          iconSize: 18,
+                          style: IconButton.styleFrom(
+                            minimumSize: const Size(32, 32),
+                            maximumSize: const Size(32, 32),
+                            padding: EdgeInsets.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
                           enabled: !widget.isBusy,
                           onSelected: (value) {
                             if (value == 'edit') {
@@ -959,25 +980,25 @@ class _KanbanCardTileState extends State<_KanbanCardTile> {
                         ),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 4),
                   Text(
                     widget.card.name,
-                    maxLines: 2,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.w800,
-                      height: 1.3,
+                      height: 1.2,
                     ),
                   ),
                   if (widget.card.description.trim().isNotEmpty) ...<Widget>[
-                    const SizedBox(height: 5),
+                    const SizedBox(height: 3),
                     Text(
                       widget.card.description,
-                      maxLines: 2,
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: colorScheme.onSurfaceVariant,
-                        height: 1.35,
+                        height: 1.25,
                       ),
                     ),
                   ],
@@ -993,9 +1014,15 @@ class _KanbanCardTileState extends State<_KanbanCardTile> {
                         IconButton(
                           tooltip: 'Gerenciar responsáveis',
                           visualDensity: VisualDensity.compact,
+                          style: IconButton.styleFrom(
+                            minimumSize: const Size(32, 32),
+                            maximumSize: const Size(32, 32),
+                            padding: EdgeInsets.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
                           onPressed:
                               widget.isBusy ? null : widget.onManageAssignees,
-                          icon: const Icon(Icons.group_add_outlined, size: 19),
+                          icon: const Icon(Icons.group_add_outlined, size: 17),
                         ),
                     ],
                   ),
@@ -1033,7 +1060,7 @@ class _TaskTypeBadge extends StatelessWidget {
     };
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
         color: tone.withValues(alpha: 0.12),
         border: Border.all(color: tone.withValues(alpha: 0.32)),
@@ -1041,8 +1068,8 @@ class _TaskTypeBadge extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          Icon(icon, size: 14, color: tone),
-          const SizedBox(width: 5),
+          Icon(icon, size: 12, color: tone),
+          const SizedBox(width: 4),
           Text(
             label,
             style: theme.textTheme.labelSmall?.copyWith(
@@ -1096,8 +1123,8 @@ class _AssigneeSummary extends StatelessWidget {
     return Row(
       children: <Widget>[
         Container(
-          width: 24,
-          height: 24,
+          width: 20,
+          height: 20,
           alignment: Alignment.center,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
@@ -1111,11 +1138,11 @@ class _AssigneeSummary extends StatelessWidget {
             style: theme.textTheme.labelSmall?.copyWith(
               color: colorScheme.primary,
               fontWeight: FontWeight.w800,
-              fontSize: 9,
+              fontSize: 8,
             ),
           ),
         ),
-        const SizedBox(width: 7),
+        const SizedBox(width: 6),
         Expanded(
           child: Text(
             label,
@@ -1158,16 +1185,16 @@ class _EmptyLaneState extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
             Icon(
               Icons.inbox_outlined,
-              size: 34,
+              size: 28,
               color: colorScheme.onSurfaceVariant,
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 7),
             Text(
               'Nenhum card nesta coluna',
               textAlign: TextAlign.center,
@@ -1175,7 +1202,7 @@ class _EmptyLaneState extends StatelessWidget {
                 fontWeight: FontWeight.w700,
               ),
             ),
-            const SizedBox(height: 5),
+            const SizedBox(height: 4),
             Text(
               canCreateCard
                   ? 'Use “Adicionar card” para começar esta etapa.'

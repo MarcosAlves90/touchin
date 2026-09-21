@@ -197,6 +197,39 @@ void main() {
     expect(find.text('Sair da tarefa'), findsOneWidget);
     expect(find.text('1 de 2 vaga(s) ocupada(s).'), findsOneWidget);
   });
+  testWidgets('task editor follows square responsive workspace styling', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.lightTheme,
+        darkTheme: AppTheme.darkTheme,
+        themeMode: ThemeMode.dark,
+        home: ProjectTasksPage(
+          api: _FakeProjectTasksApi(role: 'manager', employeeId: 'emp-02'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final newTask = find.text('Nova tarefa');
+    await tester.ensureVisible(newTask);
+    await tester.tap(newTask);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AlertDialog), findsNothing);
+    final dialogFinder = find.byType(Dialog);
+    expect(dialogFinder, findsOneWidget);
+    final dialog = tester.widget<Dialog>(dialogFinder);
+    final shape = dialog.shape as RoundedRectangleBorder;
+    expect(shape.borderRadius, BorderRadius.zero);
+    expect(find.text('Detalhes da tarefa'), findsOneWidget);
+    expect(find.text('Projeto atual'), findsOneWidget);
+    expect(tester.getRect(dialogFinder).width, lessThanOrEqualTo(390));
+    expect(tester.takeException(), isNull);
+  });
+
 }
 
 class _FakeProjectTasksApi extends TouchInApi {

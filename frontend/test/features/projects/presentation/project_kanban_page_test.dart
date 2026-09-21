@@ -153,6 +153,36 @@ void main() {
     expect(find.text('#1'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+  testWidgets('compact cards and responsive chrome remain bounded', (tester) async {
+    for (final size in <Size>[
+      const Size(320, 568),
+      const Size(390, 844),
+      const Size(768, 1024),
+    ]) {
+      await tester.binding.setSurfaceSize(size);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.lightTheme,
+          darkTheme: AppTheme.darkTheme,
+          themeMode: ThemeMode.dark,
+          home: ProjectKanbanPage(api: _FakeKanbanApi()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final board = find.byType(ProjectKanbanBoard);
+      final card = find.byKey(const ValueKey<String>('kanban-card-task-01'));
+      expect(board, findsOneWidget);
+      expect(card, findsOneWidget);
+      expect(tester.getRect(board).width, lessThanOrEqualTo(size.width));
+      expect(tester.getRect(card).height, lessThanOrEqualTo(144));
+      expect(find.text('Atualizado'), findsNothing);
+      expect(find.text('Sincronizado'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+
 }
 
 class _FakeKanbanApi extends TouchInApi {

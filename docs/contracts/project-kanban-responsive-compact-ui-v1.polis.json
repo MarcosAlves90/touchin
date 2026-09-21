@@ -1,0 +1,245 @@
+{
+  "schema_version": 4,
+  "kind": "feature",
+  "scope": {
+    "allowed_paths": [
+      "frontend/lib/features/projects/presentation/project_kanban_page.dart",
+      "frontend/lib/features/projects/presentation/widgets/project_kanban_board.dart",
+      "frontend/lib/features/projects/presentation/widgets/task_editor_dialog.dart",
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart",
+      "frontend/test/features/projects/presentation/project_tasks_page_test.dart",
+      "docs/contracts/project-kanban-responsive-compact-ui-v1.polis.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart",
+      "frontend/test/features/projects/presentation/project_tasks_page_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Refine the working TouchIn Kanban for compact task scanning and responsive use across phones, tablets, and desktop while removing duplicated synchronization chrome and making the shared task create/edit dialog conform to the site's flat workspace design without changing Kanban domain behavior or adding dependencies.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "Kanban task cards must become materially more compact while preserving task type, card number, title, description preview, assignee summary, management actions, and the existing raw-pointer drag handle."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "The Kanban page and board must adapt at phone, tablet, and desktop widths with finite constraints, reduced mobile spacing, usable board width, and no dependence on intrinsic sizing or fixed desktop-only dimensions."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "The accent top navigation bar must no longer duplicate synchronization state; synchronization/version feedback remains inside the board header as the single status location."
+      },
+      {
+        "id": "REQ-004",
+        "statement": "ProjectTaskEditorDialog must be redesigned as a responsive, square-cornered, flat workspace dialog that follows TouchIn visual conventions for headers, context, fields, dropdowns, actions, borders, and spacing."
+      },
+      {
+        "id": "REQ-005",
+        "statement": "The shared task editor redesign must automatically apply to both Kanban card creation/editing and task creation/editing from the Projects screen."
+      },
+      {
+        "id": "REQ-006",
+        "statement": "No external dependency, backend/API/controller/domain change, renderer workaround, or Kanban persistence change may be introduced."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "ProjectKanbanBoard uses a card extent no greater than 144 logical pixels and compact internal spacing while retaining task badge, drag handle, assignee summary, and management affordances.",
+        "requirements": [
+          "REQ-001"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "Focused UI coverage exercises phone and tablet viewport widths and verifies ProjectKanbanBoard remains visible, finite, and exception-free under the production theme.",
+        "requirements": [
+          "REQ-002"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-003",
+        "statement": "_KanbanTopBar no longer receives or renders mutation status and the text 'Atualizado' is absent from the top navigation while the board still renders 'Sincronizado' or 'Salvando'.",
+        "requirements": [
+          "REQ-003"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-004",
+        "statement": "ProjectTaskEditorDialog uses Dialog rather than AlertDialog, has BorderRadius.zero, responsive inset/height constraints, flat bordered project context, square dropdown menus, and compact finite-width actions.",
+        "requirements": [
+          "REQ-004"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-005",
+        "statement": "Projects-page coverage opens the shared new-task editor on a phone-sized viewport and verifies the same square responsive dialog contract used by Kanban.",
+        "requirements": [
+          "REQ-005"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-006",
+        "statement": "pubspec and dependency files remain untouched; ProjectKanbanController, API/backend/contracts, and raw-pointer drag persistence semantics remain unchanged.",
+        "requirements": [
+          "REQ-006"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "ProjectKanbanController remains the sole owner of Kanban presentation state and authoritative server mutations."
+      },
+      {
+        "id": "INV-002",
+        "statement": "ProjectKanbanBoard continues to use CustomScrollView/SliverFixedExtentList, Listener-based raw pointer drag, stable card/column IDs, and persistent ScrollControllers."
+      },
+      {
+        "id": "INV-003",
+        "statement": "The finite button constraint fix remains intact; compact controls placed in Rows use explicit finite minimum sizes or finite parent constraints."
+      },
+      {
+        "id": "INV-004",
+        "statement": "The task editor continues returning the same TaskDraft fields and preserving current validation limits and optional parent-task behavior."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "Draggable, DragTarget, LongPressDraggable, ReorderableListView, intrinsic sizing, or browser renderer flags are reintroduced."
+      },
+      {
+        "id": "FORB-002",
+        "statement": "A new package is added merely for layout, modal, or Kanban UI behavior."
+      },
+      {
+        "id": "FORB-003",
+        "statement": "The compact card hides core task identity or removes existing edit/delete/assignee/drag capabilities."
+      },
+      {
+        "id": "FORB-004",
+        "statement": "The dialog redesign changes task persistence semantics, validation limits, task type values, or parent-task contract."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "Current feature/tasks-kanban tree 2e840b6f6ce6592a58a15a11dec6c043350705f1 where the reconstructed Kanban is functional."
+      },
+      {
+        "id": "IN-002",
+        "statement": "User requests more compact task cards, full responsive behavior, removal of duplicated top-nav synchronization state, and a site-consistent task create/edit modal shared with the Projects screen."
+      },
+      {
+        "id": "IN-003",
+        "statement": "TouchIn workspace components and AppTheme establish flat square-cornered surfaces, bordered sections, accent identity, finite button controls, and responsive management layouts."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "A more compact and viewport-adaptive Kanban page/board preserving the working architecture."
+      },
+      {
+        "id": "OUT-002",
+        "statement": "A single synchronization status location inside the board header."
+      },
+      {
+        "id": "OUT-003",
+        "statement": "A shared responsive square-cornered ProjectTaskEditorDialog used consistently from Kanban and Projects."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "If the red UI characterization is installed without the implementation, the regression command exits 1 with kanban_compact_responsive_ui_missing."
+      },
+      {
+        "id": "FAIL-002",
+        "statement": "Any concrete Flutter layout/type error remains authoritative and must be corrected locally without changing domain/backend architecture."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "83e9700fbe80998be4c5762edf6519c6c97b1c8b",
+    "base_tree": "2e840b6f6ce6592a58a15a11dec6c043350705f1",
+    "policy_sha256": "cb60d7751236c799472a2e7166df0637c20f183f26a61900706bbdb69232ab34",
+    "specification_sha256": "8a2d42e5252519e6a093104367e7528c31feae8e213065e85b0cc12490f9df9b"
+  },
+  "behavior": {
+    "argv": [
+      "python3",
+      "-c",
+      "from pathlib import Path; import sys; board=Path('frontend/lib/features/projects/presentation/widgets/project_kanban_board.dart').read_text(); page=Path('frontend/lib/features/projects/presentation/project_kanban_page.dart').read_text(); dialog=Path('frontend/lib/features/projects/presentation/widgets/task_editor_dialog.dart').read_text(); kt=Path('frontend/test/features/projects/presentation/project_kanban_page_test.dart').read_text(); pt=Path('frontend/test/features/projects/presentation/project_tasks_page_test.dart').read_text(); red=('compact cards and responsive chrome remain bounded' in kt and 'task editor follows square responsive workspace styling' in pt); impl=('_cardExtent = 144;' in board and 'final isCompact = constraints.maxWidth \u003c 600;' in page and 'isBusy: _controller.isMutating,' not in page and \"label: isBusy ? 'Salvando' : 'Sincronizado'\" in board and 'return Dialog(' in dialog and 'borderRadius: BorderRadius.zero' in dialog and 'borderRadius: BorderRadius.zero,' in dialog); print('uiux_tests_not_installed' if not red else ('kanban_compact_responsive_ui_ready' if impl else 'kanban_compact_responsive_ui_missing')); sys.exit(0 if (not red or impl) else 1)"
+    ],
+    "cwd": ".",
+    "timeout_seconds": 30,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "python3",
+      "-c",
+      "from pathlib import Path; import sys; board=Path('frontend/lib/features/projects/presentation/widgets/project_kanban_board.dart').read_text(); page=Path('frontend/lib/features/projects/presentation/project_kanban_page.dart').read_text(); dialog=Path('frontend/lib/features/projects/presentation/widgets/task_editor_dialog.dart').read_text(); kt=Path('frontend/test/features/projects/presentation/project_kanban_page_test.dart').read_text(); pt=Path('frontend/test/features/projects/presentation/project_tasks_page_test.dart').read_text(); red=('compact cards and responsive chrome remain bounded' in kt and 'task editor follows square responsive workspace styling' in pt); impl=('_cardExtent = 144;' in board and 'final isCompact = constraints.maxWidth \u003c 600;' in page and 'isBusy: _controller.isMutating,' not in page and \"label: isBusy ? 'Salvando' : 'Sincronizado'\" in board and 'return Dialog(' in dialog and 'borderRadius: BorderRadius.zero' in dialog and 'borderRadius: BorderRadius.zero,' in dialog); print('uiux_tests_not_installed' if not red else ('kanban_compact_responsive_ui_ready' if impl else 'kanban_compact_responsive_ui_missing')); sys.exit(0 if (not red or impl) else 1)"
+    ],
+    "cwd": ".",
+    "timeout_seconds": 30,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "python3",
+        "-c",
+        "from pathlib import Path; import sys; board=Path('frontend/lib/features/projects/presentation/widgets/project_kanban_board.dart').read_text(); page=Path('frontend/lib/features/projects/presentation/project_kanban_page.dart').read_text(); dialog=Path('frontend/lib/features/projects/presentation/widgets/task_editor_dialog.dart').read_text(); kt=Path('frontend/test/features/projects/presentation/project_kanban_page_test.dart').read_text(); pt=Path('frontend/test/features/projects/presentation/project_tasks_page_test.dart').read_text(); red=('compact cards and responsive chrome remain bounded' in kt and 'task editor follows square responsive workspace styling' in pt); impl=('_cardExtent = 144;' in board and 'final isCompact = constraints.maxWidth \u003c 600;' in page and 'isBusy: _controller.isMutating,' not in page and \"label: isBusy ? 'Salvando' : 'Sincronizado'\" in board and 'return Dialog(' in dialog and 'borderRadius: BorderRadius.zero' in dialog and 'borderRadius: BorderRadius.zero,' in dialog); print('uiux_tests_not_installed' if not red else ('kanban_compact_responsive_ui_ready' if impl else 'kanban_compact_responsive_ui_missing')); sys.exit(0 if (not red or impl) else 1)"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 30,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "kanban_compact_responsive_ui_missing"
+    ]
+  }
+}
