@@ -44,27 +44,25 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, _) {
-        return Scaffold(
-          drawer: const WorkspaceNavigationDrawer(),
-          body: Builder(
-            builder: (scaffoldContext) => SafeArea(
-              child: Column(
-                children: <Widget>[
-                  _KanbanTopBar(
-                    projectName: _controller.selectedProject?.name,
-                    onMenuPressed: () =>
-                        Scaffold.of(scaffoldContext).openDrawer(),
-                  ),
-                  Expanded(child: _buildPageBody()),
-                ],
+    return Scaffold(
+      drawer: const WorkspaceNavigationDrawer(),
+      body: Builder(
+        builder: (scaffoldContext) => SafeArea(
+          child: Column(
+            children: <Widget>[
+              _KanbanTopBar(
+                onMenuPressed: () => Scaffold.of(scaffoldContext).openDrawer(),
               ),
-            ),
+              Expanded(
+                child: AnimatedBuilder(
+                  animation: _controller,
+                  builder: (context, _) => _buildPageBody(),
+                ),
+              ),
+            ],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 
@@ -211,9 +209,8 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
 
   Widget _buildBoardContent() {
     if (_controller.isLoadingBoard) {
-      return const Center(
-        key: ValueKey<String>('kanban-board-loading'),
-        child: CircularProgressIndicator(),
+      return const RepaintBoundary(
+        child: _KanbanBoardSkeleton(),
       );
     }
 
@@ -239,29 +236,31 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
               const SizedBox(height: 8),
             ],
             Expanded(
-              child: ProjectKanbanBoard(
-                board: board,
-                isBusy: isMutating,
-                canMoveCards: _controller.canMoveCards,
-                canManageStructure: _controller.canManageStructure,
-                canManageCards: _controller.canManageCards,
-                canManageAssignees: _controller.canManageAssignees,
-                onMoveCard: (taskId, columnId, index) => _controller.moveCard(
-                  taskId: taskId,
-                  toColumnId: columnId,
-                  toIndex: index,
+              child: RepaintBoundary(
+                child: ProjectKanbanBoard(
+                  board: board,
+                  isBusy: isMutating,
+                  canMoveCards: _controller.canMoveCards,
+                  canManageStructure: _controller.canManageStructure,
+                  canManageCards: _controller.canManageCards,
+                  canManageAssignees: _controller.canManageAssignees,
+                  onMoveCard: (taskId, columnId, index) => _controller.moveCard(
+                    taskId: taskId,
+                    toColumnId: columnId,
+                    toIndex: index,
+                  ),
+                  onMoveColumn: (columnId, index) => _controller.moveColumn(
+                    columnId: columnId,
+                    toIndex: index,
+                  ),
+                  onCreateColumn: _openCreateKanbanColumn,
+                  onRenameColumn: _openRenameKanbanColumn,
+                  onDeleteColumn: _confirmDeleteKanbanColumn,
+                  onCreateCard: _openCreateKanbanCard,
+                  onEditCard: _openEditKanbanCard,
+                  onDeleteCard: _confirmDeleteKanbanCard,
+                  onManageAssignees: _openManageKanbanAssignees,
                 ),
-                onMoveColumn: (columnId, index) => _controller.moveColumn(
-                  columnId: columnId,
-                  toIndex: index,
-                ),
-                onCreateColumn: _openCreateKanbanColumn,
-                onRenameColumn: _openRenameKanbanColumn,
-                onDeleteColumn: _confirmDeleteKanbanColumn,
-                onCreateCard: _openCreateKanbanCard,
-                onEditCard: _openEditKanbanCard,
-                onDeleteCard: _confirmDeleteKanbanCard,
-                onManageAssignees: _openManageKanbanAssignees,
               ),
             ),
           ],
@@ -562,13 +561,177 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
   }
 }
 
-class _KanbanTopBar extends StatelessWidget {
-  const _KanbanTopBar({
-    required this.projectName,
-    required this.onMenuPressed,
+class _KanbanBoardSkeleton extends StatelessWidget {
+  const _KanbanBoardSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return LayoutBuilder(
+      key: const ValueKey<String>('kanban-board-skeleton'),
+      builder: (context, constraints) {
+        final laneCount = constraints.maxWidth >= 1050
+            ? 3
+            : constraints.maxWidth >= 680
+                ? 2
+                : 1;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                _SkeletonBlock(
+                  width: 118,
+                  height: 20,
+                  color: colorScheme.surfaceContainerHighest,
+                ),
+                const Spacer(),
+                _SkeletonBlock(
+                  width: 92,
+                  height: 30,
+                  color: colorScheme.surfaceContainerHighest,
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Expanded(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: List<Widget>.generate(laneCount, (index) {
+                  return Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(right: index == laneCount - 1 ? 0 : 12),
+                      child: _KanbanLaneSkeleton(index: index),
+                    ),
+                  );
+                }),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _KanbanLaneSkeleton extends StatelessWidget {
+  const _KanbanLaneSkeleton({required this.index});
+
+  final int index;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.32),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                _SkeletonBlock(
+                  width: 92 + (index * 12),
+                  height: 16,
+                  color: colorScheme.surfaceContainerHighest,
+                ),
+                const Spacer(),
+                _SkeletonBlock(
+                  width: 28,
+                  height: 28,
+                  color: colorScheme.surfaceContainerHighest,
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _KanbanCardSkeleton(colorScheme: colorScheme),
+            const SizedBox(height: 10),
+            _KanbanCardSkeleton(colorScheme: colorScheme, compact: true),
+            const Spacer(),
+            _SkeletonBlock(
+              width: double.infinity,
+              height: 38,
+              color: colorScheme.surfaceContainerHighest,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _KanbanCardSkeleton extends StatelessWidget {
+  const _KanbanCardSkeleton({required this.colorScheme, this.compact = false});
+
+  final ColorScheme colorScheme;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colorScheme.surface.withValues(alpha: 0.72),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            _SkeletonBlock(
+              width: 72,
+              height: 14,
+              color: colorScheme.surfaceContainerHighest,
+            ),
+            const SizedBox(height: 10),
+            _SkeletonBlock(
+              width: compact ? 120 : 172,
+              height: 16,
+              color: colorScheme.surfaceContainerHighest,
+            ),
+            const SizedBox(height: 8),
+            _SkeletonBlock(
+              width: compact ? 154 : 210,
+              height: 12,
+              color: colorScheme.surfaceContainerHighest,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SkeletonBlock extends StatelessWidget {
+  const _SkeletonBlock({
+    required this.width,
+    required this.height,
+    required this.color,
   });
 
-  final String? projectName;
+  final double width;
+  final double height;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: width,
+      height: height,
+      child: DecoratedBox(
+        decoration: BoxDecoration(color: color.withValues(alpha: 0.72)),
+      ),
+    );
+  }
+}
+
+class _KanbanTopBar extends StatelessWidget {
+  const _KanbanTopBar({required this.onMenuPressed});
+
   final VoidCallback onMenuPressed;
 
   @override
@@ -576,71 +739,30 @@ class _KanbanTopBar extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     return Material(
+      key: const ValueKey<String>('kanban-topbar'),
       color: AppTheme.accent,
       child: SizedBox(
         height: 54,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final showContext = constraints.maxWidth >= 680;
-              return Row(
-                children: <Widget>[
-                  IconButton(
-                    tooltip: 'Abrir menu',
-                    onPressed: onMenuPressed,
-                    icon: Icon(
-                      Icons.menu_rounded,
-                      color: colorScheme.onPrimary,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    'TOUCHIN',
-                    style: theme.textTheme.labelLarge?.copyWith(
-                      color: colorScheme.onPrimary.withValues(alpha: 0.82),
-                      letterSpacing: 1.8,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Container(
-                    width: 1,
-                    height: 20,
-                    color: colorScheme.onPrimary.withValues(alpha: 0.2),
-                  ),
-                  const SizedBox(width: 10),
-                  Icon(
-                    Icons.view_kanban_outlined,
-                    size: 18,
-                    color: colorScheme.onPrimary,
-                  ),
-                  const SizedBox(width: 7),
-                  Text(
-                    'Kanban',
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      color: colorScheme.onPrimary,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  if (showContext && projectName != null) ...<Widget>[
-                    const SizedBox(width: 10),
-                    Flexible(
-                      child: Text(
-                        '· $projectName',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onPrimary.withValues(alpha: 0.72),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                  const Spacer(),
-                ],
-              );
-            },
+          child: Row(
+            children: <Widget>[
+              IconButton(
+                tooltip: 'Abrir menu',
+                onPressed: onMenuPressed,
+                icon: Icon(Icons.menu_rounded, color: colorScheme.onPrimary),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'TOUCHIN',
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: colorScheme.onPrimary.withValues(alpha: 0.82),
+                  letterSpacing: 1.8,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const Spacer(),
+            ],
           ),
         ),
       ),

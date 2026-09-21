@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:touchin_flutter/contracts/auth.dart';
@@ -25,7 +27,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(AppBar), findsNothing);
-    expect(find.text('Kanban'), findsOneWidget);
+    final topBar = find.byKey(const ValueKey<String>('kanban-topbar'));
+    expect(topBar, findsOneWidget);
+    expect(find.descendant(of: topBar, matching: find.text('Kanban')), findsNothing);
+    expect(
+      find.descendant(of: topBar, matching: find.text('Projeto principal')),
+      findsNothing,
+    );
     expect(find.text('Kanban do projeto'), findsNothing);
     expect(
       find.text('Acompanhe e mova os cards do projeto selecionado.'),
@@ -44,6 +52,45 @@ void main() {
     expect(boardRect.top, greaterThan(overviewRect.bottom));
     expect(boardRect.width, greaterThan(0));
     expect(boardRect.height, greaterThan(0));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('shows static board skeletons while the project snapshot loads', (
+    tester,
+  ) async {
+    final boardGate = Completer<void>();
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.lightTheme,
+        darkTheme: AppTheme.darkTheme,
+        themeMode: ThemeMode.dark,
+        home: ProjectKanbanPage(
+          api: _FakeKanbanApi(boardGate: boardGate),
+        ),
+      ),
+    );
+
+    await tester.pump();
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey<String>('kanban-board-skeleton')),
+      findsOneWidget,
+    );
+    expect(find.byType(ProjectKanbanBoard), findsNothing);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+
+    boardGate.complete();
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey<String>('kanban-board-skeleton')),
+      findsNothing,
+    );
+    expect(find.byType(ProjectKanbanBoard), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -211,12 +258,31 @@ void main() {
     await tester.binding.setSurfaceSize(null);
   });
 
+  testWidgets('keeps the static chrome outside controller-driven rebuilds', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      MaterialApp(home: ProjectKanbanPage(api: _FakeKanbanApi())),
+    );
+    await tester.pumpAndSettle();
+
+    final topBar = find.byKey(const ValueKey<String>('kanban-topbar'));
+    expect(topBar, findsOneWidget);
+    expect(find.descendant(of: topBar, matching: find.text('TOUCHIN')), findsOneWidget);
+    expect(find.descendant(of: topBar, matching: find.text('Kanban')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
 }
 
 class _FakeKanbanApi extends TouchInApi {
-  _FakeKanbanApi({this.includeCard = true});
+  _FakeKanbanApi({this.includeCard = true, this.boardGate});
 
   final bool includeCard;
+  final Completer<void>? boardGate;
 
   @override
   Future<AuthContext> getAuthContext() async {
@@ -288,6 +354,9 @@ class _FakeKanbanApi extends TouchInApi {
 
   @override
   Future<KanbanBoard> getKanbanBoard(String projectId) async {
+    if (boardGate != null) {
+      await boardGate!.future;
+    }
     final cards = includeCard
         ? <KanbanCard>[
             KanbanCard(

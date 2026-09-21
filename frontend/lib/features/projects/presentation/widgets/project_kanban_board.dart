@@ -54,6 +54,7 @@ class _ProjectKanbanBoardState extends State<ProjectKanbanBoard> {
   final Map<String, ScrollController> _laneScrollControllers =
       <String, ScrollController>{};
   final Map<String, GlobalKey> _laneBodyKeys = <String, GlobalKey>{};
+  final ValueNotifier<Offset> _dragPointer = ValueNotifier<Offset>(Offset.zero);
 
   _PointerDragSession? _dragSession;
 
@@ -76,6 +77,7 @@ class _ProjectKanbanBoardState extends State<ProjectKanbanBoard> {
   @override
   void dispose() {
     _boardScrollController.dispose();
+    _dragPointer.dispose();
     for (final controller in _laneScrollControllers.values) {
       controller.dispose();
     }
@@ -126,6 +128,7 @@ class _ProjectKanbanBoardState extends State<ProjectKanbanBoard> {
                             controller: _boardScrollController,
                             scrollDirection: Axis.horizontal,
                             physics: const ClampingScrollPhysics(),
+                            cacheExtent: laneWidth,
                             slivers: <Widget>[
                               SliverPadding(
                                 padding: const EdgeInsets.only(right: _laneGap),
@@ -147,6 +150,8 @@ class _ProjectKanbanBoardState extends State<ProjectKanbanBoard> {
                                       );
                                     },
                                     childCount: widget.board.columns.length,
+                                    addAutomaticKeepAlives: false,
+                                    addRepaintBoundaries: false,
                                   ),
                                 ),
                               ),
@@ -180,9 +185,7 @@ class _ProjectKanbanBoardState extends State<ProjectKanbanBoard> {
   }
 
   Widget _buildDragPreview(ThemeData theme, _PointerDragSession drag) {
-    return Positioned(
-      left: drag.pointer.dx - 108,
-      top: drag.pointer.dy - 28,
+    final preview = RepaintBoundary(
       child: IgnorePointer(
         child: Material(
           elevation: 10,
@@ -226,6 +229,18 @@ class _ProjectKanbanBoardState extends State<ProjectKanbanBoard> {
         ),
       ),
     );
+
+    return ValueListenableBuilder<Offset>(
+      valueListenable: _dragPointer,
+      child: preview,
+      builder: (context, pointer, child) {
+        return Positioned(
+          left: pointer.dx - 108,
+          top: pointer.dy - 28,
+          child: child!,
+        );
+      },
+    );
   }
 
   Widget _buildLane(
@@ -243,8 +258,9 @@ class _ProjectKanbanBoardState extends State<ProjectKanbanBoard> {
     );
     final laneKey = _laneBodyKeys.putIfAbsent(column.id, GlobalKey.new);
 
-    return AnimatedContainer(
-      key: ValueKey<String>('kanban-column-${column.id}'),
+    return RepaintBoundary(
+      child: AnimatedContainer(
+        key: ValueKey<String>('kanban-column-${column.id}'),
       duration: const Duration(milliseconds: 140),
       curve: Curves.easeOut,
       decoration: BoxDecoration(
@@ -294,6 +310,7 @@ class _ProjectKanbanBoardState extends State<ProjectKanbanBoard> {
                     key: ValueKey<String>('kanban-column-scroll-${column.id}'),
                     controller: laneController,
                     physics: const ClampingScrollPhysics(),
+                    cacheExtent: _cardExtent * 2,
                     slivers: <Widget>[
                       if (column.cards.isEmpty)
                         SliverFillRemaining(
@@ -337,6 +354,8 @@ class _ProjectKanbanBoardState extends State<ProjectKanbanBoard> {
                                 );
                               },
                               childCount: column.cards.length,
+                              addAutomaticKeepAlives: false,
+                              addRepaintBoundaries: false,
                             ),
                           ),
                         ),
@@ -410,6 +429,7 @@ class _ProjectKanbanBoardState extends State<ProjectKanbanBoard> {
           ],
         ),
       ),
+      ),
     );
   }
 
@@ -417,12 +437,11 @@ class _ProjectKanbanBoardState extends State<ProjectKanbanBoard> {
     if (!widget.canMoveCards || widget.isBusy) {
       return;
     }
-    final localPointer = _globalToLocal(event.position);
+    _dragPointer.value = _globalToLocal(event.position);
     final target = _resolveTarget(event.position, card);
     setState(() {
       _dragSession = _PointerDragSession(
         card: card,
-        pointer: localPointer,
         targetColumnId: target?.columnId,
         targetIndex: target?.index ?? card.kanbanPosition,
       );
@@ -434,12 +453,21 @@ class _ProjectKanbanBoardState extends State<ProjectKanbanBoard> {
     if (current == null) {
       return;
     }
+
+    _dragPointer.value = _globalToLocal(event.position);
     final target = _resolveTarget(event.position, current.card);
+    final nextColumnId = target?.columnId;
+    final nextIndex = target?.index ?? current.targetIndex;
+    if (nextColumnId == current.targetColumnId &&
+        nextIndex == current.targetIndex) {
+      return;
+    }
+
     setState(() {
-      _dragSession = current.copyWith(
-        pointer: _globalToLocal(event.position),
-        targetColumnId: target?.columnId,
-        targetIndex: target?.index,
+      _dragSession = _PointerDragSession(
+        card: current.card,
+        targetColumnId: nextColumnId,
+        targetIndex: nextIndex,
       );
     });
   }
@@ -846,8 +874,9 @@ class _KanbanCardTileState extends State<_KanbanCardTile> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hovered = true),
+    return RepaintBoundary(
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
       child: AnimatedOpacity(
         opacity: widget.isDragging ? 0.4 : 1,
@@ -1010,6 +1039,7 @@ class _KanbanCardTileState extends State<_KanbanCardTile> {
             ),
           ),
         ),
+      ),
       ),
     );
   }
@@ -1273,26 +1303,11 @@ class _DropTarget {
 class _PointerDragSession {
   const _PointerDragSession({
     required this.card,
-    required this.pointer,
     required this.targetColumnId,
     required this.targetIndex,
   });
 
   final KanbanCard card;
-  final Offset pointer;
   final String? targetColumnId;
   final int targetIndex;
-
-  _PointerDragSession copyWith({
-    Offset? pointer,
-    String? targetColumnId,
-    int? targetIndex,
-  }) {
-    return _PointerDragSession(
-      card: card,
-      pointer: pointer ?? this.pointer,
-      targetColumnId: targetColumnId ?? this.targetColumnId,
-      targetIndex: targetIndex ?? this.targetIndex,
-    );
-  }
 }

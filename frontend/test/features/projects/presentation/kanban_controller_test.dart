@@ -24,6 +24,20 @@ void main() {
     expect(controller.canManageStructure, isTrue);
   });
 
+  test('reuses immutable snapshot lists between unchanged reads', () async {
+    final api = _KanbanApi();
+    final controller = ProjectKanbanController(api: api);
+
+    await controller.start();
+
+    expect(identical(controller.projects, controller.projects), isTrue);
+    expect(identical(controller.projectMembers, controller.projectMembers), isTrue);
+    expect(identical(controller.tasks, controller.tasks), isTrue);
+    expect(() => controller.projects.clear(), throwsUnsupportedError);
+    expect(() => controller.projectMembers.clear(), throwsUnsupportedError);
+    expect(() => controller.tasks.clear(), throwsUnsupportedError);
+  });
+
   test('discards stale board snapshots after project selection changes', () async {
     final api = _KanbanApi();
     final controller = ProjectKanbanController(api: api);

@@ -28,10 +28,9 @@ class ProjectKanbanController extends ChangeNotifier {
   Future<void> _mutationTail = Future<void>.value();
 
   AuthContext? get authContext => _authContext;
-  List<ProjectSummary> get projects => List<ProjectSummary>.unmodifiable(_projects);
-  List<ProjectMemberSummary> get projectMembers =>
-      List<ProjectMemberSummary>.unmodifiable(_projectMembers);
-  List<TaskRecord> get tasks => List<TaskRecord>.unmodifiable(_tasks);
+  List<ProjectSummary> get projects => _projects;
+  List<ProjectMemberSummary> get projectMembers => _projectMembers;
+  List<TaskRecord> get tasks => _tasks;
   KanbanBoard? get board => _board;
   String? get selectedProjectId => _selectedProjectId;
   bool get isLoading => _isLoading;
@@ -86,7 +85,7 @@ class ProjectKanbanController extends ChangeNotifier {
       }
 
       _authContext = authContext;
-      _projects = projects;
+      _projects = List<ProjectSummary>.unmodifiable(projects);
       _selectedProjectId = projects.isEmpty ? null : projects.first.id;
       _isLoading = false;
       notifyListeners();
@@ -157,8 +156,10 @@ class ProjectKanbanController extends ChangeNotifier {
         return;
       }
 
-      _projectMembers = result[0] as List<ProjectMemberSummary>;
-      _tasks = result[1] as List<TaskRecord>;
+      _projectMembers = List<ProjectMemberSummary>.unmodifiable(
+        result[0] as List<ProjectMemberSummary>,
+      );
+      _tasks = List<TaskRecord>.unmodifiable(result[1] as List<TaskRecord>);
       _board = result[2] as KanbanBoard;
       _isLoadingBoard = false;
       notifyListeners();
@@ -184,7 +185,7 @@ class ProjectKanbanController extends ChangeNotifier {
     if (!_accepts(projectId, epoch)) {
       return;
     }
-    _tasks = result[0] as List<TaskRecord>;
+    _tasks = List<TaskRecord>.unmodifiable(result[0] as List<TaskRecord>);
     _board = result[1] as KanbanBoard;
     _boardError = null;
     notifyListeners();
@@ -197,7 +198,7 @@ class ProjectKanbanController extends ChangeNotifier {
       return;
     }
     _board = loaded;
-    _tasks = loaded.taskRecords;
+    _tasks = List<TaskRecord>.unmodifiable(loaded.taskRecords);
     notifyListeners();
   }
 
@@ -260,7 +261,7 @@ class ProjectKanbanController extends ChangeNotifier {
         );
         if (_selectedProjectId == projectId) {
           _board = updated;
-          _tasks = updated.taskRecords;
+          _tasks = List<TaskRecord>.unmodifiable(updated.taskRecords);
           _boardError = null;
         }
       } on ApiException catch (error) {
