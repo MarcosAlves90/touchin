@@ -10,6 +10,26 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   testWidgets(
+    'non-scrollable workspace content bypasses the shell vertical scroll',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1440, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: WorkspaceScaffold(
+            sidebar: const SizedBox(height: 1200),
+            contentScrollable: false,
+            contentBuilder: (_, __) => const SizedBox.expand(),
+          ),
+        ),
+      );
+
+      expect(find.byType(SingleChildScrollView), findsOneWidget);
+    },
+  );
+
+  testWidgets(
     'scrollable workspace content is painted outside the backdrop filter',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(1440, 900));
