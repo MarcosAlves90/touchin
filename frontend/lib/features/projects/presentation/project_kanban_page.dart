@@ -3,8 +3,8 @@ import 'package:touchin_flutter/contracts/kanban.dart';
 import 'package:touchin_flutter/contracts/task.dart';
 import 'package:touchin_flutter/core/network/api_client.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
-import 'package:touchin_flutter/features/projects/presentation/project_tasks_controller.dart';
-import 'package:touchin_flutter/features/projects/presentation/widgets/kanban_board.dart';
+import 'package:touchin_flutter/features/projects/presentation/kanban_controller.dart';
+import 'package:touchin_flutter/features/projects/presentation/widgets/project_kanban_board.dart';
 import 'package:touchin_flutter/features/projects/presentation/widgets/task_editor_dialog.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
 import 'package:touchin_flutter/theme/app_theme.dart';
@@ -13,21 +13,20 @@ class ProjectKanbanPage extends StatefulWidget {
   const ProjectKanbanPage({super.key, this.api, this.controller});
 
   final TouchInApi? api;
-  final ProjectTasksController? controller;
+  final ProjectKanbanController? controller;
 
   @override
   State<ProjectKanbanPage> createState() => _ProjectKanbanPageState();
 }
 
 class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
-  late final ProjectTasksController _controller;
+  late final ProjectKanbanController _controller;
   late final bool _ownsController;
 
   @override
   void initState() {
     super.initState();
-    _controller =
-        widget.controller ?? ProjectTasksController(api: widget.api);
+    _controller = widget.controller ?? ProjectKanbanController(api: widget.api);
     _ownsController = widget.controller == null;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _controller.start();
@@ -47,15 +46,20 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, _) {
-        final colorScheme = Theme.of(context).colorScheme;
         return Scaffold(
           drawer: const WorkspaceNavigationDrawer(),
-          appBar: AppBar(
-            backgroundColor: AppTheme.accent,
-            foregroundColor: colorScheme.onPrimary,
-            title: const Text('Kanban'),
+          body: Builder(
+            builder: (scaffoldContext) => SafeArea(
+              child: Column(
+                children: <Widget>[
+                  _KanbanTopBar(
+                    onMenuPressed: () => Scaffold.of(scaffoldContext).openDrawer(),
+                  ),
+                  Expanded(child: _buildPageBody()),
+                ],
+              ),
+            ),
           ),
-          body: _buildPageBody(),
         );
       },
     );
@@ -85,21 +89,37 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final horizontalPadding = constraints.maxWidth >= 900 ? 28.0 : 16.0;
-        return Padding(
-          padding: EdgeInsets.fromLTRB(
-            horizontalPadding,
-            20,
-            horizontalPadding,
-            20,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              _buildProjectToolbar(constraints.maxWidth),
-              const SizedBox(height: 16),
-              Expanded(child: _buildBoardContent()),
-            ],
-          ),
+        return CustomScrollView(
+          key: const ValueKey<String>('project-kanban-page-scroll'),
+          physics: const ClampingScrollPhysics(),
+          slivers: <Widget>[
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(
+                horizontalPadding,
+                20,
+                horizontalPadding,
+                0,
+              ),
+              sliver: SliverToBoxAdapter(
+                child: _buildProjectToolbar(constraints.maxWidth),
+              ),
+            ),
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(
+                horizontalPadding,
+                16,
+                horizontalPadding,
+                20,
+              ),
+              sliver: SliverFillRemaining(
+                hasScrollBody: false,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 360),
+                  child: _buildBoardContent(),
+                ),
+              ),
+            ),
+          ],
         );
       },
     );
@@ -109,7 +129,7 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final project = _controller.selectedProject;
-    final board = _controller.kanbanBoard;
+    final board = _controller.board;
     final cardCount = board?.columns.fold<int>(
           0,
           (total, column) => total + column.cards.length,
@@ -128,18 +148,14 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
           .map(
             (project) => DropdownMenuItem<String>(
               value: project.id,
-              child: Text(
-                project.name,
-                overflow: TextOverflow.ellipsis,
-              ),
+              child: Text(project.name, overflow: TextOverflow.ellipsis),
             ),
           )
           .toList(),
       onChanged: _controller.isMutating
           ? null
           : (projectId) {
-              if (projectId != null &&
-                  projectId != _controller.selectedProjectId) {
+              if (projectId != null && projectId != _controller.selectedProjectId) {
                 _controller.selectProject(projectId);
               }
             },
@@ -213,24 +229,22 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
   }
 
   Widget _buildBoardContent() {
-    if (_controller.isLoadingKanban) {
+    if (_controller.isLoadingBoard) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    final board = _controller.kanbanBoard;
+    final board = _controller.board;
     if (board == null) {
       return _KanbanPageMessage(
         title: 'Quadro indisponível',
-        message:
-            _controller.kanbanError ?? 'Não foi possível carregar o Kanban.',
+        message: _controller.boardError ?? 'Não foi possível carregar o Kanban.',
         actionLabel: 'Recarregar',
-        onAction: _controller.reloadKanban,
+        onAction: _controller.reload,
       );
     }
 
     final colorScheme = Theme.of(context).colorScheme;
     return Material(
-      clipBehavior: Clip.hardEdge,
       color: colorScheme.surface,
       shape: RoundedRectangleBorder(
         side: BorderSide(color: colorScheme.outlineVariant),
@@ -240,25 +254,27 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
-            if (_controller.kanbanError != null) ...<Widget>[
-              _KanbanNotice(message: _controller.kanbanError!),
+            if (_controller.boardError != null) ...<Widget>[
+              _KanbanNotice(message: _controller.boardError!),
               const SizedBox(height: 12),
             ],
             Expanded(
-              child: KanbanBoardView(
+              child: ProjectKanbanBoard(
                 board: board,
                 isBusy: _controller.isMutating,
-                canMoveCards: _controller.canMoveKanbanCards,
-                canManageStructure: _controller.canManageKanbanStructure,
-                canManageCards: _controller.canManageTasks,
-                canManageAssignees: _controller.canManageKanbanAssignees,
-                onMoveCard: (taskId, columnId, index) =>
-                    _controller.moveKanbanCard(
+                canMoveCards: _controller.canMoveCards,
+                canManageStructure: _controller.canManageStructure,
+                canManageCards: _controller.canManageCards,
+                canManageAssignees: _controller.canManageAssignees,
+                onMoveCard: (taskId, columnId, index) => _controller.moveCard(
                   taskId: taskId,
                   toColumnId: columnId,
                   toIndex: index,
                 ),
-                onReorderColumns: _controller.reorderKanbanColumns,
+                onMoveColumn: (columnId, index) => _controller.moveColumn(
+                  columnId: columnId,
+                  toIndex: index,
+                ),
                 onCreateColumn: _openCreateKanbanColumn,
                 onRenameColumn: _openRenameKanbanColumn,
                 onDeleteColumn: _confirmDeleteKanbanColumn,
@@ -322,7 +338,7 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
       return;
     }
     await _runAction(
-      () => _controller.createKanbanColumn(name),
+      () => _controller.createColumn(name),
       successMessage: 'Coluna criada.',
     );
   }
@@ -336,7 +352,7 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
       return;
     }
     await _runAction(
-      () => _controller.renameKanbanColumn(column.id, name),
+      () => _controller.renameColumn(column.id, name),
       successMessage: 'Coluna atualizada.',
     );
   }
@@ -366,7 +382,7 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
       return;
     }
     await _runAction(
-      () => _controller.deleteKanbanColumn(column.id),
+      () => _controller.deleteColumn(column.id),
       successMessage: 'Coluna excluída.',
     );
   }
@@ -387,7 +403,7 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
       return;
     }
     await _runAction(
-      () => _controller.createTask(
+      () => _controller.createCard(
         TaskDraft(
           name: draft.name,
           description: draft.description,
@@ -417,7 +433,7 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
       return;
     }
     await _runAction(
-      () => _controller.updateTask(card.toTaskRecord(), draft),
+      () => _controller.updateCard(card.toTaskRecord(), draft),
       successMessage: 'Card atualizado.',
     );
   }
@@ -447,7 +463,7 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
       return;
     }
     await _runAction(
-      () => _controller.deleteKanbanCard(card.id),
+      () => _controller.deleteCard(card.id),
       successMessage: 'Card excluído.',
     );
   }
@@ -483,14 +499,13 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
                       value: assigned,
                       title: Text(member.employeeName),
                       controlAffinity: ListTileControlAffinity.leading,
-                      onChanged: _controller.isMutating ||
-                              (!assigned && atCapacity)
+                      onChanged: _controller.isMutating || (!assigned && atCapacity)
                           ? null
                           : (selected) async {
                               Navigator.of(dialogContext).pop();
                               if (selected == true) {
                                 await _runAction(
-                                  () => _controller.addKanbanAssignee(
+                                  () => _controller.addAssignee(
                                     card.id,
                                     member.employeeId,
                                   ),
@@ -498,7 +513,7 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
                                 );
                               } else {
                                 await _runAction(
-                                  () => _controller.removeKanbanAssignee(
+                                  () => _controller.removeAssignee(
                                     card.id,
                                     member.employeeId,
                                   ),
@@ -550,6 +565,43 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
         const SnackBar(content: Text('Não foi possível concluir a operação.')),
       );
     }
+  }
+}
+
+class _KanbanTopBar extends StatelessWidget {
+  const _KanbanTopBar({required this.onMenuPressed});
+
+  final VoidCallback onMenuPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Material(
+      color: AppTheme.accent,
+      child: SizedBox(
+        height: 56,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: Row(
+            children: <Widget>[
+              IconButton(
+                tooltip: 'Abrir menu',
+                onPressed: onMenuPressed,
+                icon: Icon(Icons.menu_rounded, color: colorScheme.onPrimary),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Kanban',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: colorScheme.onPrimary,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 

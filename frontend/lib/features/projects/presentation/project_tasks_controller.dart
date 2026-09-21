@@ -1,6 +1,5 @@
 import 'package:touchin_flutter/contracts/auth.dart';
 import 'package:touchin_flutter/contracts/employee.dart';
-import 'package:touchin_flutter/contracts/kanban.dart';
 import 'package:touchin_flutter/contracts/project.dart';
 import 'package:touchin_flutter/contracts/task.dart';
 import 'package:touchin_flutter/core/network/api_client.dart';
@@ -18,25 +17,21 @@ class ProjectTasksController extends ChangeNotifier {
   List<ProjectMemberSummary> projectMembers = <ProjectMemberSummary>[];
   List<TaskMemberSummary> taskMembers = <TaskMemberSummary>[];
   List<EmployeeProfile> employees = <EmployeeProfile>[];
-  KanbanBoard? kanbanBoard;
   String? selectedProjectId;
   String? selectedTaskId;
   bool isLoading = true;
   bool isLoadingTasks = false;
   bool isLoadingProjectMembers = false;
   bool isLoadingMembers = false;
-  bool isLoadingKanban = false;
   bool isMutating = false;
   String? loadError;
   String? tasksError;
   String? projectMembersError;
   String? membersError;
-  String? kanbanError;
 
   int _projectMembersRequestVersion = 0;
   int _tasksRequestVersion = 0;
   int _taskMembersRequestVersion = 0;
-  int _kanbanRequestVersion = 0;
 
   bool get canManageProjects {
     final user = authContext?.user;
@@ -48,14 +43,6 @@ class ProjectTasksController extends ChangeNotifier {
   bool get canManageTasks => canManageProjects;
 
   bool get canManageMembership => canManageProjects;
-
-  bool get canManageKanbanStructure => canManageProjects;
-
-  bool get canMoveKanbanCards =>
-      canManageProjects || currentEmployeeIsProjectMember;
-
-  bool get canManageKanbanAssignees =>
-      canManageProjects || currentEmployeeIsProjectMember;
 
   bool get canManageOwnTaskMembership =>
       authContext?.user.hasEmployeeProfile == true &&
@@ -128,14 +115,12 @@ class ProjectTasksController extends ChangeNotifier {
         selectedProjectId = projects.first.id;
         await _loadProjectMembersForSelectedProject(notifyLoading: false);
         await _loadTasksForSelectedProject(notifyLoading: false);
-        await _loadKanbanForSelectedProject(notifyLoading: false);
       } else {
         selectedProjectId = null;
         selectedTaskId = null;
         tasks = <TaskRecord>[];
         projectMembers = <ProjectMemberSummary>[];
         taskMembers = <TaskMemberSummary>[];
-        kanbanBoard = null;
       }
       isLoading = false;
       notifyListeners();
@@ -160,21 +145,15 @@ class ProjectTasksController extends ChangeNotifier {
     tasks = <TaskRecord>[];
     projectMembers = <ProjectMemberSummary>[];
     taskMembers = <TaskMemberSummary>[];
-    kanbanBoard = null;
     tasksError = null;
     projectMembersError = null;
     membersError = null;
-    kanbanError = null;
     notifyListeners();
     await _loadProjectMembersForSelectedProject();
     if (selectedProjectId != projectId) {
       return;
     }
     await _loadTasksForSelectedProject();
-    if (selectedProjectId != projectId) {
-      return;
-    }
-    await _loadKanbanForSelectedProject();
   }
 
   Future<void> reloadProjectMembers() =>
@@ -346,7 +325,6 @@ class ProjectTasksController extends ChangeNotifier {
         membersError = null;
         await _loadProjectMembersForSelectedProject(notifyLoading: false);
         await _loadTasksForSelectedProject(notifyLoading: false);
-        await _loadKanbanForSelectedProject(notifyLoading: false);
       }
       return created;
     });
@@ -367,14 +345,12 @@ class ProjectTasksController extends ChangeNotifier {
           tasks = <TaskRecord>[];
           projectMembers = <ProjectMemberSummary>[];
           taskMembers = <TaskMemberSummary>[];
-          kanbanBoard = null;
           tasksError = null;
           projectMembersError = null;
           membersError = null;
           if (selectedProjectId != null) {
             await _loadProjectMembersForSelectedProject(notifyLoading: false);
             await _loadTasksForSelectedProject(notifyLoading: false);
-            await _loadKanbanForSelectedProject(notifyLoading: false);
           }
         }
       } else {
@@ -397,11 +373,9 @@ class ProjectTasksController extends ChangeNotifier {
         tasks = <TaskRecord>[];
         projectMembers = <ProjectMemberSummary>[];
         taskMembers = <TaskMemberSummary>[];
-        kanbanBoard = null;
         if (selectedProjectId != null) {
           await _loadProjectMembersForSelectedProject(notifyLoading: false);
           await _loadTasksForSelectedProject(notifyLoading: false);
-          await _loadKanbanForSelectedProject(notifyLoading: false);
         }
       }
     });
@@ -427,7 +401,6 @@ class ProjectTasksController extends ChangeNotifier {
       await _api.removeProjectMember(projectId, employeeId);
       await _loadProjectMembersForSelectedProject(notifyLoading: false);
       await _loadMembersForSelectedTask(notifyLoading: false);
-      await _loadKanbanForSelectedProject(notifyLoading: false);
     });
   }
 
@@ -446,7 +419,6 @@ class ProjectTasksController extends ChangeNotifier {
       selectedTaskId = created.id;
       taskMembers = <TaskMemberSummary>[];
       await _loadMembersForSelectedTask(notifyLoading: false);
-      await _loadKanbanForSelectedProject(notifyLoading: false);
       return created;
     });
   }
@@ -457,7 +429,6 @@ class ProjectTasksController extends ChangeNotifier {
       tasks = tasks
           .map((current) => current.id == updated.id ? updated : current)
           .toList();
-      await _loadKanbanForSelectedProject(notifyLoading: false);
       return updated;
     });
   }
@@ -471,7 +442,6 @@ class ProjectTasksController extends ChangeNotifier {
     await _mutate(() async {
       await _api.joinTask(projectId, taskId);
       await _loadMembersForSelectedTask(notifyLoading: false);
-      await _loadKanbanForSelectedProject(notifyLoading: false);
     });
   }
 
@@ -484,7 +454,6 @@ class ProjectTasksController extends ChangeNotifier {
     await _mutate(() async {
       await _api.leaveTask(projectId, taskId);
       await _loadMembersForSelectedTask(notifyLoading: false);
-      await _loadKanbanForSelectedProject(notifyLoading: false);
     });
   }
 
@@ -497,7 +466,6 @@ class ProjectTasksController extends ChangeNotifier {
     await _mutate(() async {
       await _api.addTaskMember(projectId, taskId, employeeId);
       await _loadMembersForSelectedTask(notifyLoading: false);
-      await _loadKanbanForSelectedProject(notifyLoading: false);
     });
   }
 
@@ -510,246 +478,7 @@ class ProjectTasksController extends ChangeNotifier {
     await _mutate(() async {
       await _api.removeTaskMember(projectId, taskId, employeeId);
       await _loadMembersForSelectedTask(notifyLoading: false);
-      await _loadKanbanForSelectedProject(notifyLoading: false);
     });
-  }
-
-
-  Future<void> reloadKanban() => _loadKanbanForSelectedProject();
-
-  Future<void> _loadKanbanForSelectedProject({
-    bool notifyLoading = true,
-  }) async {
-    final projectId = selectedProjectId;
-    final requestVersion = ++_kanbanRequestVersion;
-    if (projectId == null) {
-      kanbanBoard = null;
-      isLoadingKanban = false;
-      return;
-    }
-
-    isLoadingKanban = true;
-    kanbanError = null;
-    if (notifyLoading) {
-      notifyListeners();
-    }
-
-    try {
-      final loadedBoard = await _api.getKanbanBoard(projectId);
-      if (requestVersion != _kanbanRequestVersion ||
-          selectedProjectId != projectId) {
-        return;
-      }
-      kanbanBoard = loadedBoard;
-      isLoadingKanban = false;
-      notifyListeners();
-    } catch (error) {
-      if (requestVersion != _kanbanRequestVersion ||
-          selectedProjectId != projectId) {
-        return;
-      }
-      isLoadingKanban = false;
-      kanbanError = _errorMessage(
-        error,
-        'Não foi possível carregar o Kanban.',
-      );
-      notifyListeners();
-    }
-  }
-
-  Future<void> moveKanbanCard({
-    required String taskId,
-    required String toColumnId,
-    required int toIndex,
-  }) async {
-    final projectId = selectedProjectId;
-    final board = kanbanBoard;
-    if (projectId == null || board == null || !canMoveKanbanCards) {
-      return;
-    }
-
-    final columnTaskIds = <String, List<String>>{
-      for (final column in board.columns)
-        column.id: column.cards.map((card) => card.id).toList(),
-    };
-    String? sourceColumnId;
-    for (final entry in columnTaskIds.entries) {
-      if (entry.value.remove(taskId)) {
-        sourceColumnId = entry.key;
-        break;
-      }
-    }
-    if (sourceColumnId == null || !columnTaskIds.containsKey(toColumnId)) {
-      return;
-    }
-    final target = columnTaskIds[toColumnId]!;
-    final boundedIndex = toIndex.clamp(0, target.length).toInt();
-    target.insert(boundedIndex, taskId);
-
-    final affected = <String, List<String>>{
-      sourceColumnId: columnTaskIds[sourceColumnId]!,
-      if (toColumnId != sourceColumnId) toColumnId: target,
-    };
-
-    await _mutate(() async {
-      try {
-        final updated = await _api.reorderKanbanCards(
-          projectId,
-          expectedVersion: board.kanbanVersion,
-          columnTaskIds: affected,
-        );
-        if (selectedProjectId == projectId) {
-          kanbanBoard = updated;
-          kanbanError = null;
-        }
-      } on ApiException catch (error) {
-        if (error.statusCode == 409 && selectedProjectId == projectId) {
-          kanbanError =
-              'O quadro mudou em outra sessão. O estado mais recente foi recarregado.';
-          await _loadKanbanForSelectedProject(notifyLoading: false);
-        } else {
-          rethrow;
-        }
-      }
-    });
-  }
-
-  Future<void> createKanbanColumn(String name) async {
-    final projectId = selectedProjectId;
-    final board = kanbanBoard;
-    if (projectId == null || board == null || !canManageKanbanStructure) {
-      return;
-    }
-    await _mutate(() async {
-      try {
-        kanbanBoard = await _api.createKanbanColumn(
-          projectId,
-          name: name,
-          expectedVersion: board.kanbanVersion,
-        );
-        kanbanError = null;
-      } on ApiException catch (error) {
-        await _handleKanbanConflict(error, projectId);
-      }
-    });
-  }
-
-  Future<void> renameKanbanColumn(String columnId, String name) async {
-    final projectId = selectedProjectId;
-    final board = kanbanBoard;
-    if (projectId == null || board == null || !canManageKanbanStructure) {
-      return;
-    }
-    await _mutate(() async {
-      try {
-        kanbanBoard = await _api.renameKanbanColumn(
-          projectId,
-          columnId,
-          name: name,
-          expectedVersion: board.kanbanVersion,
-        );
-        kanbanError = null;
-      } on ApiException catch (error) {
-        await _handleKanbanConflict(error, projectId);
-      }
-    });
-  }
-
-  Future<void> reorderKanbanColumns(int oldIndex, int newIndex) async {
-    final projectId = selectedProjectId;
-    final board = kanbanBoard;
-    if (projectId == null || board == null || !canManageKanbanStructure) {
-      return;
-    }
-    final ids = board.columns.map((column) => column.id).toList();
-    if (newIndex > oldIndex) {
-      newIndex -= 1;
-    }
-    final id = ids.removeAt(oldIndex);
-    ids.insert(newIndex.clamp(0, ids.length).toInt(), id);
-
-    await _mutate(() async {
-      try {
-        kanbanBoard = await _api.reorderKanbanColumns(
-          projectId,
-          expectedVersion: board.kanbanVersion,
-          columnIds: ids,
-        );
-        kanbanError = null;
-      } on ApiException catch (error) {
-        await _handleKanbanConflict(error, projectId);
-      }
-    });
-  }
-
-  Future<void> deleteKanbanColumn(String columnId) async {
-    final projectId = selectedProjectId;
-    final board = kanbanBoard;
-    if (projectId == null || board == null || !canManageKanbanStructure) {
-      return;
-    }
-    await _mutate(() async {
-      try {
-        kanbanBoard = await _api.deleteKanbanColumn(
-          projectId,
-          columnId,
-          expectedVersion: board.kanbanVersion,
-        );
-        kanbanError = null;
-      } on ApiException catch (error) {
-        await _handleKanbanConflict(error, projectId);
-      }
-    });
-  }
-
-  Future<void> addKanbanAssignee(String taskId, String employeeId) async {
-    final projectId = selectedProjectId;
-    if (projectId == null || !canManageKanbanAssignees) {
-      return;
-    }
-    await _mutate(() async {
-      await _api.addKanbanAssignee(projectId, taskId, employeeId);
-      await _loadKanbanForSelectedProject(notifyLoading: false);
-    });
-  }
-
-  Future<void> removeKanbanAssignee(String taskId, String employeeId) async {
-    final projectId = selectedProjectId;
-    if (projectId == null || !canManageKanbanAssignees) {
-      return;
-    }
-    await _mutate(() async {
-      await _api.removeKanbanAssignee(projectId, taskId, employeeId);
-      await _loadKanbanForSelectedProject(notifyLoading: false);
-    });
-  }
-
-  Future<void> deleteKanbanCard(String taskId) async {
-    final projectId = selectedProjectId;
-    if (projectId == null || !canManageTasks) {
-      return;
-    }
-    await _mutate(() async {
-      await _api.deleteTask(projectId, taskId);
-      tasks = tasks.where((task) => task.id != taskId).toList();
-      if (selectedTaskId == taskId) {
-        selectedTaskId = tasks.isEmpty ? null : tasks.first.id;
-      }
-      await _loadKanbanForSelectedProject(notifyLoading: false);
-    });
-  }
-
-  Future<void> _handleKanbanConflict(
-    ApiException error,
-    String projectId,
-  ) async {
-    if (error.statusCode == 409 && selectedProjectId == projectId) {
-      kanbanError =
-          'O quadro mudou em outra sessão. O estado mais recente foi recarregado.';
-      await _loadKanbanForSelectedProject(notifyLoading: false);
-      return;
-    }
-    throw error;
   }
 
   Future<T> _mutate<T>(Future<T> Function() action) async {
@@ -767,11 +496,9 @@ class ProjectTasksController extends ChangeNotifier {
     _projectMembersRequestVersion += 1;
     _tasksRequestVersion += 1;
     _taskMembersRequestVersion += 1;
-    _kanbanRequestVersion += 1;
     isLoadingProjectMembers = false;
     isLoadingTasks = false;
     isLoadingMembers = false;
-    isLoadingKanban = false;
   }
 
   void _invalidateTaskMemberRequests() {

@@ -1,11 +1,9 @@
 import 'package:touchin_flutter/contracts/auth.dart';
 import 'package:touchin_flutter/contracts/employee.dart';
-import 'package:touchin_flutter/contracts/kanban.dart';
 import 'package:touchin_flutter/contracts/project.dart';
 import 'package:touchin_flutter/contracts/task.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
 import 'package:touchin_flutter/features/projects/presentation/project_tasks_page.dart';
-import 'package:touchin_flutter/features/projects/presentation/widgets/kanban_board.dart';
 import 'package:touchin_flutter/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -39,21 +37,6 @@ void main() {
     expect(find.text('Coluna'), findsNothing);
   });
 
-  testWidgets('kanban workspace is isolated from project tasks rendering',
-      (tester) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        home: ProjectTasksPage(
-          api: _FakeProjectTasksApi(role: 'manager', employeeId: 'emp-02'),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.byType(KanbanBoardView), findsNothing);
-    expect(find.text('Projeto principal'), findsWidgets);
-    expect(find.text('Implementar tela'), findsWidgets);
-  });
 
   testWidgets('selected project list icon keeps accent contrast in dark theme',
       (tester) async {
@@ -283,40 +266,6 @@ class _FakeProjectTasksApi extends TouchInApi {
         createdAt: DateTime(2026, 9, 9),
       ),
     ];
-  }
-
-  @override
-  Future<KanbanBoard> getKanbanBoard(String projectId) async {
-    return KanbanBoard(
-      projectId: projectId,
-      kanbanVersion: 0,
-      columns: <KanbanColumn>[
-        KanbanColumn(
-          id: 'column-01',
-          projectId: projectId,
-          name: 'A fazer',
-          position: 0,
-          cards: <KanbanCard>[
-            KanbanCard(
-              id: 'task-01',
-              projectId: projectId,
-              parentTaskId: null,
-              cardNumber: 1,
-              kanbanColumnId: 'column-01',
-              kanbanPosition: 0,
-              name: 'Implementar tela',
-              description: 'Descrição da tarefa',
-              type: TaskType.feature,
-              assignees: const <TaskMemberSummary>[],
-              createdAt: DateTime(2026, 9, 9),
-              updatedAt: DateTime(2026, 9, 9),
-            ),
-          ],
-          createdAt: DateTime(2026, 9, 9),
-          updatedAt: DateTime(2026, 9, 9),
-        ),
-      ],
-    );
   }
 
   @override

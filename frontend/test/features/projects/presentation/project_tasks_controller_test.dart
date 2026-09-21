@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:touchin_flutter/contracts/auth.dart';
-import 'package:touchin_flutter/contracts/kanban.dart';
 import 'package:touchin_flutter/contracts/project.dart';
 import 'package:touchin_flutter/contracts/task.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
@@ -181,30 +180,6 @@ void main() {
   });
 
 
-  test('discards stale kanban responses after project selection changes', () async {
-    final api = _ControlledProjectApi();
-    final controller = ProjectTasksController(api: api);
-    await controller.start();
-
-    api.controlKanban = true;
-    final stale = controller.selectProject('project-b');
-    await Future<void>.delayed(Duration.zero);
-    expect(api.kanbanCompleters.containsKey('project-b'), isTrue);
-
-    final current = controller.selectProject('project-a');
-    await Future<void>.delayed(Duration.zero);
-    expect(api.kanbanCompleters.containsKey('project-a'), isTrue);
-
-    api.kanbanCompleters['project-a']!.complete(_board('project-a', version: 2));
-    await current;
-
-    api.kanbanCompleters['project-b']!.complete(_board('project-b', version: 1));
-    await stale;
-
-    expect(controller.kanbanBoard?.projectId, 'project-a');
-    expect(controller.kanbanBoard?.kanbanVersion, 2);
-  });
-
 }
 
 class _ControlledProjectApi extends TouchInApi {
@@ -213,7 +188,6 @@ class _ControlledProjectApi extends TouchInApi {
   bool controlProjectMembers = false;
   bool controlTaskMembers = false;
   bool controlCreateTasks = false;
-  bool controlKanban = false;
 
   final Map<String, Completer<TaskRecord>> createTaskCompleters =
       <String, Completer<TaskRecord>>{};
@@ -225,8 +199,6 @@ class _ControlledProjectApi extends TouchInApi {
       <String, Completer<List<ProjectMemberSummary>>>{};
   final Map<String, Completer<List<TaskMemberSummary>>> taskMemberCompleters =
       <String, Completer<List<TaskMemberSummary>>>{};
-  final Map<String, Completer<KanbanBoard>> kanbanCompleters =
-      <String, Completer<KanbanBoard>>{};
 
   @override
   Future<AuthContext> getAuthContext() async {
@@ -312,16 +284,6 @@ class _ControlledProjectApi extends TouchInApi {
   }
 
   @override
-  Future<KanbanBoard> getKanbanBoard(String projectId) {
-    if (controlKanban) {
-      return kanbanCompleters
-          .putIfAbsent(projectId, () => Completer<KanbanBoard>())
-          .future;
-    }
-    return Future<KanbanBoard>.value(_board(projectId));
-  }
-
-  @override
   Future<List<TaskRecord>> listTasks(String projectId) {
     if (controlTasks) {
       return taskCompleters
@@ -346,14 +308,6 @@ class _ControlledProjectApi extends TouchInApi {
     }
     return Future<List<TaskMemberSummary>>.value(<TaskMemberSummary>[]);
   }
-}
-
-KanbanBoard _board(String projectId, {int version = 0}) {
-  return KanbanBoard(
-    projectId: projectId,
-    kanbanVersion: version,
-    columns: const <KanbanColumn>[],
-  );
 }
 
 ProjectSummary _project(String id) {
