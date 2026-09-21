@@ -1,0 +1,299 @@
+{
+  "schema_version": 4,
+  "kind": "feature",
+  "scope": {
+    "allowed_paths": [
+      "frontend/lib/features/projects/presentation/project_kanban_page.dart",
+      "frontend/lib/features/projects/presentation/widgets/project_kanban_board.dart",
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart",
+      "docs/contracts/project-kanban-uiux-refresh-v1.polis.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Refresh the now-functional reconstructed Kanban UI/UX so it matches TouchIn's established workspace language and becomes clearer, more fluid, more informative, and easier to operate without changing Kanban domain semantics, persistence, controller ownership, or dependencies.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "The Kanban page must adopt the same information hierarchy used by other TouchIn management pages: WorkspaceHeader for page intent, WorkspaceSectionCard for project context, compact metric items, and the existing accent navigation language, while retaining the dedicated safe Kanban page composition."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "The selected project context must be immediately understandable through project identity, project selector, column count, card count, and project-team count without requiring interaction."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "The board header must explain the primary interaction, surface synchronization/version state, provide horizontal navigation affordances when multiple columns exist, and retain an explicit create-column action."
+      },
+      {
+        "id": "REQ-004",
+        "statement": "Each lane must expose a clear title/count hierarchy, a focused add-card affordance, consolidated structural actions, a meaningful empty state, and stronger drop-target feedback without changing column identity or order semantics."
+      },
+      {
+        "id": "REQ-005",
+        "statement": "Cards must improve visual scanning with task-type badges, stronger title hierarchy, compact assignee summaries, clear edit/delete/assignee affordances, hover feedback, and an explicit drag handle while preserving card identity and raw-pointer movement behavior."
+      },
+      {
+        "id": "REQ-006",
+        "statement": "Drag feedback must be legible and dynamic: the dragged source visually recedes, the destination lane is emphasized, and the target position is communicated before release."
+      },
+      {
+        "id": "REQ-007",
+        "statement": "The page and board must remain responsive in narrow and wide viewports, preserve finite constraints under the production AppTheme, and avoid the intrinsic-layout and infinite-width failures fixed in prior increments."
+      },
+      {
+        "id": "REQ-008",
+        "statement": "No external dependency may be added. pubspec.yaml and the dependency graph must remain unchanged."
+      },
+      {
+        "id": "REQ-009",
+        "statement": "ProjectKanbanController remains the single owner of Kanban presentation state and server-authoritative persistence; backend, API, contracts, mutation sequencing, optimistic-concurrency behavior, and unrelated pages must not change."
+      },
+      {
+        "id": "REQ-010",
+        "statement": "The prior failed UI mechanisms must not be reintroduced: Draggable, DragTarget, LongPressDraggable, ReorderableListView, browser renderer workarounds, or a WorkspaceScaffold wrapping the dedicated Kanban board."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "ProjectKanbanPage renders a WorkspaceHeader titled 'Kanban do projeto', a WorkspaceSectionCard for project context, a visible refresh action, and metric items labelled Colunas, Cards, and Equipe.",
+        "requirements": [
+          "REQ-001",
+          "REQ-002"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "The accent top bar identifies TOUCHIN and Kanban, surfaces the selected project on wide viewports, and shows an updated/saving status without replacing the dedicated page layout.",
+        "requirements": [
+          "REQ-001",
+          "REQ-007"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-003",
+        "statement": "ProjectKanbanBoard explains drag interaction, renders synchronization/version metadata, provides previous/next board navigation for multi-column boards, and keeps the Coluna action locally finite-width.",
+        "requirements": [
+          "REQ-003",
+          "REQ-007"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-004",
+        "statement": "Lane headers show the column name and a separate card-count badge; structural actions are consolidated in a menu; every manageable lane exposes 'Adicionar card'; empty lanes explain how to start.",
+        "requirements": [
+          "REQ-004"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-005",
+        "statement": "Cards display Bug/Melhoria/Feature badges, card number, title/description hierarchy, responsible-person summary, hover treatment, explicit drag affordance, and existing management actions.",
+        "requirements": [
+          "REQ-005"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-006",
+        "statement": "During a drag the source card fades, the target lane receives an animated primary outline, and a 'Solte aqui' position indicator is rendered while persistence remains delegated to onMoveCard.",
+        "requirements": [
+          "REQ-006",
+          "REQ-009"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-007",
+        "statement": "Focused widget coverage verifies the refreshed information hierarchy under AppTheme.darkTheme, retains the existing finite-layout/button regressions, and keeps the narrow viewport free of Flutter exceptions.",
+        "requirements": [
+          "REQ-007"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-008",
+        "statement": "No pubspec or dependency file changes are present and project_kanban_board.dart contains no Draggable, DragTarget, LongPressDraggable, or ReorderableListView implementation.",
+        "requirements": [
+          "REQ-008",
+          "REQ-010"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-009",
+        "statement": "Only the Kanban page, Kanban board widget, focused Kanban page test, and this versioned Change Contract are modified.",
+        "requirements": [
+          "REQ-009"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "ProjectKanbanController, TouchInApi, backend routes/services, Kanban contracts, and persistence semantics are byte-for-byte unchanged."
+      },
+      {
+        "id": "INV-002",
+        "statement": "The dedicated Kanban page continues to use finite Column/Expanded layout and does not reintroduce the page-level SliverFillRemaining intrinsic-layout conflict."
+      },
+      {
+        "id": "INV-003",
+        "statement": "Compact themed buttons placed in potentially loose horizontal contexts override their minimum size with finite widths."
+      },
+      {
+        "id": "INV-004",
+        "statement": "The board continues to use CustomScrollView/SliverFixedExtentList and Listener-based raw pointer drag with persistent ScrollControllers."
+      },
+      {
+        "id": "INV-005",
+        "statement": "pubspec.yaml is unchanged and no third-party Kanban package is introduced."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "UI polish changes controller/backend/API/domain semantics or performs local persistent optimistic reordering ahead of the authoritative server response."
+      },
+      {
+        "id": "FORB-002",
+        "statement": "A new external package or third-party Kanban implementation is added."
+      },
+      {
+        "id": "FORB-003",
+        "statement": "Draggable, DragTarget, LongPressDraggable, ReorderableListView, or browser-specific renderer flags return to the implementation."
+      },
+      {
+        "id": "FORB-004",
+        "statement": "The UI uses intrinsic sizing or an inherited Size.fromHeight button minimum in an unbounded Row, recreating prior rendering failures."
+      },
+      {
+        "id": "FORB-005",
+        "statement": "Unrelated workspace pages or the global AppTheme are modified merely to style the Kanban."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "Current functional baseline tree ca5708ec3a0819a030738fb5861a47a46efafcfb after the reconstructed board, finite page layout, and finite Kanban header button fixes."
+      },
+      {
+        "id": "IN-002",
+        "statement": "Existing TouchIn management pages use WorkspaceHeader, WorkspaceSectionCard, compact metric rows, accent branding, clear empty states, and explicit management actions as the visual/interaction reference."
+      },
+      {
+        "id": "IN-003",
+        "statement": "User requirement: improve the working Kanban comprehensively so it feels more fluid, interesting, dynamic, and easier to understand, without external dependencies."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "A refreshed ProjectKanbanPage aligned with TouchIn workspace hierarchy and project context patterns."
+      },
+      {
+        "id": "OUT-002",
+        "statement": "A refreshed ProjectKanbanBoard with clearer lanes/cards, interaction guidance, hover/drop feedback, and explicit empty/add states."
+      },
+      {
+        "id": "OUT-003",
+        "statement": "Focused regression coverage for production-theme rendering and refreshed UX landmarks without changing dependencies or Kanban domain behavior."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "If the refreshed UI landmarks are absent, the regression command exits non-zero with kanban_uiux_refresh_missing."
+      },
+      {
+        "id": "FAIL-002",
+        "statement": "If a new Flutter rendering exception appears, the first concrete layout exception is authoritative and the UI increment must be corrected locally rather than changing renderer/backend architecture."
+      },
+      {
+        "id": "FAIL-003",
+        "statement": "If behavior, API, or persistence changes are required to realize a visual affordance, that affordance is out of scope for this increment."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "92029c7eef51467e5e0cccc63a5ca8dbefde69e6",
+    "base_tree": "ca5708ec3a0819a030738fb5861a47a46efafcfb",
+    "policy_sha256": "cb60d7751236c799472a2e7166df0637c20f183f26a61900706bbdb69232ab34",
+    "specification_sha256": "e70d3e2f5e8826b0a2abb226840bc8f4698f5a531008b6d96198468afedb60f9"
+  },
+  "behavior": {
+    "argv": [
+      "python3",
+      "-c",
+      "from pathlib import Path; import sys; page=Path('frontend/lib/features/projects/presentation/project_kanban_page.dart').read_text(); board=Path('frontend/lib/features/projects/presentation/widgets/project_kanban_board.dart').read_text(); pubspec=Path('frontend/pubspec.yaml').read_text(); ok=(\"title: 'Kanban do projeto'\" in page and 'WorkspaceSectionCard(' in page and \"label: 'Colunas'\" in page and \"label: 'Cards'\" in page and \"label: 'Equipe'\" in page and \"'Arraste cards pelo ícone para reorganizar o fluxo.'\" in board and \"const Text('Adicionar card')\" in board and 'class _TaskTypeBadge' in board and 'class _AssigneeSummary' in board and 'AnimatedOpacity(' in board and \"'Solte aqui · posição\" in board and 'minimumSize: const Size(0, 48)' in board and 'Draggable\u003c' not in board and 'DragTarget\u003c' not in board and 'LongPressDraggable' not in board and 'ReorderableListView' not in board and 'boardview:' not in pubspec and 'appflowy_board:' not in pubspec); print('kanban_uiux_refresh_ok' if ok else 'kanban_uiux_refresh_missing'); sys.exit(0 if ok else 1)"
+    ],
+    "cwd": ".",
+    "timeout_seconds": 30,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "python3",
+      "-c",
+      "from pathlib import Path; import sys; page=Path('frontend/lib/features/projects/presentation/project_kanban_page.dart').read_text(); board=Path('frontend/lib/features/projects/presentation/widgets/project_kanban_board.dart').read_text(); test=Path('frontend/test/features/projects/presentation/project_kanban_page_test.dart').read_text(); ok=(\"title: 'Kanban do projeto'\" in page and \"find.text('Kanban do projeto')\" in test and \"find.text('Adicionar card')\" in test and 'class _TaskTypeBadge' in board); print('kanban_uiux_refresh_affected_ok' if ok else 'kanban_uiux_refresh_missing'); sys.exit(0 if ok else 1)"
+    ],
+    "cwd": ".",
+    "timeout_seconds": 30,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "python3",
+        "-c",
+        "from pathlib import Path; import sys; page=Path('frontend/lib/features/projects/presentation/project_kanban_page.dart').read_text(); board=Path('frontend/lib/features/projects/presentation/widgets/project_kanban_board.dart').read_text(); test=Path('frontend/test/features/projects/presentation/project_kanban_page_test.dart').read_text(); expectations=(\"presents project context and clearer board guidance\" in test and \"find.text('Kanban do projeto')\" in test and \"find.text('Feature')\" in test and \"find.text('Adicionar card')\" in test); production=(\"title: 'Kanban do projeto'\" in page and 'class _TaskTypeBadge' in board and \"const Text('Adicionar card')\" in board); ok=expectations and production; print('kanban_uiux_refresh_ready' if ok else 'kanban_uiux_refresh_missing'); sys.exit(0 if ok else 1)"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 30,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "kanban_uiux_refresh_missing"
+    ]
+  }
+}

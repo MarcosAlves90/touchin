@@ -26,7 +26,7 @@ void main() {
     expect(find.byType(AppBar), findsNothing);
     expect(find.text('Kanban'), findsOneWidget);
     expect(find.byType(ProjectKanbanBoard), findsOneWidget);
-    expect(find.text('A fazer (0)'), findsOneWidget);
+    expect(find.text('A fazer'), findsOneWidget);
     expect(find.text('Nenhum card nesta coluna'), findsOneWidget);
 
     final headerRect = tester.getRect(find.text('Kanban'));
@@ -73,8 +73,8 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: AppTheme.light(),
-        darkTheme: AppTheme.dark(),
+        theme: AppTheme.lightTheme,
+        darkTheme: AppTheme.darkTheme,
         themeMode: ThemeMode.dark,
         home: ProjectKanbanPage(api: _FakeKanbanApi(includeCard: false)),
       ),
@@ -85,6 +85,38 @@ void main() {
     expect(createColumn, findsOneWidget);
     expect(tester.getRect(createColumn).width, greaterThan(0));
     expect(tester.getRect(createColumn).width, lessThan(300));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('presents project context and clearer board guidance', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.lightTheme,
+        darkTheme: AppTheme.darkTheme,
+        themeMode: ThemeMode.dark,
+        home: ProjectKanbanPage(api: _FakeKanbanApi()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Kanban do projeto'), findsOneWidget);
+    expect(find.text('PROJETO ATUAL'), findsOneWidget);
+    expect(find.text('Colunas'), findsOneWidget);
+    expect(find.text('Cards'), findsOneWidget);
+    expect(find.text('Equipe'), findsOneWidget);
+    expect(find.text('Quadro'), findsOneWidget);
+    expect(
+      find.text('Arraste cards pelo ícone para reorganizar o fluxo.'),
+      findsOneWidget,
+    );
+    expect(find.text('Feature'), findsOneWidget);
+    expect(find.text('Adicionar card'), findsOneWidget);
+    expect(find.text('Sem responsáveis'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

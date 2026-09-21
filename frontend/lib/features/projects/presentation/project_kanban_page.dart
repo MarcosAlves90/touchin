@@ -53,7 +53,10 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
               child: Column(
                 children: <Widget>[
                   _KanbanTopBar(
-                    onMenuPressed: () => Scaffold.of(scaffoldContext).openDrawer(),
+                    projectName: _controller.selectedProject?.name,
+                    isBusy: _controller.isMutating,
+                    onMenuPressed: () =>
+                        Scaffold.of(scaffoldContext).openDrawer(),
                   ),
                   Expanded(child: _buildPageBody()),
                 ],
@@ -88,18 +91,42 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final horizontalPadding = constraints.maxWidth >= 900 ? 28.0 : 16.0;
+        final isWide = constraints.maxWidth >= 980;
+        final horizontalPadding = isWide ? 32.0 : 16.0;
         return Padding(
           padding: EdgeInsets.fromLTRB(
             horizontalPadding,
-            20,
+            isWide ? 24 : 18,
             horizontalPadding,
-            20,
+            isWide ? 24 : 16,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              _buildProjectToolbar(constraints.maxWidth),
+              WorkspaceHeader(
+                title: 'Kanban do projeto',
+                description:
+                    'Acompanhe e mova os cards do projeto selecionado.',
+                maxContentWidth: 680,
+                actions: <Widget>[
+                  SizedBox(
+                    width: 160,
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(0, 48),
+                      ),
+                      onPressed: _controller.isMutating ||
+                              _controller.isLoadingBoard
+                          ? null
+                          : () => _controller.reload(),
+                      icon: const Icon(Icons.refresh_rounded),
+                      label: const Text('Atualizar'),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              _buildProjectOverview(),
               const SizedBox(height: 16),
               Expanded(child: _buildBoardContent()),
             ],
@@ -109,7 +136,7 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
     );
   }
 
-  Widget _buildProjectToolbar(double availableWidth) {
+  Widget _buildProjectOverview() {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final project = _controller.selectedProject;
@@ -139,82 +166,141 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
       onChanged: _controller.isMutating
           ? null
           : (projectId) {
-              if (projectId != null && projectId != _controller.selectedProjectId) {
+              if (projectId != null &&
+                  projectId != _controller.selectedProjectId) {
                 _controller.selectProject(projectId);
               }
             },
     );
 
-    final summary = Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: <Widget>[
-        _KanbanMetricChip(
-          icon: Icons.view_column_outlined,
-          label: board == null ? '— colunas' : '${board.columns.length} colunas',
-        ),
-        _KanbanMetricChip(
-          icon: Icons.task_alt_outlined,
-          label: board == null ? '— cards' : '$cardCount cards',
-        ),
-      ],
-    );
-
-    final intro = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Text(
-          project?.name ?? 'Kanban por projeto',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: theme.textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'Acompanhe e mova os cards do projeto selecionado.',
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: colorScheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: 10),
-        summary,
-      ],
-    );
-
-    final wide = availableWidth >= 760;
-    return Material(
-      color: colorScheme.surface,
-      shape: RoundedRectangleBorder(
-        side: BorderSide(color: colorScheme.outlineVariant),
+    final metrics = <Widget>[
+      _KanbanMetricItem(
+        icon: Icons.view_column_outlined,
+        label: 'Colunas',
+        value: board == null ? '—' : '${board.columns.length}',
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: wide
-            ? Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: <Widget>[
-                  Expanded(child: intro),
-                  const SizedBox(width: 24),
-                  SizedBox(width: 360, child: selector),
-                ],
-              )
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: <Widget>[
-                  intro,
-                  const SizedBox(height: 16),
-                  selector,
-                ],
+      _KanbanMetricItem(
+        icon: Icons.task_alt_outlined,
+        label: 'Cards',
+        value: board == null ? '—' : '$cardCount',
+      ),
+      _KanbanMetricItem(
+        icon: Icons.groups_2_outlined,
+        label: 'Equipe',
+        value: '${_controller.projectMembers.length}',
+      ),
+    ];
+
+    return WorkspaceSectionCard(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final wide = constraints.maxWidth >= 860;
+          final identity = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(
+                'PROJETO ATUAL',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  letterSpacing: 1.2,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
+              const SizedBox(height: 5),
+              Text(
+                project?.name ?? 'Kanban por projeto',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              if ((project?.description ?? '').trim().isNotEmpty) ...<Widget>[
+                const SizedBox(height: 4),
+                Text(
+                  project?.description ?? '',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ],
+          );
+
+          final contextRow = wide
+              ? Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: <Widget>[
+                    Expanded(child: identity),
+                    const SizedBox(width: 24),
+                    SizedBox(width: 340, child: selector),
+                  ],
+                )
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    identity,
+                    const SizedBox(height: 14),
+                    selector,
+                  ],
+                );
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              contextRow,
+              const SizedBox(height: 16),
+              LayoutBuilder(
+                builder: (context, metricConstraints) {
+                  final singleRow = metricConstraints.maxWidth >= 680;
+                  if (singleRow) {
+                    return Row(
+                      children: metrics.asMap().entries.map((entry) {
+                        return Expanded(
+                          child: Padding(
+                            padding: EdgeInsets.only(
+                              right: entry.key == metrics.length - 1 ? 0 : 8,
+                            ),
+                            child: entry.value,
+                          ),
+                        );
+                      }).toList(),
+                    );
+                  }
+                  final twoColumns = metricConstraints.maxWidth >= 300;
+                  final itemWidth = twoColumns
+                      ? (metricConstraints.maxWidth - 8) / 2
+                      : metricConstraints.maxWidth;
+                  return Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: metrics
+                        .map(
+                          (metric) => SizedBox(
+                            width: itemWidth,
+                            child: metric,
+                          ),
+                        )
+                        .toList(),
+                  );
+                },
+              ),
+            ],
+          );
+        },
       ),
     );
   }
 
   Widget _buildBoardContent() {
     if (_controller.isLoadingBoard) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(
+        key: ValueKey<String>('kanban-board-loading'),
+        child: CircularProgressIndicator(),
+      );
     }
 
     final board = _controller.board;
@@ -229,47 +315,60 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
 
     final colorScheme = Theme.of(context).colorScheme;
     return Material(
-      color: colorScheme.surface,
+      key: ValueKey<String>('kanban-board-${board.kanbanVersion}'),
+      color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.34),
       shape: RoundedRectangleBorder(
         side: BorderSide(color: colorScheme.outlineVariant),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            if (_controller.boardError != null) ...<Widget>[
-              _KanbanNotice(message: _controller.boardError!),
-              const SizedBox(height: 12),
-            ],
-            Expanded(
-              child: ProjectKanbanBoard(
-                board: board,
-                isBusy: _controller.isMutating,
-                canMoveCards: _controller.canMoveCards,
-                canManageStructure: _controller.canManageStructure,
-                canManageCards: _controller.canManageCards,
-                canManageAssignees: _controller.canManageAssignees,
-                onMoveCard: (taskId, columnId, index) => _controller.moveCard(
-                  taskId: taskId,
-                  toColumnId: columnId,
-                  toIndex: index,
+      child: Stack(
+        children: <Widget>[
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                if (_controller.boardError != null) ...<Widget>[
+                  _KanbanNotice(message: _controller.boardError!),
+                  const SizedBox(height: 12),
+                ],
+                Expanded(
+                  child: ProjectKanbanBoard(
+                    board: board,
+                    isBusy: _controller.isMutating,
+                    canMoveCards: _controller.canMoveCards,
+                    canManageStructure: _controller.canManageStructure,
+                    canManageCards: _controller.canManageCards,
+                    canManageAssignees: _controller.canManageAssignees,
+                    onMoveCard: (taskId, columnId, index) =>
+                        _controller.moveCard(
+                      taskId: taskId,
+                      toColumnId: columnId,
+                      toIndex: index,
+                    ),
+                    onMoveColumn: (columnId, index) => _controller.moveColumn(
+                      columnId: columnId,
+                      toIndex: index,
+                    ),
+                    onCreateColumn: _openCreateKanbanColumn,
+                    onRenameColumn: _openRenameKanbanColumn,
+                    onDeleteColumn: _confirmDeleteKanbanColumn,
+                    onCreateCard: _openCreateKanbanCard,
+                    onEditCard: _openEditKanbanCard,
+                    onDeleteCard: _confirmDeleteKanbanCard,
+                    onManageAssignees: _openManageKanbanAssignees,
+                  ),
                 ),
-                onMoveColumn: (columnId, index) => _controller.moveColumn(
-                  columnId: columnId,
-                  toIndex: index,
-                ),
-                onCreateColumn: _openCreateKanbanColumn,
-                onRenameColumn: _openRenameKanbanColumn,
-                onDeleteColumn: _confirmDeleteKanbanColumn,
-                onCreateCard: _openCreateKanbanCard,
-                onEditCard: _openEditKanbanCard,
-                onDeleteCard: _confirmDeleteKanbanCard,
-                onManageAssignees: _openManageKanbanAssignees,
-              ),
+              ],
             ),
-          ],
-        ),
+          ),
+          if (_controller.isMutating)
+            const Positioned(
+              left: 0,
+              top: 0,
+              right: 0,
+              child: LinearProgressIndicator(minHeight: 2),
+            ),
+        ],
       ),
     );
   }
@@ -553,35 +652,119 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
 }
 
 class _KanbanTopBar extends StatelessWidget {
-  const _KanbanTopBar({required this.onMenuPressed});
+  const _KanbanTopBar({
+    required this.projectName,
+    required this.isBusy,
+    required this.onMenuPressed,
+  });
 
+  final String? projectName;
+  final bool isBusy;
   final VoidCallback onMenuPressed;
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     return Material(
       color: AppTheme.accent,
       child: SizedBox(
-        height: 56,
+        height: 58,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: Row(
-            children: <Widget>[
-              IconButton(
-                tooltip: 'Abrir menu',
-                onPressed: onMenuPressed,
-                icon: Icon(Icons.menu_rounded, color: colorScheme.onPrimary),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Kanban',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final showContext = constraints.maxWidth >= 680;
+              return Row(
+                children: <Widget>[
+                  IconButton(
+                    tooltip: 'Abrir menu',
+                    onPressed: onMenuPressed,
+                    icon: Icon(
+                      Icons.menu_rounded,
                       color: colorScheme.onPrimary,
-                      fontWeight: FontWeight.w700,
                     ),
-              ),
-            ],
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'TOUCHIN',
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: colorScheme.onPrimary.withValues(alpha: 0.82),
+                      letterSpacing: 1.8,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Container(
+                    width: 1,
+                    height: 24,
+                    color: colorScheme.onPrimary.withValues(alpha: 0.2),
+                  ),
+                  const SizedBox(width: 12),
+                  Icon(
+                    Icons.view_kanban_outlined,
+                    size: 20,
+                    color: colorScheme.onPrimary,
+                  ),
+                  const SizedBox(width: 7),
+                  Text(
+                    'Kanban',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      color: colorScheme.onPrimary,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  if (showContext && projectName != null) ...<Widget>[
+                    const SizedBox(width: 10),
+                    Flexible(
+                      child: Text(
+                        '· $projectName',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onPrimary.withValues(alpha: 0.72),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                  const Spacer(),
+                  if (showContext)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.1),
+                        border: Border.all(
+                          color: Colors.black.withValues(alpha: 0.08),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          Icon(
+                            isBusy
+                                ? Icons.sync_rounded
+                                : Icons.cloud_done_outlined,
+                            size: 15,
+                            color: colorScheme.onPrimary,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            isBusy ? 'Salvando alterações' : 'Atualizado',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: colorScheme.onPrimary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              );
+            },
           ),
         ),
       ),
@@ -589,27 +772,61 @@ class _KanbanTopBar extends StatelessWidget {
   }
 }
 
-class _KanbanMetricChip extends StatelessWidget {
-  const _KanbanMetricChip({required this.icon, required this.label});
+class _KanbanMetricItem extends StatelessWidget {
+  const _KanbanMetricItem({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
 
   final IconData icon;
   final String label;
+  final String value;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest,
-        border: Border.all(color: theme.colorScheme.outlineVariant),
+        color: colorScheme.surface.withValues(alpha: 0.68),
+        border: Border.all(color: colorScheme.outlineVariant),
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          Icon(icon, size: 16),
-          const SizedBox(width: 6),
-          Text(label, style: theme.textTheme.labelMedium),
+          Container(
+            width: 30,
+            height: 30,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: colorScheme.primary.withValues(alpha: 0.1),
+              border: Border.all(
+                color: colorScheme.primary.withValues(alpha: 0.2),
+              ),
+            ),
+            child: Icon(icon, size: 16, color: colorScheme.primary),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            value,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w900,
+            ),
+          ),
         ],
       ),
     );
