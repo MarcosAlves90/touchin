@@ -1,0 +1,239 @@
+{
+  "schema_version": 4,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      "frontend/lib/features/projects/presentation/widgets/kanban_board.dart",
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart",
+      "docs/contracts/project-kanban-single-column-scroll-bypass-v1.polis.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Isolate the remaining Flutter Web Kanban paint-offset defect by bypassing the horizontal SingleChildScrollView only when the loaded board has zero or one column, which matches the confirmed reproduction. Render that state through a direct bounded Row while preserving the existing horizontal-scroll path for multi-column boards and leaving the shell, controller, backend, renderer bootstrap, and Kanban domain behavior unchanged.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "When board.columns has zero or one item, KanbanBoardView must not mount a SingleChildScrollView and must render the column surface through a direct Row."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "The single-column direct path must keep the panel width bounded to at most 320 logical pixels and omit trailing inter-column padding so it remains valid on narrow viewports."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "Boards with two or more columns must preserve the current horizontal SingleChildScrollView plus Row path so this diagnostic slice does not remove multi-column access."
+      },
+      {
+        "id": "REQ-004",
+        "statement": "The static diagnostic renderer must continue to exclude ListView, ReorderableListView, Draggable, LongPressDraggable, DragTarget, and ReorderableDragStartListener."
+      },
+      {
+        "id": "REQ-005",
+        "statement": "Column/card/assignee management callbacks and the intentionally unmounted movement callback contract must remain unchanged."
+      },
+      {
+        "id": "REQ-006",
+        "statement": "WorkspaceScaffold, ProjectKanbanPage, ProjectTasksController, renderer/bootstrap, backend, API, persistence, authorization, and dependencies must remain unchanged."
+      },
+      {
+        "id": "REQ-007",
+        "statement": "The locked Change Contract must be versioned at docs/contracts/project-kanban-single-column-scroll-bypass-v1.polis.json."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "The one-column widget-test fixture mounts KanbanBoardView without any descendant SingleChildScrollView.",
+        "requirements": [
+          "REQ-001"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "Source contains an explicit zero/one-column direct Row branch whose panel has no trailing padding and remains bounded by the parent width.",
+        "requirements": [
+          "REQ-001",
+          "REQ-002"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-003",
+        "statement": "The multi-column branch retains SingleChildScrollView with Axis.horizontal around a Row.",
+        "requirements": [
+          "REQ-003"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-004",
+        "statement": "The board source contains none of the excluded list/reorder/drag primitives.",
+        "requirements": [
+          "REQ-004"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-005",
+        "statement": "Existing structure/card/assignee management callback wiring remains present.",
+        "requirements": [
+          "REQ-005"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-006",
+        "statement": "The payload changes only the Kanban board widget, its focused widget test, and the versioned contract.",
+        "requirements": [
+          "REQ-006",
+          "REQ-007"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "The confirmed placeholder experiment remains valid evidence that the shell/controller/data path renders correctly without the real board subtree."
+      },
+      {
+        "id": "INV-002",
+        "statement": "The current static renderer reproduces the paint-offset defect in both Firefox and Chrome with the same Flutter 3.47.2 toolchain, so this slice tests the horizontal scroll viewport rather than browser-specific rasterizer behavior."
+      },
+      {
+        "id": "INV-003",
+        "statement": "No renderer/bootstrap workaround or Flutter SDK/version change is introduced."
+      },
+      {
+        "id": "INV-004",
+        "statement": "Kanban persistence, authorization, optimistic concurrency, card identity, and ordering semantics are untouched."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "A zero/one-column board still mounts SingleChildScrollView."
+      },
+      {
+        "id": "FORB-002",
+        "statement": "The multi-column horizontal-scroll path is removed in this diagnostic slice."
+      },
+      {
+        "id": "FORB-003",
+        "statement": "Any drag/reorder/list primitive is reintroduced."
+      },
+      {
+        "id": "FORB-004",
+        "statement": "Workspace shell, page/controller, backend, API, bootstrap, dependencies, or renderer configuration are modified."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "Baseline commit 668ba724ea1859eba401efe5630e3cb02d9b38c9, where the static Kanban renderer reproduces the paint-offset defect on Chrome and Firefox."
+      },
+      {
+        "id": "IN-002",
+        "statement": "The confirmed reproduction board has one column, so the direct branch can isolate the scroll viewport without changing the observed data shape."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "A one-column Kanban render path with no horizontal scroll viewport."
+      },
+      {
+        "id": "OUT-002",
+        "statement": "A controlled A/B surface that can determine whether SingleChildScrollView is necessary for the paint-offset defect while preserving the existing path for multi-column boards."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "If the one-column bypass, preserved multi-column scroll path, or focused regression expectation is missing, validation fails closed with project_kanban_single_column_scroll_bypass_missing."
+      },
+      {
+        "id": "FAIL-002",
+        "statement": "Flutter/Dart tooling is unavailable in the artifact-production environment; widget-test source is updated but flutter test must not be represented as executed here."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "668ba724ea1859eba401efe5630e3cb02d9b38c9",
+    "base_tree": "2475190f8aa9a98c8b39cfe80da69f6fc70cdf3f",
+    "policy_sha256": "cb60d7751236c799472a2e7166df0637c20f183f26a61900706bbdb69232ab34",
+    "specification_sha256": "d79696a265bff07ea6b56cacbd4aa6fd4294cfe523013b8f480d0815b3c2b608"
+  },
+  "behavior": {
+    "argv": [
+      "python3",
+      "-c",
+      "from pathlib import Path; import sys; root=Path('.'); board=(root/'lib/features/projects/presentation/widgets/kanban_board.dart').read_text(); tests=(root/'test/features/projects/presentation/project_kanban_page_test.dart').read_text(); excluded=['ListView','ReorderableListView','LongPressDraggable','DragTarget','ReorderableDragStartListener']; ok=('if (board.columns.length \u003c= 1)' in board and 'SingleChildScrollView(' in board and 'scrollDirection: Axis.horizontal' in board and '_buildColumnPanel(' in board and 'trailingPadding: 0' in board and all(token not in board for token in excluded) and 'single-column Kanban bypasses horizontal scroll viewport' in tests and 'matching: find.byType(SingleChildScrollView)' in tests and 'findsNothing' in tests and 'onCreateColumn' in board and 'onRenameColumn' in board and 'onDeleteColumn' in board and 'onCreateCard' in board and 'onEditCard' in board and 'onDeleteCard' in board and 'onManageAssignees' in board); print('project_kanban_single_column_scroll_bypass_ok' if ok else 'project_kanban_single_column_scroll_bypass_missing'); sys.exit(0 if ok else 1)"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 30,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "python3",
+      "-c",
+      "from pathlib import Path; import sys; root=Path('.'); board=(root/'lib/features/projects/presentation/widgets/kanban_board.dart').read_text(); tests=(root/'test/features/projects/presentation/project_kanban_page_test.dart').read_text(); excluded=['ListView','ReorderableListView','LongPressDraggable','DragTarget','ReorderableDragStartListener']; ok=('if (board.columns.length \u003c= 1)' in board and 'SingleChildScrollView(' in board and 'scrollDirection: Axis.horizontal' in board and '_buildColumnPanel(' in board and 'trailingPadding: 0' in board and all(token not in board for token in excluded) and 'single-column Kanban bypasses horizontal scroll viewport' in tests and 'matching: find.byType(SingleChildScrollView)' in tests and 'findsNothing' in tests and 'onCreateColumn' in board and 'onRenameColumn' in board and 'onDeleteColumn' in board and 'onCreateCard' in board and 'onEditCard' in board and 'onDeleteCard' in board and 'onManageAssignees' in board); print('project_kanban_single_column_scroll_bypass_ok' if ok else 'project_kanban_single_column_scroll_bypass_missing'); sys.exit(0 if ok else 1)"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 30,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "python3",
+        "-c",
+        "from pathlib import Path; import sys; root=Path('.'); board=(root/'lib/features/projects/presentation/widgets/kanban_board.dart').read_text(); tests=(root/'test/features/projects/presentation/project_kanban_page_test.dart').read_text(); excluded=['ListView','ReorderableListView','LongPressDraggable','DragTarget','ReorderableDragStartListener']; ok=('if (board.columns.length \u003c= 1)' in board and 'SingleChildScrollView(' in board and 'scrollDirection: Axis.horizontal' in board and '_buildColumnPanel(' in board and 'trailingPadding: 0' in board and all(token not in board for token in excluded) and 'single-column Kanban bypasses horizontal scroll viewport' in tests and 'matching: find.byType(SingleChildScrollView)' in tests and 'findsNothing' in tests and 'onCreateColumn' in board and 'onRenameColumn' in board and 'onDeleteColumn' in board and 'onCreateCard' in board and 'onEditCard' in board and 'onDeleteCard' in board and 'onManageAssignees' in board); print('project_kanban_single_column_scroll_bypass_ok' if ok else 'project_kanban_single_column_scroll_bypass_missing'); sys.exit(0 if ok else 1)"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 30,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "project_kanban_single_column_scroll_bypass_missing"
+    ]
+  }
+}

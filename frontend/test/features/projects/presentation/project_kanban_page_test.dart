@@ -36,7 +36,7 @@ void main() {
   );
 
   testWidgets(
-    'static Kanban renderer contains no list reorder or drag primitives',
+    'single-column Kanban bypasses horizontal scroll viewport',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(1440, 900));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -54,7 +54,7 @@ void main() {
           of: find.byType(KanbanBoardView),
           matching: find.byType(SingleChildScrollView),
         ),
-        findsOneWidget,
+        findsNothing,
       );
     },
   );

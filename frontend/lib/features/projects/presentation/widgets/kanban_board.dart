@@ -70,38 +70,64 @@ class KanbanBoardView extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 16),
-        Expanded(
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: <Widget>[
-                for (final column in board.columns)
-                  Padding(
-                    key: ValueKey<String>('kanban-column-${column.id}'),
-                    padding: const EdgeInsets.only(right: 16),
-                    child: SizedBox(
-                      width: 320,
-                      child: _StaticKanbanColumnPanel(
-                        column: column,
-                        isBusy: isBusy,
-                        canManageStructure: canManageStructure,
-                        canManageCards: canManageCards,
-                        canManageAssignees: canManageAssignees,
-                        onRenameColumn: onRenameColumn,
-                        onDeleteColumn: onDeleteColumn,
-                        onCreateCard: onCreateCard,
-                        onEditCard: onEditCard,
-                        onDeleteCard: onDeleteCard,
-                        onManageAssignees: onManageAssignees,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
+        Expanded(child: _buildColumnSurface()),
       ],
+    );
+  }
+
+  Widget _buildColumnSurface() {
+    if (board.columns.length <= 1) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          for (final column in board.columns)
+            Expanded(
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: _buildColumnPanel(
+                  column,
+                  trailingPadding: 0,
+                ),
+              ),
+            ),
+        ],
+      );
+    }
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          for (final column in board.columns) _buildColumnPanel(column),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildColumnPanel(
+    KanbanColumn column, {
+    double trailingPadding = 16,
+  }) {
+    return Padding(
+      key: ValueKey<String>('kanban-column-${column.id}'),
+      padding: EdgeInsets.only(right: trailingPadding),
+      child: SizedBox(
+        width: 320,
+        child: _StaticKanbanColumnPanel(
+          column: column,
+          isBusy: isBusy,
+          canManageStructure: canManageStructure,
+          canManageCards: canManageCards,
+          canManageAssignees: canManageAssignees,
+          onRenameColumn: onRenameColumn,
+          onDeleteColumn: onDeleteColumn,
+          onCreateCard: onCreateCard,
+          onEditCard: onEditCard,
+          onDeleteCard: onDeleteCard,
+          onManageAssignees: onManageAssignees,
+        ),
+      ),
     );
   }
 }
