@@ -62,7 +62,7 @@ void main() {
       ),
     );
 
-    final handle = find.byIcon(Icons.drag_indicator);
+    final handle = find.byIcon(Icons.drag_indicator_rounded);
     final emptyTarget = find.text('Nenhum card nesta coluna');
     expect(handle, findsOneWidget);
     expect(emptyTarget, findsOneWidget);
@@ -71,7 +71,7 @@ void main() {
     await gesture.moveTo(tester.getCenter(emptyTarget));
     await tester.pump();
 
-    expect(find.text('Soltar na posição 1'), findsOneWidget);
+    expect(find.text('Solte aqui · posição 1'), findsOneWidget);
 
     await gesture.up();
     await tester.pump();
@@ -98,7 +98,9 @@ void main() {
       ),
     );
 
-    await tester.tap(find.byTooltip('Mover coluna para a direita').first);
+    await tester.tap(find.byTooltip('Opções da coluna').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Mover para a direita'));
     await tester.pump();
 
     expect(movedColumn, 'column-a');

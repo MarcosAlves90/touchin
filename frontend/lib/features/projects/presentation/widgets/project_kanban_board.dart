@@ -106,7 +106,6 @@ class _ProjectKanbanBoardState extends State<ProjectKanbanBoard> {
                 _BoardHeader(
                   columnCount: widget.board.columns.length,
                   isBusy: widget.isBusy,
-                  canMoveCards: widget.canMoveCards,
                   canManageStructure: widget.canManageStructure,
                   onCreateColumn: widget.onCreateColumn,
                   onScrollPrevious: () => _scrollBoard(-laneWidth),
@@ -297,9 +296,11 @@ class _ProjectKanbanBoardState extends State<ProjectKanbanBoard> {
               columnCount: widget.board.columns.length,
               isBusy: widget.isBusy,
               canManageStructure: widget.canManageStructure,
+              canManageCards: widget.canManageCards,
               onMoveColumn: widget.onMoveColumn,
               onRenameColumn: widget.onRenameColumn,
               onDeleteColumn: widget.onDeleteColumn,
+              onCreateCard: widget.onCreateCard,
             ),
             const Divider(height: 1),
             Expanded(
@@ -536,7 +537,6 @@ class _BoardHeader extends StatelessWidget {
   const _BoardHeader({
     required this.columnCount,
     required this.isBusy,
-    required this.canMoveCards,
     required this.canManageStructure,
     required this.onCreateColumn,
     required this.onScrollPrevious,
@@ -545,7 +545,6 @@ class _BoardHeader extends StatelessWidget {
 
   final int columnCount;
   final bool isBusy;
-  final bool canMoveCards;
   final bool canManageStructure;
   final VoidCallback onCreateColumn;
   final VoidCallback onScrollPrevious;
@@ -554,52 +553,16 @@ class _BoardHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
 
-    final heading = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Text(
-          'Quadro',
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Icon(
-              canMoveCards ? Icons.drag_indicator_rounded : Icons.visibility_outlined,
-              size: 16,
-              color: colorScheme.onSurfaceVariant,
-            ),
-            const SizedBox(width: 6),
-            Flexible(
-              child: Text(
-                canMoveCards
-                    ? 'Arraste pelo ícone para mover cards entre etapas.'
-                    : 'Fluxo atual do projeto.',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
+    final heading = Text(
+      'Quadro',
+      style: theme.textTheme.titleMedium?.copyWith(
+        fontWeight: FontWeight.w800,
+      ),
     );
 
     final actionItems = <Widget>[
-      _BoardMetaChip(
-        icon: isBusy ? Icons.sync_rounded : Icons.cloud_done_outlined,
-        label: isBusy ? 'Salvando' : 'Sincronizado',
-        emphasized: isBusy,
-      ),
       if (columnCount > 1) ...<Widget>[
-        const SizedBox(width: 6),
         IconButton(
           tooltip: 'Ver colunas anteriores',
           visualDensity: VisualDensity.compact,
@@ -660,52 +623,6 @@ class _BoardHeader extends StatelessWidget {
   }
 }
 
-class _BoardMetaChip extends StatelessWidget {
-  const _BoardMetaChip({
-    required this.icon,
-    required this.label,
-    this.emphasized = false,
-  });
-
-  final IconData icon;
-  final String label;
-  final bool emphasized;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final tone = emphasized ? colorScheme.primary : colorScheme.onSurfaceVariant;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-      decoration: BoxDecoration(
-        color: emphasized
-            ? colorScheme.primary.withValues(alpha: 0.12)
-            : colorScheme.surfaceContainerHighest.withValues(alpha: 0.72),
-        border: Border.all(
-          color: emphasized
-              ? colorScheme.primary.withValues(alpha: 0.45)
-              : colorScheme.outlineVariant,
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Icon(icon, size: 14, color: tone),
-          const SizedBox(width: 5),
-          Text(
-            label,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: tone,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _LaneHeader extends StatelessWidget {
   const _LaneHeader({
     required this.column,
@@ -713,9 +630,11 @@ class _LaneHeader extends StatelessWidget {
     required this.columnCount,
     required this.isBusy,
     required this.canManageStructure,
+    required this.canManageCards,
     required this.onMoveColumn,
     required this.onRenameColumn,
     required this.onDeleteColumn,
+    required this.onCreateCard,
   });
 
   final KanbanColumn column;
@@ -723,9 +642,11 @@ class _LaneHeader extends StatelessWidget {
   final int columnCount;
   final bool isBusy;
   final bool canManageStructure;
+  final bool canManageCards;
   final Future<void> Function(String columnId, int index) onMoveColumn;
   final void Function(KanbanColumn column) onRenameColumn;
   final void Function(KanbanColumn column) onDeleteColumn;
+  final void Function(KanbanColumn column) onCreateCard;
 
   @override
   Widget build(BuildContext context) {
@@ -751,14 +672,13 @@ class _LaneHeader extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 7,
-                    vertical: 3,
-                  ),
+                  key: ValueKey<String>('kanban-column-count-${column.id}'),
+                  width: 22,
+                  height: 22,
+                  alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: colorScheme.surface,
                     border: Border.all(color: colorScheme.outlineVariant),
-                    borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
                     '${column.cards.length}',
@@ -771,8 +691,22 @@ class _LaneHeader extends StatelessWidget {
               ],
             ),
           ),
+          if (canManageCards)
+            IconButton(
+              tooltip: 'Adicionar card em ${column.name}',
+              visualDensity: VisualDensity.compact,
+              style: IconButton.styleFrom(
+                minimumSize: const Size(32, 32),
+                maximumSize: const Size(32, 32),
+                padding: EdgeInsets.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              onPressed: isBusy ? null : () => onCreateCard(column),
+              icon: const Icon(Icons.add_task_outlined, size: 18),
+            ),
           if (canManageStructure)
             PopupMenuButton<String>(
+              popUpAnimationStyle: AnimationStyle.noAnimation,
               tooltip: 'Opções da coluna',
               enabled: !isBusy,
               onSelected: (value) {
@@ -950,6 +884,7 @@ class _KanbanCardTileState extends State<_KanbanCardTile> {
                       ],
                       if (widget.canManageCards)
                         PopupMenuButton<String>(
+                          popUpAnimationStyle: AnimationStyle.noAnimation,
                           tooltip: 'Ações do card',
                           padding: EdgeInsets.zero,
                           iconSize: 18,

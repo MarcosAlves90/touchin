@@ -228,21 +228,21 @@ void main() {
     expect(shape.borderRadius, BorderRadius.zero);
     expect(find.text('Detalhes da tarefa'), findsOneWidget);
     expect(find.text('Projeto atual'), findsNothing);
-    final taskNameField = tester.widget<TextFormField>(
+    final taskNameField = tester.widget<InputDecorator>(
       find.byWidgetPredicate(
         (widget) =>
-            widget is TextFormField && widget.decoration?.labelText == 'Nome',
+            widget is InputDecorator && widget.decoration.labelText == 'Nome',
       ),
     );
-    final taskDescriptionField = tester.widget<TextFormField>(
+    final taskDescriptionField = tester.widget<InputDecorator>(
       find.byWidgetPredicate(
         (widget) =>
-            widget is TextFormField &&
-            widget.decoration?.labelText == 'Descrição',
+            widget is InputDecorator &&
+            widget.decoration.labelText == 'Descrição',
       ),
     );
-    expect(taskNameField.decoration?.prefixIcon, isNull);
-    expect(taskDescriptionField.decoration?.prefixIcon, isNull);
+    expect(taskNameField.decoration.prefixIcon, isNull);
+    expect(taskDescriptionField.decoration.prefixIcon, isNull);
     expect(tester.getRect(dialogFinder).width, lessThanOrEqualTo(390));
     expect(tester.takeException(), isNull);
   });

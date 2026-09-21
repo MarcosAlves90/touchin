@@ -10,6 +10,7 @@ import 'package:touchin_flutter/core/network/touchin_api.dart';
 import 'package:touchin_flutter/features/projects/presentation/project_kanban_page.dart';
 import 'package:touchin_flutter/features/projects/presentation/widgets/project_kanban_board.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_editor_dialog.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_instant_select_field.dart';
 import 'package:touchin_flutter/theme/app_theme.dart';
 
 void main() {
@@ -170,7 +171,7 @@ void main() {
     expect(find.text('v1'), findsNothing);
     expect(
       find.text('Arraste pelo ícone para mover cards entre etapas.'),
-      findsOneWidget,
+      findsNothing,
     );
     expect(find.text('Feature'), findsOneWidget);
     expect(find.text('Adicionar card'), findsOneWidget);
@@ -202,14 +203,14 @@ void main() {
     expect(find.byType(AlertDialog), findsNothing);
     expect(find.text('Nova coluna'), findsOneWidget);
     expect(find.text('Crie uma nova etapa para organizar o fluxo.'), findsOneWidget);
-    final nameField = tester.widget<TextFormField>(
+    final nameField = tester.widget<InputDecorator>(
       find.byWidgetPredicate(
         (widget) =>
-            widget is TextFormField &&
-            widget.decoration?.labelText == 'Nome da coluna',
+            widget is InputDecorator &&
+            widget.decoration.labelText == 'Nome da coluna',
       ),
     );
-    expect(nameField.decoration?.prefixIcon, isNull);
+    expect(nameField.decoration.prefixIcon, isNull);
     expect(tester.takeException(), isNull);
   });
 
@@ -273,6 +274,67 @@ void main() {
     expect(topBar, findsOneWidget);
     expect(find.descendant(of: topBar, matching: find.text('TOUCHIN')), findsOneWidget);
     expect(find.descendant(of: topBar, matching: find.text('Kanban')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+
+  testWidgets('instant menus and compact column actions stay responsive', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.lightTheme,
+        darkTheme: AppTheme.darkTheme,
+        themeMode: ThemeMode.dark,
+        home: ProjectKanbanPage(api: _FakeKanbanApi()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final topBar = find.byKey(const ValueKey<String>('kanban-topbar'));
+    expect(
+      find.descendant(of: topBar, matching: find.text('Sincronizado')),
+      findsOneWidget,
+    );
+    expect(find.text('Arraste pelo ícone para mover cards entre etapas.'), findsNothing);
+    expect(find.byTooltip('Adicionar card em A fazer'), findsOneWidget);
+
+    final counter = find.byKey(
+      const ValueKey<String>('kanban-column-count-column-01'),
+    );
+    expect(counter, findsOneWidget);
+    final counterRect = tester.getRect(counter);
+    expect(counterRect.width, 22);
+    expect(counterRect.height, 22);
+
+    final board = find.byType(ProjectKanbanBoard);
+    final popupMenus = tester.widgetList<PopupMenuButton<String>>(
+      find.descendant(of: board, matching: find.byType(PopupMenuButton<String>)),
+    );
+    expect(popupMenus, isNotEmpty);
+    expect(
+      popupMenus.every(
+        (menu) => menu.popUpAnimationStyle == AnimationStyle.noAnimation,
+      ),
+      isTrue,
+    );
+
+    final projectSelect = find.byType(WorkspaceInstantSelectField<String>);
+    expect(projectSelect, findsOneWidget);
+    await tester.tap(projectSelect);
+    await tester.pump();
+    expect(find.byType(PopupMenuItem<String>), findsWidgets);
+    await tester.tapAt(const Offset(2, 2));
+    await tester.pump();
+
+    await tester.tap(find.byTooltip('Adicionar card em A fazer'));
+    await tester.pumpAndSettle();
+    expect(find.byType(DropdownButtonFormField<TaskType>), findsNothing);
+    expect(find.byType(WorkspaceInstantSelectField<TaskType>), findsOneWidget);
+    expect(find.byType(WorkspaceInstantSelectField<String>), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

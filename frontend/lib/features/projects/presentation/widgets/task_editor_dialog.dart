@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:touchin_flutter/contracts/task.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_editor_dialog.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_instant_select_field.dart';
 
 class ProjectTaskEditorDialog extends StatefulWidget {
   const ProjectTaskEditorDialog({
@@ -96,15 +97,14 @@ class _ProjectTaskEditorDialogState extends State<ProjectTaskEditorDialog> {
             LayoutBuilder(
               builder: (context, constraints) {
                 final fields = <Widget>[
-                  DropdownButtonFormField<TaskType>(
-                    initialValue: _type,
-                    isExpanded: true,
+                  WorkspaceInstantSelectField<TaskType>(
+                    value: _type,
                     decoration: const InputDecoration(labelText: 'Tipo'),
-                    items: TaskType.values
+                    options: TaskType.values
                         .map(
-                          (type) => DropdownMenuItem<TaskType>(
+                          (type) => WorkspaceSelectOption<TaskType>(
                             value: type,
-                            child: Text(_taskTypeLabel(type)),
+                            label: _taskTypeLabel(type),
                           ),
                         )
                         .toList(),
@@ -114,26 +114,21 @@ class _ProjectTaskEditorDialogState extends State<ProjectTaskEditorDialog> {
                       }
                     },
                   ),
-                  DropdownButtonFormField<String>(
-                    initialValue: _parentTaskId ?? '',
-                    isExpanded: true,
+                  WorkspaceInstantSelectField<String>(
+                    value: _parentTaskId ?? '',
                     decoration: const InputDecoration(
                       labelText: 'Tarefa-pai',
                       helperText: 'Opcional',
                     ),
-                    items: <DropdownMenuItem<String>>[
-                      const DropdownMenuItem<String>(
+                    options: <WorkspaceSelectOption<String>>[
+                      const WorkspaceSelectOption<String>(
                         value: '',
-                        child: Text('Sem tarefa-pai'),
+                        label: 'Sem tarefa-pai',
                       ),
                       ...possibleParents.map(
-                        (task) => DropdownMenuItem<String>(
+                        (task) => WorkspaceSelectOption<String>(
                           value: task.id,
-                          child: Text(
-                            task.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                          label: task.name,
                         ),
                       ),
                     ],

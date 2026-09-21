@@ -7,6 +7,7 @@ import 'package:touchin_flutter/features/projects/presentation/kanban_controller
 import 'package:touchin_flutter/features/projects/presentation/widgets/project_kanban_board.dart';
 import 'package:touchin_flutter/features/projects/presentation/widgets/task_editor_dialog.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_editor_dialog.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_instant_select_field.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
 import 'package:touchin_flutter/theme/app_theme.dart';
 
@@ -51,6 +52,7 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
           child: Column(
             children: <Widget>[
               _KanbanTopBar(
+                controller: _controller,
                 onMenuPressed: () => Scaffold.of(scaffoldContext).openDrawer(),
               ),
               Expanded(
@@ -124,19 +126,18 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
         ) ??
         0;
 
-    final selector = DropdownButtonFormField<String>(
+    final selector = WorkspaceInstantSelectField<String>(
       key: ValueKey<String?>(_controller.selectedProjectId),
-      initialValue: _controller.selectedProjectId,
-      isExpanded: true,
+      value: _controller.selectedProjectId,
       decoration: const InputDecoration(
         labelText: 'Projeto',
         isDense: true,
       ),
-      items: _controller.projects
+      options: _controller.projects
           .map(
-            (project) => DropdownMenuItem<String>(
+            (project) => WorkspaceSelectOption<String>(
               value: project.id,
-              child: Text(project.name, overflow: TextOverflow.ellipsis),
+              label: project.name,
             ),
           )
           .toList(),
@@ -730,8 +731,12 @@ class _SkeletonBlock extends StatelessWidget {
 }
 
 class _KanbanTopBar extends StatelessWidget {
-  const _KanbanTopBar({required this.onMenuPressed});
+  const _KanbanTopBar({
+    required this.controller,
+    required this.onMenuPressed,
+  });
 
+  final ProjectKanbanController controller;
   final VoidCallback onMenuPressed;
 
   @override
@@ -762,10 +767,66 @@ class _KanbanTopBar extends StatelessWidget {
                 ),
               ),
               const Spacer(),
+              _KanbanSyncStatus(controller: controller),
+              const SizedBox(width: 4),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+
+class _KanbanSyncStatus extends StatelessWidget {
+  const _KanbanSyncStatus({required this.controller});
+
+  final ProjectKanbanController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) {
+        final (label, icon) = controller.isMutating
+            ? ('Salvando', Icons.sync_rounded)
+            : controller.isLoading || controller.isLoadingBoard
+                ? ('Sincronizando', Icons.sync_rounded)
+                : controller.loadError != null || controller.boardError != null
+                    ? ('Atenção', Icons.cloud_off_outlined)
+                    : ('Sincronizado', Icons.cloud_done_outlined);
+        return Container(
+          key: const ValueKey<String>('kanban-navbar-sync-status'),
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.1),
+            border: Border.all(
+              color: Colors.black.withValues(alpha: 0.08),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Icon(
+                icon,
+                size: 14,
+                color: colorScheme.onPrimary,
+              ),
+              const SizedBox(width: 5),
+              Text(
+                label,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: colorScheme.onPrimary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
