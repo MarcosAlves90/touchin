@@ -6,6 +6,7 @@ import 'package:touchin_flutter/core/network/touchin_api.dart';
 import 'package:touchin_flutter/features/projects/presentation/kanban_controller.dart';
 import 'package:touchin_flutter/features/projects/presentation/widgets/project_kanban_board.dart';
 import 'package:touchin_flutter/features/projects/presentation/widgets/task_editor_dialog.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_editor_dialog.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
 import 'package:touchin_flutter/theme/app_theme.dart';
 
@@ -92,64 +93,23 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
       builder: (context, constraints) {
         final isCompact = constraints.maxWidth < 600;
         final isWide = constraints.maxWidth >= 980;
-        final horizontalPadding = isCompact ? 10.0 : (isWide ? 32.0 : 18.0);
-        final verticalPadding = isCompact ? 10.0 : (isWide ? 24.0 : 16.0);
-        final gap = isCompact ? 10.0 : 16.0;
-
-        final refreshAction = isCompact
-            ? SizedBox(
-                width: 44,
-                height: 44,
-                child: IconButton(
-                  tooltip: 'Atualizar quadro',
-                  onPressed: _controller.isMutating || _controller.isLoadingBoard
-                      ? null
-                      : () => _controller.reload(),
-                  icon: const Icon(Icons.refresh_rounded),
-                ),
-              )
-            : SizedBox(
-                width: 160,
-                child: OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(0, 48),
-                  ),
-                  onPressed: _controller.isMutating || _controller.isLoadingBoard
-                      ? null
-                      : () => _controller.reload(),
-                  icon: const Icon(Icons.refresh_rounded),
-                  label: const Text('Atualizar'),
-                ),
-              );
+        final horizontalPadding = isCompact ? 10.0 : (isWide ? 28.0 : 16.0);
+        final verticalPadding = isCompact ? 8.0 : 14.0;
+        final gap = isCompact ? 8.0 : 12.0;
 
         return Padding(
           padding: EdgeInsets.fromLTRB(
             horizontalPadding,
             verticalPadding,
             horizontalPadding,
-            isCompact ? 8 : verticalPadding,
+            isCompact ? 6 : verticalPadding,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              if (isCompact)
-                _KanbanCompactPageHeader(
-                  onRefresh: _controller.isMutating || _controller.isLoadingBoard
-                      ? null
-                      : () => _controller.reload(),
-                )
-              else
-                WorkspaceHeader(
-                  title: 'Kanban do projeto',
-                  description:
-                      'Acompanhe e mova os cards do projeto selecionado.',
-                  maxContentWidth: 680,
-                  actions: <Widget>[refreshAction],
-                ),
-              SizedBox(height: gap),
               _buildProjectOverview(compact: isCompact),
               SizedBox(height: gap),
-              Expanded(child: _buildBoardContent(compact: isCompact)),
+              Expanded(child: _buildBoardContent()),
             ],
           ),
         );
@@ -158,9 +118,7 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
   }
 
   Widget _buildProjectOverview({required bool compact}) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final project = _controller.selectedProject;
+    final colorScheme = Theme.of(context).colorScheme;
     final board = _controller.board;
     final cardCount = board?.columns.fold<int>(
           0,
@@ -172,10 +130,7 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
       key: ValueKey<String?>(_controller.selectedProjectId),
       initialValue: _controller.selectedProjectId,
       isExpanded: true,
-      decoration: const InputDecoration(
-        labelText: 'Projeto',
-        prefixIcon: Icon(Icons.account_tree_outlined),
-      ),
+      decoration: const InputDecoration(labelText: 'Projeto'),
       items: _controller.projects
           .map(
             (project) => DropdownMenuItem<String>(
@@ -199,174 +154,98 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
         icon: Icons.view_column_outlined,
         label: 'Colunas',
         value: board == null ? '—' : '${board.columns.length}',
-        compact: compact,
+        compact: true,
       ),
       _KanbanMetricItem(
         icon: Icons.task_alt_outlined,
         label: 'Cards',
         value: board == null ? '—' : '$cardCount',
-        compact: compact,
+        compact: true,
       ),
       _KanbanMetricItem(
         icon: Icons.groups_2_outlined,
         label: 'Equipe',
         value: '${_controller.projectMembers.length}',
-        compact: compact,
+        compact: true,
       ),
     ];
 
-    if (compact) {
-      return Material(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.56),
-        shape: RoundedRectangleBorder(
-          side: BorderSide(color: colorScheme.outlineVariant),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(10),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              selector,
-              const SizedBox(height: 8),
-              Row(
-                children: metrics.asMap().entries.map((entry) {
-                  return Expanded(
-                    child: Padding(
-                      padding: EdgeInsets.only(
-                        right: entry.key == metrics.length - 1 ? 0 : 6,
-                      ),
-                      child: entry.value,
-                    ),
-                  );
-                }).toList(),
+    Widget metricRow() {
+      return Row(
+        children: metrics.asMap().entries.map((entry) {
+          return Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(
+                right: entry.key == metrics.length - 1 ? 0 : 6,
               ),
-            ],
-          ),
-        ),
+              child: entry.value,
+            ),
+          );
+        }).toList(),
       );
     }
 
-    return WorkspaceSectionCard(
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final wide = constraints.maxWidth >= 860;
-          final identity = Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text(
-                'PROJETO ATUAL',
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                  letterSpacing: 1.2,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 5),
-              Text(
-                project?.name ?? 'Kanban por projeto',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              if (!compact &&
-                  (project?.description ?? '').trim().isNotEmpty) ...<Widget>[
-                const SizedBox(height: 4),
-                Text(
-                  project?.description ?? '',
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    height: 1.4,
+    return Material(
+      key: const ValueKey<String>('kanban-project-overview'),
+      color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.42),
+      shape: RoundedRectangleBorder(
+        side: BorderSide(color: colorScheme.outlineVariant),
+      ),
+      child: Padding(
+        padding: EdgeInsets.all(compact ? 8 : 10),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final horizontal = !compact && constraints.maxWidth >= 760;
+            if (horizontal) {
+              return Row(
+                children: <Widget>[
+                  Expanded(flex: 5, child: selector),
+                  const SizedBox(width: 10),
+                  Expanded(flex: 4, child: metricRow()),
+                  const SizedBox(width: 6),
+                  IconButton(
+                    tooltip: 'Atualizar quadro',
+                    visualDensity: VisualDensity.compact,
+                    onPressed:
+                        _controller.isMutating || _controller.isLoadingBoard
+                            ? null
+                            : () => _controller.reload(),
+                    icon: const Icon(Icons.refresh_rounded),
                   ),
-                ),
-              ],
-            ],
-          );
+                ],
+              );
+            }
 
-          final contextRow = wide
-              ? Row(
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: <Widget>[
-                    Expanded(child: identity),
-                    const SizedBox(width: 24),
-                    SizedBox(width: 340, child: selector),
+                    Expanded(child: selector),
+                    const SizedBox(width: 6),
+                    IconButton(
+                      tooltip: 'Atualizar quadro',
+                      visualDensity: VisualDensity.compact,
+                      onPressed:
+                          _controller.isMutating || _controller.isLoadingBoard
+                              ? null
+                              : () => _controller.reload(),
+                      icon: const Icon(Icons.refresh_rounded),
+                    ),
                   ],
-                )
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: <Widget>[
-                    identity,
-                    const SizedBox(height: 14),
-                    selector,
-                  ],
-                );
-
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              contextRow,
-              const SizedBox(height: 16),
-              LayoutBuilder(
-                builder: (context, metricConstraints) {
-                  if (compact) {
-                    return Row(
-                      children: metrics.asMap().entries.map((entry) {
-                        return Expanded(
-                          child: Padding(
-                            padding: EdgeInsets.only(
-                              right: entry.key == metrics.length - 1 ? 0 : 6,
-                            ),
-                            child: entry.value,
-                          ),
-                        );
-                      }).toList(),
-                    );
-                  }
-
-                  final singleRow = metricConstraints.maxWidth >= 680;
-                  if (singleRow) {
-                    return Row(
-                      children: metrics.asMap().entries.map((entry) {
-                        return Expanded(
-                          child: Padding(
-                            padding: EdgeInsets.only(
-                              right: entry.key == metrics.length - 1 ? 0 : 8,
-                            ),
-                            child: entry.value,
-                          ),
-                        );
-                      }).toList(),
-                    );
-                  }
-                  final twoColumns = metricConstraints.maxWidth >= 300;
-                  final itemWidth = twoColumns
-                      ? (metricConstraints.maxWidth - 8) / 2
-                      : metricConstraints.maxWidth;
-                  return Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: metrics
-                        .map(
-                          (metric) => SizedBox(
-                            width: itemWidth,
-                            child: metric,
-                          ),
-                        )
-                        .toList(),
-                  );
-                },
-              ),
-            ],
-          );
-        },
+                ),
+                const SizedBox(height: 6),
+                metricRow(),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
 
-  Widget _buildBoardContent({required bool compact}) {
+  Widget _buildBoardContent() {
     if (_controller.isLoadingBoard) {
       return const Center(
         key: ValueKey<String>('kanban-board-loading'),
@@ -384,64 +263,53 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
       );
     }
 
-    final colorScheme = Theme.of(context).colorScheme;
     final isMutating = _controller.isMutating;
-    return Material(
+    return Stack(
       key: ValueKey<String>('kanban-board-${board.kanbanVersion}'),
-      color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.34),
-      shape: RoundedRectangleBorder(
-        side: BorderSide(color: colorScheme.outlineVariant),
-      ),
-      child: Stack(
-        children: <Widget>[
-          Padding(
-            padding: EdgeInsets.all(compact ? 10 : 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: <Widget>[
-                if (_controller.boardError != null) ...<Widget>[
-                  _KanbanNotice(message: _controller.boardError!),
-                  const SizedBox(height: 12),
-                ],
-                Expanded(
-                  child: ProjectKanbanBoard(
-                    board: board,
-                    isBusy: isMutating,
-                    canMoveCards: _controller.canMoveCards,
-                    canManageStructure: _controller.canManageStructure,
-                    canManageCards: _controller.canManageCards,
-                    canManageAssignees: _controller.canManageAssignees,
-                    onMoveCard: (taskId, columnId, index) =>
-                        _controller.moveCard(
-                      taskId: taskId,
-                      toColumnId: columnId,
-                      toIndex: index,
-                    ),
-                    onMoveColumn: (columnId, index) => _controller.moveColumn(
-                      columnId: columnId,
-                      toIndex: index,
-                    ),
-                    onCreateColumn: _openCreateKanbanColumn,
-                    onRenameColumn: _openRenameKanbanColumn,
-                    onDeleteColumn: _confirmDeleteKanbanColumn,
-                    onCreateCard: _openCreateKanbanCard,
-                    onEditCard: _openEditKanbanCard,
-                    onDeleteCard: _confirmDeleteKanbanCard,
-                    onManageAssignees: _openManageKanbanAssignees,
-                  ),
+      children: <Widget>[
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            if (_controller.boardError != null) ...<Widget>[
+              _KanbanNotice(message: _controller.boardError!),
+              const SizedBox(height: 8),
+            ],
+            Expanded(
+              child: ProjectKanbanBoard(
+                board: board,
+                isBusy: isMutating,
+                canMoveCards: _controller.canMoveCards,
+                canManageStructure: _controller.canManageStructure,
+                canManageCards: _controller.canManageCards,
+                canManageAssignees: _controller.canManageAssignees,
+                onMoveCard: (taskId, columnId, index) => _controller.moveCard(
+                  taskId: taskId,
+                  toColumnId: columnId,
+                  toIndex: index,
                 ),
-              ],
+                onMoveColumn: (columnId, index) => _controller.moveColumn(
+                  columnId: columnId,
+                  toIndex: index,
+                ),
+                onCreateColumn: _openCreateKanbanColumn,
+                onRenameColumn: _openRenameKanbanColumn,
+                onDeleteColumn: _confirmDeleteKanbanColumn,
+                onCreateCard: _openCreateKanbanCard,
+                onEditCard: _openEditKanbanCard,
+                onDeleteCard: _confirmDeleteKanbanCard,
+                onManageAssignees: _openManageKanbanAssignees,
+              ),
             ),
+          ],
+        ),
+        if (isMutating)
+          const Positioned(
+            left: 0,
+            top: 0,
+            right: 0,
+            child: LinearProgressIndicator(minHeight: 2),
           ),
-          if (isMutating)
-            const Positioned(
-              left: 0,
-              top: 0,
-              right: 0,
-              child: LinearProgressIndicator(minHeight: 2),
-            ),
-        ],
-      ),
+      ],
     );
   }
 
@@ -449,38 +317,49 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
     required String title,
     String initialValue = '',
   }) async {
+    final formKey = GlobalKey<FormState>();
     final controller = TextEditingController(text: initialValue);
+    final editing = initialValue.trim().isNotEmpty;
+
     final result = await showDialog<String>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(title),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          maxLength: 160,
-          decoration: const InputDecoration(labelText: 'Nome da coluna'),
-          onSubmitted: (value) {
-            final trimmed = value.trim();
-            if (trimmed.isNotEmpty) {
-              Navigator.of(dialogContext).pop(trimmed);
-            }
-          },
-        ),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () {
-              final trimmed = controller.text.trim();
-              if (trimmed.isNotEmpty) {
-                Navigator.of(dialogContext).pop(trimmed);
+      builder: (dialogContext) => WorkspaceEditorDialog(
+        title: title,
+        subtitle: editing
+            ? 'Atualize o nome desta etapa do fluxo.'
+            : 'Crie uma nova etapa para organizar o fluxo.',
+        icon: editing ? Icons.edit_note_rounded : Icons.view_column_outlined,
+        primaryLabel: editing ? 'Salvar' : 'Criar coluna',
+        primaryIcon: editing ? Icons.save_outlined : Icons.add_rounded,
+        maxWidth: 520,
+        onPrimary: () {
+          if (!formKey.currentState!.validate()) {
+            return;
+          }
+          Navigator.of(dialogContext).pop(controller.text.trim());
+        },
+        child: Form(
+          key: formKey,
+          child: TextFormField(
+            controller: controller,
+            autofocus: true,
+            maxLength: 160,
+            textInputAction: TextInputAction.done,
+            decoration: const InputDecoration(labelText: 'Nome da coluna'),
+            validator: (value) {
+              final trimmed = value?.trim() ?? '';
+              if (trimmed.isEmpty) {
+                return 'Campo obrigatório.';
+              }
+              return null;
+            },
+            onFieldSubmitted: (_) {
+              if (formKey.currentState!.validate()) {
+                Navigator.of(dialogContext).pop(controller.text.trim());
               }
             },
-            child: const Text('Salvar'),
           ),
-        ],
+        ),
       ),
     );
     controller.dispose();
@@ -720,53 +599,6 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
         const SnackBar(content: Text('Não foi possível concluir a operação.')),
       );
     }
-  }
-}
-
-class _KanbanCompactPageHeader extends StatelessWidget {
-  const _KanbanCompactPageHeader({required this.onRefresh});
-
-  final VoidCallback? onRefresh;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    return Row(
-      children: <Widget>[
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text(
-                'Kanban do projeto',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              Text(
-                'Organize cards e acompanhe o fluxo.',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 8),
-        IconButton(
-          tooltip: 'Atualizar quadro',
-          visualDensity: VisualDensity.compact,
-          onPressed: onRefresh,
-          icon: const Icon(Icons.refresh_rounded),
-        ),
-      ],
-    );
   }
 }
 

@@ -7,10 +7,11 @@ import 'package:touchin_flutter/contracts/task.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
 import 'package:touchin_flutter/features/projects/presentation/project_kanban_page.dart';
 import 'package:touchin_flutter/features/projects/presentation/widgets/project_kanban_board.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_editor_dialog.dart';
 import 'package:touchin_flutter/theme/app_theme.dart';
 
 void main() {
-  testWidgets('builds Kanban with an in-body header and bounded board', (
+  testWidgets('builds Kanban without redundant page titles and keeps board bounded', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(1440, 900));
@@ -25,19 +26,22 @@ void main() {
 
     expect(find.byType(AppBar), findsNothing);
     expect(find.text('Kanban'), findsOneWidget);
+    expect(find.text('Kanban do projeto'), findsNothing);
+    expect(
+      find.text('Acompanhe e mova os cards do projeto selecionado.'),
+      findsNothing,
+    );
     expect(find.byType(ProjectKanbanBoard), findsOneWidget);
     expect(find.text('A fazer'), findsOneWidget);
     expect(find.text('Nenhum card nesta coluna'), findsOneWidget);
 
-    final headerRect = tester.getRect(find.text('Kanban'));
-    final introRect = tester.getRect(
-      find.text('Acompanhe e mova os cards do projeto selecionado.'),
+    final overviewRect = tester.getRect(
+      find.byKey(const ValueKey<String>('kanban-project-overview')),
     );
     final boardRect = tester.getRect(find.byType(ProjectKanbanBoard));
 
-    expect(headerRect.top, greaterThanOrEqualTo(0));
-    expect(introRect.top, greaterThan(headerRect.bottom));
-    expect(boardRect.top, greaterThan(introRect.bottom));
+    expect(overviewRect.height, lessThan(120));
+    expect(boardRect.top, greaterThan(overviewRect.bottom));
     expect(boardRect.width, greaterThan(0));
     expect(boardRect.height, greaterThan(0));
     expect(tester.takeException(), isNull);
@@ -88,7 +92,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('presents project context and clearer board guidance', (
+  testWidgets('presents compact project context and board guidance', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(1440, 900));
@@ -104,11 +108,12 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Kanban do projeto'), findsOneWidget);
-    expect(find.text('PROJETO ATUAL'), findsOneWidget);
+    expect(find.text('Kanban do projeto'), findsNothing);
+    expect(find.text('PROJETO ATUAL'), findsNothing);
     expect(find.text('Colunas'), findsOneWidget);
     expect(find.text('Cards'), findsOneWidget);
     expect(find.text('Equipe'), findsOneWidget);
+    expect(find.byTooltip('Atualizar quadro'), findsOneWidget);
     expect(find.text('Quadro'), findsOneWidget);
     expect(
       find.text('Arraste cards pelo ícone para reorganizar o fluxo.'),
@@ -117,25 +122,42 @@ void main() {
     expect(find.text('Feature'), findsOneWidget);
     expect(find.text('Adicionar card'), findsOneWidget);
     expect(find.text('Sem responsáveis'), findsOneWidget);
+    final overview = find.byKey(
+      const ValueKey<String>('kanban-project-overview'),
+    );
+    expect(overview, findsOneWidget);
+    expect(tester.getRect(overview).height, lessThan(120));
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('manager actions remain interactive after reconstruction', (
-    tester,
-  ) async {
+  testWidgets('column editor reuses the workspace editor dialog', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1440, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     await tester.pumpWidget(
-      MaterialApp(home: ProjectKanbanPage(api: _FakeKanbanApi())),
+      MaterialApp(
+        theme: AppTheme.lightTheme,
+        home: ProjectKanbanPage(api: _FakeKanbanApi()),
+      ),
     );
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Coluna'));
     await tester.pumpAndSettle();
 
+    expect(find.byType(WorkspaceEditorDialog), findsOneWidget);
+    expect(find.byType(AlertDialog), findsNothing);
     expect(find.text('Nova coluna'), findsOneWidget);
-    expect(find.text('Nome da coluna'), findsOneWidget);
+    expect(find.text('Crie uma nova etapa para organizar o fluxo.'), findsOneWidget);
+    final nameField = tester.widget<TextFormField>(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is TextFormField &&
+            widget.decoration?.labelText == 'Nome da coluna',
+      ),
+    );
+    expect(nameField.decoration?.prefixIcon, isNull);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('reconstructed page stays bounded on a narrow viewport', (

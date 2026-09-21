@@ -4,6 +4,7 @@ import 'package:touchin_flutter/contracts/project.dart';
 import 'package:touchin_flutter/contracts/task.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
 import 'package:touchin_flutter/features/projects/presentation/project_tasks_page.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_editor_dialog.dart';
 import 'package:touchin_flutter/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -197,7 +198,7 @@ void main() {
     expect(find.text('Sair da tarefa'), findsOneWidget);
     expect(find.text('1 de 2 vaga(s) ocupada(s).'), findsOneWidget);
   });
-  testWidgets('task editor follows square responsive workspace styling', (tester) async {
+  testWidgets('task editor reuses workspace dialog and standard inputs', (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 844));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -219,6 +220,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(AlertDialog), findsNothing);
+    expect(find.byType(WorkspaceEditorDialog), findsOneWidget);
     final dialogFinder = find.byType(Dialog);
     expect(dialogFinder, findsOneWidget);
     final dialog = tester.widget<Dialog>(dialogFinder);
@@ -226,6 +228,21 @@ void main() {
     expect(shape.borderRadius, BorderRadius.zero);
     expect(find.text('Detalhes da tarefa'), findsOneWidget);
     expect(find.text('Projeto atual'), findsOneWidget);
+    final taskNameField = tester.widget<TextFormField>(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is TextFormField && widget.decoration?.labelText == 'Nome',
+      ),
+    );
+    final taskDescriptionField = tester.widget<TextFormField>(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is TextFormField &&
+            widget.decoration?.labelText == 'Descrição',
+      ),
+    );
+    expect(taskNameField.decoration?.prefixIcon, isNull);
+    expect(taskDescriptionField.decoration?.prefixIcon, isNull);
     expect(tester.getRect(dialogFinder).width, lessThanOrEqualTo(390));
     expect(tester.takeException(), isNull);
   });
