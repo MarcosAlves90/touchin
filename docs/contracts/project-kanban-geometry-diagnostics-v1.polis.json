@@ -1,0 +1,252 @@
+{
+  "schema_version": 4,
+  "kind": "behavior_preserving",
+  "scope": {
+    "allowed_paths": [
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart",
+      "docs/contracts/project-kanban-geometry-diagnostics-v1.polis.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Repair the Kanban widget-test harness and add executable geometry, empty-board, input, and real drawer-navigation probes without changing production behavior. The increment must distinguish framework-level layout/input correctness from the browser-only paint/hit-test defect before any further Kanban redesign.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "The invalid assertion that WorkspaceNavigationDrawer is mounted while Scaffold.drawer is closed must be replaced with an assertion against the configured Scaffold.drawer widget, because Scaffold mounts drawer contents lazily."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "A wide-viewport fixture matching the observed one-column/zero-card runtime state must verify that the project content begins below the AppBar, KanbanBoardView has positive bounded geometry, the empty lane renders, and no Flutter exception is raised."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "The focused fixture must dispatch a real tap to the visible create-column control and prove that the expected column dialog opens."
+      },
+      {
+        "id": "REQ-004",
+        "statement": "The real WorkspaceNavigationDrawer path must be exercised through openDrawer -\u003e Kanban tap -\u003e pushReplacement, proving that navigation reaches ProjectKanbanPage rather than only mounting the page directly in tests."
+      },
+      {
+        "id": "REQ-005",
+        "statement": "Existing virtualized list/drag assertions and narrow-viewport coverage must remain intact."
+      },
+      {
+        "id": "REQ-006",
+        "statement": "No production Dart, backend, API, renderer/bootstrap, dependency, or workflow file may change in this diagnostic increment."
+      },
+      {
+        "id": "REQ-007",
+        "statement": "Passing widget tests are evidence only for framework-level widget geometry and dispatch; they must not be represented as proof that the browser runtime rendering defect is fixed."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "The wide page test reads Scaffold.drawer and confirms it is a WorkspaceNavigationDrawer while the closed drawer remains absent from the mounted subtree.",
+        "requirements": [
+          "REQ-001"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "With one column and zero cards, the AppBar, toolbar text, KanbanBoardView, lane label 'A fazer (0)', and 'Solte um card aqui' all have valid rendered geometry; the toolbar starts below the AppBar and the board height is greater than zero.",
+        "requirements": [
+          "REQ-002"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-003",
+        "statement": "Tapping the visible 'Coluna' action opens the 'Nova coluna' dialog.",
+        "requirements": [
+          "REQ-003"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-004",
+        "statement": "Opening WorkspaceNavigationDrawer and tapping its 'Kanban' entry replaces the current route with ProjectKanbanPage.",
+        "requirements": [
+          "REQ-004"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-005",
+        "statement": "The existing virtualized columns/card-slot test and narrow viewport test continue to pass.",
+        "requirements": [
+          "REQ-005"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-006",
+        "statement": "The commit changes only frontend/test/features/projects/presentation/project_kanban_page_test.dart and this versioned Change Contract.",
+        "requirements": [
+          "REQ-006"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-007",
+        "statement": "The Change Contract explicitly keeps browser runtime resolution out of scope; this increment produces diagnostic evidence only and does not claim Chrome/Firefox rendering is fixed.",
+        "requirements": [
+          "REQ-007"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "The Kanban production widget tree at baseline a19f6962 remains byte-for-byte unchanged by this increment."
+      },
+      {
+        "id": "INV-002",
+        "statement": "Backend Kanban persistence, authorization, optimistic concurrency, card identity, ordering, and API contracts are unchanged."
+      },
+      {
+        "id": "INV-003",
+        "statement": "Browser-specific CanvasKit policy is not revised in this increment."
+      },
+      {
+        "id": "INV-004",
+        "statement": "The current browser defect is still considered unresolved until the user re-tests the runtime after a causal production change."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "Production layout offsets, padding compensation, transforms, renderer settings, or drag/drop code are changed before geometry evidence identifies the failing boundary."
+      },
+      {
+        "id": "FORB-002",
+        "statement": "The diagnostic asserts that a closed Scaffold drawer must already be mounted."
+      },
+      {
+        "id": "FORB-003",
+        "statement": "A passing Flutter widget test is reported as proof that Chrome/Firefox rendering is fixed."
+      },
+      {
+        "id": "FORB-004",
+        "statement": "The diagnostic fixture diverges from the observed one-column/zero-card state when validating empty-board geometry."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "Baseline feature/tasks-kanban commit a19f6962a8259c9ebd89fbe9f5179d7f07d3cf3d with tree 506dfa65efd2e298faa6ca3a4af3c4ca60e53a02."
+      },
+      {
+        "id": "IN-002",
+        "statement": "Observed browser state: one Kanban column, zero cards, project/metrics loaded, board surface not visibly painted as expected, same behavior in Firefox and Chrome."
+      },
+      {
+        "id": "IN-003",
+        "statement": "Current CI failure: project_kanban_page_test expects a lazily mounted WorkspaceNavigationDrawer while the drawer is closed."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "A green, causally useful widget-test harness that measures geometry and input dispatch instead of only widget presence."
+      },
+      {
+        "id": "OUT-002",
+        "statement": "A real drawer-navigation probe covering the route transition used by the application."
+      },
+      {
+        "id": "OUT-003",
+        "statement": "Evidence that can classify a future runtime mismatch as layout/constraints, paint/compositor, or hit-testing rather than continuing component redesign by assumption."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "If the focused widget test fails geometry assertions, the divergence is within the Flutter layout/widget boundary and production diagnosis must continue there before browser-renderer hypotheses."
+      },
+      {
+        "id": "FAIL-002",
+        "statement": "If the focused widget tests pass but the browser still reproduces the defect, the evidence shifts toward web paint/compositor/runtime or browser hit-testing rather than Kanban state/layout construction."
+      },
+      {
+        "id": "FAIL-003",
+        "statement": "If drawer navigation does not reach ProjectKanbanPage, the real route transition becomes the primary failing boundary."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "a19f6962a8259c9ebd89fbe9f5179d7f07d3cf3d",
+    "base_tree": "506dfa65efd2e298faa6ca3a4af3c4ca60e53a02",
+    "policy_sha256": "cb60d7751236c799472a2e7166df0637c20f183f26a61900706bbdb69232ab34",
+    "specification_sha256": "9ff771a9ef1e29f7f384d28a8fd08d578f30fc59ebfa95f58762785577fcee7b"
+  },
+  "behavior": {
+    "argv": [
+      "python3",
+      "-c",
+      "from pathlib import Path; import sys; page=Path('lib/features/projects/presentation/project_kanban_page.dart').read_text(); board=Path('lib/features/projects/presentation/widgets/kanban_board.dart').read_text(); ok=('return Scaffold(' in page and 'drawer: const WorkspaceNavigationDrawer()' in page and 'Expanded(child: _buildBoardContent())' in page and 'class KanbanBoardView extends StatefulWidget' in board and 'ListView.separated(' in board and 'Draggable\u003cKanbanCard\u003e' in board and 'DragTarget\u003cKanbanCard\u003e' in board); print('kanban_geometry_characterization_ok' if ok else 'kanban_geometry_characterization_missing'); sys.exit(0 if ok else 1)"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 30,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "python3",
+      "-c",
+      "from pathlib import Path; import sys; page=Path('lib/features/projects/presentation/project_kanban_page.dart').read_text(); board=Path('lib/features/projects/presentation/widgets/kanban_board.dart').read_text(); ok=('return Scaffold(' in page and 'drawer: const WorkspaceNavigationDrawer()' in page and 'Expanded(child: _buildBoardContent())' in page and 'class KanbanBoardView extends StatefulWidget' in board and 'ListView.separated(' in board and 'Draggable\u003cKanbanCard\u003e' in board and 'DragTarget\u003cKanbanCard\u003e' in board); print('kanban_geometry_characterization_ok' if ok else 'kanban_geometry_characterization_missing'); sys.exit(0 if ok else 1)"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 30,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "green_green",
+    "command": {
+      "argv": [
+        "python3",
+        "-c",
+        "from pathlib import Path; import sys; page=Path('lib/features/projects/presentation/project_kanban_page.dart').read_text(); board=Path('lib/features/projects/presentation/widgets/kanban_board.dart').read_text(); ok=('return Scaffold(' in page and 'drawer: const WorkspaceNavigationDrawer()' in page and 'Expanded(child: _buildBoardContent())' in page and 'class KanbanBoardView extends StatefulWidget' in board and 'ListView.separated(' in board and 'Draggable\u003cKanbanCard\u003e' in board and 'DragTarget\u003cKanbanCard\u003e' in board); print('kanban_geometry_characterization_ok' if ok else 'kanban_geometry_characterization_missing'); sys.exit(0 if ok else 1)"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 30,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    }
+  }
+}

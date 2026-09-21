@@ -12,7 +12,7 @@ import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_s
 
 void main() {
   testWidgets(
-    'bypasses the workspace compositor on wide viewports',
+    'uses a standard Scaffold with a lazily mounted navigation drawer',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(1440, 900));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -24,9 +24,111 @@ void main() {
 
       expect(find.byType(WorkspaceScaffold), findsNothing);
       expect(find.byType(BackdropFilter), findsNothing);
-      expect(find.byType(WorkspaceNavigationDrawer), findsOneWidget);
+
+      final scaffold = tester.widget<Scaffold>(find.byType(Scaffold));
+      expect(scaffold.drawer, isA<WorkspaceNavigationDrawer>());
+      expect(find.byType(WorkspaceNavigationDrawer), findsNothing);
+
       expect(find.byType(KanbanBoardView), findsOneWidget);
       expect(find.text('#1'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'empty board keeps valid geometry below the AppBar',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1440, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ProjectKanbanPage(
+            api: _FakeKanbanApi(includeCard: false),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final appBar = find.byType(AppBar);
+      final intro = find.text(
+        'Acompanhe e mova os cards do projeto selecionado.',
+      );
+      final board = find.byType(KanbanBoardView);
+      final lane = find.text('A fazer (0)');
+      final emptySlot = find.text('Solte um card aqui');
+
+      expect(appBar, findsOneWidget);
+      expect(intro, findsOneWidget);
+      expect(board, findsOneWidget);
+      expect(lane, findsOneWidget);
+      expect(emptySlot, findsOneWidget);
+
+      final appBarRect = tester.getRect(appBar);
+      final introRect = tester.getRect(intro);
+      final boardRect = tester.getRect(board);
+      final laneRect = tester.getRect(lane);
+      final emptySlotRect = tester.getRect(emptySlot);
+
+      expect(introRect.top, greaterThanOrEqualTo(appBarRect.bottom + 20));
+      expect(boardRect.top, greaterThan(introRect.bottom));
+      expect(boardRect.width, greaterThan(0));
+      expect(boardRect.height, greaterThan(0));
+      expect(laneRect.width, greaterThan(0));
+      expect(laneRect.height, greaterThan(0));
+      expect(emptySlotRect.width, greaterThan(0));
+      expect(emptySlotRect.height, greaterThan(0));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'visible board controls receive taps at their painted coordinates',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1440, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        MaterialApp(home: ProjectKanbanPage(api: _FakeKanbanApi())),
+      );
+      await tester.pumpAndSettle();
+
+      final createColumn = find.text('Coluna');
+      expect(createColumn, findsOneWidget);
+
+      await tester.tap(createColumn);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Nova coluna'), findsOneWidget);
+      expect(find.text('Nome da coluna'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'real workspace drawer navigation reaches ProjectKanbanPage',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1440, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: WorkspaceScaffold(
+            sidebar: const SizedBox.shrink(),
+            contentBuilder: (_, __) => const SizedBox.shrink(),
+          ),
+        ),
+      );
+
+      final scaffoldState = tester.state<ScaffoldState>(find.byType(Scaffold));
+      scaffoldState.openDrawer();
+      await tester.pumpAndSettle();
+
+      final kanbanEntry = find.text('Kanban');
+      expect(kanbanEntry, findsOneWidget);
+
+      await tester.tap(kanbanEntry);
+      await tester.pump();
+
+      expect(find.byType(ProjectKanbanPage), findsOneWidget);
     },
   );
 
@@ -115,6 +217,10 @@ void main() {
 }
 
 class _FakeKanbanApi extends TouchInApi {
+  _FakeKanbanApi({this.includeCard = true});
+
+  final bool includeCard;
+
   @override
   Future<AuthContext> getAuthContext() async {
     return AuthContext(
@@ -167,6 +273,10 @@ class _FakeKanbanApi extends TouchInApi {
 
   @override
   Future<List<TaskRecord>> listTasks(String projectId) async {
+    if (!includeCard) {
+      return <TaskRecord>[];
+    }
+
     return <TaskRecord>[
       TaskRecord(
         id: 'task-01',
@@ -201,22 +311,24 @@ class _FakeKanbanApi extends TouchInApi {
           projectId: projectId,
           name: 'A fazer',
           position: 0,
-          cards: <KanbanCard>[
-            KanbanCard(
-              id: 'task-01',
-              projectId: projectId,
-              parentTaskId: null,
-              cardNumber: 1,
-              kanbanColumnId: 'column-01',
-              kanbanPosition: 0,
-              name: 'Implementar tela',
-              description: 'Descrição da tarefa',
-              type: TaskType.feature,
-              assignees: const <TaskMemberSummary>[],
-              createdAt: DateTime(2026, 9, 9),
-              updatedAt: DateTime(2026, 9, 9),
-            ),
-          ],
+          cards: includeCard
+              ? <KanbanCard>[
+                  KanbanCard(
+                    id: 'task-01',
+                    projectId: projectId,
+                    parentTaskId: null,
+                    cardNumber: 1,
+                    kanbanColumnId: 'column-01',
+                    kanbanPosition: 0,
+                    name: 'Implementar tela',
+                    description: 'Descrição da tarefa',
+                    type: TaskType.feature,
+                    assignees: const <TaskMemberSummary>[],
+                    createdAt: DateTime(2026, 9, 9),
+                    updatedAt: DateTime(2026, 9, 9),
+                  ),
+                ]
+              : <KanbanCard>[],
           createdAt: DateTime(2026, 9, 9),
           updatedAt: DateTime(2026, 9, 9),
         ),
