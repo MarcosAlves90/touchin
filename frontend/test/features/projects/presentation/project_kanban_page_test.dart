@@ -12,7 +12,7 @@ import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_s
 
 void main() {
   testWidgets(
-    'static Kanban renderer mounts real board content',
+    'column surface probe strips material column subtree',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(1440, 900));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -22,11 +22,26 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.byType(KanbanBoardView), findsOneWidget);
+      final board = find.byType(KanbanBoardView);
+      expect(board, findsOneWidget);
       expect(find.text('Diagnóstico do quadro'), findsNothing);
       expect(find.text('A fazer (1)'), findsOneWidget);
-      expect(find.text('#1'), findsOneWidget);
-      expect(find.text('Implementar tela'), findsWidgets);
+      expect(
+        find.descendant(of: board, matching: find.byType(Card)),
+        findsNothing,
+      );
+      expect(
+        find.descendant(of: board, matching: find.byType(PopupMenuButton)),
+        findsNothing,
+      );
+      expect(
+        find.descendant(of: board, matching: find.text('#1')),
+        findsNothing,
+      );
+      expect(
+        find.descendant(of: board, matching: find.text('Implementar tela')),
+        findsNothing,
+      );
 
       final shell = tester.widget<WorkspaceScaffold>(
         find.byType(WorkspaceScaffold),
@@ -72,7 +87,7 @@ void main() {
 
       expect(find.byType(KanbanBoardView), findsOneWidget);
       expect(find.text('A fazer (1)'), findsOneWidget);
-      expect(find.text('#1'), findsOneWidget);
+      expect(find.text('#1'), findsNothing);
       expect(tester.takeException(), isNull);
     },
   );
