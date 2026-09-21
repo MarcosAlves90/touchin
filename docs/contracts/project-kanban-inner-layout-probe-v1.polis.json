@@ -1,0 +1,238 @@
+{
+  "schema_version": 4,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      "frontend/lib/features/projects/presentation/widgets/kanban_board.dart",
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart",
+      "docs/contracts/project-kanban-inner-layout-probe-v1.polis.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Isolate the remaining Flutter Web Kanban paint-offset defect at the top-level composition inside the mounted KanbanBoardView. Replace its entire current Row/Expanded/Align/scroll-based build tree with the same known-good DecoratedBox + Center + shrink-wrapped Column shape previously proven to render correctly on ProjectKanbanPage, while keeping KanbanBoardView mounted, feeding it the real board, and leaving the page, shell, controller, backend, API, Flutter SDK, and renderer configuration unchanged.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "KanbanBoardView must remain mounted from ProjectKanbanPage and its existing public constructor, capability flags, callbacks, and board input must remain declared unchanged so this slice isolates rendering rather than integration wiring."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "KanbanBoardView.build must render a minimal data-backed probe using DecoratedBox, Center, and a Column with MainAxisSize.min, and must display the real kanbanVersion, loaded column count, and aggregate card count."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "The mounted KanbanBoardView probe must not construct Row, Expanded, Align, SingleChildScrollView, Card, fixed-width board panels, list/reorder/drag primitives, popup controls, or board action buttons during this diagnostic slice."
+      },
+      {
+        "id": "REQ-004",
+        "statement": "The probe must not render individual column names, card numbers, card titles, assignees, or management controls; only aggregate real-board diagnostics are rendered."
+      },
+      {
+        "id": "REQ-005",
+        "statement": "ProjectKanbanPage, WorkspaceScaffold, ProjectTasksController, renderer/bootstrap, Flutter SDK configuration, backend, API, persistence, authorization, dependencies, and navigation must remain unchanged."
+      },
+      {
+        "id": "REQ-006",
+        "statement": "The locked Change Contract must be versioned at docs/contracts/project-kanban-inner-layout-probe-v1.polis.json."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "The focused page widget fixture still mounts exactly one KanbanBoardView and displays the data-backed probe values 'Versão: 1', 'Colunas: 1', and 'Cards: 1'.",
+        "requirements": [
+          "REQ-001",
+          "REQ-002"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "KanbanBoardView source uses DecoratedBox, Center, and mainAxisSize: MainAxisSize.min and contains no Row, Expanded, Align, SingleChildScrollView, Card, SizedBox, FilledButton, PopupMenuButton, ListView, ReorderableListView, Draggable, DragTarget, or reorder handle construction.",
+        "requirements": [
+          "REQ-002",
+          "REQ-003"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-003",
+        "statement": "The focused widget test asserts that Row, Expanded, Align, SingleChildScrollView, and Card are absent from the KanbanBoardView subtree.",
+        "requirements": [
+          "REQ-003"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-004",
+        "statement": "The focused widget fixture no longer renders 'A fazer (1)', '#1', or 'Implementar tela' inside the board probe.",
+        "requirements": [
+          "REQ-004"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-005",
+        "statement": "The narrow viewport fixture renders the same aggregate probe without an exception.",
+        "requirements": [
+          "REQ-002",
+          "REQ-003",
+          "REQ-004"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-006",
+        "statement": "The payload changes only the Kanban board widget, its focused widget test, and the versioned locked contract.",
+        "requirements": [
+          "REQ-005",
+          "REQ-006"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "The earlier ProjectKanbanPage placeholder experiment is the known-good runtime control: the same shell, contentScrollable=false path, controller, and loaded board data rendered correctly when KanbanBoardView was replaced by a simple bounded DecoratedBox probe."
+      },
+      {
+        "id": "INV-002",
+        "statement": "The defect persisted after removing drag/reorder/list primitives, the one-column horizontal scroll viewport, and the material/card column subtree, so those elements are not required for the confirmed failure."
+      },
+      {
+        "id": "INV-003",
+        "statement": "The defect reproduces in both Chrome and Firefox with the same application state, so this slice introduces no browser-specific workaround."
+      },
+      {
+        "id": "INV-004",
+        "statement": "Kanban persistence, authorization, optimistic concurrency, card identity, ordering semantics, and API contracts remain untouched."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "KanbanBoardView is removed from ProjectKanbanPage instead of remaining mounted as the diagnostic boundary."
+      },
+      {
+        "id": "FORB-002",
+        "statement": "Any Row/Expanded/Align/scroll/card/list/drag/action-control board composition remains mounted inside KanbanBoardView."
+      },
+      {
+        "id": "FORB-003",
+        "statement": "The probe renders individual board entities or changes backend/domain behavior."
+      },
+      {
+        "id": "FORB-004",
+        "statement": "Workspace shell, page/controller, renderer/bootstrap, Flutter SDK/version/configuration, dependencies, backend, API, persistence, authorization, or navigation are modified."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "Baseline commit 6306a286caebd33519ec26dfc0d730ffd8c231c7, where the minimal column-surface probe still reproduces the paint-offset defect."
+      },
+      {
+        "id": "IN-002",
+        "statement": "The confirmed runtime board contains one loaded column; the same defect persists after prior incremental isolation of browser-specific rendering, scroll, drag/reorder/list, and material/card subtree hypotheses."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "A mounted KanbanBoardView with only a known-good, aggregate real-data diagnostic layout."
+      },
+      {
+        "id": "OUT-002",
+        "statement": "A controlled A/B runtime surface that determines whether KanbanBoardView's remaining internal Row/Expanded/Align composition is necessary for the paint-offset defect."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "If the known-good aggregate probe is absent, any excluded board layout primitive remains in KanbanBoardView, individual board entities are still rendered, or the focused regression expectation is missing, validation fails closed with project_kanban_inner_layout_probe_missing."
+      },
+      {
+        "id": "FAIL-002",
+        "statement": "Flutter/Dart tooling is unavailable in the artifact-production environment; widget-test source is updated but flutter test must not be represented as executed here."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "6306a286caebd33519ec26dfc0d730ffd8c231c7",
+    "base_tree": "61e25a26352ef4d1439a4e6aa0ab61256a418c90",
+    "policy_sha256": "cb60d7751236c799472a2e7166df0637c20f183f26a61900706bbdb69232ab34",
+    "specification_sha256": "882e5545f424ec53390974ee995284922bf5bc3427b1c4b7cf68e3aaafe74099"
+  },
+  "behavior": {
+    "argv": [
+      "python3",
+      "-c",
+      "from pathlib import Path; import sys; root=Path('.'); board=(root/'lib/features/projects/presentation/widgets/kanban_board.dart').read_text(); tests=(root/'test/features/projects/presentation/project_kanban_page_test.dart').read_text(); excluded=['Row(','Expanded(','Align(','SingleChildScrollView(','Card(','SizedBox(','FilledButton','PopupMenuButton','ListView','ReorderableListView','LongPressDraggable','Draggable\u003c','DragTarget','ReorderableDragStartListener']; callbacks=['onMoveCard','onReorderColumns','onCreateColumn','onRenameColumn','onDeleteColumn','onCreateCard','onEditCard','onDeleteCard','onManageAssignees']; ok=('DecoratedBox(' in board and 'Center(' in board and 'mainAxisSize: MainAxisSize.min' in board and \"'KanbanBoardView'\" in board and \"'Versão: ${board.kanbanVersion}'\" in board and \"'Colunas: ${board.columns.length}'\" in board and \"'Cards: $cardCount'\" in board and all(token not in board for token in excluded) and all(token in board for token in callbacks) and 'minimal inner layout probe' in tests and \"find.text('Versão: 1')\" in tests and \"find.text('Colunas: 1')\" in tests and \"find.text('Cards: 1')\" in tests and 'for (final primitive in \u003cType\u003e[' in tests and 'Row,' in tests and 'Expanded,' in tests and 'Align,' in tests and 'SingleChildScrollView,' in tests and 'Card,' in tests and 'find.descendant(of: board, matching: find.byType(primitive))' in tests and \"find.text('A fazer (1)')\" in tests and \"find.text('#1')\" in tests and \"find.text('Implementar tela')\" in tests); print('project_kanban_inner_layout_probe_ok' if ok else 'project_kanban_inner_layout_probe_missing'); sys.exit(0 if ok else 1)"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 30,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "python3",
+      "-c",
+      "from pathlib import Path; import sys; root=Path('.'); board=(root/'lib/features/projects/presentation/widgets/kanban_board.dart').read_text(); tests=(root/'test/features/projects/presentation/project_kanban_page_test.dart').read_text(); excluded=['Row(','Expanded(','Align(','SingleChildScrollView(','Card(','SizedBox(','FilledButton','PopupMenuButton','ListView','ReorderableListView','LongPressDraggable','Draggable\u003c','DragTarget','ReorderableDragStartListener']; callbacks=['onMoveCard','onReorderColumns','onCreateColumn','onRenameColumn','onDeleteColumn','onCreateCard','onEditCard','onDeleteCard','onManageAssignees']; ok=('DecoratedBox(' in board and 'Center(' in board and 'mainAxisSize: MainAxisSize.min' in board and \"'KanbanBoardView'\" in board and \"'Versão: ${board.kanbanVersion}'\" in board and \"'Colunas: ${board.columns.length}'\" in board and \"'Cards: $cardCount'\" in board and all(token not in board for token in excluded) and all(token in board for token in callbacks) and 'minimal inner layout probe' in tests and \"find.text('Versão: 1')\" in tests and \"find.text('Colunas: 1')\" in tests and \"find.text('Cards: 1')\" in tests and 'for (final primitive in \u003cType\u003e[' in tests and 'Row,' in tests and 'Expanded,' in tests and 'Align,' in tests and 'SingleChildScrollView,' in tests and 'Card,' in tests and 'find.descendant(of: board, matching: find.byType(primitive))' in tests and \"find.text('A fazer (1)')\" in tests and \"find.text('#1')\" in tests and \"find.text('Implementar tela')\" in tests); print('project_kanban_inner_layout_probe_ok' if ok else 'project_kanban_inner_layout_probe_missing'); sys.exit(0 if ok else 1)"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 30,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "python3",
+        "-c",
+        "from pathlib import Path; import sys; root=Path('.'); board=(root/'lib/features/projects/presentation/widgets/kanban_board.dart').read_text(); tests=(root/'test/features/projects/presentation/project_kanban_page_test.dart').read_text(); excluded=['Row(','Expanded(','Align(','SingleChildScrollView(','Card(','SizedBox(','FilledButton','PopupMenuButton','ListView','ReorderableListView','LongPressDraggable','Draggable\u003c','DragTarget','ReorderableDragStartListener']; callbacks=['onMoveCard','onReorderColumns','onCreateColumn','onRenameColumn','onDeleteColumn','onCreateCard','onEditCard','onDeleteCard','onManageAssignees']; ok=('DecoratedBox(' in board and 'Center(' in board and 'mainAxisSize: MainAxisSize.min' in board and \"'KanbanBoardView'\" in board and \"'Versão: ${board.kanbanVersion}'\" in board and \"'Colunas: ${board.columns.length}'\" in board and \"'Cards: $cardCount'\" in board and all(token not in board for token in excluded) and all(token in board for token in callbacks) and 'minimal inner layout probe' in tests and \"find.text('Versão: 1')\" in tests and \"find.text('Colunas: 1')\" in tests and \"find.text('Cards: 1')\" in tests and 'for (final primitive in \u003cType\u003e[' in tests and 'Row,' in tests and 'Expanded,' in tests and 'Align,' in tests and 'SingleChildScrollView,' in tests and 'Card,' in tests and 'find.descendant(of: board, matching: find.byType(primitive))' in tests and \"find.text('A fazer (1)')\" in tests and \"find.text('#1')\" in tests and \"find.text('Implementar tela')\" in tests); print('project_kanban_inner_layout_probe_ok' if ok else 'project_kanban_inner_layout_probe_missing'); sys.exit(0 if ok else 1)"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 30,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "project_kanban_inner_layout_probe_missing"
+    ]
+  }
+}

@@ -40,86 +40,26 @@ class KanbanBoardView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final cardCount = board.columns.fold<int>(
+      0,
+      (total, column) => total + column.cards.length,
+    );
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Row(
-          children: <Widget>[
-            Expanded(
-              child: Text(
-                'Kanban',
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-            Text(
-              'v${board.kanbanVersion}',
-              style: theme.textTheme.bodySmall,
-            ),
-            if (canManageStructure) ...<Widget>[
-              const SizedBox(width: 8),
-              FilledButton.tonalIcon(
-                onPressed: isBusy ? null : onCreateColumn,
-                icon: const Icon(Icons.add),
-                label: const Text('Coluna'),
-              ),
-            ],
-          ],
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border.all(
+          color: Theme.of(context).colorScheme.outlineVariant,
         ),
-        const SizedBox(height: 16),
-        Expanded(child: _buildColumnSurface()),
-      ],
-    );
-  }
-
-  Widget _buildColumnSurface() {
-    if (board.columns.length <= 1) {
-      return Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          for (final column in board.columns)
-            Expanded(
-              child: Align(
-                alignment: Alignment.topLeft,
-                child: _buildColumnPanel(
-                  column,
-                  trailingPadding: 0,
-                ),
-              ),
-            ),
-        ],
-      );
-    }
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          for (final column in board.columns) _buildColumnPanel(column),
-        ],
       ),
-    );
-  }
-
-  Widget _buildColumnPanel(
-    KanbanColumn column, {
-    double trailingPadding = 16,
-  }) {
-    return Padding(
-      key: ValueKey<String>('kanban-column-${column.id}'),
-      padding: EdgeInsets.only(right: trailingPadding),
-      child: SizedBox(
-        width: 320,
-        child: Align(
-          alignment: Alignment.topLeft,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Text('${column.name} (${column.cards.length})'),
-          ),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            const Text('KanbanBoardView'),
+            Text('Versão: ${board.kanbanVersion}'),
+            Text('Colunas: ${board.columns.length}'),
+            Text('Cards: $cardCount'),
+          ],
         ),
       ),
     );

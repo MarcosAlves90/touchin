@@ -12,7 +12,7 @@ import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_s
 
 void main() {
   testWidgets(
-    'column surface probe strips material column subtree',
+    'KanbanBoardView uses minimal inner layout probe',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(1440, 900));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -24,24 +24,27 @@ void main() {
 
       final board = find.byType(KanbanBoardView);
       expect(board, findsOneWidget);
-      expect(find.text('Diagnóstico do quadro'), findsNothing);
-      expect(find.text('A fazer (1)'), findsOneWidget);
-      expect(
-        find.descendant(of: board, matching: find.byType(Card)),
-        findsNothing,
-      );
-      expect(
-        find.descendant(of: board, matching: find.byType(PopupMenuButton)),
-        findsNothing,
-      );
-      expect(
-        find.descendant(of: board, matching: find.text('#1')),
-        findsNothing,
-      );
-      expect(
-        find.descendant(of: board, matching: find.text('Implementar tela')),
-        findsNothing,
-      );
+      expect(find.text('KanbanBoardView'), findsOneWidget);
+      expect(find.text('Versão: 1'), findsOneWidget);
+      expect(find.text('Colunas: 1'), findsOneWidget);
+      expect(find.text('Cards: 1'), findsOneWidget);
+      expect(find.text('A fazer (1)'), findsNothing);
+      expect(find.text('#1'), findsNothing);
+      expect(find.text('Implementar tela'), findsNothing);
+
+      for (final primitive in <Type>[
+        Row,
+        Expanded,
+        Align,
+        SingleChildScrollView,
+        Card,
+      ]) {
+        expect(
+          find.descendant(of: board, matching: find.byType(primitive)),
+          findsNothing,
+          reason: '$primitive must stay out of the diagnostic board subtree',
+        );
+      }
 
       final shell = tester.widget<WorkspaceScaffold>(
         find.byType(WorkspaceScaffold),
@@ -51,31 +54,7 @@ void main() {
   );
 
   testWidgets(
-    'single-column Kanban bypasses horizontal scroll viewport',
-    (tester) async {
-      await tester.binding.setSurfaceSize(const Size(1440, 900));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
-
-      await tester.pumpWidget(
-        MaterialApp(home: ProjectKanbanPage(api: _FakeKanbanApi())),
-      );
-      await tester.pumpAndSettle();
-
-      expect(find.byType(KanbanBoardView), findsOneWidget);
-      expect(find.byType(ListView), findsNothing);
-      expect(find.byType(ReorderableListView), findsNothing);
-      expect(
-        find.descendant(
-          of: find.byType(KanbanBoardView),
-          matching: find.byType(SingleChildScrollView),
-        ),
-        findsNothing,
-      );
-    },
-  );
-
-  testWidgets(
-    'static Kanban renderer remains bounded on narrow viewport',
+    'minimal inner layout probe remains valid on narrow viewport',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(390, 844));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -86,8 +65,9 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(KanbanBoardView), findsOneWidget);
-      expect(find.text('A fazer (1)'), findsOneWidget);
-      expect(find.text('#1'), findsNothing);
+      expect(find.text('Versão: 1'), findsOneWidget);
+      expect(find.text('Colunas: 1'), findsOneWidget);
+      expect(find.text('Cards: 1'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
