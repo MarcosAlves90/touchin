@@ -179,6 +179,7 @@ void main() {
     expect(controller.selectedTaskId, isNot('project-a-task-late'));
   });
 
+
 }
 
 class _ControlledProjectApi extends TouchInApi {

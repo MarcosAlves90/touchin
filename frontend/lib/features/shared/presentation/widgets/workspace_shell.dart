@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:touchin_flutter/features/admin/presentation/admin_employees_page.dart';
 import 'package:touchin_flutter/features/auth/presentation/logout_navigation.dart';
+import 'package:touchin_flutter/features/projects/presentation/project_kanban_page.dart';
 import 'package:touchin_flutter/features/projects/presentation/project_tasks_page.dart';
 import 'package:touchin_flutter/features/settings/presentation/settings_page.dart';
 import 'package:touchin_flutter/features/time_tracking/presentation/time_clock_page.dart';
@@ -17,6 +18,7 @@ class WorkspaceScaffold extends StatelessWidget {
     required this.contentBuilder,
     this.wideBreakpoint = 1080,
     this.sidebarWidth = 360,
+    this.contentScrollable = true,
     this.onLogoutRequested = logoutFromWorkspace,
   });
 
@@ -24,6 +26,7 @@ class WorkspaceScaffold extends StatelessWidget {
   final Widget Function(BuildContext context, bool isWide) contentBuilder;
   final double wideBreakpoint;
   final double sidebarWidth;
+  final bool contentScrollable;
   final WorkspaceLogoutHandler onLogoutRequested;
 
   @override
@@ -31,7 +34,7 @@ class WorkspaceScaffold extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      drawer: _AppNavigationDrawer(onLogoutRequested: onLogoutRequested),
+      drawer: WorkspaceNavigationDrawer(onLogoutRequested: onLogoutRequested),
       body: DecoratedBox(
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -61,6 +64,7 @@ class WorkspaceScaffold extends StatelessWidget {
                 size: 260,
               ),
             ),
+            _buildStaticBackdrop(colorScheme),
             SafeArea(
               child: LayoutBuilder(
                 builder: (context, constraints) {
@@ -68,27 +72,35 @@ class WorkspaceScaffold extends StatelessWidget {
 
                   return DecoratedBox(
                     decoration: BoxDecoration(
-                      color: colorScheme.surface.withValues(alpha: 0.74),
                       border: Border.all(
                         color: colorScheme.outlineVariant.withValues(
                           alpha: 0.6,
                         ),
                       ),
                     ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.zero,
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                        child: isWide
-                            ? _buildWideLayout(context, constraints)
-                            : _buildNarrowLayout(context, constraints),
-                      ),
-                    ),
+                    child: isWide
+                        ? _buildWideLayout(context, constraints)
+                        : _buildNarrowLayout(context, constraints),
                   );
                 },
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStaticBackdrop(ColorScheme colorScheme) {
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: ClipRect(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+            child: ColoredBox(
+              color: colorScheme.surface.withValues(alpha: 0.74),
+            ),
+          ),
         ),
       ),
     );
@@ -107,12 +119,7 @@ class WorkspaceScaffold extends StatelessWidget {
           ),
         ),
         Expanded(
-          child: SingleChildScrollView(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: constraints.maxHeight),
-              child: contentBuilder(context, true),
-            ),
-          ),
+          child: _buildContentPane(context, constraints, true),
         ),
       ],
     );
@@ -123,15 +130,37 @@ class WorkspaceScaffold extends StatelessWidget {
       children: <Widget>[
         sidebar,
         Expanded(
-          child: SingleChildScrollView(child: contentBuilder(context, false)),
+          child: _buildContentPane(context, constraints, false),
         ),
       ],
     );
   }
+
+  Widget _buildContentPane(
+    BuildContext context,
+    BoxConstraints constraints,
+    bool isWide,
+  ) {
+    final content = contentBuilder(context, isWide);
+    if (contentScrollable) {
+      return SingleChildScrollView(
+        child: isWide
+            ? ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: content,
+              )
+            : content,
+      );
+    }
+    return content;
+  }
 }
 
-class _AppNavigationDrawer extends StatelessWidget {
-  const _AppNavigationDrawer({required this.onLogoutRequested});
+class WorkspaceNavigationDrawer extends StatelessWidget {
+  const WorkspaceNavigationDrawer({
+    super.key,
+    this.onLogoutRequested = logoutFromWorkspace,
+  });
 
   final WorkspaceLogoutHandler onLogoutRequested;
 
@@ -219,6 +248,19 @@ class _AppNavigationDrawer extends StatelessWidget {
               Navigator.of(context).pushReplacement(
                 MaterialPageRoute<void>(
                   builder: (_) => const ProjectTasksPage(),
+                ),
+              );
+            },
+          ),
+          _buildDrawerItem(
+            context,
+            icon: Icons.view_kanban_outlined,
+            label: 'Kanban',
+            onTap: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute<void>(
+                  builder: (_) => const ProjectKanbanPage(),
                 ),
               );
             },

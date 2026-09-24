@@ -4,6 +4,7 @@ import 'package:touchin_flutter/contracts/project.dart';
 import 'package:touchin_flutter/contracts/task.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
 import 'package:touchin_flutter/features/projects/presentation/project_tasks_page.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_editor_dialog.dart';
 import 'package:touchin_flutter/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -32,7 +33,11 @@ void main() {
     expect(find.text('Adicionar ao projeto'), findsOneWidget);
     expect(find.text('Entrar na tarefa'), findsOneWidget);
     expect(find.text('Adicionar membro'), findsOneWidget);
+    expect(find.text('Kanban'), findsNothing);
+    expect(find.text('#1'), findsNothing);
+    expect(find.text('Coluna'), findsNothing);
   });
+
 
   testWidgets('selected project list icon keeps accent contrast in dark theme',
       (tester) async {
@@ -76,6 +81,10 @@ void main() {
     expect(find.text('Entrar na tarefa'), findsOneWidget);
     expect(find.text('Adicionar membro'), findsNothing);
     expect(find.byTooltip('Remover da tarefa'), findsNothing);
+    expect(find.text('Kanban'), findsNothing);
+    expect(find.text('#1'), findsNothing);
+    expect(find.text('Coluna'), findsNothing);
+    expect(find.text('Responsáveis'), findsNothing);
   });
 
   testWidgets('project and task editors mirror backend text limits',
@@ -189,6 +198,55 @@ void main() {
     expect(find.text('Sair da tarefa'), findsOneWidget);
     expect(find.text('1 de 2 vaga(s) ocupada(s).'), findsOneWidget);
   });
+  testWidgets('task editor reuses workspace dialog and standard inputs', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.lightTheme,
+        darkTheme: AppTheme.darkTheme,
+        themeMode: ThemeMode.dark,
+        home: ProjectTasksPage(
+          api: _FakeProjectTasksApi(role: 'manager', employeeId: 'emp-02'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final newTask = find.text('Nova tarefa');
+    await tester.ensureVisible(newTask);
+    await tester.tap(newTask);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.byType(WorkspaceEditorDialog), findsOneWidget);
+    final dialogFinder = find.byType(Dialog);
+    expect(dialogFinder, findsOneWidget);
+    final dialog = tester.widget<Dialog>(dialogFinder);
+    final shape = dialog.shape as RoundedRectangleBorder;
+    expect(shape.borderRadius, BorderRadius.zero);
+    expect(find.text('Detalhes da tarefa'), findsOneWidget);
+    expect(find.text('Projeto atual'), findsNothing);
+    final taskNameField = tester.widget<InputDecorator>(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is InputDecorator && widget.decoration.labelText == 'Nome',
+      ),
+    );
+    final taskDescriptionField = tester.widget<InputDecorator>(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is InputDecorator &&
+            widget.decoration.labelText == 'Descrição',
+      ),
+    );
+    expect(taskNameField.decoration.prefixIcon, isNull);
+    expect(taskDescriptionField.decoration.prefixIcon, isNull);
+    expect(tester.getRect(dialogFinder).width, lessThanOrEqualTo(390));
+    expect(tester.takeException(), isNull);
+  });
+
 }
 
 class _FakeProjectTasksApi extends TouchInApi {

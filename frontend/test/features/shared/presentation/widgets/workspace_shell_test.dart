@@ -10,6 +10,53 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   testWidgets(
+    'non-scrollable workspace content bypasses the shell vertical scroll',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1440, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: WorkspaceScaffold(
+            sidebar: const SizedBox(height: 1200),
+            contentScrollable: false,
+            contentBuilder: (_, __) => const SizedBox.expand(),
+          ),
+        ),
+      );
+
+      expect(find.byType(SingleChildScrollView), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'scrollable workspace content is painted outside the backdrop filter',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1440, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: WorkspaceScaffold(
+            sidebar: const SizedBox(height: 1200),
+            contentBuilder: (_, __) => const SizedBox(height: 1600),
+          ),
+        ),
+      );
+
+      expect(find.byType(BackdropFilter), findsOneWidget);
+      expect(find.byType(SingleChildScrollView), findsNWidgets(2));
+      expect(
+        find.ancestor(
+          of: find.byType(SingleChildScrollView),
+          matching: find.byType(BackdropFilter),
+        ),
+        findsNothing,
+      );
+    },
+  );
+
+  testWidgets(
     'logout action clears the session and returns to login',
     (tester) async {
       final client = _FakeLogoutApiClient(

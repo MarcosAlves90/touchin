@@ -7,6 +7,7 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     DateTime,
+    event,
     ForeignKey,
     Integer,
     String,
@@ -20,6 +21,7 @@ from app.db import Base, utcnow
 _CASCADE_ALL_DELETE_ORPHAN = "all, delete-orphan"
 _COL_COMPANIES_ID = "companies.id"
 _COL_EMPLOYEES_ID = "employees.id"
+_COL_PROJECTS_ID = "projects.id"
 
 
 def generate_id() -> str:
@@ -119,6 +121,8 @@ class Project(Base):
     name_ciphertext: Mapped[str] = mapped_column(Text)
     description_ciphertext: Mapped[str | None] = mapped_column(Text, nullable=True)
     task_employee_limit: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    next_card_number: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    kanban_version: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     status: Mapped[str] = mapped_column(String(32), default="active", index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(
@@ -137,6 +141,10 @@ class Project(Base):
         back_populates="project",
         cascade=_CASCADE_ALL_DELETE_ORPHAN,
     )
+    kanban_columns: Mapped[list["KanbanColumn"]] = relationship(
+        back_populates="project",
+        cascade=_CASCADE_ALL_DELETE_ORPHAN,
+    )
 
 
 class EmployeeProject(Base):
@@ -148,7 +156,7 @@ class EmployeeProject(Base):
         index=True,
     )
     project_id: Mapped[str] = mapped_column(
-        ForeignKey("projects.id"),
+        ForeignKey(_COL_PROJECTS_ID),
         primary_key=True,
         index=True,
     )
@@ -158,6 +166,24 @@ class EmployeeProject(Base):
     project: Mapped[Project] = relationship(back_populates="employee_links")
 
 
+class KanbanColumn(Base):
+    __tablename__ = "kanban_columns"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=generate_id)
+    project_id: Mapped[str] = mapped_column(ForeignKey(_COL_PROJECTS_ID), index=True)
+    name_ciphertext: Mapped[str] = mapped_column(Text)
+    position: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=utcnow,
+        onupdate=utcnow,
+    )
+
+    project: Mapped[Project] = relationship(back_populates="kanban_columns")
+    tasks: Mapped[list["Task"]] = relationship(back_populates="kanban_column")
+
+
 class Task(Base):
     __tablename__ = "tasks"
     __table_args__ = (
@@ -165,15 +191,19 @@ class Task(Base):
             "parent_task_id IS NULL OR parent_task_id <> id",
             name="ck_task_not_self_parent",
         ),
+        UniqueConstraint("project_id", "card_number", name="uq_task_card_number_per_project"),
     )
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=generate_id)
-    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), index=True)
+    project_id: Mapped[str] = mapped_column(ForeignKey(_COL_PROJECTS_ID), index=True)
     parent_task_id: Mapped[str | None] = mapped_column(
         ForeignKey("tasks.id"),
         nullable=True,
         index=True,
     )
+    card_number: Mapped[int] = mapped_column(Integer)
+    kanban_column_id: Mapped[str] = mapped_column(ForeignKey("kanban_columns.id"), index=True)
+    kanban_position: Mapped[int] = mapped_column(Integer)
     name_ciphertext: Mapped[str] = mapped_column(Text)
     description_ciphertext: Mapped[str] = mapped_column(Text)
     type: Mapped[str] = mapped_column(String(32), index=True)
@@ -185,6 +215,7 @@ class Task(Base):
     )
 
     project: Mapped[Project] = relationship(back_populates="tasks")
+    kanban_column: Mapped[KanbanColumn] = relationship(back_populates="tasks")
     parent: Mapped["Task | None"] = relationship(
         remote_side="Task.id",
         back_populates="children",
@@ -257,7 +288,7 @@ class Punch(Base):
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=generate_id)
     company_id: Mapped[str] = mapped_column(ForeignKey(_COL_COMPANIES_ID), index=True)
     employee_id: Mapped[str] = mapped_column(ForeignKey(_COL_EMPLOYEES_ID), index=True)
-    project_id: Mapped[str | None] = mapped_column(ForeignKey("projects.id"), nullable=True, index=True)
+    project_id: Mapped[str | None] = mapped_column(ForeignKey(_COL_PROJECTS_ID), nullable=True, index=True)
     type: Mapped[str] = mapped_column(String(32))
     timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
     detail_ciphertext: Mapped[str] = mapped_column(Text)
@@ -281,3 +312,27 @@ class AuthSession(Base):
     last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     user: Mapped[UserAccount] = relationship(back_populates="sessions")
+
+@event.listens_for(Project, "init")
+def _initialize_project_kanban_column(
+    project: Project,
+    _args: tuple[object, ...],
+    kwargs: dict[str, object],
+) -> None:
+    """Create the required initial Kanban column for newly constructed projects."""
+    if kwargs.get("kanban_columns"):
+        return
+
+    from app.config import get_settings
+    from app.crypto import FieldCipher
+
+    secret = get_settings().encryption_secret
+    if secret is None:
+        raise RuntimeError("TOUCHIN_ENCRYPTION_SECRET is required.")
+    field_cipher = FieldCipher(secret)
+    project.kanban_columns.append(
+        KanbanColumn(
+            name_ciphertext=field_cipher.encrypt("A fazer") or "",
+            position=0,
+        ),
+    )

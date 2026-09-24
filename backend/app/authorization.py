@@ -21,8 +21,13 @@ PROJECTS_DELETE = "projects.delete"
 PROJECTS_ASSIGN = "projects.assign"
 TASKS_CREATE = "tasks.create"
 TASKS_UPDATE = "tasks.update"
+TASKS_DELETE = "tasks.delete"
 TASKS_MEMBERS_SELF = "tasks.members.self"
 TASKS_MEMBERS_MANAGE = "tasks.members.manage"
+KANBAN_READ = "kanban.read"
+KANBAN_STRUCTURE_MANAGE = "kanban.structure.manage"
+KANBAN_CARDS_MOVE = "kanban.cards.move"
+KANBAN_ASSIGNEES_MANAGE = "kanban.assignees.manage"
 COMPANIES_MANAGE = "companies.manage"
 ADMIN_CROSS_COMPANY = "admin.cross_company"
 
@@ -33,6 +38,9 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
         AUTH_READ_CONTEXT,
         PROJECTS_READ,
         TASKS_MEMBERS_SELF,
+        KANBAN_READ,
+        KANBAN_CARDS_MOVE,
+        KANBAN_ASSIGNEES_MANAGE,
         TIME_CLOCK_READ,
         TIME_CLOCK_PUNCH,
     },
@@ -49,7 +57,12 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
         PROJECTS_ASSIGN,
         TASKS_CREATE,
         TASKS_UPDATE,
+        TASKS_DELETE,
         TASKS_MEMBERS_SELF,
+        KANBAN_READ,
+        KANBAN_STRUCTURE_MANAGE,
+        KANBAN_CARDS_MOVE,
+        KANBAN_ASSIGNEES_MANAGE,
         TASKS_MEMBERS_MANAGE,
         TIME_CLOCK_READ,
         TIME_CLOCK_PUNCH,
@@ -69,7 +82,12 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
         PROJECTS_ASSIGN,
         TASKS_CREATE,
         TASKS_UPDATE,
+        TASKS_DELETE,
         TASKS_MEMBERS_SELF,
+        KANBAN_READ,
+        KANBAN_STRUCTURE_MANAGE,
+        KANBAN_CARDS_MOVE,
+        KANBAN_ASSIGNEES_MANAGE,
         TASKS_MEMBERS_MANAGE,
         TIME_CLOCK_READ,
         TIME_CLOCK_PUNCH,
@@ -90,7 +108,12 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
         PROJECTS_ASSIGN,
         TASKS_CREATE,
         TASKS_UPDATE,
+        TASKS_DELETE,
         TASKS_MEMBERS_SELF,
+        KANBAN_READ,
+        KANBAN_STRUCTURE_MANAGE,
+        KANBAN_CARDS_MOVE,
+        KANBAN_ASSIGNEES_MANAGE,
         TASKS_MEMBERS_MANAGE,
         TIME_CLOCK_READ,
         TIME_CLOCK_PUNCH,

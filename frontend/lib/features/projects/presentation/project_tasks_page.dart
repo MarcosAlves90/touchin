@@ -4,6 +4,7 @@ import 'package:touchin_flutter/contracts/task.dart';
 import 'package:touchin_flutter/core/network/api_client.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
 import 'package:touchin_flutter/features/projects/presentation/project_tasks_controller.dart';
+import 'package:touchin_flutter/features/projects/presentation/widgets/task_editor_dialog.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
 import 'package:touchin_flutter/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -565,7 +566,7 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
                 FilledButton.tonalIcon(
                   onPressed: _controller.isMutating
                       ? null
-                      : () => _openCreateTask(_controller.selectedProject!),
+                      : _openCreateTask,
                   icon: const Icon(Icons.add_task_rounded),
                   label: const Text('Nova tarefa'),
                 ),
@@ -725,6 +726,7 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
     );
   }
 
+
   String? _parentTaskName(TaskRecord task) {
     final parentId = task.parentTaskId;
     if (parentId == null) {
@@ -795,11 +797,10 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
     );
   }
 
-  Future<void> _openCreateTask(ProjectSummary project) async {
+  Future<void> _openCreateTask() async {
     final draft = await showDialog<TaskDraft>(
       context: context,
-      builder: (_) => _TaskEditorDialog(
-        project: project,
+      builder: (_) => ProjectTaskEditorDialog(
         tasks: _controller.tasks,
       ),
     );
@@ -815,8 +816,7 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
   Future<void> _openEditTask(TaskRecord task) async {
     final draft = await showDialog<TaskDraft>(
       context: context,
-      builder: (_) => _TaskEditorDialog(
-        project: _controller.selectedProject!,
+      builder: (_) => ProjectTaskEditorDialog(
         tasks: _controller.tasks,
         task: task,
       ),
@@ -1284,11 +1284,15 @@ class _ProjectPill extends StatelessWidget {
         children: <Widget>[
           Icon(icon, size: 14, color: tone),
           const SizedBox(width: 6),
-          Text(
-            label,
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: tone,
-              fontWeight: FontWeight.w700,
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: tone,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ],
@@ -1596,165 +1600,6 @@ class _ProjectEditorDialogState extends State<_ProjectEditorDialog> {
             );
           },
           child: Text(widget.project == null ? 'Criar projeto' : 'Salvar'),
-        ),
-      ],
-    );
-  }
-}
-
-class _TaskEditorDialog extends StatefulWidget {
-  const _TaskEditorDialog({
-    required this.project,
-    required this.tasks,
-    this.task,
-  });
-
-  final ProjectSummary project;
-  final List<TaskRecord> tasks;
-  final TaskRecord? task;
-
-  @override
-  State<_TaskEditorDialog> createState() => _TaskEditorDialogState();
-}
-
-class _TaskEditorDialogState extends State<_TaskEditorDialog> {
-  final _formKey = GlobalKey<FormState>();
-  late final TextEditingController _nameController;
-  late final TextEditingController _descriptionController;
-  late TaskType _type;
-  String? _parentTaskId;
-
-  @override
-  void initState() {
-    super.initState();
-    _nameController = TextEditingController(text: widget.task?.name ?? '');
-    _descriptionController =
-        TextEditingController(text: widget.task?.description ?? '');
-    _type = widget.task?.type ?? TaskType.feature;
-    _parentTaskId = widget.task?.parentTaskId;
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _descriptionController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final possibleParents = widget.tasks
-        .where((candidate) => candidate.id != widget.task?.id)
-        .toList();
-
-    return AlertDialog(
-      title: Text(widget.task == null ? 'Nova tarefa' : 'Editar tarefa'),
-      content: SizedBox(
-        width: 540,
-        child: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                TextFormField(
-                  controller: _nameController,
-                  autofocus: true,
-                  maxLength: taskNameMaxLength,
-                  maxLengthEnforcement: MaxLengthEnforcement.enforced,
-                  decoration: const InputDecoration(labelText: 'Nome'),
-                  validator: (value) => _requiredTextWithinLimit(
-                    value,
-                    maxLength: taskNameMaxLength,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                TextFormField(
-                  controller: _descriptionController,
-                  minLines: 3,
-                  maxLines: 5,
-                  maxLength: taskDescriptionMaxLength,
-                  maxLengthEnforcement: MaxLengthEnforcement.enforced,
-                  decoration: const InputDecoration(labelText: 'Descrição'),
-                  validator: (value) => _requiredTextWithinLimit(
-                    value,
-                    maxLength: taskDescriptionMaxLength,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                DropdownButtonFormField<TaskType>(
-                  initialValue: _type,
-                  decoration: const InputDecoration(labelText: 'Tipo'),
-                  items: TaskType.values
-                      .map(
-                        (type) => DropdownMenuItem<TaskType>(
-                          value: type,
-                          child: Text(_taskTypeLabel(type)),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (value) {
-                    if (value != null) {
-                      setState(() => _type = value);
-                    }
-                  },
-                ),
-                const SizedBox(height: 14),
-                DropdownButtonFormField<String>(
-                  initialValue: _parentTaskId ?? '',
-                  decoration: const InputDecoration(
-                    labelText: 'Tarefa-pai',
-                    helperText: 'Opcional',
-                  ),
-                  items: <DropdownMenuItem<String>>[
-                    const DropdownMenuItem<String>(
-                      value: '',
-                      child: Text('Sem tarefa-pai'),
-                    ),
-                    ...possibleParents.map(
-                      (task) => DropdownMenuItem<String>(
-                        value: task.id,
-                        child: Text(task.name),
-                      ),
-                    ),
-                  ],
-                  onChanged: (value) => setState(
-                    () => _parentTaskId = value == null || value.isEmpty ? null : value,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'Projeto: ${widget.project.name}',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-      actions: <Widget>[
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancelar'),
-        ),
-        FilledButton(
-          onPressed: () {
-            if (!_formKey.currentState!.validate()) {
-              return;
-            }
-            Navigator.of(context).pop(
-              TaskDraft(
-                name: _nameController.text,
-                description: _descriptionController.text,
-                type: _type,
-                parentTaskId: _parentTaskId,
-              ),
-            );
-          },
-          child: Text(widget.task == null ? 'Criar tarefa' : 'Salvar'),
         ),
       ],
     );

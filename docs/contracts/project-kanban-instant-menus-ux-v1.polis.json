@@ -1,0 +1,276 @@
+{
+  "schema_version": 4,
+  "kind": "feature",
+  "scope": {
+    "allowed_paths": [
+      "frontend/lib/features/projects/presentation/project_kanban_page.dart",
+      "frontend/lib/features/projects/presentation/widgets/project_kanban_board.dart",
+      "frontend/lib/features/projects/presentation/widgets/task_editor_dialog.dart",
+      "frontend/lib/features/shared/presentation/widgets/workspace_instant_select_field.dart",
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart",
+      "frontend/test/features/projects/presentation/project_kanban_board_test.dart",
+      "frontend/test/features/projects/presentation/project_tasks_page_test.dart",
+      "docs/contracts/project-kanban-instant-menus-ux-v1.polis.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart",
+      "frontend/test/features/projects/presentation/project_kanban_board_test.dart",
+      "frontend/test/features/projects/presentation/project_tasks_page_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Make Kanban menus appear immediately, restore the fast create-task affordance in each column header, square the per-column task counter, remove redundant drag guidance, and move synchronization status to the right side of the navbar while preserving the stable Kanban architecture and responsive behavior.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "Kanban project/type/parent selectors and card/column popup menus must open without transition delay by using an explicit no-animation menu mechanism instead of the current animated dropdown route behavior."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "Each manageable Kanban column must expose a compact top-header action for creating a task/card, while retaining the existing explicit footer add action."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "The per-column task count indicator must be square rather than pill-shaped."
+      },
+      {
+        "id": "REQ-004",
+        "statement": "The board header must remove the instructional drag text and keep only the information/actions that remain useful after the interaction is learned."
+      },
+      {
+        "id": "REQ-005",
+        "statement": "Synchronization state must appear once, on the right side of the accent navbar, and only that small status subtree may rebuild when mutation state changes."
+      },
+      {
+        "id": "REQ-006",
+        "statement": "The changes must preserve the current compact/responsive Kanban layout, raw-pointer drag model, server-authoritative persistence, loading skeletons, controller performance work, square TouchIn styling, and no-external-dependency constraint."
+      },
+      {
+        "id": "REQ-007",
+        "statement": "Stale widget tests from the previous Kanban UI increments must be updated to Flutter 3.47-compatible public assertions and the current drag/column-action affordances so the increment does not preserve known CI compilation/interaction failures."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "Project and task editor selects use the reusable WorkspaceInstantSelectField backed by showMenu with AnimationStyle.noAnimation, and ProjectTaskEditorDialog no longer contains DropdownButtonFormField.",
+        "requirements": [
+          "REQ-001"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "Every PopupMenuButton in ProjectKanbanBoard explicitly uses AnimationStyle.noAnimation.",
+        "requirements": [
+          "REQ-001"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-003",
+        "statement": "The A fazer lane exposes an 'Adicionar card em A fazer' header control and opening it still reaches the shared task editor.",
+        "requirements": [
+          "REQ-002"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-004",
+        "statement": "The keyed column counter renders at 22 by 22 logical pixels with no rounded pill radius.",
+        "requirements": [
+          "REQ-003"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-005",
+        "statement": "The phrase 'Arraste pelo ícone para mover cards entre etapas.' is absent from the rendered board and production source.",
+        "requirements": [
+          "REQ-004"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-006",
+        "statement": "The keyed navbar sync status renders 'Sincronizado' on the right and is driven by a narrow AnimatedBuilder bound to ProjectKanbanController; the board header no longer renders a duplicate sync chip.",
+        "requirements": [
+          "REQ-005"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-007",
+        "statement": "Existing virtualization, drag implementation, loading skeleton, compact cards, responsive tests, API/controller files, pubspec and repository POLIS policy remain unchanged.",
+        "requirements": [
+          "REQ-006"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-008",
+        "statement": "Editor tests inspect rendered InputDecorator decoration instead of the nonexistent TextFormField.decoration getter, and board interaction tests target drag_indicator_rounded plus the current column popup-menu reorder flow.",
+        "requirements": [
+          "REQ-007"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "Backend/API contracts, optimistic concurrency, server-authoritative mutation sequencing, conflict reload behavior, task/card identity, permissions and controller state semantics do not change."
+      },
+      {
+        "id": "INV-002",
+        "statement": "ProjectKanbanBoard continues to use fixed-extent slivers, persistent scroll controllers, Listener raw-pointer drag handling, repaint isolation and bounded cache extents."
+      },
+      {
+        "id": "INV-003",
+        "statement": "No dependency, pubspec, theme-global, renderer/bootstrap, CI or .polis/policy.json change is introduced."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "A Kanban dropdown/menu retains a default 300ms popup transition or an equivalent artificial opening delay."
+      },
+      {
+        "id": "FORB-002",
+        "statement": "Restoring the top create-task affordance removes or changes the existing footer 'Adicionar card' action."
+      },
+      {
+        "id": "FORB-003",
+        "statement": "Synchronization status is duplicated in both navbar and board header."
+      },
+      {
+        "id": "FORB-004",
+        "statement": "The UX change reintroduces external drag/drop packages, Flutter Draggable/DragTarget/ReorderableListView, optimistic local persistence, or broad page rebuilds."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "Current feature/tasks-kanban commit 5d916b223304cfe074dd63a6b802a253fe790ec7 with tree 84114e1464ec06e268fbf1edade36d817c698894."
+      },
+      {
+        "id": "IN-002",
+        "statement": "Current project/task selectors use DropdownButtonFormField and board column/card actions use PopupMenuButton default popup transitions."
+      },
+      {
+        "id": "IN-003",
+        "statement": "Current lane header lacks a create-card action, its card count is pill-shaped, the board header shows drag instructions, and sync status is rendered inside the board."
+      },
+      {
+        "id": "IN-004",
+        "statement": "GitHub CI run 183 for baseline commit 5d916b2 is red because prior UI tests use the nonexistent TextFormField.decoration getter on Flutter 3.47.5 and older drag/column-action finders; these are test-regression defects, not evidence that the current production UI is broken."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "Reusable instant square select field used by the Kanban project selector and shared task editor."
+      },
+      {
+        "id": "OUT-002",
+        "statement": "Immediate board action menus, restored lane-header add-task button, square counters and simplified board header."
+      },
+      {
+        "id": "OUT-003",
+        "statement": "Single compact synchronization status on the navbar's right side with isolated rebuild scope."
+      },
+      {
+        "id": "OUT-004",
+        "statement": "Widget regression tests aligned with Flutter 3.47 public widgets and the current Kanban interaction controls."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "With only the focused regression test installed on the baseline, the regression command exits 1 and prints kanban_instant_menu_ux_missing."
+      },
+      {
+        "id": "FAIL-002",
+        "statement": "Any Flutter compile/widget/layout failure remains authoritative; Flutter is unavailable in the packaging environment and therefore those tests must not be represented as locally executed."
+      },
+      {
+        "id": "FAIL-003",
+        "statement": "If an instant menu cannot resolve a valid render anchor, it returns without opening rather than using guessed coordinates or mutating selection."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "5d916b223304cfe074dd63a6b802a253fe790ec7",
+    "base_tree": "84114e1464ec06e268fbf1edade36d817c698894",
+    "policy_sha256": "cb60d7751236c799472a2e7166df0637c20f183f26a61900706bbdb69232ab34",
+    "specification_sha256": "cd8b6aae5315bf39ceac562283b46449fe7df79086e15e2dab05d4cd56ae4890"
+  },
+  "behavior": {
+    "argv": [
+      "python3",
+      "-c",
+      "from pathlib import Path; import sys; page=Path('frontend/lib/features/projects/presentation/project_kanban_page.dart').read_text(); board=Path('frontend/lib/features/projects/presentation/widgets/project_kanban_board.dart').read_text(); task=Path('frontend/lib/features/projects/presentation/widgets/task_editor_dialog.dart').read_text(); test=Path('frontend/test/features/projects/presentation/project_kanban_page_test.dart').read_text(); select_path=Path('frontend/lib/features/shared/presentation/widgets/workspace_instant_select_field.dart'); red=('instant menus and compact column actions stay responsive' in test and 'WorkspaceInstantSelectField' in test); select=select_path.read_text() if select_path.exists() else ''; board_header=board[board.find('class _BoardHeader'):board.find('class _LaneHeader')] if 'class _BoardHeader' in board and 'class _LaneHeader' in board else ''; impl=(select_path.exists() and 'showMenu\u003cT\u003e' in select and 'popUpAnimationStyle: AnimationStyle.noAnimation' in select and 'WorkspaceInstantSelectField\u003cString\u003e' in page and 'DropdownButtonFormField' not in task and 'WorkspaceInstantSelectField\u003cTaskType\u003e' in task and board.count('popUpAnimationStyle: AnimationStyle.noAnimation') \u003e= 2 and \"tooltip: 'Adicionar card em ${column.name}'\" in board and \"key: ValueKey\u003cString\u003e('kanban-column-count-${column.id}')\" in board and 'borderRadius: BorderRadius.circular(999)' not in board and 'Arraste pelo ícone para mover cards entre etapas.' not in board and \"key: const ValueKey\u003cString\u003e('kanban-navbar-sync-status')\" in page and \"'Sincronizado'\" in page and 'Sincronizado' not in board_header); print('kanban_instant_menu_tests_not_installed' if not red else ('kanban_instant_menu_ux_ready' if impl else 'kanban_instant_menu_ux_missing')); sys.exit(0 if (not red or impl) else 1)"
+    ],
+    "cwd": ".",
+    "timeout_seconds": 30,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "python3",
+      "-c",
+      "from pathlib import Path; import sys; page=Path('frontend/lib/features/projects/presentation/project_kanban_page.dart').read_text(); board=Path('frontend/lib/features/projects/presentation/widgets/project_kanban_board.dart').read_text(); task=Path('frontend/lib/features/projects/presentation/widgets/task_editor_dialog.dart').read_text(); test=Path('frontend/test/features/projects/presentation/project_kanban_page_test.dart').read_text(); select_path=Path('frontend/lib/features/shared/presentation/widgets/workspace_instant_select_field.dart'); red=('instant menus and compact column actions stay responsive' in test and 'WorkspaceInstantSelectField' in test); select=select_path.read_text() if select_path.exists() else ''; board_header=board[board.find('class _BoardHeader'):board.find('class _LaneHeader')] if 'class _BoardHeader' in board and 'class _LaneHeader' in board else ''; impl=(select_path.exists() and 'showMenu\u003cT\u003e' in select and 'popUpAnimationStyle: AnimationStyle.noAnimation' in select and 'WorkspaceInstantSelectField\u003cString\u003e' in page and 'DropdownButtonFormField' not in task and 'WorkspaceInstantSelectField\u003cTaskType\u003e' in task and board.count('popUpAnimationStyle: AnimationStyle.noAnimation') \u003e= 2 and \"tooltip: 'Adicionar card em ${column.name}'\" in board and \"key: ValueKey\u003cString\u003e('kanban-column-count-${column.id}')\" in board and 'borderRadius: BorderRadius.circular(999)' not in board and 'Arraste pelo ícone para mover cards entre etapas.' not in board and \"key: const ValueKey\u003cString\u003e('kanban-navbar-sync-status')\" in page and \"'Sincronizado'\" in page and 'Sincronizado' not in board_header); print('kanban_instant_menu_tests_not_installed' if not red else ('kanban_instant_menu_ux_ready' if impl else 'kanban_instant_menu_ux_missing')); sys.exit(0 if (not red or impl) else 1)"
+    ],
+    "cwd": ".",
+    "timeout_seconds": 30,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "python3",
+        "-c",
+        "from pathlib import Path; import sys; page=Path('frontend/lib/features/projects/presentation/project_kanban_page.dart').read_text(); board=Path('frontend/lib/features/projects/presentation/widgets/project_kanban_board.dart').read_text(); task=Path('frontend/lib/features/projects/presentation/widgets/task_editor_dialog.dart').read_text(); test=Path('frontend/test/features/projects/presentation/project_kanban_page_test.dart').read_text(); select_path=Path('frontend/lib/features/shared/presentation/widgets/workspace_instant_select_field.dart'); red=('instant menus and compact column actions stay responsive' in test and 'WorkspaceInstantSelectField' in test); select=select_path.read_text() if select_path.exists() else ''; board_header=board[board.find('class _BoardHeader'):board.find('class _LaneHeader')] if 'class _BoardHeader' in board and 'class _LaneHeader' in board else ''; impl=(select_path.exists() and 'showMenu\u003cT\u003e' in select and 'popUpAnimationStyle: AnimationStyle.noAnimation' in select and 'WorkspaceInstantSelectField\u003cString\u003e' in page and 'DropdownButtonFormField' not in task and 'WorkspaceInstantSelectField\u003cTaskType\u003e' in task and board.count('popUpAnimationStyle: AnimationStyle.noAnimation') \u003e= 2 and \"tooltip: 'Adicionar card em ${column.name}'\" in board and \"key: ValueKey\u003cString\u003e('kanban-column-count-${column.id}')\" in board and 'borderRadius: BorderRadius.circular(999)' not in board and 'Arraste pelo ícone para mover cards entre etapas.' not in board and \"key: const ValueKey\u003cString\u003e('kanban-navbar-sync-status')\" in page and \"'Sincronizado'\" in page and 'Sincronizado' not in board_header); print('kanban_instant_menu_tests_not_installed' if not red else ('kanban_instant_menu_ux_ready' if impl else 'kanban_instant_menu_ux_missing')); sys.exit(0 if (not red or impl) else 1)"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 30,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "kanban_instant_menu_ux_missing"
+    ]
+  }
+}

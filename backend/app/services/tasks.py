@@ -7,8 +7,14 @@ from app.db import begin_serialized_write
 from app.domain.project_read import cipher, employee_or_404
 from app.domain.task_read import serialize_task, serialize_task_member
 from app.errors import DomainError, ErrorKind
-from app.models import EmployeeProject, Project, Task, TaskEmployee
-from app.schemas.task import TaskDraftPayload, TaskMemberSummary, TaskResponse, TaskType
+from app.models import EmployeeProject, KanbanColumn, Project, Task, TaskEmployee
+from app.schemas.task import (
+    TaskDraftPayload,
+    TaskMemberSummary,
+    TaskResponse,
+    TaskType,
+    TaskUpdatePayload,
+)
 
 
 def _locked_project_or_404(db: Session, *, company_id: str, project_id: str) -> Project:
@@ -34,6 +40,46 @@ def _locked_task_or_404(
     if task is None:
         raise DomainError(ErrorKind.not_found, "Task not found.")
     return task
+
+
+def _column_or_404(db: Session, *, project_id: str, column_id: str) -> KanbanColumn:
+    column = db.scalar(
+        select(KanbanColumn).where(
+            KanbanColumn.project_id == project_id,
+            KanbanColumn.id == column_id,
+        ),
+    )
+    if column is None:
+        raise DomainError(ErrorKind.not_found, "Kanban column not found.")
+    return column
+
+
+def _initial_column_or_404(db: Session, *, project_id: str) -> KanbanColumn:
+    column = db.scalar(
+        select(KanbanColumn)
+        .where(KanbanColumn.project_id == project_id)
+        .order_by(KanbanColumn.position, KanbanColumn.id),
+    )
+    if column is None:
+        raise DomainError(ErrorKind.conflict, "Project has no Kanban column.")
+    return column
+
+
+def _next_position(db: Session, *, column_id: str) -> int:
+    current = db.scalar(
+        select(func.max(Task.kanban_position)).where(Task.kanban_column_id == column_id),
+    )
+    return 0 if current is None else int(current) + 1
+
+
+def _normalize_column_positions(db: Session, *, column_id: str) -> None:
+    tasks = db.scalars(
+        select(Task)
+        .where(Task.kanban_column_id == column_id)
+        .order_by(Task.kanban_position, Task.created_at, Task.id),
+    ).all()
+    for position, task in enumerate(tasks):
+        task.kanban_position = position
 
 
 def _validate_parent(
@@ -88,14 +134,24 @@ def create_task(
         project_id=project.id,
         parent_task_id=payload.parent_task_id,
     )
+    column = (
+        _column_or_404(db, project_id=project.id, column_id=payload.column_id)
+        if payload.column_id is not None
+        else _initial_column_or_404(db, project_id=project.id)
+    )
     field_cipher = cipher()
     task = Task(
         project_id=project.id,
         parent_task_id=payload.parent_task_id,
+        card_number=project.next_card_number,
+        kanban_column_id=column.id,
+        kanban_position=_next_position(db, column_id=column.id),
         name_ciphertext=field_cipher.encrypt(payload.name) or "",
         description_ciphertext=field_cipher.encrypt(payload.description) or "",
         type=payload.type.value if isinstance(payload.type, TaskType) else payload.type,
     )
+    project.next_card_number += 1
+    project.kanban_version += 1
     db.add(task)
     db.commit()
     db.refresh(task)
@@ -108,10 +164,10 @@ def update_task(
     company_id: str,
     project_id: str,
     task_id: str,
-    payload: TaskDraftPayload,
+    payload: TaskUpdatePayload,
 ) -> TaskResponse:
     begin_serialized_write(db)
-    _locked_project_or_404(db, company_id=company_id, project_id=project_id)
+    project = _locked_project_or_404(db, company_id=company_id, project_id=project_id)
     task = _locked_task_or_404(db, project_id=project_id, task_id=task_id)
     _validate_parent(
         db,
@@ -125,9 +181,33 @@ def update_task(
     task.name_ciphertext = field_cipher.encrypt(payload.name) or ""
     task.description_ciphertext = field_cipher.encrypt(payload.description) or ""
     task.type = payload.type.value if isinstance(payload.type, TaskType) else payload.type
+    project.kanban_version += 1
     db.commit()
     db.refresh(task)
     return serialize_task(task, field_cipher=field_cipher)
+
+
+def delete_task(
+    db: Session,
+    *,
+    company_id: str,
+    project_id: str,
+    task_id: str,
+) -> None:
+    begin_serialized_write(db)
+    project = _locked_project_or_404(db, company_id=company_id, project_id=project_id)
+    task = _locked_task_or_404(db, project_id=project_id, task_id=task_id)
+    child_exists = db.scalar(
+        select(Task.id).where(Task.parent_task_id == task.id).limit(1),
+    )
+    if child_exists is not None:
+        raise DomainError(ErrorKind.conflict, "Task with children cannot be deleted.")
+    column_id = task.kanban_column_id
+    db.delete(task)
+    db.flush()
+    _normalize_column_positions(db, column_id=column_id)
+    project.kanban_version += 1
+    db.commit()
 
 
 def add_task_member(
@@ -168,6 +248,7 @@ def add_task_member(
 
     link = TaskEmployee(task_id=task.id, employee_id=employee.id)
     db.add(link)
+    project.kanban_version += 1
     db.commit()
     db.refresh(link)
     link.employee = employee
@@ -183,7 +264,7 @@ def remove_task_member(
     employee_id: str,
 ) -> None:
     begin_serialized_write(db)
-    _locked_project_or_404(db, company_id=company_id, project_id=project_id)
+    project = _locked_project_or_404(db, company_id=company_id, project_id=project_id)
     task = _locked_task_or_404(db, project_id=project_id, task_id=task_id)
     employee_or_404(db, company_id=company_id, employee_id=employee_id)
     link = db.scalar(
@@ -194,4 +275,5 @@ def remove_task_member(
     )
     if link is not None:
         db.delete(link)
+        project.kanban_version += 1
         db.commit()
