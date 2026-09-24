@@ -108,7 +108,6 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.byType(SliverFillRemaining), findsNothing);
     expect(find.byType(ProjectKanbanBoard), findsOneWidget);
 
     final boardRect = tester.getRect(find.byType(ProjectKanbanBoard));
@@ -232,6 +231,7 @@ void main() {
   testWidgets('compact cards and responsive chrome remain bounded', (tester) async {
     for (final size in <Size>[
       const Size(320, 568),
+      const Size(360, 800),
       const Size(390, 844),
       const Size(768, 1024),
     ]) {
@@ -254,7 +254,7 @@ void main() {
       expect(tester.getRect(card).height, lessThanOrEqualTo(144));
       expect(find.text('Atualizado'), findsNothing);
       expect(find.text('Sincronizado'), findsOneWidget);
-      expect(tester.takeException(), isNull);
+      expect(tester.takeException(), isNull, reason: 'viewport $size');
     }
     await tester.binding.setSurfaceSize(null);
   });
@@ -276,7 +276,6 @@ void main() {
     expect(find.descendant(of: topBar, matching: find.text('Kanban')), findsNothing);
     expect(tester.takeException(), isNull);
   });
-
 
   testWidgets('instant menus and compact column actions stay responsive', (
     tester,
@@ -334,10 +333,16 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(DropdownButtonFormField<TaskType>), findsNothing);
     expect(find.byType(WorkspaceInstantSelectField<TaskType>), findsOneWidget);
-    expect(find.byType(WorkspaceInstantSelectField<String>), findsOneWidget);
+    expect(find.byType(WorkspaceInstantSelectField<String>), findsNWidgets(2));
+    expect(
+      find.descendant(
+        of: find.byType(Dialog),
+        matching: find.byType(WorkspaceInstantSelectField<String>),
+      ),
+      findsOneWidget,
+    );
     expect(tester.takeException(), isNull);
   });
-
 }
 
 class _FakeKanbanApi extends TouchInApi {

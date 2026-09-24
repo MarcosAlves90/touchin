@@ -1284,11 +1284,15 @@ class _ProjectPill extends StatelessWidget {
         children: <Widget>[
           Icon(icon, size: 14, color: tone),
           const SizedBox(width: 6),
-          Text(
-            label,
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: tone,
-              fontWeight: FontWeight.w700,
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: tone,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ],

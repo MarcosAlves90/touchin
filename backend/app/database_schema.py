@@ -181,13 +181,20 @@ def _backfill_project_tasks(
             },
         )
 
+    current_next_number = connection.execute(
+        text("SELECT next_card_number FROM projects WHERE id = :project_id"),
+        {"project_id": project_id},
+    ).scalar_one()
     connection.execute(
         text(
             "UPDATE projects SET next_card_number = :next_card_number "
             "WHERE id = :project_id"
         ),
         {
-            "next_card_number": max(used_numbers, default=0) + 1,
+            "next_card_number": max(
+                int(current_next_number),
+                max(used_numbers, default=0) + 1,
+            ),
             "project_id": project_id,
         },
     )

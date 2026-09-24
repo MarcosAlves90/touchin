@@ -7,7 +7,7 @@ from sqlalchemy import create_engine, inspect, select, text
 from sqlalchemy.orm import sessionmaker
 
 from app.database_schema import upgrade_database_schema
-from app.db import Base
+from app.db import Base, engine
 from app.errors import DomainError, ErrorKind
 from app.schemas.project import ProjectDraftPayload
 from app.schemas.task import TaskDraftPayload
@@ -103,23 +103,36 @@ def test_legacy_task_create_gets_monotonic_card_identity_and_deleted_number_is_n
 
     first = _create_task(client, headers, project["id"], name="Primeiro")
     second = _create_task(client, headers, project["id"], name="Segundo")
-    assert (first["cardNumber"], second["cardNumber"]) == (1, 2)
+    third = _create_task(client, headers, project["id"], name="Terceiro")
+    assert (first["cardNumber"], second["cardNumber"], third["cardNumber"]) == (
+        1,
+        2,
+        3,
+    )
     assert first["kanbanColumnId"]
     assert first["kanbanPosition"] == 0
     assert second["kanbanPosition"] == 1
+    assert third["kanbanPosition"] == 2
 
     deleted = client.delete(
-        f"/api/v1/projects/{project['id']}/tasks/{second['id']}",
+        f"/api/v1/projects/{project['id']}/tasks/{third['id']}",
         headers=headers,
     )
     assert deleted.status_code == 204, deleted.text
 
-    third = _create_task(client, headers, project["id"], name="Terceiro")
-    assert third["cardNumber"] == 3
-    assert third["id"] != second["id"]
+    upgrade_database_schema(engine)
+    upgrade_database_schema(engine)
+
+    fourth = _create_task(client, headers, project["id"], name="Quarto")
+    assert fourth["cardNumber"] == 4
+    assert fourth["id"] != third["id"]
 
     board = _board(client, headers, project["id"])
-    assert [card["cardNumber"] for card in board["columns"][0]["cards"]] == [1, 3]
+    assert [card["cardNumber"] for card in board["columns"][0]["cards"]] == [
+        1,
+        2,
+        4,
+    ]
 
 
 def test_card_numbers_are_scoped_per_project(client):

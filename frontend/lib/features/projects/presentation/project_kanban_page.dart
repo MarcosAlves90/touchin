@@ -233,7 +233,10 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
             if (_controller.boardError != null) ...<Widget>[
-              _KanbanNotice(message: _controller.boardError!),
+              _KanbanNotice(
+                message: _controller.boardError!,
+                onRetry: _controller.reload,
+              ),
               const SizedBox(height: 8),
             ],
             Expanded(
@@ -766,8 +769,12 @@ class _KanbanTopBar extends StatelessWidget {
                   fontWeight: FontWeight.w900,
                 ),
               ),
-              const Spacer(),
-              _KanbanSyncStatus(controller: controller),
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: _KanbanSyncStatus(controller: controller),
+                ),
+              ),
               const SizedBox(width: 4),
             ],
           ),
@@ -776,7 +783,6 @@ class _KanbanTopBar extends StatelessWidget {
     );
   }
 }
-
 
 class _KanbanSyncStatus extends StatelessWidget {
   const _KanbanSyncStatus({required this.controller});
@@ -816,11 +822,15 @@ class _KanbanSyncStatus extends StatelessWidget {
                 color: colorScheme.onPrimary,
               ),
               const SizedBox(width: 5),
-              Text(
-                label,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: colorScheme.onPrimary,
-                  fontWeight: FontWeight.w700,
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ],
@@ -1000,9 +1010,10 @@ class _KanbanPageMessage extends StatelessWidget {
 }
 
 class _KanbanNotice extends StatelessWidget {
-  const _KanbanNotice({required this.message});
+  const _KanbanNotice({required this.message, required this.onRetry});
 
   final String message;
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -1019,6 +1030,7 @@ class _KanbanNotice extends StatelessWidget {
           const Icon(Icons.info_outline_rounded),
           const SizedBox(width: 10),
           Expanded(child: Text(message)),
+          TextButton(onPressed: onRetry, child: const Text('Recarregar')),
         ],
       ),
     );

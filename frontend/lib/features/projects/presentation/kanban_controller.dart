@@ -202,6 +202,32 @@ class ProjectKanbanController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> _refreshAfterMutation(
+    String projectId, {
+    bool includeTasks = true,
+  }) async {
+    final epoch = _selectionEpoch;
+    try {
+      if (includeTasks) {
+        await _reloadBoardAndTasks(projectId);
+      } else {
+        await _reloadBoard(projectId);
+        if (_accepts(projectId, epoch) && _boardError != null) {
+          _boardError = null;
+          notifyListeners();
+        }
+      }
+    } catch (_) {
+      if (!_accepts(projectId, epoch)) {
+        return;
+      }
+      _boardError =
+          'A alteração foi aplicada, mas o quadro não pôde ser atualizado. '
+          'Toque em Recarregar para tentar novamente.';
+      notifyListeners();
+    }
+  }
+
   Future<void> moveCard({
     required String taskId,
     required String toColumnId,
@@ -403,7 +429,7 @@ class ProjectKanbanController extends ChangeNotifier {
       }
       final created = await _api.createTask(projectId, draft);
       if (_selectedProjectId == projectId) {
-        await _reloadBoardAndTasks(projectId);
+        await _refreshAfterMutation(projectId);
       }
       return created;
     });
@@ -416,7 +442,7 @@ class ProjectKanbanController extends ChangeNotifier {
       }
       final updated = await _api.updateTask(task.projectId, task.id, draft);
       if (_selectedProjectId == task.projectId) {
-        await _reloadBoardAndTasks(task.projectId);
+        await _refreshAfterMutation(task.projectId);
       }
       return updated;
     });
@@ -430,7 +456,7 @@ class ProjectKanbanController extends ChangeNotifier {
       }
       await _api.deleteTask(projectId, taskId);
       if (_selectedProjectId == projectId) {
-        await _reloadBoardAndTasks(projectId);
+        await _refreshAfterMutation(projectId);
       }
     });
   }
@@ -443,7 +469,7 @@ class ProjectKanbanController extends ChangeNotifier {
       }
       await _api.addKanbanAssignee(projectId, taskId, employeeId);
       if (_selectedProjectId == projectId) {
-        await _reloadBoard(projectId);
+        await _refreshAfterMutation(projectId, includeTasks: false);
       }
     });
   }
@@ -456,7 +482,7 @@ class ProjectKanbanController extends ChangeNotifier {
       }
       await _api.removeKanbanAssignee(projectId, taskId, employeeId);
       if (_selectedProjectId == projectId) {
-        await _reloadBoard(projectId);
+        await _refreshAfterMutation(projectId, includeTasks: false);
       }
     });
   }

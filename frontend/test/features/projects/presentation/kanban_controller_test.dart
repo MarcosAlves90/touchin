@@ -24,6 +24,34 @@ void main() {
     expect(controller.canManageStructure, isTrue);
   });
 
+  test('successful card creation survives a failed board refresh', () async {
+    final api = _KanbanApi();
+    final controller = ProjectKanbanController(api: api);
+    await controller.start();
+    api.failNextBoardRead = true;
+
+    final created = await controller.createCard(
+      const TaskDraft(
+        name: 'Novo card',
+        description: 'Descrição do card',
+        type: TaskType.feature,
+      ),
+    );
+
+    expect(created.id, 'task-new');
+    expect(api.createTaskCalls, 1);
+    expect(controller.board?.projectId, 'project-a');
+    expect(
+      controller.boardError,
+      contains(
+          'A alteração foi aplicada, mas o quadro não pôde ser atualizado'),
+    );
+
+    await controller.reload();
+    expect(controller.boardError, isNull);
+    expect(api.createTaskCalls, 1);
+  });
+
   test('reuses immutable snapshot lists between unchanged reads', () async {
     final api = _KanbanApi();
     final controller = ProjectKanbanController(api: api);
@@ -122,9 +150,8 @@ void main() {
     expect(controller.board!.columns.last.cards.single.id, 'task-01');
     expect(controller.boardError, contains('outra sessão'));
   });
-
-
-  test('queued move intent cannot cross a project selection boundary', () async {
+  test('queued move intent cannot cross a project selection boundary',
+      () async {
     final api = _KanbanApi();
     final controller = ProjectKanbanController(api: api);
     await controller.start();
@@ -172,6 +199,8 @@ class _KanbanApi extends TouchInApi {
   ProjectStatus? requestedStatus;
   bool controlBoards = false;
   bool throwConflictOnReorder = false;
+  bool failNextBoardRead = false;
+  int createTaskCalls = 0;
   Completer<KanbanBoard>? reorderCardsCompleter;
   int? lastExpectedVersion;
   Map<String, List<String>>? lastCardOrdering;
@@ -233,12 +262,35 @@ class _KanbanApi extends TouchInApi {
 
   @override
   Future<KanbanBoard> getKanbanBoard(String projectId) {
+    if (failNextBoardRead) {
+      failNextBoardRead = false;
+      return Future<KanbanBoard>.error(
+          StateError('temporary board read failure'));
+    }
     if (controlBoards) {
       return boardCompleters
           .putIfAbsent(projectId, Completer<KanbanBoard>.new)
           .future;
     }
     return Future<KanbanBoard>.value(boards[projectId]!);
+  }
+
+  @override
+  Future<TaskRecord> createTask(String projectId, TaskDraft draft) async {
+    createTaskCalls += 1;
+    return TaskRecord(
+      id: 'task-new',
+      projectId: projectId,
+      parentTaskId: draft.parentTaskId,
+      cardNumber: 2,
+      kanbanColumnId: draft.columnId ?? 'column-a',
+      kanbanPosition: 1,
+      name: draft.name,
+      description: draft.description,
+      type: draft.type,
+      createdAt: DateTime(2026, 9, 22),
+      updatedAt: DateTime(2026, 9, 22),
+    );
   }
 
   @override
