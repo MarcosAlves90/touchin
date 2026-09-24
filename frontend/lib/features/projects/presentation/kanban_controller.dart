@@ -265,10 +265,11 @@ class ProjectKanbanController extends ChangeNotifier {
         return;
       }
 
-      var targetIndex = toIndex.clamp(0, target.length).toInt();
+      var targetIndex = toIndex;
       if (sourceColumnId == toColumnId && sourceIndex < targetIndex) {
         targetIndex -= 1;
       }
+      targetIndex = targetIndex.clamp(0, target.length).toInt();
       if (sourceColumnId == toColumnId && sourceIndex == targetIndex) {
         return;
       }

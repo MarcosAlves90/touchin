@@ -183,6 +183,45 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('accepted board updates preserve horizontal and lane scroll', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(720, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final api = _FakeKanbanApi(columnCount: 5, cardsPerColumn: 8);
+
+    await tester.pumpWidget(
+      MaterialApp(home: ProjectKanbanPage(api: api)),
+    );
+    await tester.pumpAndSettle();
+
+    const boardScrollKey = ValueKey<String>('kanban-board-scroll');
+    await tester.drag(find.byKey(boardScrollKey), const Offset(-360, 0));
+    await tester.pumpAndSettle();
+    final boardOffsetBefore = _scrollOffset(tester, boardScrollKey);
+    expect(boardOffsetBefore, greaterThan(0));
+
+    const laneScrollKey = ValueKey<String>(
+      'kanban-column-scroll-column-02',
+    );
+    final laneScroll = find.byKey(laneScrollKey);
+    await tester.drag(laneScroll, const Offset(0, -360));
+    await tester.pumpAndSettle();
+    final laneOffsetBefore = _scrollOffset(tester, laneScrollKey);
+    expect(laneOffsetBefore, greaterThan(0));
+
+    await tester.tap(find.byTooltip('Opções da coluna').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Mover para a direita'));
+    await tester.pumpAndSettle();
+
+    expect(api.lastColumnOrdering, isNotNull);
+    expect(api.boardVersion, 2);
+    expect(_scrollOffset(tester, boardScrollKey), boardOffsetBefore);
+    expect(_scrollOffset(tester, laneScrollKey), laneOffsetBefore);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('column editor reuses the workspace editor dialog', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1440, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -346,10 +385,19 @@ void main() {
 }
 
 class _FakeKanbanApi extends TouchInApi {
-  _FakeKanbanApi({this.includeCard = true, this.boardGate});
+  _FakeKanbanApi({
+    this.includeCard = true,
+    this.boardGate,
+    this.columnCount = 1,
+    this.cardsPerColumn = 1,
+  });
 
   final bool includeCard;
   final Completer<void>? boardGate;
+  final int columnCount;
+  final int cardsPerColumn;
+  int boardVersion = 1;
+  List<String>? lastColumnOrdering;
 
   @override
   Future<AuthContext> getAuthContext() async {
@@ -400,23 +448,26 @@ class _FakeKanbanApi extends TouchInApi {
 
   @override
   Future<List<TaskRecord>> listTasks(String projectId) async {
-    return includeCard
-        ? <TaskRecord>[
-            TaskRecord(
-              id: 'task-01',
-              projectId: projectId,
-              parentTaskId: null,
-              cardNumber: 1,
-              kanbanColumnId: 'column-01',
-              kanbanPosition: 0,
-              name: 'Implementar tela',
-              description: 'Descrição da tarefa',
-              type: TaskType.feature,
-              createdAt: DateTime(2026, 9, 9),
-              updatedAt: DateTime(2026, 9, 9),
-            ),
-          ]
-        : <TaskRecord>[];
+    if (!includeCard) {
+      return <TaskRecord>[];
+    }
+    return <TaskRecord>[
+      for (var columnIndex = 0; columnIndex < columnCount; columnIndex++)
+        for (var cardIndex = 0; cardIndex < cardsPerColumn; cardIndex++)
+          TaskRecord(
+            id: _cardId(columnIndex, cardIndex),
+            projectId: projectId,
+            parentTaskId: null,
+            cardNumber: columnIndex * cardsPerColumn + cardIndex + 1,
+            kanbanColumnId: _columnId(columnIndex),
+            kanbanPosition: cardIndex,
+            name: _cardName(columnIndex, cardIndex),
+            description: 'Descrição da tarefa',
+            type: TaskType.feature,
+            createdAt: DateTime(2026, 9, 9),
+            updatedAt: DateTime(2026, 9, 9),
+          ),
+    ];
   }
 
   @override
@@ -424,39 +475,108 @@ class _FakeKanbanApi extends TouchInApi {
     if (boardGate != null) {
       await boardGate!.future;
     }
-    final cards = includeCard
-        ? <KanbanCard>[
-            KanbanCard(
-              id: 'task-01',
-              projectId: projectId,
-              parentTaskId: null,
-              cardNumber: 1,
-              kanbanColumnId: 'column-01',
-              kanbanPosition: 0,
-              name: 'Implementar tela',
-              description: 'Descrição da tarefa',
-              type: TaskType.feature,
-              assignees: const <TaskMemberSummary>[],
-              createdAt: DateTime(2026, 9, 9),
-              updatedAt: DateTime(2026, 9, 9),
-            ),
-          ]
-        : <KanbanCard>[];
+    return _buildBoard(projectId);
+  }
 
+  @override
+  Future<KanbanBoard> reorderKanbanColumns(
+    String projectId, {
+    required int expectedVersion,
+    required List<String> columnIds,
+  }) async {
+    boardVersion = expectedVersion + 1;
+    lastColumnOrdering = List<String>.from(columnIds);
+    return _buildBoard(projectId, columnIds: columnIds);
+  }
+
+  KanbanBoard _buildBoard(String projectId, {List<String>? columnIds}) {
+    final orderedColumnIds = columnIds ??
+        <String>[
+          for (var index = 0; index < columnCount; index++) _columnId(index),
+        ];
     return KanbanBoard(
       projectId: projectId,
-      kanbanVersion: 1,
+      kanbanVersion: boardVersion,
       columns: <KanbanColumn>[
-        KanbanColumn(
-          id: 'column-01',
-          projectId: projectId,
-          name: 'A fazer',
-          position: 0,
-          cards: cards,
-          createdAt: DateTime(2026, 9, 9),
-          updatedAt: DateTime(2026, 9, 9),
-        ),
+        for (var position = 0; position < orderedColumnIds.length; position++)
+          KanbanColumn(
+            id: orderedColumnIds[position],
+            projectId: projectId,
+            name: _columnName(_columnIndex(orderedColumnIds[position])),
+            position: position,
+            cards: includeCard
+                ? <KanbanCard>[
+                    for (var cardIndex = 0;
+                        cardIndex < cardsPerColumn;
+                        cardIndex++)
+                      KanbanCard(
+                        id: _cardId(
+                          _columnIndex(orderedColumnIds[position]),
+                          cardIndex,
+                        ),
+                        projectId: projectId,
+                        parentTaskId: null,
+                        cardNumber: _columnIndex(orderedColumnIds[position]) *
+                                cardsPerColumn +
+                            cardIndex +
+                            1,
+                        kanbanColumnId: orderedColumnIds[position],
+                        kanbanPosition: cardIndex,
+                        name: _cardName(
+                          _columnIndex(orderedColumnIds[position]),
+                          cardIndex,
+                        ),
+                        description: 'Descrição da tarefa',
+                        type: TaskType.feature,
+                        assignees: const <TaskMemberSummary>[],
+                        createdAt: DateTime(2026, 9, 9),
+                        updatedAt: DateTime(2026, 9, 9),
+                      ),
+                  ]
+                : <KanbanCard>[],
+            createdAt: DateTime(2026, 9, 9),
+            updatedAt: DateTime(2026, 9, 9),
+          ),
       ],
     );
   }
+
+  String _columnId(int index) =>
+      'column-${(index + 1).toString().padLeft(2, '0')}';
+
+  int _columnIndex(String id) => int.parse(id.split('-').last) - 1;
+
+  String _columnName(int index) {
+    if (index == 0) {
+      return 'A fazer';
+    }
+    if (index == 1) {
+      return 'Concluído';
+    }
+    return 'Etapa ${index + 1}';
+  }
+
+  String _cardId(int columnIndex, int cardIndex) {
+    if (columnIndex == 0 && cardIndex == 0) {
+      return 'task-01';
+    }
+    return 'task-${columnIndex + 1}-${cardIndex + 1}';
+  }
+
+  String _cardName(int columnIndex, int cardIndex) {
+    if (columnIndex == 0 && cardIndex == 0) {
+      return 'Implementar tela';
+    }
+    return 'Card ${columnIndex * cardsPerColumn + cardIndex + 1}';
+  }
+}
+
+double _scrollOffset(WidgetTester tester, Key scrollViewKey) {
+  final scrollable = find
+      .descendant(
+        of: find.byKey(scrollViewKey),
+        matching: find.byType(Scrollable),
+      )
+      .first;
+  return tester.state<ScrollableState>(scrollable).position.pixels;
 }

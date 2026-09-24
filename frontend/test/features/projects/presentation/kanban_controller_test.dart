@@ -52,6 +52,29 @@ void main() {
     expect(api.createTaskCalls, 1);
   });
 
+  test('same-column drop at the end keeps the card in the final position',
+      () async {
+    final api = _KanbanApi();
+    api.boards['project-a'] = _board(
+      'project-a',
+      version: 1,
+      cardColumnId: 'column-a',
+      cardIds: const <String>['task-01', 'task-02', 'task-03'],
+    );
+    final controller = ProjectKanbanController(api: api);
+    await controller.start();
+
+    await controller.moveCard(
+      taskId: 'task-01',
+      toColumnId: 'column-a',
+      toIndex: 3,
+    );
+
+    expect(api.lastCardOrdering, <String, List<String>>{
+      'column-a': <String>['task-02', 'task-03', 'task-01'],
+    });
+  });
+
   test('reuses immutable snapshot lists between unchanged reads', () async {
     final api = _KanbanApi();
     final controller = ProjectKanbanController(api: api);
@@ -345,21 +368,30 @@ KanbanBoard _board(
   String projectId, {
   required int version,
   required String cardColumnId,
+  List<String> cardIds = const <String>['task-01'],
 }) {
-  final card = KanbanCard(
-    id: 'task-01',
-    projectId: projectId,
-    parentTaskId: null,
-    cardNumber: 1,
-    kanbanColumnId: cardColumnId,
-    kanbanPosition: 0,
-    name: 'Implementar tela',
-    description: 'Descrição',
-    type: TaskType.feature,
-    assignees: const <TaskMemberSummary>[],
-    createdAt: DateTime(2026, 9, 21),
-    updatedAt: DateTime(2026, 9, 21),
-  );
+  List<KanbanCard> cardsForColumn(String columnId) {
+    if (cardColumnId != columnId) {
+      return <KanbanCard>[];
+    }
+    return <KanbanCard>[
+      for (var index = 0; index < cardIds.length; index++)
+        KanbanCard(
+          id: cardIds[index],
+          projectId: projectId,
+          parentTaskId: null,
+          cardNumber: index + 1,
+          kanbanColumnId: columnId,
+          kanbanPosition: index,
+          name: index == 0 ? 'Implementar tela' : 'Card ${index + 1}',
+          description: 'Descrição',
+          type: TaskType.feature,
+          assignees: const <TaskMemberSummary>[],
+          createdAt: DateTime(2026, 9, 21),
+          updatedAt: DateTime(2026, 9, 21),
+        ),
+    ];
+  }
 
   return KanbanBoard(
     projectId: projectId,
@@ -370,7 +402,7 @@ KanbanBoard _board(
         projectId: projectId,
         name: 'A fazer',
         position: 0,
-        cards: cardColumnId == 'column-a' ? <KanbanCard>[card] : <KanbanCard>[],
+        cards: cardsForColumn('column-a'),
         createdAt: DateTime(2026, 9, 21),
         updatedAt: DateTime(2026, 9, 21),
       ),
@@ -379,7 +411,7 @@ KanbanBoard _board(
         projectId: projectId,
         name: 'Concluído',
         position: 1,
-        cards: cardColumnId == 'column-b' ? <KanbanCard>[card] : <KanbanCard>[],
+        cards: cardsForColumn('column-b'),
         createdAt: DateTime(2026, 9, 21),
         updatedAt: DateTime(2026, 9, 21),
       ),

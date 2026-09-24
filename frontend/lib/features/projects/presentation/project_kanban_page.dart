@@ -227,7 +227,6 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
 
     final isMutating = _controller.isMutating;
     return Stack(
-      key: ValueKey<String>('kanban-board-${board.kanbanVersion}'),
       children: <Widget>[
         Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
