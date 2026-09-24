@@ -26,7 +26,7 @@
       "frontend/lib/features/projects/presentation/project_tasks_controller.dart",
       "frontend/lib/features/projects/presentation/project_tasks_page.dart",
       "frontend/lib/features/projects/presentation/kanban_controller.dart",
-      "frontend/lib/features/projects/presentation/widgets/kanban_board.dart",
+      "frontend/lib/features/projects/presentation/widgets/project_kanban_board.dart",
       "frontend/test/core/network/project_task_api_test.dart",
       "frontend/test/features/projects/presentation/project_tasks_controller_test.dart",
       "frontend/test/features/projects/presentation/project_tasks_page_test.dart",
@@ -43,7 +43,8 @@
       "frontend/test/core/network/project_task_api_test.dart",
       "frontend/test/features/projects/presentation/project_tasks_controller_test.dart",
       "frontend/test/features/projects/presentation/project_tasks_page_test.dart",
-      "frontend/test/features/projects/presentation/kanban_controller_test.dart"
+      "frontend/test/features/projects/presentation/kanban_controller_test.dart",
+      "frontend/test/features/projects/presentation/project_kanban_board_test.dart"
     ]
   },
   "development_method": "strict_sdd_tdd_v2",

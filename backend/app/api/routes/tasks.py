@@ -7,7 +7,13 @@ from app.authorization import is_managerial_role, require_permission
 from app.dependencies import get_db
 from app.domain.project_read import project_or_404
 from app.domain.task_read import get_task, list_task_members, list_tasks
-from app.schemas.task import TaskDraftPayload, TaskMemberPayload, TaskMemberSummary, TaskResponse
+from app.schemas.task import (
+    TaskDraftPayload,
+    TaskMemberPayload,
+    TaskMemberSummary,
+    TaskResponse,
+    TaskUpdatePayload,
+)
 from app.services.auth import AuthenticatedContext
 from app.services.tasks import add_task_member, create_task, delete_task, remove_task_member, update_task
 
@@ -100,7 +106,7 @@ def get_task_route(
 def update_task_route(
     project_id: str,
     task_id: str,
-    payload: TaskDraftPayload,
+    payload: TaskUpdatePayload,
     context: AuthenticatedContext = Depends(require_permission("tasks.update")),
     db: Session = Depends(get_db),
 ) -> TaskResponse:

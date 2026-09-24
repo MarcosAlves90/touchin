@@ -303,7 +303,8 @@ class TouchInApi {
     await _client.delete('/projects/$projectId', withAuth: true);
   }
 
-  Future<List<ProjectMemberSummary>> listProjectMembers(String projectId) async {
+  Future<List<ProjectMemberSummary>> listProjectMembers(
+      String projectId) async {
     final response = await _client.get(
       '/projects/$projectId/members',
       withAuth: true,
@@ -386,7 +387,7 @@ class TouchInApi {
     final response = await _client.put(
       '/projects/$projectId/tasks/$taskId',
       withAuth: true,
-      body: draft.toApiJson(),
+      body: draft.toApiJson(includeColumnId: false),
     );
     return _parseContract(
       'update task',
@@ -467,7 +468,6 @@ class TouchInApi {
       withAuth: true,
     );
   }
-
 
   Future<KanbanBoard> getKanbanBoard(String projectId) async {
     final response = await _client.get(

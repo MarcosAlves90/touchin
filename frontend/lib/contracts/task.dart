@@ -98,13 +98,13 @@ class TaskDraft {
     );
   }
 
-  JsonMap toApiJson() {
+  JsonMap toApiJson({bool includeColumnId = true}) {
     return <String, dynamic>{
       'name': name.trim(),
       'description': description.trim(),
       'type': taskTypeToApi(type),
       'parentTaskId': parentTaskId,
-      if (columnId != null) 'columnId': columnId,
+      if (includeColumnId && columnId != null) 'columnId': columnId,
     };
   }
 }

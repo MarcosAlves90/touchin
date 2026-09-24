@@ -8,7 +8,13 @@ from app.domain.project_read import cipher, employee_or_404
 from app.domain.task_read import serialize_task, serialize_task_member
 from app.errors import DomainError, ErrorKind
 from app.models import EmployeeProject, KanbanColumn, Project, Task, TaskEmployee
-from app.schemas.task import TaskDraftPayload, TaskMemberSummary, TaskResponse, TaskType
+from app.schemas.task import (
+    TaskDraftPayload,
+    TaskMemberSummary,
+    TaskResponse,
+    TaskType,
+    TaskUpdatePayload,
+)
 
 
 def _locked_project_or_404(db: Session, *, company_id: str, project_id: str) -> Project:
@@ -158,7 +164,7 @@ def update_task(
     company_id: str,
     project_id: str,
     task_id: str,
-    payload: TaskDraftPayload,
+    payload: TaskUpdatePayload,
 ) -> TaskResponse:
     begin_serialized_write(db)
     project = _locked_project_or_404(db, company_id=company_id, project_id=project_id)
@@ -170,12 +176,6 @@ def update_task(
         parent_task_id=payload.parent_task_id,
         task_id=task.id,
     )
-    if payload.column_id is not None and payload.column_id != task.kanban_column_id:
-        _column_or_404(db, project_id=project_id, column_id=payload.column_id)
-        old_column_id = task.kanban_column_id
-        task.kanban_column_id = payload.column_id
-        task.kanban_position = _next_position(db, column_id=payload.column_id)
-        _normalize_column_positions(db, column_id=old_column_id)
     field_cipher = cipher()
     task.parent_task_id = payload.parent_task_id
     task.name_ciphertext = field_cipher.encrypt(payload.name) or ""

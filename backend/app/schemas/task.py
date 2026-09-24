@@ -17,12 +17,11 @@ class TaskType(str, Enum):
     feature = "feature"
 
 
-class TaskDraftPayload(CamelModel):
+class TaskFieldsPayload(CamelModel):
     name: str = Field(min_length=1, max_length=160)
     description: str = Field(min_length=1, max_length=2000)
     type: TaskType
     parent_task_id: str | None = Field(default=None, min_length=1)
-    column_id: str | None = Field(default=None, min_length=1)
 
     @field_validator("name", "description")
     @classmethod
@@ -32,15 +31,33 @@ class TaskDraftPayload(CamelModel):
             raise ValueError(_VALUE_MUST_NOT_BE_EMPTY)
         return value
 
-    @field_validator("parent_task_id", "column_id")
+    @field_validator("parent_task_id")
     @classmethod
-    def validate_optional_id(cls, value: str | None) -> str | None:
+    def validate_optional_parent_task_id(cls, value: str | None) -> str | None:
         if value is None:
             return None
         value = value.strip()
         if not value:
             raise ValueError(_VALUE_MUST_NOT_BE_EMPTY)
         return value
+
+
+class TaskDraftPayload(TaskFieldsPayload):
+    column_id: str | None = Field(default=None, min_length=1)
+
+    @field_validator("column_id")
+    @classmethod
+    def validate_optional_column_id(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = value.strip()
+        if not value:
+            raise ValueError(_VALUE_MUST_NOT_BE_EMPTY)
+        return value
+
+
+class TaskUpdatePayload(TaskFieldsPayload):
+    """Task field updates cannot move cards; use the versioned Kanban API."""
 
 
 class TaskResponse(CamelModel):

@@ -5,7 +5,8 @@ import 'package:touchin_flutter/core/network/touchin_api.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('project API uses backend contracts and authenticated endpoints', () async {
+  test('project API uses backend contracts and authenticated endpoints',
+      () async {
     final client = _ProjectTaskApiClient(
       getResponses: <String, dynamic>{
         '/projects': <dynamic>[_projectJson()],
@@ -112,6 +113,7 @@ void main() {
         description: 'Descrição',
         type: TaskType.bug,
         parentTaskId: 'task-parent',
+        columnId: 'column-01',
       ),
     );
     expect(created.id, 'task-02');
@@ -120,6 +122,7 @@ void main() {
       'description': 'Descrição',
       'type': 'bug',
       'parentTaskId': 'task-parent',
+      'columnId': 'column-01',
     });
 
     final updated = await api.updateTask(
@@ -129,9 +132,16 @@ void main() {
         name: 'Atualizada',
         description: 'Descrição atualizada',
         type: TaskType.improvement,
+        columnId: 'column-01',
       ),
     );
     expect(updated.name, 'Atualizada');
+    expect(client.lastBody, <String, dynamic>{
+      'name': 'Atualizada',
+      'description': 'Descrição atualizada',
+      'type': 'improvement',
+      'parentTaskId': null,
+    });
 
     final members = await api.listTaskMembers('project-01', 'task-01');
     expect(members.single.employeeId, 'emp-04');

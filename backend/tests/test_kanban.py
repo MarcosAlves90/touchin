@@ -194,6 +194,61 @@ def test_move_reorder_uses_expected_version_and_rejects_stale_write(client):
     assert [card["kanbanPosition"] for card in reloaded["columns"][0]["cards"]] == [0, 1]
 
 
+def test_task_update_ignores_stale_column_id_after_kanban_move(client):
+    headers = _manager_headers(client)
+    project = _create_project(client, headers)
+    task = _create_task(client, headers, project["id"], name="Original")
+    initial_board = _board(client, headers, project["id"])
+    source_column = initial_board["columns"][0]
+
+    created_column = client.post(
+        f"/api/v1/projects/{project['id']}/kanban/columns",
+        headers=headers,
+        json={"name": "Em andamento", "expectedVersion": initial_board["kanbanVersion"]},
+    )
+    assert created_column.status_code == 201, created_column.text
+    board_with_target = created_column.json()
+    target_column = next(
+        column
+        for column in board_with_target["columns"]
+        if column["id"] != source_column["id"]
+    )
+
+    moved = client.put(
+        f"/api/v1/projects/{project['id']}/kanban/cards/order",
+        headers=headers,
+        json={
+            "expectedVersion": board_with_target["kanbanVersion"],
+            "columns": [
+                {"columnId": source_column["id"], "taskIds": []},
+                {"columnId": target_column["id"], "taskIds": [task["id"]]},
+            ],
+        },
+    )
+    assert moved.status_code == 200, moved.text
+
+    stale_editor_update = client.put(
+        f"/api/v1/projects/{project['id']}/tasks/{task['id']}",
+        headers=headers,
+        json={
+            "name": "Updated from stale editor",
+            "description": "The edit must not restore the old board column.",
+            "type": "feature",
+            "parentTaskId": None,
+            "columnId": source_column["id"],
+        },
+    )
+    assert stale_editor_update.status_code == 200, stale_editor_update.text
+    assert stale_editor_update.json()["name"] == "Updated from stale editor"
+    assert stale_editor_update.json()["kanbanColumnId"] == target_column["id"]
+
+    reloaded = _board(client, headers, project["id"])
+    reloaded_target = next(
+        column for column in reloaded["columns"] if column["id"] == target_column["id"]
+    )
+    assert [card["id"] for card in reloaded_target["cards"]] == [task["id"]]
+
+
 def test_manager_manages_columns_employee_cannot_and_delete_is_conservative(client):
     manager_headers = _manager_headers(client)
     employee_headers = _employee_headers(client)
