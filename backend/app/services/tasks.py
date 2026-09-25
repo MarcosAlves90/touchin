@@ -1,5 +1,6 @@
-from app.services.audit import AuditService
 from __future__ import annotations
+
+from app.services.audit import AuditService
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
