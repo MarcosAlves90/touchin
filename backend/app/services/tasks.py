@@ -127,7 +127,7 @@ def create_task(
     company_id: str,
     project_id: str,
     payload: TaskDraftPayload,
-    actor_user_id: str,
+    actor_user_id: str | None = None,
 ) -> TaskResponse:
     begin_serialized_write(db)
     project = _locked_project_or_404(db, company_id=company_id, project_id=project_id)
@@ -170,7 +170,7 @@ def update_task(
     project_id: str,
     task_id: str,
     payload: TaskUpdatePayload,
-    actor_user_id: str,
+    actor_user_id: str | None = None,
 ) -> TaskResponse:
     begin_serialized_write(db)
     project = _locked_project_or_404(db, company_id=company_id, project_id=project_id)
@@ -200,7 +200,7 @@ def delete_task(
     company_id: str,
     project_id: str,
     task_id: str,
-    actor_user_id: str,
+    actor_user_id: str | None = None,
 ) -> None:
     begin_serialized_write(db)
     project = _locked_project_or_404(db, company_id=company_id, project_id=project_id)
@@ -226,7 +226,7 @@ def add_task_member(
     project_id: str,
     task_id: str,
     employee_id: str,
-    actor_user_id: str,
+    actor_user_id: str | None = None,
 ) -> tuple[TaskMemberSummary, bool]:
     begin_serialized_write(db)
     project = _locked_project_or_404(db, company_id=company_id, project_id=project_id)
@@ -274,7 +274,7 @@ def remove_task_member(
     project_id: str,
     task_id: str,
     employee_id: str,
-    actor_user_id: str,
+    actor_user_id: str | None = None,
 ) -> None:
     begin_serialized_write(db)
     project = _locked_project_or_404(db, company_id=company_id, project_id=project_id)

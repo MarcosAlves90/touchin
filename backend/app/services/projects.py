@@ -28,7 +28,7 @@ def _locked_project_or_404(db: Session, *, company_id: str, project_id: str) -> 
     return project
 
 
-def create_project(db: Session, *, company_id: str, payload: ProjectDraftPayload, actor_user_id: str) -> ProjectResponse:
+def create_project(db: Session, *, company_id: str, payload: ProjectDraftPayload, actor_user_id: str | None = None) -> ProjectResponse:
     from app.services.audit import AuditService
     field_cipher = cipher()
     project = Project(
@@ -52,7 +52,7 @@ def update_project(
     company_id: str,
     project_id: str,
     payload: ProjectDraftPayload,
-    actor_user_id: str,
+    actor_user_id: str | None = None,
 ) -> ProjectResponse:
     from app.services.audit import AuditService
     begin_serialized_write(db)
@@ -87,7 +87,7 @@ def update_project(
     return serialize_project(project, cipher=field_cipher)
 
 
-def delete_project(db: Session, *, company_id: str, project_id: str, actor_user_id: str) -> None:
+def delete_project(db: Session, *, company_id: str, project_id: str, actor_user_id: str | None = None) -> None:
     from app.services.audit import AuditService
     project = project_or_404(db, company_id=company_id, project_id=project_id)
     project.status = ProjectStatus.inactive.value
@@ -101,7 +101,7 @@ def assign_project_member(
     company_id: str,
     project_id: str,
     employee_id: str,
-    actor_user_id: str,
+    actor_user_id: str | None = None,
 ) -> tuple[ProjectMemberSummary, bool]:
     from app.services.audit import AuditService
     begin_serialized_write(db)
@@ -129,7 +129,7 @@ def assign_project_member(
     return serialize_member(link, cipher=field_cipher), created
 
 
-def remove_project_member(db: Session, *, company_id: str, project_id: str, employee_id: str, actor_user_id: str) -> None:
+def remove_project_member(db: Session, *, company_id: str, project_id: str, employee_id: str, actor_user_id: str | None = None) -> None:
     from app.services.audit import AuditService
     begin_serialized_write(db)
     _locked_project_or_404(db, company_id=company_id, project_id=project_id)
