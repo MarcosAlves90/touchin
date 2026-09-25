@@ -41,8 +41,6 @@ def list_audit_events(
     entity_type: str | None = None,
     entity_id: str | None = None,
     project_id: str | None = None,
-    limit: int = 50,
-    offset: int = 0,
 ) -> list[AuditEventResponse]:
     query = select(AuditEvent).where(AuditEvent.company_id == company_id)
 
@@ -61,8 +59,7 @@ def list_audit_events(
     if project_id:
         query = query.where(AuditEvent.project_id == project_id)
 
-    query = query.order_by(AuditEvent.timestamp.desc(), AuditEvent.id.desc())
-    query = query.limit(limit).offset(offset)
+    query = query.order_by(AuditEvent.timestamp.desc())
 
     events = db.scalars(query).all()
     return [serialize_audit_event(e) for e in events]

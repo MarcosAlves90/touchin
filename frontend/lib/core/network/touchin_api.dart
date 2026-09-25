@@ -643,13 +643,8 @@ class TouchInApi {
     String? entityType,
     String? entityId,
     String? projectId,
-    int page = 1,
-    int limit = 50,
   }) async {
-    final queryParameters = <String, dynamic>{
-      'page': page.toString(),
-      'limit': limit.toString(),
-    };
+    final queryParameters = <String, dynamic>{};
     if (startDate != null) queryParameters['start_date'] = startDate.toIso8601String();
     if (endDate != null) queryParameters['end_date'] = endDate.toIso8601String();
     if (actorUserId != null) queryParameters['actor_user_id'] = actorUserId;

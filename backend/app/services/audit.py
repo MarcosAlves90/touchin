@@ -39,17 +39,14 @@ class AuditService:
         return event
 
     @staticmethod
-    def _sanitize_metadata(metadata: Any) -> Any:
-        sensitive_keys = {"password", "token", "secret", "authorization", "access_token", "refresh_token", "api_key"}
-        if isinstance(metadata, dict):
-            sanitized = {}
-            for k, v in metadata.items():
-                if any(sk in k.lower() for sk in sensitive_keys):
-                    sanitized[k] = "[REDACTED]"
-                else:
-                    sanitized[k] = AuditService._sanitize_metadata(v)
-            return sanitized
-        elif isinstance(metadata, list):
-            return [AuditService._sanitize_metadata(item) for item in metadata]
-        else:
-            return metadata
+    def _sanitize_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
+        sensitive_keys = {"password", "token", "secret", "authorization"}
+        sanitized = {}
+        for k, v in metadata.items():
+            if k.lower() in sensitive_keys:
+                sanitized[k] = "[REDACTED]"
+            elif isinstance(v, dict):
+                sanitized[k] = AuditService._sanitize_metadata(v)
+            else:
+                sanitized[k] = v
+        return sanitized
