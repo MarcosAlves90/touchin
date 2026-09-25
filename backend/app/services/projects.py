@@ -28,7 +28,7 @@ def _locked_project_or_404(db: Session, *, company_id: str, project_id: str) -> 
     return project
 
 
-def create_project(db: Session, *, company_id: str, payload: ProjectDraftPayload, actor_user_id: str | None = None) -> ProjectResponse:
+def create_project(db: Session, *, company_id: str, payload: ProjectDraftPayload, actor_user_id: str) -> ProjectResponse:
     from app.services.audit import AuditService
     field_cipher = cipher()
     project = Project(
@@ -40,7 +40,7 @@ def create_project(db: Session, *, company_id: str, payload: ProjectDraftPayload
     )
     db.add(project)
     db.flush()
-    AuditService.log_action(db, company_id=company_id, actor_user_id=actor_user_id, project_id=project.id, action="project.created", entity_type="project", entity_id=project.id)
+    AuditService.log_action(db, actor_user_id=actor_user_id, action="create", entity_type="Project", entity_id=project.id, company_id=company_id, result="success")
     db.commit()
     db.refresh(project)
     return serialize_project(project, cipher=field_cipher)
@@ -52,7 +52,7 @@ def update_project(
     company_id: str,
     project_id: str,
     payload: ProjectDraftPayload,
-    actor_user_id: str | None = None,
+    actor_user_id: str,
 ) -> ProjectResponse:
     from app.services.audit import AuditService
     begin_serialized_write(db)
@@ -81,17 +81,17 @@ def update_project(
     project.description_ciphertext = field_cipher.encrypt(payload.description)
     project.task_employee_limit = new_limit
     project.status = status_value(payload.status)
-    AuditService.log_action(db, company_id=company_id, actor_user_id=actor_user_id, project_id=project.id, action="project.updated", entity_type="project", entity_id=project.id)
+    AuditService.log_action(db, actor_user_id=actor_user_id, action="update", entity_type="Project", entity_id=project.id, company_id=company_id, result="success")
     db.commit()
     db.refresh(project)
     return serialize_project(project, cipher=field_cipher)
 
 
-def delete_project(db: Session, *, company_id: str, project_id: str, actor_user_id: str | None = None) -> None:
+def delete_project(db: Session, *, company_id: str, project_id: str, actor_user_id: str) -> None:
     from app.services.audit import AuditService
     project = project_or_404(db, company_id=company_id, project_id=project_id)
     project.status = ProjectStatus.inactive.value
-    AuditService.log_action(db, company_id=company_id, actor_user_id=actor_user_id, project_id=project.id, action="project.deleted", entity_type="project", entity_id=project.id)
+    AuditService.log_action(db, actor_user_id=actor_user_id, action="delete", entity_type="Project", entity_id=project.id, company_id=company_id, result="success")
     db.commit()
 
 
@@ -101,7 +101,7 @@ def assign_project_member(
     company_id: str,
     project_id: str,
     employee_id: str,
-    actor_user_id: str | None = None,
+    actor_user_id: str,
 ) -> tuple[ProjectMemberSummary, bool]:
     from app.services.audit import AuditService
     begin_serialized_write(db)
@@ -120,7 +120,7 @@ def assign_project_member(
         link = EmployeeProject(employee=employee, project_id=project_id)
         db.add(link)
         db.flush()
-        AuditService.log_action(db, company_id=company_id, actor_user_id=actor_user_id, project_id=project_id, action="project.member_assigned", entity_type="project", entity_id=project_id, metadata={"employee_id": employee_id})
+        AuditService.log_action(db, actor_user_id=actor_user_id, action="assign_member", entity_type="Project", entity_id=project_id, company_id=company_id, result="success", metadata_payload={"employee_id": employee_id})
         db.commit()
         db.refresh(link)
         created = True
@@ -129,7 +129,7 @@ def assign_project_member(
     return serialize_member(link, cipher=field_cipher), created
 
 
-def remove_project_member(db: Session, *, company_id: str, project_id: str, employee_id: str, actor_user_id: str | None = None) -> None:
+def remove_project_member(db: Session, *, company_id: str, project_id: str, employee_id: str, actor_user_id: str) -> None:
     from app.services.audit import AuditService
     begin_serialized_write(db)
     _locked_project_or_404(db, company_id=company_id, project_id=project_id)
@@ -150,7 +150,7 @@ def remove_project_member(db: Session, *, company_id: str, project_id: str, empl
     )
     if link is not None:
         db.delete(link)
-        AuditService.log_action(db, company_id=company_id, actor_user_id=actor_user_id, project_id=project_id, action="project.member_removed", entity_type="project", entity_id=project_id, metadata={"employee_id": employee_id})
+        AuditService.log_action(db, actor_user_id=actor_user_id, action="remove_member", entity_type="Project", entity_id=project_id, company_id=company_id, result="success", metadata_payload={"employee_id": employee_id})
     db.commit()
 
 
