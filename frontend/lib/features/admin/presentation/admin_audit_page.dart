@@ -107,6 +107,25 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
     }
   }
 
+  Future<void> _pickDate(bool isStart) async {
+    final initialDate = isStart ? _startDate ?? DateTime.now() : _endDate ?? DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null) {
+      setState(() {
+        if (isStart) {
+          _startDate = picked;
+        } else {
+          _endDate = picked;
+        }
+      });
+    }
+  }
+
   Widget _buildFilters() {
     return Card(
       margin: const EdgeInsets.all(8.0),
@@ -148,6 +167,18 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
             const SizedBox(height: 8),
             Row(
               children: [
+                TextButton.icon(
+                  onPressed: () => _pickDate(true),
+                  icon: const Icon(Icons.calendar_today, size: 16),
+                  label: Text(_startDate != null ? _startDate!.toIso8601String().split('T').first : 'Data Inicial'),
+                ),
+                const SizedBox(width: 8),
+                TextButton.icon(
+                  onPressed: () => _pickDate(false),
+                  icon: const Icon(Icons.calendar_today, size: 16),
+                  label: Text(_endDate != null ? _endDate!.toIso8601String().split('T').first : 'Data Final'),
+                ),
+                const Spacer(),
                 ElevatedButton(
                   onPressed: () => _loadEvents(refresh: true),
                   child: const Text('Apply Filters'),
@@ -159,8 +190,10 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
                     _actionController.clear();
                     _entityTypeController.clear();
                     _projectIdController.clear();
-                    _startDate = null;
-                    _endDate = null;
+                    setState(() {
+                      _startDate = null;
+                      _endDate = null;
+                    });
                     _loadEvents(refresh: true);
                   },
                   child: const Text('Clear'),
