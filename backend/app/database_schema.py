@@ -329,6 +329,24 @@ def _upgrade_punches(bind, inspector) -> None:
                 )
 
 
+def _upgrade_audit_events(bind, inspector) -> None:
+    if "audit_events" not in inspector.get_table_names():
+        return
+    if bind.dialect.name == "postgresql":
+        foreign_keys = {
+            foreign_key.get("name")
+            for foreign_key in inspector.get_foreign_keys("audit_events")
+        }
+        fk_name = "fk_audit_events_actor_user_id_user_accounts"
+        # We also might need to find the FK dynamically if it has a generated name
+        for fk in inspector.get_foreign_keys("audit_events"):
+            if "actor_user_id" in fk.get("constrained_columns", []):
+                fk_name = fk.get("name")
+                if fk_name:
+                    with bind.begin() as connection:
+                        connection.execute(text(f"ALTER TABLE audit_events DROP CONSTRAINT {fk_name}"))
+
+
 def upgrade_database_schema(bind) -> None:
     inspector = inspect(bind)
     _upgrade_projects(bind, inspector)
@@ -338,3 +356,5 @@ def upgrade_database_schema(bind) -> None:
     _upgrade_tasks_for_kanban(bind, inspector)
     inspector = inspect(bind)
     _upgrade_punches(bind, inspector)
+    inspector = inspect(bind)
+    _upgrade_audit_events(bind, inspector)

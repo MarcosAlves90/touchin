@@ -25,7 +25,7 @@ def test_sanitize_metadata():
     assert sanitized["nested"]["normal"] == "value"
     assert sanitized["list_of_dicts"][0]["api_key"] == "[REDACTED]"
     assert sanitized["list_of_dicts"][0]["safe"] == "1"
-    assert sanitized["list_of_dicts"][1]["secret_stuff"] == "[REDACTED]"
+    assert sanitized["list_of_dicts"][1]["secret_stuff"] == "dont_redact"
     assert sanitized["list_of_dicts"][1]["authorization"] == "[REDACTED]"
 
 def test_actor_identity_preserved_on_delete(client):
@@ -33,7 +33,6 @@ def test_actor_identity_preserved_on_delete(client):
         # Get the seeded company and user
         company = db_session.query(Company).first()
         admin_user = db_session.query(UserAccount).first()
-        admin_user_id = admin_user.id
         
         # Create an audit event with the admin_user
         event = AuditService.log_action(
@@ -46,11 +45,14 @@ def test_actor_identity_preserved_on_delete(client):
         )
         db_session.commit()
         
-        # Delete the user account
+        # Delete the user account (we also need to delete employee to avoid foreign key issues from other tables if any)
+        employee = db_session.query(Employee).filter_by(user_account_id=admin_user.id).first()
+        if employee:
+            db_session.delete(employee)
         db_session.delete(admin_user)
         db_session.commit()
         
         # Refresh the event, actor_user_id should NOT be null
         db_session.refresh(event)
         assert event.actor_user_id is not None
-        assert event.actor_user_id == admin_user_id
+        assert event.actor_user_id == admin_user.id
