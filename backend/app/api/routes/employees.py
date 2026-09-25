@@ -71,6 +71,7 @@ def create_employee_route(
         company_id=context.company.id,
         payload=payload,
         timezone_name=context.company.timezone,
+        actor_user_id=context.user.id,
     )
     background_tasks.add_task(
         send_employee_credentials_email,
@@ -109,5 +110,6 @@ def delete_employee_route(
         db,
         company_id=context.company.id,
         employee_id=employee_id,
+        actor_user_id=context.user.id,
     )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
