@@ -12,72 +12,216 @@ class AdminAuditPage extends StatefulWidget {
 }
 
 class _AdminAuditPageState extends State<AdminAuditPage> {
-  bool _isLoading = true;
+  bool _isLoading = false;
+  bool _isLoadingMore = false;
   String? _error;
-  List<AuditEventResponse>? _events;
+  List<AuditEventResponse> _events = [];
+  bool _hasMore = true;
+
+  int _page = 1;
+  final int _limit = 50;
+  
+  final ScrollController _scrollController = ScrollController();
+
+  DateTime? _startDate;
+  DateTime? _endDate;
+  final _actorUserIdController = TextEditingController();
+  final _actionController = TextEditingController();
+  final _entityTypeController = TextEditingController();
+  final _projectIdController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _loadEvents();
+    _scrollController.addListener(_onScroll);
+    _loadEvents(refresh: true);
   }
 
-  Future<void> _loadEvents() async {
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    _actorUserIdController.dispose();
+    _actionController.dispose();
+    _entityTypeController.dispose();
+    _projectIdController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      if (!_isLoading && !_isLoadingMore && _hasMore) {
+        _loadEvents();
+      }
+    }
+  }
+
+  Future<void> _loadEvents({bool refresh = false}) async {
     try {
-      setState(() {
-        _isLoading = true;
-        _error = null;
-      });
+      if (refresh) {
+        setState(() {
+          _isLoading = true;
+          _error = null;
+          _page = 1;
+          _events.clear();
+          _hasMore = true;
+        });
+      } else {
+        setState(() {
+          _isLoadingMore = true;
+          _error = null;
+        });
+      }
+
       final api = widget.api ?? TouchInApi();
-      final events = await api.listAuditEvents();
+      final actorUserId = _actorUserIdController.text.trim().isEmpty ? null : _actorUserIdController.text.trim();
+      final action = _actionController.text.trim().isEmpty ? null : _actionController.text.trim();
+      final entityType = _entityTypeController.text.trim().isEmpty ? null : _entityTypeController.text.trim();
+      final projectId = _projectIdController.text.trim().isEmpty ? null : _projectIdController.text.trim();
+
+      final newEvents = await api.listAuditEvents(
+        page: _page,
+        limit: _limit,
+        startDate: _startDate,
+        endDate: _endDate,
+        actorUserId: actorUserId,
+        action: action,
+        entityType: entityType,
+        projectId: projectId,
+      );
+
       setState(() {
-        _events = events;
+        if (newEvents.length < _limit) {
+          _hasMore = false;
+        }
+        _events.addAll(newEvents);
+        _page++;
         _isLoading = false;
+        _isLoadingMore = false;
       });
     } catch (e) {
       setState(() {
         _error = e.toString();
         _isLoading = false;
+        _isLoadingMore = false;
       });
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (_error != null) {
-      return Center(
+  Widget _buildFilters() {
+    return Card(
+      margin: const EdgeInsets.all(8.0),
+      child: Padding(
+        padding: const EdgeInsets.all(8.0),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text('Error: $_error', style: const TextStyle(color: Colors.red)),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _loadEvents,
-              child: const Text('Retry'),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _actorUserIdController,
+                    decoration: const InputDecoration(labelText: 'Actor User ID', isDense: true),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: _actionController,
+                    decoration: const InputDecoration(labelText: 'Action', isDense: true),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: _entityTypeController,
+                    decoration: const InputDecoration(labelText: 'Entity Type', isDense: true),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: _projectIdController,
+                    decoration: const InputDecoration(labelText: 'Project ID', isDense: true),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                ElevatedButton(
+                  onPressed: () => _loadEvents(refresh: true),
+                  child: const Text('Apply Filters'),
+                ),
+                const SizedBox(width: 8),
+                TextButton(
+                  onPressed: () {
+                    _actorUserIdController.clear();
+                    _actionController.clear();
+                    _entityTypeController.clear();
+                    _projectIdController.clear();
+                    _startDate = null;
+                    _endDate = null;
+                    _loadEvents(refresh: true);
+                  },
+                  child: const Text('Clear'),
+                ),
+              ],
             ),
           ],
         ),
-      );
-    }
+      ),
+    );
+  }
 
-    if (_events == null || _events!.isEmpty) {
-      return const Center(child: Text('No audit events found.'));
-    }
-
-    return ListView.builder(
-      itemCount: _events!.length,
-      itemBuilder: (context, index) {
-        final event = _events![index];
-        return ListTile(
-          title: Text(event.action),
-          subtitle: Text('Entity: ${event.entityType} (${event.entityId})'),
-          trailing: Text(event.timestamp.toLocal().toString()),
-        );
-      },
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        _buildFilters(),
+        Expanded(
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _error != null && _events.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text('Error: $_error', style: const TextStyle(color: Colors.red)),
+                          const SizedBox(height: 16),
+                          ElevatedButton(
+                            onPressed: () => _loadEvents(refresh: true),
+                            child: const Text('Retry'),
+                          ),
+                        ],
+                      ),
+                    )
+                  : _events.isEmpty
+                      ? const Center(child: Text('No audit events found.'))
+                      : ListView.builder(
+                          controller: _scrollController,
+                          itemCount: _events.length + (_hasMore ? 1 : 0),
+                          itemBuilder: (context, index) {
+                            if (index >= _events.length) {
+                              return const Padding(
+                                padding: EdgeInsets.all(16.0),
+                                child: Center(child: CircularProgressIndicator()),
+                              );
+                            }
+                            final event = _events[index];
+                            return ListTile(
+                              title: Text('${event.action} - ${event.result}'),
+                              subtitle: Text(
+                                'Ator: ${event.actorUserId ?? 'N/A'}\n'
+                                'Recurso: ${event.entityType} (${event.entityId})\n'
+                                'Projeto: ${event.projectId ?? 'N/A'}',
+                              ),
+                              isThreeLine: true,
+                              trailing: Text(event.timestamp.toLocal().toString().split('.').first),
+                            );
+                          },
+                        ),
+        ),
+      ],
     );
   }
 }

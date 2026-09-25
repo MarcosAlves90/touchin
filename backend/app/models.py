@@ -307,7 +307,7 @@ class AuditEvent(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True)
     timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     company_id: Mapped[str] = mapped_column(ForeignKey('companies.id', ondelete='CASCADE'), index=True)
-    actor_user_id: Mapped[str | None] = mapped_column(ForeignKey('user_accounts.id', ondelete='SET NULL'), nullable=True, index=True)
+    actor_user_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
     project_id: Mapped[str | None] = mapped_column(ForeignKey('projects.id', ondelete='SET NULL'), nullable=True, index=True)
     action: Mapped[str] = mapped_column(String, index=True)
     entity_type: Mapped[str] = mapped_column(String)
