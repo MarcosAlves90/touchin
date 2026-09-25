@@ -79,12 +79,7 @@ def update_project_route(
     context: AuthenticatedContext = Depends(require_permission("projects.update")),
     db: Session = Depends(get_db),
 ) -> ProjectResponse:
-    return update_project(
-        db,
-        company_id=context.company.id,
-        project_id=project_id,
-        payload=payload,
-    )
+    return update_project(db, company_id=context.company.id, project_id=project_id, payload=payload, actor_user_id=context.user.id)
 
 
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)

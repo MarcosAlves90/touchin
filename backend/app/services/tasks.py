@@ -153,6 +153,8 @@ def create_task(
     project.next_card_number += 1
     project.kanban_version += 1
     db.add(task)
+    db.flush()
+    AuditService.log_action(db, company_id=company_id, actor_user_id=actor_user_id, project_id=project_id, action="task.created", entity_type="task", entity_id=task.id)
     db.commit()
     db.refresh(task)
     return serialize_task(task, field_cipher=field_cipher)
@@ -217,7 +219,9 @@ def add_task_member(
     project_id: str,
     task_id: str,
     employee_id: str,
+    actor_user_id: str | None = None,
 ) -> tuple[TaskMemberSummary, bool]:
+    from app.services.audit import AuditService
     begin_serialized_write(db)
     project = _locked_project_or_404(db, company_id=company_id, project_id=project_id)
     task = _locked_task_or_404(db, project_id=project_id, task_id=task_id)
@@ -248,7 +252,9 @@ def add_task_member(
 
     link = TaskEmployee(task_id=task.id, employee_id=employee.id)
     db.add(link)
+    db.flush()
     project.kanban_version += 1
+    AuditService.log_action(db, company_id=company_id, actor_user_id=actor_user_id, project_id=project_id, action="task.member_assigned", entity_type="task", entity_id=task.id, metadata={"employee_id": employee_id})
     db.commit()
     db.refresh(link)
     link.employee = employee
@@ -262,7 +268,9 @@ def remove_task_member(
     project_id: str,
     task_id: str,
     employee_id: str,
+    actor_user_id: str | None = None,
 ) -> None:
+    from app.services.audit import AuditService
     begin_serialized_write(db)
     project = _locked_project_or_404(db, company_id=company_id, project_id=project_id)
     task = _locked_task_or_404(db, project_id=project_id, task_id=task_id)
@@ -276,4 +284,5 @@ def remove_task_member(
     if link is not None:
         db.delete(link)
         project.kanban_version += 1
+        AuditService.log_action(db, company_id=company_id, actor_user_id=actor_user_id, project_id=project_id, action="task.member_removed", entity_type="task", entity_id=task.id, metadata={"employee_id": employee_id})
         db.commit()

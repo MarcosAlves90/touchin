@@ -28,7 +28,8 @@ def _locked_project_or_404(db: Session, *, company_id: str, project_id: str) -> 
     return project
 
 
-def create_project(db: Session, *, company_id: str, payload: ProjectDraftPayload) -> ProjectResponse:
+def create_project(db: Session, *, company_id: str, payload: ProjectDraftPayload, actor_user_id: str | None = None) -> ProjectResponse:
+    from app.services.audit import AuditService
     field_cipher = cipher()
     project = Project(
         company_id=company_id,
@@ -38,6 +39,8 @@ def create_project(db: Session, *, company_id: str, payload: ProjectDraftPayload
         status=status_value(payload.status),
     )
     db.add(project)
+    db.flush()
+    AuditService.log_action(db, company_id=company_id, actor_user_id=actor_user_id, project_id=project.id, action="project.created", entity_type="project", entity_id=project.id)
     db.commit()
     db.refresh(project)
     return serialize_project(project, cipher=field_cipher)
@@ -49,7 +52,9 @@ def update_project(
     company_id: str,
     project_id: str,
     payload: ProjectDraftPayload,
+    actor_user_id: str | None = None,
 ) -> ProjectResponse:
+    from app.services.audit import AuditService
     begin_serialized_write(db)
 
     project = _locked_project_or_404(db, company_id=company_id, project_id=project_id)
@@ -76,14 +81,17 @@ def update_project(
     project.description_ciphertext = field_cipher.encrypt(payload.description)
     project.task_employee_limit = new_limit
     project.status = status_value(payload.status)
+    AuditService.log_action(db, company_id=company_id, actor_user_id=actor_user_id, project_id=project.id, action="project.updated", entity_type="project", entity_id=project.id)
     db.commit()
     db.refresh(project)
     return serialize_project(project, cipher=field_cipher)
 
 
-def delete_project(db: Session, *, company_id: str, project_id: str) -> None:
+def delete_project(db: Session, *, company_id: str, project_id: str, actor_user_id: str | None = None) -> None:
+    from app.services.audit import AuditService
     project = project_or_404(db, company_id=company_id, project_id=project_id)
     project.status = ProjectStatus.inactive.value
+    AuditService.log_action(db, company_id=company_id, actor_user_id=actor_user_id, project_id=project.id, action="project.deleted", entity_type="project", entity_id=project.id)
     db.commit()
 
 
@@ -93,7 +101,9 @@ def assign_project_member(
     company_id: str,
     project_id: str,
     employee_id: str,
+    actor_user_id: str | None = None,
 ) -> tuple[ProjectMemberSummary, bool]:
+    from app.services.audit import AuditService
     begin_serialized_write(db)
     field_cipher = cipher()
     _locked_project_or_404(db, company_id=company_id, project_id=project_id)
@@ -109,6 +119,8 @@ def assign_project_member(
     if link is None:
         link = EmployeeProject(employee=employee, project_id=project_id)
         db.add(link)
+        db.flush()
+        AuditService.log_action(db, company_id=company_id, actor_user_id=actor_user_id, project_id=project_id, action="project.member_assigned", entity_type="project", entity_id=project_id, metadata={"employee_id": employee_id})
         db.commit()
         db.refresh(link)
         created = True
@@ -117,7 +129,8 @@ def assign_project_member(
     return serialize_member(link, cipher=field_cipher), created
 
 
-def remove_project_member(db: Session, *, company_id: str, project_id: str, employee_id: str) -> None:
+def remove_project_member(db: Session, *, company_id: str, project_id: str, employee_id: str, actor_user_id: str | None = None) -> None:
+    from app.services.audit import AuditService
     begin_serialized_write(db)
     _locked_project_or_404(db, company_id=company_id, project_id=project_id)
     employee_or_404(db, company_id=company_id, employee_id=employee_id)
@@ -137,6 +150,7 @@ def remove_project_member(db: Session, *, company_id: str, project_id: str, empl
     )
     if link is not None:
         db.delete(link)
+        AuditService.log_action(db, company_id=company_id, actor_user_id=actor_user_id, project_id=project_id, action="project.member_removed", entity_type="project", entity_id=project_id, metadata={"employee_id": employee_id})
     db.commit()
 
 
