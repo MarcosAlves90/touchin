@@ -83,7 +83,9 @@ def create_employee(
     company_id: str,
     payload: EmployeeDraftPayload,
     timezone_name: str,
+    actor_user_id: str | None = None,
 ) -> tuple[EmployeeProfileResponse, str]:
+    from app.services.audit import AuditService
     cipher = _cipher()
     status_value = _status_value(payload)
     normalized_email = _normalized_email(payload)
@@ -126,6 +128,16 @@ def create_employee(
         employee=employee,
     )
     db.add_all([employee, user])
+    db.flush()
+    AuditService.log_action(
+        db,
+        company_id=company_id,
+        actor_user_id=actor_user_id,
+        action="employee.created",
+        entity_type="employee",
+        entity_id=employee.id,
+        result="success"
+    )
     db.commit()
     db.refresh(employee)
     return (
@@ -161,6 +173,7 @@ def update_employee(
     payload: EmployeeDraftPayload,
     timezone_name: str,
 ) -> EmployeeProfileResponse:
+    from app.services.audit import AuditService
     cipher = _cipher()
     status_value = _status_value(payload)
     employee = employee_or_404(db, company_id=company_id, employee_id=employee_id)
@@ -213,6 +226,16 @@ def update_employee(
         if linked_account.role == "admin":
             raise DomainError(ErrorKind.forbidden, "Admin role cannot be changed.")
         linked_account.role = _access_role_value(payload)
+    
+    AuditService.log_action(
+        db,
+        company_id=company_id,
+        actor_user_id=context.user.id,
+        action="employee.updated",
+        entity_type="employee",
+        entity_id=employee.id,
+        result="success"
+    )
     db.commit()
     return read_employee(
         db,
@@ -227,7 +250,9 @@ def delete_employee(
     *,
     company_id: str,
     employee_id: str,
+    actor_user_id: str | None = None,
 ) -> None:
+    from app.services.audit import AuditService
     employee = employee_or_404(db, company_id=company_id, employee_id=employee_id)
 
     linked_accounts = db.scalars(
@@ -240,4 +265,13 @@ def delete_employee(
         db.delete(account)
 
     db.delete(employee)
+    AuditService.log_action(
+        db,
+        company_id=company_id,
+        actor_user_id=actor_user_id,
+        action="employee.deleted",
+        entity_type="employee",
+        entity_id=employee.id,
+        result="success"
+    )
     db.commit()

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from app.services.audit import AuditService
+
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
@@ -125,6 +127,7 @@ def create_task(
     company_id: str,
     project_id: str,
     payload: TaskDraftPayload,
+    actor_user_id: str | None = None,
 ) -> TaskResponse:
     begin_serialized_write(db)
     project = _locked_project_or_404(db, company_id=company_id, project_id=project_id)
@@ -153,6 +156,8 @@ def create_task(
     project.next_card_number += 1
     project.kanban_version += 1
     db.add(task)
+    db.flush()
+    AuditService.log_action(db, company_id=company_id, actor_user_id=actor_user_id, project_id=project_id, action="task.created", entity_type="task", entity_id=task.id)
     db.commit()
     db.refresh(task)
     return serialize_task(task, field_cipher=field_cipher)
@@ -165,6 +170,7 @@ def update_task(
     project_id: str,
     task_id: str,
     payload: TaskUpdatePayload,
+    actor_user_id: str | None = None,
 ) -> TaskResponse:
     begin_serialized_write(db)
     project = _locked_project_or_404(db, company_id=company_id, project_id=project_id)
@@ -182,6 +188,7 @@ def update_task(
     task.description_ciphertext = field_cipher.encrypt(payload.description) or ""
     task.type = payload.type.value if isinstance(payload.type, TaskType) else payload.type
     project.kanban_version += 1
+    AuditService.log_action(db, company_id=company_id, actor_user_id=actor_user_id, project_id=project_id, action="task.updated", entity_type="task", entity_id=task.id)
     db.commit()
     db.refresh(task)
     return serialize_task(task, field_cipher=field_cipher)
@@ -193,6 +200,7 @@ def delete_task(
     company_id: str,
     project_id: str,
     task_id: str,
+    actor_user_id: str | None = None,
 ) -> None:
     begin_serialized_write(db)
     project = _locked_project_or_404(db, company_id=company_id, project_id=project_id)
@@ -207,6 +215,7 @@ def delete_task(
     db.flush()
     _normalize_column_positions(db, column_id=column_id)
     project.kanban_version += 1
+    AuditService.log_action(db, company_id=company_id, actor_user_id=actor_user_id, project_id=project_id, action="task.deleted", entity_type="task", entity_id=task_id)
     db.commit()
 
 
@@ -217,6 +226,7 @@ def add_task_member(
     project_id: str,
     task_id: str,
     employee_id: str,
+    actor_user_id: str | None = None,
 ) -> tuple[TaskMemberSummary, bool]:
     begin_serialized_write(db)
     project = _locked_project_or_404(db, company_id=company_id, project_id=project_id)
@@ -248,7 +258,9 @@ def add_task_member(
 
     link = TaskEmployee(task_id=task.id, employee_id=employee.id)
     db.add(link)
+    db.flush()
     project.kanban_version += 1
+    AuditService.log_action(db, company_id=company_id, actor_user_id=actor_user_id, project_id=project_id, action="task.member_added", entity_type="task", entity_id=task.id, metadata={"employee_id": employee.id})
     db.commit()
     db.refresh(link)
     link.employee = employee
@@ -262,6 +274,7 @@ def remove_task_member(
     project_id: str,
     task_id: str,
     employee_id: str,
+    actor_user_id: str | None = None,
 ) -> None:
     begin_serialized_write(db)
     project = _locked_project_or_404(db, company_id=company_id, project_id=project_id)
@@ -276,4 +289,5 @@ def remove_task_member(
     if link is not None:
         db.delete(link)
         project.kanban_version += 1
+        AuditService.log_action(db, company_id=company_id, actor_user_id=actor_user_id, project_id=project_id, action="task.member_removed", entity_type="task", entity_id=task.id, metadata={"employee_id": employee_id})
         db.commit()

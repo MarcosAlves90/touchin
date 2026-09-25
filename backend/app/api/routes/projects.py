@@ -54,7 +54,7 @@ def create_project_route(
     context: AuthenticatedContext = Depends(require_permission("projects.create")),
     db: Session = Depends(get_db),
 ) -> ProjectResponse:
-    return create_project(db, company_id=context.company.id, payload=payload)
+    return create_project(db, company_id=context.company.id, payload=payload, actor_user_id=context.user.id)
 
 
 @router.get("/{project_id}", response_model=ProjectResponse)
@@ -79,12 +79,7 @@ def update_project_route(
     context: AuthenticatedContext = Depends(require_permission("projects.update")),
     db: Session = Depends(get_db),
 ) -> ProjectResponse:
-    return update_project(
-        db,
-        company_id=context.company.id,
-        project_id=project_id,
-        payload=payload,
-    )
+    return update_project(db, company_id=context.company.id, project_id=project_id, payload=payload, actor_user_id=context.user.id)
 
 
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -93,7 +88,7 @@ def delete_project_route(
     context: AuthenticatedContext = Depends(require_permission("projects.delete")),
     db: Session = Depends(get_db),
 ) -> Response:
-    delete_project(db, company_id=context.company.id, project_id=project_id)
+    delete_project(db, company_id=context.company.id, project_id=project_id, actor_user_id=context.user.id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

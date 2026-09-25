@@ -101,6 +101,7 @@ def create_kanban_column_route(
         company_id=context.company.id,
         project_id=project_id,
         payload=payload,
+        actor_user_id=context.user.id,
     )
 
 
@@ -116,6 +117,7 @@ def reorder_kanban_columns_route(
         company_id=context.company.id,
         project_id=project_id,
         payload=payload,
+        actor_user_id=context.user.id,
     )
 
 
@@ -133,6 +135,7 @@ def rename_kanban_column_route(
         project_id=project_id,
         column_id=column_id,
         payload=payload,
+        actor_user_id=context.user.id,
     )
 
 
@@ -150,6 +153,7 @@ def delete_kanban_column_route(
         project_id=project_id,
         column_id=column_id,
         expected_version=expected_version,
+        actor_user_id=context.user.id,
     )
 
 
@@ -166,6 +170,7 @@ def reorder_kanban_cards_route(
         company_id=context.company.id,
         project_id=project_id,
         payload=payload,
+        actor_user_id=context.user.id,
     )
 
 

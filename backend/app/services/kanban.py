@@ -52,7 +52,9 @@ def create_column(
     company_id: str,
     project_id: str,
     payload: KanbanColumnMutation,
+    actor_user_id: str | None = None,
 ) -> KanbanBoardResponse:
+    from app.services.audit import AuditService
     begin_serialized_write(db)
     project = _locked_project_or_404(db, company_id=company_id, project_id=project_id)
     _check_version(project, payload.expected_version)
@@ -60,14 +62,18 @@ def create_column(
         select(func.max(KanbanColumn.position)).where(KanbanColumn.project_id == project.id),
     )
     field_cipher = cipher()
-    db.add(
-        KanbanColumn(
-            project_id=project.id,
-            name_ciphertext=field_cipher.encrypt(payload.name) or "",
-            position=0 if max_position is None else int(max_position) + 1,
-        ),
+    column = KanbanColumn(
+        project_id=project.id,
+        name_ciphertext=field_cipher.encrypt(payload.name) or "",
+        position=0 if max_position is None else int(max_position) + 1,
     )
+    db.add(column)
     project.kanban_version += 1
+    db.flush()
+    AuditService.log_action(
+        db, company_id=company_id, actor_user_id=actor_user_id,
+        action="kanban_column.created", entity_type="kanban_column", entity_id=column.id, project_id=project.id, result="success"
+    )
     db.commit()
     return get_kanban_board(db, company_id=company_id, project_id=project_id)
 
@@ -79,13 +85,19 @@ def rename_column(
     project_id: str,
     column_id: str,
     payload: KanbanColumnMutation,
+    actor_user_id: str | None = None,
 ) -> KanbanBoardResponse:
+    from app.services.audit import AuditService
     begin_serialized_write(db)
     project = _locked_project_or_404(db, company_id=company_id, project_id=project_id)
     _check_version(project, payload.expected_version)
     column = _column_or_404(db, project_id=project.id, column_id=column_id)
     column.name_ciphertext = cipher().encrypt(payload.name) or ""
     project.kanban_version += 1
+    AuditService.log_action(
+        db, company_id=company_id, actor_user_id=actor_user_id,
+        action="kanban_column.renamed", entity_type="kanban_column", entity_id=column.id, project_id=project.id, result="success"
+    )
     db.commit()
     return get_kanban_board(db, company_id=company_id, project_id=project_id)
 
@@ -96,7 +108,9 @@ def reorder_columns(
     company_id: str,
     project_id: str,
     payload: KanbanColumnOrderPayload,
+    actor_user_id: str | None = None,
 ) -> KanbanBoardResponse:
+    from app.services.audit import AuditService
     begin_serialized_write(db)
     project = _locked_project_or_404(db, company_id=company_id, project_id=project_id)
     _check_version(project, payload.expected_version)
@@ -111,6 +125,10 @@ def reorder_columns(
     for position, column_id in enumerate(payload.column_ids):
         by_id[column_id].position = position
     project.kanban_version += 1
+    AuditService.log_action(
+        db, company_id=company_id, actor_user_id=actor_user_id,
+        action="kanban_columns.reordered", entity_type="project", entity_id=project.id, project_id=project.id, result="success"
+    )
     db.commit()
     return get_kanban_board(db, company_id=company_id, project_id=project_id)
 
@@ -122,7 +140,9 @@ def delete_column(
     project_id: str,
     column_id: str,
     expected_version: int,
+    actor_user_id: str | None = None,
 ) -> KanbanBoardResponse:
+    from app.services.audit import AuditService
     begin_serialized_write(db)
     project = _locked_project_or_404(db, company_id=company_id, project_id=project_id)
     _check_version(project, expected_version)
@@ -146,6 +166,10 @@ def delete_column(
     for position, current in enumerate(remaining):
         current.position = position
     project.kanban_version += 1
+    AuditService.log_action(
+        db, company_id=company_id, actor_user_id=actor_user_id,
+        action="kanban_column.deleted", entity_type="kanban_column", entity_id=column_id, project_id=project.id, result="success"
+    )
     db.commit()
     return get_kanban_board(db, company_id=company_id, project_id=project_id)
 
@@ -156,7 +180,9 @@ def reorder_cards(
     company_id: str,
     project_id: str,
     payload: KanbanCardOrderPayload,
+    actor_user_id: str | None = None,
 ) -> KanbanBoardResponse:
+    from app.services.audit import AuditService
     begin_serialized_write(db)
     project = _locked_project_or_404(db, company_id=company_id, project_id=project_id)
     _check_version(project, payload.expected_version)
@@ -197,5 +223,9 @@ def reorder_cards(
             task.kanban_position = position
 
     project.kanban_version += 1
+    AuditService.log_action(
+        db, company_id=company_id, actor_user_id=actor_user_id,
+        action="kanban_cards.reordered", entity_type="project", entity_id=project.id, project_id=project.id, result="success"
+    )
     db.commit()
     return get_kanban_board(db, company_id=company_id, project_id=project_id)

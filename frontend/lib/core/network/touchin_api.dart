@@ -1,3 +1,4 @@
+import 'package:touchin_flutter/contracts/audit.dart';
 import 'package:touchin_flutter/contracts/auth.dart';
 import 'package:touchin_flutter/contracts/contract_parsing.dart';
 import 'package:touchin_flutter/contracts/employee.dart';
@@ -631,6 +632,49 @@ class TouchInApi {
       '/projects/$projectId/tasks/$taskId',
       withAuth: true,
     );
+  }
+
+
+  Future<List<AuditEventResponse>> listAuditEvents({
+    DateTime? startDate,
+    DateTime? endDate,
+    String? actorUserId,
+    String? action,
+    String? entityType,
+    String? entityId,
+    String? projectId,
+    String? result,
+    int page = 1,
+    int limit = 50,
+  }) async {
+    final queryParameters = <String, dynamic>{
+      'page': page.toString(),
+      'limit': limit.toString(),
+    };
+    if (startDate != null) queryParameters['start_date'] = startDate.toIso8601String();
+    if (endDate != null) queryParameters['end_date'] = endDate.toIso8601String();
+    if (actorUserId != null) queryParameters['actor_user_id'] = actorUserId;
+    if (action != null) queryParameters['action'] = action;
+    if (entityType != null) queryParameters['entity_type'] = entityType;
+    if (entityId != null) queryParameters['entity_id'] = entityId;
+    if (projectId != null) queryParameters['project_id'] = projectId;
+    if (result != null) queryParameters['result'] = result;
+
+    final response = await _client.get(
+      '/audit-events',
+      withAuth: true,
+      queryParameters: queryParameters.isNotEmpty ? queryParameters : null,
+    );
+    return _parseContract('audit events', () {
+      final payload = requireJsonList(response, 'audit events response');
+      return payload
+          .map(
+            (item) => AuditEventResponse.fromJson(
+              requireJsonMap(item, 'audit events[]'),
+            ),
+          )
+          .toList();
+    });
   }
 
   Future<AuthSession> _persistSession(AuthSession session) async {
