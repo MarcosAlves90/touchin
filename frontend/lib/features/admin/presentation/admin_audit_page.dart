@@ -29,6 +29,7 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
   final _actionController = TextEditingController();
   final _entityTypeController = TextEditingController();
   final _projectIdController = TextEditingController();
+  final _resultController = TextEditingController();
 
   @override
   void initState() {
@@ -44,6 +45,7 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
     _actionController.dispose();
     _entityTypeController.dispose();
     _projectIdController.dispose();
+    _resultController.dispose();
     super.dispose();
   }
 
@@ -77,6 +79,7 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
       final action = _actionController.text.trim().isEmpty ? null : _actionController.text.trim();
       final entityType = _entityTypeController.text.trim().isEmpty ? null : _entityTypeController.text.trim();
       final projectId = _projectIdController.text.trim().isEmpty ? null : _projectIdController.text.trim();
+      final result = _resultController.text.trim().isEmpty ? null : _resultController.text.trim();
 
       final newEvents = await api.listAuditEvents(
         page: _page,
@@ -87,6 +90,7 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
         action: action,
         entityType: entityType,
         projectId: projectId,
+        result: result,
       );
 
       setState(() {
@@ -162,6 +166,13 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
                     decoration: const InputDecoration(labelText: 'Project ID', isDense: true),
                   ),
                 ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: _resultController,
+                    decoration: const InputDecoration(labelText: 'Result', isDense: true),
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 8),
@@ -190,6 +201,7 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
                     _actionController.clear();
                     _entityTypeController.clear();
                     _projectIdController.clear();
+                    _resultController.clear();
                     setState(() {
                       _startDate = null;
                       _endDate = null;

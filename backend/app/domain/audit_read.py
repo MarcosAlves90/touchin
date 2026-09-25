@@ -41,6 +41,7 @@ def list_audit_events(
     entity_type: str | None = None,
     entity_id: str | None = None,
     project_id: str | None = None,
+    result: str | None = None,
     limit: int = 50,
     offset: int = 0,
 ) -> list[AuditEventResponse]:
@@ -60,6 +61,8 @@ def list_audit_events(
         query = query.where(AuditEvent.entity_id == entity_id)
     if project_id:
         query = query.where(AuditEvent.project_id == project_id)
+    if result:
+        query = query.where(AuditEvent.result == result)
 
     query = query.order_by(AuditEvent.timestamp.desc(), AuditEvent.id.desc())
     query = query.limit(limit).offset(offset)

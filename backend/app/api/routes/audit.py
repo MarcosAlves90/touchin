@@ -21,6 +21,7 @@ def list_audit_events_route(
     entity_type: str | None = Query(None),
     entity_id: str | None = Query(None),
     project_id: str | None = Query(None),
+    result: str | None = Query(None),
     page: int = Query(1, ge=1),
     limit: int = Query(50, ge=1, le=100),
     context: AuthenticatedContext = Depends(require_permission("audit.read")),
@@ -36,6 +37,7 @@ def list_audit_events_route(
         entity_type=entity_type,
         entity_id=entity_id,
         project_id=project_id,
+        result=result,
         limit=limit,
         offset=(page - 1) * limit,
     )

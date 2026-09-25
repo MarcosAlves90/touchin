@@ -643,6 +643,7 @@ class TouchInApi {
     String? entityType,
     String? entityId,
     String? projectId,
+    String? result,
     int page = 1,
     int limit = 50,
   }) async {
@@ -657,6 +658,7 @@ class TouchInApi {
     if (entityType != null) queryParameters['entity_type'] = entityType;
     if (entityId != null) queryParameters['entity_id'] = entityId;
     if (projectId != null) queryParameters['project_id'] = projectId;
+    if (result != null) queryParameters['result'] = result;
 
     final response = await _client.get(
       '/audit-events',
