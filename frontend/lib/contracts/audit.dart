@@ -1,30 +1,30 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
-import 'package:touchin_flutter/contracts/contract_parsing.dart';
+
+import 'contract_parsing.dart';
 
 part 'audit.freezed.dart';
 
 @freezed
 abstract class AuditEventResponse with _$AuditEventResponse {
   const AuditEventResponse._();
-
   const factory AuditEventResponse({
     required String id,
     required DateTime timestamp,
     required String companyId,
-    required String? actorUserId,
-    required String? projectId,
+    String? actorUserId,
+    String? projectId,
     required String action,
     required String entityType,
     required String entityId,
     required String result,
-    required Map<String, dynamic>? metadataPayload,
-    required String? correlationId,
+    Map<String, dynamic>? metadataPayload,
+    String? correlationId,
   }) = _AuditEventResponse;
 
   factory AuditEventResponse.fromJson(Map<String, dynamic> json) {
     return AuditEventResponse(
       id: requireString(json, 'id'),
-      timestamp: DateTime.parse(requireString(json, 'timestamp')).toLocal(),
+      timestamp: requireDateTime(json, 'timestamp'),
       companyId: requireString(json, 'company_id'),
       actorUserId: optionalString(json, 'actor_user_id'),
       projectId: optionalString(json, 'project_id'),

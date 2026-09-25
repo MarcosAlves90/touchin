@@ -215,6 +215,7 @@ class WorkspaceNavigationDrawer extends StatelessWidget {
               ],
             ),
           ),
+          Expanded(child: ListView(padding: EdgeInsets.zero, children: [
           const SizedBox(height: 16),
           _buildDrawerItem(
             context,
@@ -293,7 +294,8 @@ class WorkspaceNavigationDrawer extends StatelessWidget {
               );
             },
           ),
-          const Spacer(),
+          ])),
+          const SizedBox(height: 16),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Divider(

@@ -408,14 +408,14 @@ class _AuditEventResponse extends AuditEventResponse {
       {required this.id,
       required this.timestamp,
       required this.companyId,
-      required this.actorUserId,
-      required this.projectId,
+      this.actorUserId,
+      this.projectId,
       required this.action,
       required this.entityType,
       required this.entityId,
       required this.result,
-      required final Map<String, dynamic>? metadataPayload,
-      required this.correlationId})
+      final Map<String, dynamic>? metadataPayload,
+      this.correlationId})
       : _metadataPayload = metadataPayload,
         super._();
 
