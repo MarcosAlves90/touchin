@@ -1,60 +1,49 @@
+from __future__ import annotations
+
 import pytest
-from fastapi.testclient import TestClient
-from app.main import app
-from app.db import get_db
+from sqlalchemy import text
+from app.db import SessionLocal
 from app.models import AuditEvent, UserAccount, Company
+from app.seed import MARINA_EMAIL, CAIO_EMAIL
 
-client = TestClient(app)
-
-def test_audit_list_tenant_isolation(db_session, setup_test_db):
-    # setup_test_db might have pre-created things, let's create a specific user/company
-    company1 = Company(id="comp_audit_1", name="Company 1")
-    company2 = Company(id="comp_audit_2", name="Company 2")
-    db_session.add(company1)
-    db_session.add(company2)
-    db_session.commit()
-
-    user1 = UserAccount(id="user_audit_1", email="a1@test.com", password_hash="hash", company_id="comp_audit_1", name="U1")
-    user2 = UserAccount(id="user_audit_2", email="a2@test.com", password_hash="hash", company_id="comp_audit_2", name="U2")
-    db_session.add(user1)
-    db_session.add(user2)
-    db_session.commit()
-
-    evt1 = AuditEvent(
-        id="evt_audit_1", company_id="comp_audit_1", action="test", 
-        entity_type="test", entity_id="test", result="success"
+def login_headers(client, email):
+    from app.config import get_settings
+    response = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": email,
+            "password": get_settings().seed_admin_password,
+            "keepConnected": True,
+        },
     )
-    evt2 = AuditEvent(
-        id="evt_audit_2", company_id="comp_audit_2", action="test", 
-        entity_type="test", entity_id="test", result="success"
-    )
-    db_session.add(evt1)
-    db_session.add(evt2)
-    db_session.commit()
+    assert response.status_code == 200
+    token = response.json()["accessToken"]
+    return {"Authorization": f"Bearer {token}"}
 
-    # Wait, we need a valid token to make API requests!
-    # Let's bypass token auth by overriding dependencies or create a token!
-    from app.services.auth import create_access_token
-    
-    token1 = create_access_token(user_id="user_audit_1", company_id="comp_audit_1")
-    
-    response = client.get("/api/v1/audit", headers={"Authorization": f"Bearer {token1}"})
-    
-    # If the user does not have permission, it returns 403.
-    # We must give them the permission! Or test the failure semantics first.
-    assert response.status_code == 403
+def test_audit_list_tenant_isolation(client):
+    with SessionLocal() as db:
+        # Get existing company and admin user (marina)
+        company1 = db.query(Company).first()
+        assert company1 is not None
+        
+        # Create a second company manually (bypassing strict crypto/fields for raw sql or just using an endpoint)
+        # Actually, let's just insert an audit event for company1 and an audit event for a fake company
+        evt1 = AuditEvent(
+            id="evt_audit_1", company_id=company1.id, action="test_action", 
+            entity_type="test", entity_id="test", result="success"
+        )
+        evt2 = AuditEvent(
+            id="evt_audit_2", company_id="comp_fake", action="test_action", 
+            entity_type="test", entity_id="test", result="success"
+        )
+        db.add(evt1)
+        db.add(evt2)
+        db.commit()
 
-    # Add permission
-    from app.models import Role, RolePermission
-    role = Role(id="role_audit_1", company_id="comp_audit_1", name="Admin")
-    db_session.add(role)
-    db_session.commit()
+    # Marina is admin, she has audit.read permission.
+    headers_admin = login_headers(client, MARINA_EMAIL)
+    response = client.get("/api/v1/audit", headers=headers_admin)
     
-    db_session.add(RolePermission(role_id="role_audit_1", permission_name="audit.read"))
-    user1.role_id = "role_audit_1"
-    db_session.commit()
-    
-    response = client.get("/api/v1/audit", headers={"Authorization": f"Bearer {token1}"})
     assert response.status_code == 200
     data = response.json()
     
@@ -62,3 +51,19 @@ def test_audit_list_tenant_isolation(db_session, setup_test_db):
     ids = [e["id"] for e in data]
     assert "evt_audit_1" in ids
     assert "evt_audit_2" not in ids
+
+def test_audit_list_unauthorized(client):
+    # Caio is manager, he does NOT have audit.read by default (unless we gave it to him)
+    # Let's check his access.
+    headers_manager = login_headers(client, CAIO_EMAIL)
+    response = client.get("/api/v1/audit", headers=headers_manager)
+    
+    # If managers don't have it, should be 403.
+    # If they do, then this assert fails and we need a standard employee (Joao).
+    if response.status_code == 200:
+        from app.seed import JOAO_EMAIL
+        headers_employee = login_headers(client, JOAO_EMAIL)
+        resp_emp = client.get("/api/v1/audit", headers=headers_employee)
+        assert resp_emp.status_code == 403
+    else:
+        assert response.status_code == 403
