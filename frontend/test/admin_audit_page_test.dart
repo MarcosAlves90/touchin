@@ -31,6 +31,7 @@ class FakeTouchInApi extends TouchInApi {
       'actorUserId': actorUserId,
       'action': action,
       'entityType': entityType,
+      'entityId': entityId,
       'projectId': projectId,
       'result': result,
     };
@@ -93,6 +94,7 @@ void main() {
 
     await tester.enterText(find.widgetWithText(TextField, 'Actor User ID'), 'user_1');
     await tester.enterText(find.widgetWithText(TextField, 'Action'), 'task.created');
+    await tester.enterText(find.widgetWithText(TextField, 'Entity ID'), 'task_1');
     await tester.enterText(find.widgetWithText(TextField, 'Result'), 'success');
 
     mockApi.requestedPages.clear();
@@ -102,6 +104,7 @@ void main() {
     expect(mockApi.requestedPages, [1]);
     expect(mockApi.lastParams['actorUserId'], 'user_1');
     expect(mockApi.lastParams['action'], 'task.created');
+    expect(mockApi.lastParams['entityId'], 'task_1');
     expect(mockApi.lastParams['result'], 'success');
   });
 
@@ -157,5 +160,11 @@ void main() {
     await tester.pumpAndSettle();
     
     expect(mockApi.requestedPages, [1, 2]); // Should still only have requested pages 1 and 2
+
+    // Validate explicitly that the collection has exactly 60 events loaded
+    // Since _hasMore becomes false, the itemCount should be exactly 60
+    final listView = tester.widget<ListView>(find.byType(ListView));
+    final delegate = listView.childrenDelegate as SliverChildBuilderDelegate;
+    expect(delegate.estimatedChildCount, 60);
   });
 }

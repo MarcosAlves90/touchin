@@ -7,7 +7,7 @@ import uuid
 
 def test_sanitize_metadata():
     metadata = {
-        "access_token": "secret123",
+        "access_token": "secret123", "cookie": "abc", "session_cookie": "def", "apiKey": "xyz",
         "nested": {
             "refresh_token": "refresh123",
             "normal": "value"
@@ -21,6 +21,9 @@ def test_sanitize_metadata():
     sanitized = AuditService._sanitize_metadata(metadata)
     
     assert sanitized["access_token"] == "[REDACTED]"
+    assert sanitized["cookie"] == "[REDACTED]"
+    assert sanitized["session_cookie"] == "[REDACTED]"
+    assert sanitized["apiKey"] == "[REDACTED]"
     assert sanitized["nested"]["refresh_token"] == "[REDACTED]"
     assert sanitized["nested"]["normal"] == "value"
     assert sanitized["list_of_dicts"][0]["api_key"] == "[REDACTED]"

@@ -40,7 +40,7 @@ class AuditService:
 
     @staticmethod
     def _sanitize_metadata(metadata: Any) -> Any:
-        sensitive_keys = {"password", "token", "secret", "authorization", "access_token", "refresh_token", "api_key"}
+        sensitive_keys = {"password", "token", "secret", "authorization", "access_token", "refresh_token", "api_key", "apikey", "cookie", "session_cookie"}
         if isinstance(metadata, dict):
             sanitized = {}
             for k, v in metadata.items():

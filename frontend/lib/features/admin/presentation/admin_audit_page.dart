@@ -28,6 +28,7 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
   final _actorUserIdController = TextEditingController();
   final _actionController = TextEditingController();
   final _entityTypeController = TextEditingController();
+  final _entityIdController = TextEditingController();
   final _projectIdController = TextEditingController();
   final _resultController = TextEditingController();
 
@@ -44,6 +45,7 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
     _actorUserIdController.dispose();
     _actionController.dispose();
     _entityTypeController.dispose();
+    _entityIdController.dispose();
     _projectIdController.dispose();
     _resultController.dispose();
     super.dispose();
@@ -78,6 +80,7 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
       final actorUserId = _actorUserIdController.text.trim().isEmpty ? null : _actorUserIdController.text.trim();
       final action = _actionController.text.trim().isEmpty ? null : _actionController.text.trim();
       final entityType = _entityTypeController.text.trim().isEmpty ? null : _entityTypeController.text.trim();
+      final entityId = _entityIdController.text.trim().isEmpty ? null : _entityIdController.text.trim();
       final projectId = _projectIdController.text.trim().isEmpty ? null : _projectIdController.text.trim();
       final result = _resultController.text.trim().isEmpty ? null : _resultController.text.trim();
 
@@ -89,6 +92,7 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
         actorUserId: actorUserId,
         action: action,
         entityType: entityType,
+        entityId: entityId,
         projectId: projectId,
         result: result,
       );
@@ -162,6 +166,13 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: TextField(
+                    controller: _entityIdController,
+                    decoration: const InputDecoration(labelText: 'Entity ID', isDense: true),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
                     controller: _projectIdController,
                     decoration: const InputDecoration(labelText: 'Project ID', isDense: true),
                   ),
@@ -200,6 +211,7 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
                     _actorUserIdController.clear();
                     _actionController.clear();
                     _entityTypeController.clear();
+                    _entityIdController.clear();
                     _projectIdController.clear();
                     _resultController.clear();
                     setState(() {
