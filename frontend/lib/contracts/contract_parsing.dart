@@ -21,6 +21,22 @@ JsonMap requireJsonMap(dynamic value, String path) {
   throw ContractParsingException('$path must be a JSON object.');
 }
 
+JsonMap? optionalJsonMap(JsonMap json, String key) {
+  final value = json[key];
+  if (value == null) {
+    return null;
+  }
+  if (value is Map<String, dynamic>) {
+    return value;
+  }
+  if (value is Map) {
+    return value.map(
+      (k, v) => MapEntry(k.toString(), v),
+    );
+  }
+  throw ContractParsingException('$key must be a JSON object when present.');
+}
+
 List<dynamic> requireJsonList(dynamic value, String path) {
   if (value is List) {
     return value;

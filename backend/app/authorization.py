@@ -30,6 +30,7 @@ KANBAN_CARDS_MOVE = "kanban.cards.move"
 KANBAN_ASSIGNEES_MANAGE = "kanban.assignees.manage"
 COMPANIES_MANAGE = "companies.manage"
 ADMIN_CROSS_COMPANY = "admin.cross_company"
+AUDIT_READ = "audit.read"
 
 MANAGERIAL_ROLES = frozenset({"manager", "admin", "super_admin"})
 
@@ -67,6 +68,7 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
         TIME_CLOCK_READ,
         TIME_CLOCK_PUNCH,
         TIME_CLOCK_MANAGE,
+        AUDIT_READ,
     },
     "admin": {
         AUTH_READ_CONTEXT,
@@ -92,6 +94,7 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
         TIME_CLOCK_READ,
         TIME_CLOCK_PUNCH,
         TIME_CLOCK_MANAGE,
+        AUDIT_READ,
     },
     "super_admin": {
         AUTH_READ_CONTEXT,
@@ -118,6 +121,7 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
         TIME_CLOCK_READ,
         TIME_CLOCK_PUNCH,
         TIME_CLOCK_MANAGE,
+        AUDIT_READ,
     },
 }
 

@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import 'package:touchin_flutter/features/admin/presentation/admin_audit_page.dart';
 import 'package:touchin_flutter/features/admin/presentation/admin_employees_page.dart';
 import 'package:touchin_flutter/features/auth/presentation/logout_navigation.dart';
 import 'package:touchin_flutter/features/projects/presentation/project_kanban_page.dart';
@@ -214,6 +215,7 @@ class WorkspaceNavigationDrawer extends StatelessWidget {
               ],
             ),
           ),
+          Expanded(child: ListView(padding: EdgeInsets.zero, children: [
           const SizedBox(height: 16),
           _buildDrawerItem(
             context,
@@ -235,6 +237,20 @@ class WorkspaceNavigationDrawer extends StatelessWidget {
               Navigator.of(context).pushReplacement(
                 MaterialPageRoute<void>(
                   builder: (_) => const AdminEmployeesPage(),
+                ),
+              );
+            },
+          ),
+
+          _buildDrawerItem(
+            context,
+            icon: Icons.history_edu,
+            label: 'Trilha de Auditoria',
+            onTap: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute<void>(
+                  builder: (_) => const AdminAuditPage(),
                 ),
               );
             },
@@ -278,7 +294,8 @@ class WorkspaceNavigationDrawer extends StatelessWidget {
               );
             },
           ),
-          const Spacer(),
+          ])),
+          const SizedBox(height: 16),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Divider(

@@ -329,6 +329,60 @@ def _upgrade_punches(bind, inspector) -> None:
                 )
 
 
+def _upgrade_audit_events(bind, inspector) -> None:
+    if "audit_events" not in inspector.get_table_names():
+        return
+    if bind.dialect.name == "postgresql":
+        foreign_keys = {
+            foreign_key.get("name")
+            for foreign_key in inspector.get_foreign_keys("audit_events")
+        }
+        fk_name = "fk_audit_events_actor_user_id_user_accounts"
+        # We also might need to find the FK dynamically if it has a generated name
+        for fk in inspector.get_foreign_keys("audit_events"):
+            if "actor_user_id" in fk.get("constrained_columns", []):
+                fk_name = fk.get("name")
+                if fk_name:
+                    with bind.begin() as connection:
+                        connection.execute(text(f"ALTER TABLE audit_events DROP CONSTRAINT {fk_name}"))
+    elif bind.dialect.name == "sqlite":
+        has_fk = False
+        for fk in inspector.get_foreign_keys("audit_events"):
+            if "actor_user_id" in fk.get("constrained_columns", []):
+                has_fk = True
+                break
+        if has_fk:
+            with bind.begin() as connection:
+                connection.execute(text("PRAGMA foreign_keys=off;"))
+                connection.execute(text("""
+                    CREATE TABLE audit_events_new (
+                        id VARCHAR(64) NOT NULL, 
+                        timestamp DATETIME, 
+                        company_id VARCHAR(64) NOT NULL, 
+                        actor_user_id VARCHAR(64), 
+                        project_id VARCHAR(64), 
+                        action VARCHAR(128) NOT NULL, 
+                        entity_type VARCHAR(64) NOT NULL, 
+                        entity_id VARCHAR(64) NOT NULL, 
+                        result VARCHAR(32) NOT NULL, 
+                        metadata_payload TEXT, 
+                        correlation_id VARCHAR(64), 
+                        PRIMARY KEY (id), 
+                        FOREIGN KEY(company_id) REFERENCES companies (id) ON DELETE CASCADE, 
+                        FOREIGN KEY(project_id) REFERENCES projects (id) ON DELETE CASCADE
+                    );
+                """))
+                connection.execute(text("""
+                    INSERT INTO audit_events_new SELECT id, timestamp, company_id, actor_user_id, project_id, action, entity_type, entity_id, result, metadata_payload, correlation_id FROM audit_events;
+                """))
+                connection.execute(text("DROP TABLE audit_events;"))
+                connection.execute(text("ALTER TABLE audit_events_new RENAME TO audit_events;"))
+                connection.execute(text("CREATE INDEX ix_audit_events_action ON audit_events (action);"))
+                connection.execute(text("CREATE INDEX ix_audit_events_company_id ON audit_events (company_id);"))
+                connection.execute(text("CREATE INDEX ix_audit_events_correlation_id ON audit_events (correlation_id);"))
+                connection.execute(text("PRAGMA foreign_keys=on;"))
+
+
 def upgrade_database_schema(bind) -> None:
     inspector = inspect(bind)
     _upgrade_projects(bind, inspector)
@@ -338,3 +392,5 @@ def upgrade_database_schema(bind) -> None:
     _upgrade_tasks_for_kanban(bind, inspector)
     inspector = inspect(bind)
     _upgrade_punches(bind, inspector)
+    inspector = inspect(bind)
+    _upgrade_audit_events(bind, inspector)
