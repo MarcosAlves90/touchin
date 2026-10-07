@@ -57,3 +57,18 @@ class ProjectMemberSummary(CamelModel):
     project_id: str
     employee_name: str
     created_at: datetime
+
+
+class MonthlyWorkLogRecord(CamelModel):
+    date: str
+    start_time: str
+    end_time: str
+    duration: str
+    tasks: list[str]
+    description: str
+
+class MonthlyWorkLogReport(CamelModel):
+    project_id: str
+    year: int
+    month: int
+    records: list[MonthlyWorkLogRecord]

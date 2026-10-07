@@ -141,3 +141,23 @@ def remove_project_member_route(
         actor_user_id=context.user.id,
     )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+from app.schemas.project import MonthlyWorkLogReport
+from app.domain.project_read import generate_monthly_work_logs_report
+
+@router.get("/{project_id}/reports/work-logs", response_model=MonthlyWorkLogReport)
+def get_monthly_work_logs_report_route(
+    project_id: str,
+    year: int,
+    month: int,
+    context: AuthenticatedContext = Depends(require_permission("projects.read")),
+    db: Session = Depends(get_db),
+) -> MonthlyWorkLogReport:
+    return generate_monthly_work_logs_report(
+        db,
+        company_id=context.company.id,
+        project_id=project_id,
+        year=year,
+        month=month,
+        employee_id=_project_read_employee_id(context),
+    )

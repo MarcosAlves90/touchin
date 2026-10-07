@@ -447,13 +447,22 @@ def test_time_clock_requires_location_when_policy_demands_it(client):
 
 def test_time_clock_state_paginates_records(client):
     headers = login_headers(client)
+    
+    # Create a project and task for the work log
+    proj_res = client.post("/api/v1/projects", headers=headers, json={"name": "P1", "description": "D1"})
+    proj_id = proj_res.json()["id"]
+    task_res = client.post(f"/api/v1/projects/{proj_id}/tasks", headers=headers, json={"name": "T1", "type": "feature", "description": "d"})
+    task_id = task_res.json()["id"]
+
+    client.post(f"/api/v1/projects/{proj_id}/members", headers=headers, json={"employeeId": "emp-01"})
+
     _clear_employee_punches("emp-01")
 
     punch_payloads = [
         {"type": "checkIn"},
-        {"type": "breakStart"},
+        {"type": "breakStart", "projectId": proj_id, "workLog": {"description": "test", "taskIds": [task_id]}},
         {"type": "breakEnd"},
-        {"type": "breakStart"},
+        {"type": "breakStart", "projectId": proj_id, "workLog": {"description": "test2", "taskIds": [task_id]}},
         {"type": "breakEnd"},
     ]
 
@@ -471,7 +480,7 @@ def test_time_clock_state_paginates_records(client):
                 },
             },
         )
-        assert response.status_code == 200
+        assert response.status_code == 200, response.text
 
     page_one = client.get(
         "/api/v1/time-clock/me?page=1&limit=2",

@@ -37,10 +37,16 @@ class PunchRecordResponse(CamelModel):
     location: PunchLocationSnapshotPayload | None = None
 
 
+class WorkLogPayload(CamelModel):
+    description: str = Field(min_length=1)
+    task_ids: list[str] = Field(min_length=1)
+
+
 class CreatePunchRequest(CamelModel):
     type: PunchType
     project_id: str | None = None
     location: PunchLocationSnapshotPayload | None = None
+    work_log: WorkLogPayload | None = None
 
     @field_validator("location")
     @classmethod
