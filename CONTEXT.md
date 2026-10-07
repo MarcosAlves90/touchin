@@ -1,7 +1,7 @@
 # CONTEXT.md — TouchIn App
 
-- Última atualização: 2026-05-25
-- Versão do documento: 1.2.1
+- Última atualização: 2026-10-07
+- Versão do documento: 1.2.2
 - Mantenedor: Time Platform
 
 ---
@@ -12,7 +12,7 @@ App de gerenciamento empresarial para registro de ponto eletrônico, controle de
 
 - **Público-alvo:** PMs, líderes de equipe e funcionários
 - **Problema resolvido:** Centralizar ponto, jornada e alocação com privacidade de dados pessoais
-- **Estado atual:** Frontend Flutter com tema global persistido, tela de configurações, módulo de auth reorganizado e painel de admin com widgets extraídos; backend com read models separados, sessão extraída, bootstrap dedicado e sem bus de eventos interno
+- **Estado atual:** Frontend Flutter com tema global persistido, tela de configurações, gestão de projetos e tarefas, painel administrativo e fluxo de ponto com registro obrigatório de atividades ao iniciar pausa ou encerrar a jornada; backend com read models separados, sessão extraída, bootstrap dedicado e sem bus de eventos interno
 - **Links:** [docs](./docs), [frontend](./frontend), [backend](./backend)
 
 ---
@@ -149,6 +149,9 @@ frontend/
 6. Regras de localização e dispositivo confiável são aplicadas quando habilitadas
 7. O módulo de time clock exige vínculo com employee para acesso ao fluxo próprio do usuário
 8. Os tipos de ponto expostos no contrato atual são `checkIn`, `checkOut`, `breakStart` e `breakEnd`
+9. Ao iniciar uma pausa (`breakStart`) ou encerrar a jornada (`checkOut`) enquanto está trabalhando, o funcionário informa projeto, descrição não vazia e ao menos uma tarefa antes do envio
+10. Projetos ativos e tarefas são carregados pelas APIs existentes, que continuam aplicando as regras de autorização
+11. Entrada (`checkIn`) e retomada da jornada (`breakEnd`) não exigem registro de atividades; a saída não pode ser registrada durante uma pausa, que deve ser encerrada primeiro
 
 ### Tema Global
 1. O app inicia com `ThemeModeController`
@@ -255,6 +258,7 @@ frontend/
 - **Perfil vinculado:** algumas rotas exigem employee associado ao usuário autenticado
 - **Projetos:** funcionários podem ser listados por projeto e alocados por empresa
 - **Ponto:** tipos `clock_in`, `clock_out`, `break_start`, `break_end`
+- **Registro de atividades:** `break_start` e `clock_out` durante uma jornada em andamento exigem projeto, descrição não vazia e pelo menos uma tarefa autorizada
 - **Projeto:** associação N:N entre empresas e funcionários via tabela de junção
 - **Sessão:** `expires_at` e `revoked_at` controlam validade e logout
 - **Seed:** admin padrão pode ser criado na inicialização quando o banco estiver vazio

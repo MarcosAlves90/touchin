@@ -2,10 +2,10 @@ import 'dart:async';
 
 import 'package:touchin_flutter/contracts/location.dart';
 import 'package:touchin_flutter/contracts/punch.dart';
-import 'package:touchin_flutter/contracts/time_clock.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/pagination_controls.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
 import 'package:touchin_flutter/features/time_tracking/presentation/time_clock_controller.dart';
+import 'package:touchin_flutter/features/time_tracking/presentation/work_log_dialog.dart';
 import 'package:touchin_flutter/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 
@@ -88,7 +88,39 @@ class _TimeClockPageState extends State<TimeClockPage> {
   Future<void> _prepareLocationAccess() => _controller.prepareLocationAccess();
 
   Future<void> _handlePunch(PunchType type) async {
-    final message = await _controller.handlePunch(type);
+    if (_controller.isLoadingWorkLogProjects) {
+      return;
+    }
+
+    WorkLogSubmission? workLogSubmission;
+    if (_status == ShiftStatus.working &&
+        (type == PunchType.breakStart || type == PunchType.checkOut)) {
+      final loadError = await _controller.loadWorkLogProjects();
+      if (!mounted) {
+        return;
+      }
+      if (loadError != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(loadError)),
+        );
+        return;
+      }
+
+      workLogSubmission = await showDialog<WorkLogSubmission>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => WorkLogDialog(controller: _controller),
+      );
+      if (!mounted || workLogSubmission == null) {
+        return;
+      }
+    }
+
+    final message = await _controller.handlePunch(
+      type,
+      projectId: workLogSubmission?.projectId,
+      workLog: workLogSubmission?.workLog,
+    );
     if (!mounted || message == null) {
       return;
     }
@@ -587,9 +619,12 @@ class _TimeClockPageState extends State<TimeClockPage> {
   }
 
   Widget _buildPrimaryActionButton() {
+    final isPunchActionBlocked =
+        _isSubmittingPunch || _controller.isLoadingWorkLogProjects;
+
     if (_status == ShiftStatus.checkedOut) {
       return ElevatedButton.icon(
-        onPressed: _isSubmittingPunch
+        onPressed: isPunchActionBlocked
             ? null
             : () {
                 unawaited(_handlePunch(PunchType.checkIn));
@@ -601,7 +636,7 @@ class _TimeClockPageState extends State<TimeClockPage> {
 
     if (_status == ShiftStatus.working) {
       return ElevatedButton.icon(
-        onPressed: _isSubmittingPunch
+        onPressed: isPunchActionBlocked
             ? null
             : () {
                 unawaited(_handlePunch(PunchType.breakStart));
@@ -612,7 +647,7 @@ class _TimeClockPageState extends State<TimeClockPage> {
     }
 
     return ElevatedButton.icon(
-      onPressed: _isSubmittingPunch
+      onPressed: isPunchActionBlocked
           ? null
           : () {
               unawaited(_handlePunch(PunchType.breakEnd));
@@ -623,7 +658,7 @@ class _TimeClockPageState extends State<TimeClockPage> {
   }
 
   Widget _buildSecondaryActionButton() {
-    if (_status == ShiftStatus.checkedOut) {
+    if (_status == ShiftStatus.checkedOut || _status == ShiftStatus.onBreak) {
       return OutlinedButton.icon(
         onPressed: null,
         icon: const Icon(Icons.logout_rounded),
@@ -632,7 +667,7 @@ class _TimeClockPageState extends State<TimeClockPage> {
     }
 
     return OutlinedButton.icon(
-      onPressed: _isSubmittingPunch
+      onPressed: _isSubmittingPunch || _controller.isLoadingWorkLogProjects
           ? null
           : () {
               unawaited(_handlePunch(PunchType.checkOut));

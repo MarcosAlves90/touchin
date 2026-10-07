@@ -144,19 +144,41 @@ class ManagedPunchDraft {
 
 const Object _managedPunchLocationSentinel = Object();
 
+class WorkLogPayload {
+  const WorkLogPayload({
+    required this.description,
+    required this.taskIds,
+  });
+
+  final String description;
+  final List<String> taskIds;
+
+  JsonMap toApiJson() {
+    return <String, dynamic>{
+      'description': description.trim(),
+      'taskIds': taskIds,
+    };
+  }
+}
+
 @freezed
 abstract class CreatePunchRequest with _$CreatePunchRequest {
   const CreatePunchRequest._();
 
   const factory CreatePunchRequest({
     required PunchType type,
+    String? projectId,
     PunchLocationSnapshot? location,
+    WorkLogPayload? workLog,
   }) = _CreatePunchRequest;
 
   JsonMap toApiJson() {
     return {
       'type': punchTypeToApi(type),
+      if (projectId != null && projectId!.trim().isNotEmpty)
+        'projectId': projectId!.trim(),
       if (location != null) 'location': location!.toApiJson(),
+      if (workLog != null) 'workLog': workLog!.toApiJson(),
     };
   }
 }

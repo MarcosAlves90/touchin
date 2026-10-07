@@ -1,5 +1,4 @@
 import 'package:touchin_flutter/contracts/employee.dart';
-import 'package:touchin_flutter/contracts/location.dart';
 import 'package:touchin_flutter/contracts/punch.dart';
 import 'package:touchin_flutter/contracts/time_clock.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
@@ -49,7 +48,11 @@ class _FakeTimeClockController extends TimeClockController {
   }
 
   @override
-  Future<String?> handlePunch(PunchType type) async {
+  Future<String?> handlePunch(
+    PunchType type, {
+    String? projectId,
+    WorkLogPayload? workLog,
+  }) async {
     lastPunchType = type;
     return 'Entrada registrado com sucesso.';
   }
