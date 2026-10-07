@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
 from app.main import app
 from app.seed import JOAO_EMAIL, MARINA_EMAIL
-from tests.test_api import login_headers, login_headers_for, TEST_SEED_SECRET
+from tests.test_api import login_headers, login_headers_for, TEST_SEED_SECRET, _clear_employee_punches
 from datetime import datetime
 
 def _create_project(client, headers, *, name: str = "Project") -> dict:
@@ -23,6 +23,7 @@ def _create_task(client, headers, project_id, *, name="Task"):
     return res.json()
 
 def test_mandatory_work_log_on_break_and_checkout(client: TestClient):
+    _clear_employee_punches("emp-04")
     admin_headers = login_headers(client)
     project = _create_project(client, admin_headers)
     task = _create_task(client, admin_headers, project["id"])
@@ -59,6 +60,7 @@ def test_mandatory_work_log_on_break_and_checkout(client: TestClient):
     assert res.status_code == 200, res.text
     
 def test_monthly_work_logs_report(client: TestClient):
+    _clear_employee_punches("emp-04")
     admin_headers = login_headers(client)
     project = _create_project(client, admin_headers)
     task = _create_task(client, admin_headers, project["id"], name="Report task")
