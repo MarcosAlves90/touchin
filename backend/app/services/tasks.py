@@ -157,7 +157,16 @@ def create_task(
     project.kanban_version += 1
     db.add(task)
     db.flush()
-    AuditService.log_action(db, company_id=company_id, actor_user_id=actor_user_id, project_id=project_id, action="task.created", entity_type="task", entity_id=task.id)
+    AuditService.log_action(
+        db,
+        company_id=company_id,
+        actor_user_id=actor_user_id,
+        project_id=project_id,
+        action="card.created",
+        entity_type="card",
+        entity_id=task.id,
+        metadata={"cardNumber": task.card_number},
+    )
     db.commit()
     db.refresh(task)
     return serialize_task(task, field_cipher=field_cipher)
@@ -183,12 +192,35 @@ def update_task(
         task_id=task.id,
     )
     field_cipher = cipher()
+    changed_fields: list[str] = []
+    if task.parent_task_id != payload.parent_task_id:
+        changed_fields.append("parentTaskId")
+    if field_cipher.decrypt(task.name_ciphertext) != payload.name:
+        changed_fields.append("name")
+    if field_cipher.decrypt(task.description_ciphertext) != payload.description:
+        changed_fields.append("description")
+    new_type = payload.type.value if isinstance(payload.type, TaskType) else payload.type
+    if task.type != new_type:
+        changed_fields.append("type")
     task.parent_task_id = payload.parent_task_id
     task.name_ciphertext = field_cipher.encrypt(payload.name) or ""
     task.description_ciphertext = field_cipher.encrypt(payload.description) or ""
-    task.type = payload.type.value if isinstance(payload.type, TaskType) else payload.type
+    task.type = new_type
     project.kanban_version += 1
-    AuditService.log_action(db, company_id=company_id, actor_user_id=actor_user_id, project_id=project_id, action="task.updated", entity_type="task", entity_id=task.id)
+    if changed_fields:
+        AuditService.log_action(
+            db,
+            company_id=company_id,
+            actor_user_id=actor_user_id,
+            project_id=project_id,
+            action="card.updated",
+            entity_type="card",
+            entity_id=task.id,
+            metadata={
+                "cardNumber": task.card_number,
+                "changedFields": changed_fields,
+            },
+        )
     db.commit()
     db.refresh(task)
     return serialize_task(task, field_cipher=field_cipher)
@@ -211,11 +243,21 @@ def delete_task(
     if child_exists is not None:
         raise DomainError(ErrorKind.conflict, "Task with children cannot be deleted.")
     column_id = task.kanban_column_id
+    card_number = task.card_number
     db.delete(task)
     db.flush()
     _normalize_column_positions(db, column_id=column_id)
     project.kanban_version += 1
-    AuditService.log_action(db, company_id=company_id, actor_user_id=actor_user_id, project_id=project_id, action="task.deleted", entity_type="task", entity_id=task_id)
+    AuditService.log_action(
+        db,
+        company_id=company_id,
+        actor_user_id=actor_user_id,
+        project_id=project_id,
+        action="card.deleted",
+        entity_type="card",
+        entity_id=task_id,
+        metadata={"cardNumber": card_number},
+    )
     db.commit()
 
 
@@ -260,7 +302,19 @@ def add_task_member(
     db.add(link)
     db.flush()
     project.kanban_version += 1
-    AuditService.log_action(db, company_id=company_id, actor_user_id=actor_user_id, project_id=project_id, action="task.member_added", entity_type="task", entity_id=task.id, metadata={"employee_id": employee.id})
+    AuditService.log_action(
+        db,
+        company_id=company_id,
+        actor_user_id=actor_user_id,
+        project_id=project_id,
+        action="card.assignee_added",
+        entity_type="card",
+        entity_id=task.id,
+        metadata={
+            "cardNumber": task.card_number,
+            "employeeId": employee.id,
+        },
+    )
     db.commit()
     db.refresh(link)
     link.employee = employee
@@ -289,5 +343,17 @@ def remove_task_member(
     if link is not None:
         db.delete(link)
         project.kanban_version += 1
-        AuditService.log_action(db, company_id=company_id, actor_user_id=actor_user_id, project_id=project_id, action="task.member_removed", entity_type="task", entity_id=task.id, metadata={"employee_id": employee_id})
+        AuditService.log_action(
+            db,
+            company_id=company_id,
+            actor_user_id=actor_user_id,
+            project_id=project_id,
+            action="card.assignee_removed",
+            entity_type="card",
+            entity_id=task.id,
+            metadata={
+                "cardNumber": task.card_number,
+                "employeeId": employee_id,
+            },
+        )
         db.commit()

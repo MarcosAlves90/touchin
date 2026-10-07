@@ -72,7 +72,8 @@ def create_column(
     db.flush()
     AuditService.log_action(
         db, company_id=company_id, actor_user_id=actor_user_id,
-        action="kanban_column.created", entity_type="kanban_column", entity_id=column.id, project_id=project.id, result="success"
+        action="kanban.column_created", entity_type="kanban_column", entity_id=column.id, project_id=project.id,
+        result="success", metadata={"position": column.position}
     )
     db.commit()
     return get_kanban_board(db, company_id=company_id, project_id=project_id)
@@ -92,12 +93,16 @@ def rename_column(
     project = _locked_project_or_404(db, company_id=company_id, project_id=project_id)
     _check_version(project, payload.expected_version)
     column = _column_or_404(db, project_id=project.id, column_id=column_id)
-    column.name_ciphertext = cipher().encrypt(payload.name) or ""
+    field_cipher = cipher()
+    name_changed = field_cipher.decrypt(column.name_ciphertext) != payload.name
+    column.name_ciphertext = field_cipher.encrypt(payload.name) or ""
     project.kanban_version += 1
-    AuditService.log_action(
-        db, company_id=company_id, actor_user_id=actor_user_id,
-        action="kanban_column.renamed", entity_type="kanban_column", entity_id=column.id, project_id=project.id, result="success"
-    )
+    if name_changed:
+        AuditService.log_action(
+            db, company_id=company_id, actor_user_id=actor_user_id,
+            action="kanban.column_updated", entity_type="kanban_column", entity_id=column.id, project_id=project.id,
+            result="success", metadata={"changedFields": ["name"]}
+        )
     db.commit()
     return get_kanban_board(db, company_id=company_id, project_id=project_id)
 
@@ -122,13 +127,28 @@ def reorder_columns(
         raise DomainError(ErrorKind.bad_request, "Column order contains duplicate IDs.")
     if set(payload.column_ids) != set(by_id):
         raise DomainError(ErrorKind.bad_request, "Column order must include every project column.")
+    old_positions = {column.id: column.position for column in columns}
     for position, column_id in enumerate(payload.column_ids):
         by_id[column_id].position = position
     project.kanban_version += 1
-    AuditService.log_action(
-        db, company_id=company_id, actor_user_id=actor_user_id,
-        action="kanban_columns.reordered", entity_type="project", entity_id=project.id, project_id=project.id, result="success"
-    )
+    for position, column_id in enumerate(payload.column_ids):
+        previous_position = old_positions[column_id]
+        if previous_position == position:
+            continue
+        AuditService.log_action(
+            db,
+            company_id=company_id,
+            actor_user_id=actor_user_id,
+            action="kanban.column_reordered",
+            entity_type="kanban_column",
+            entity_id=column_id,
+            project_id=project.id,
+            result="success",
+            metadata={
+                "fromPosition": previous_position,
+                "toPosition": position,
+            },
+        )
     db.commit()
     return get_kanban_board(db, company_id=company_id, project_id=project_id)
 
@@ -157,6 +177,7 @@ def delete_column(
     ) or 0
     if task_count:
         raise DomainError(ErrorKind.conflict, "A non-empty Kanban column cannot be deleted.")
+    deleted_position = column.position
     db.delete(column)
     remaining = db.scalars(
         select(KanbanColumn)
@@ -168,7 +189,8 @@ def delete_column(
     project.kanban_version += 1
     AuditService.log_action(
         db, company_id=company_id, actor_user_id=actor_user_id,
-        action="kanban_column.deleted", entity_type="kanban_column", entity_id=column_id, project_id=project.id, result="success"
+        action="kanban.column_deleted", entity_type="kanban_column", entity_id=column_id, project_id=project.id,
+        result="success", metadata={"position": deleted_position}
     )
     db.commit()
     return get_kanban_board(db, company_id=company_id, project_id=project_id)
@@ -216,16 +238,75 @@ def reorder_cards(
             "Card order must include every card from the affected columns.",
         )
 
+    previous_state = {
+        task.id: (task.kanban_column_id, task.kanban_position, task.card_number)
+        for task in current_tasks
+    }
+    target_state: dict[str, tuple[str, int]] = {}
     for item in payload.columns:
         for position, task_id in enumerate(item.task_ids):
             task = by_id[task_id]
+            target_state[task_id] = (item.column_id, position)
             task.kanban_column_id = item.column_id
             task.kanban_position = position
 
     project.kanban_version += 1
-    AuditService.log_action(
-        db, company_id=company_id, actor_user_id=actor_user_id,
-        action="kanban_cards.reordered", entity_type="project", entity_id=project.id, project_id=project.id, result="success"
-    )
+    moved_task_ids = {
+        task_id
+        for task_id, (target_column_id, _) in target_state.items()
+        if previous_state[task_id][0] != target_column_id
+    }
+    reordered_task_ids: set[str] = set()
+    for item in payload.columns:
+        resident_task_ids = [task_id for task_id in item.task_ids if task_id not in moved_task_ids]
+        previous_resident_order = sorted(
+            resident_task_ids,
+            key=lambda task_id: previous_state[task_id][1],
+        )
+        previous_resident_rank = {
+            task_id: position for position, task_id in enumerate(previous_resident_order)
+        }
+        reordered_task_ids.update(
+            task_id
+            for position, task_id in enumerate(resident_task_ids)
+            if previous_resident_rank[task_id] != position
+        )
+    for item in payload.columns:
+        for task_id in item.task_ids:
+            previous_column_id, previous_position, card_number = previous_state[task_id]
+            target_column_id, target_position = target_state[task_id]
+            if task_id in moved_task_ids:
+                AuditService.log_action(
+                    db,
+                    company_id=company_id,
+                    actor_user_id=actor_user_id,
+                    action="card.moved",
+                    entity_type="card",
+                    entity_id=task_id,
+                    project_id=project.id,
+                    result="success",
+                    metadata={
+                        "cardNumber": card_number,
+                        "fromColumnId": previous_column_id,
+                        "toColumnId": target_column_id,
+                    },
+                )
+            elif previous_position != target_position and task_id in reordered_task_ids:
+                AuditService.log_action(
+                    db,
+                    company_id=company_id,
+                    actor_user_id=actor_user_id,
+                    action="card.reordered",
+                    entity_type="card",
+                    entity_id=task_id,
+                    project_id=project.id,
+                    result="success",
+                    metadata={
+                        "cardNumber": card_number,
+                        "columnId": target_column_id,
+                        "fromPosition": previous_position,
+                        "toPosition": target_position,
+                    },
+                )
     db.commit()
     return get_kanban_board(db, company_id=company_id, project_id=project_id)

@@ -1,0 +1,271 @@
+{
+  "schema_version": 4,
+  "kind": "feature",
+  "scope": {
+    "allowed_paths": [
+      "backend/app/api/routes/kanban.py",
+      "backend/app/api/routes/projects.py",
+      "backend/app/services/projects.py",
+      "backend/app/services/tasks.py",
+      "backend/app/services/kanban.py",
+      "backend/tests/test_project_task_audit.py",
+      "docs/contracts/project-task-audit-v1.polis.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "backend/tests/test_project_task_audit.py"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Implement GitHub issue #40 by integrating projects, cards/tasks, assignees, and Kanban columns with the existing global audit trail from issue #39, using consistent domain event names, stable card identity, minimal metadata, transaction-safe emission, and tenant isolation without introducing parallel audit infrastructure.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "Project create/update/delete/member add/member remove mutations emit project.created, project.updated, project.deleted, project.member_added, and project.member_removed respectively."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "Task/card create/update/delete and assignee mutations emit card.created, card.updated, card.deleted, card.assignee_added, and card.assignee_removed respectively."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "Every card event uses entity_type card and includes card_number metadata plus project_id on the audit event."
+      },
+      {
+        "id": "REQ-004",
+        "statement": "Kanban card reorder distinguishes cross-column card.moved events from same-column card.reordered events and emits no duplicate event for an unchanged card."
+      },
+      {
+        "id": "REQ-005",
+        "statement": "Kanban column create/update/delete/reorder mutations emit kanban.column_created, kanban.column_updated, kanban.column_deleted, and kanban.column_reordered with project and column identity."
+      },
+      {
+        "id": "REQ-006",
+        "statement": "Relevant project/card updates use structured minimal metadata describing changed fields without copying decrypted descriptions or other unnecessary sensitive content."
+      },
+      {
+        "id": "REQ-007",
+        "statement": "Audit events preserve actor user ID and company ID and remain queryable under the existing tenant-isolated audit API."
+      },
+      {
+        "id": "REQ-008",
+        "statement": "The locked POLIS Change Contract for this issue is committed at docs/contracts/project-task-audit-v1.polis.json."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "Project mutations emit the canonical project.* actions with actor, company, project entity ID, success result, and structured metadata where relevant.",
+        "requirements": [
+          "REQ-001",
+          "REQ-006",
+          "REQ-007"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "Card create/update/delete and assignee mutations emit canonical card.* actions and every event contains card_number and project_id while assignee metadata contains only the stable employee ID.",
+        "requirements": [
+          "REQ-002",
+          "REQ-003",
+          "REQ-006",
+          "REQ-007"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-003",
+        "statement": "A cross-column move emits exactly one card.moved event per changed card with fromColumnId and toColumnId, while a same-column position change emits card.reordered with columnId, fromPosition, and toPosition; unchanged cards emit neither event.",
+        "requirements": [
+          "REQ-003",
+          "REQ-004"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-004",
+        "statement": "Kanban column create/update/delete/reorder emits the four canonical kanban.column_* actions with project and column identity and reorder metadata identifying the prior/new order without full board snapshots.",
+        "requirements": [
+          "REQ-005",
+          "REQ-006"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-005",
+        "statement": "Rejected cross-tenant or stale operations do not create success audit events, and existing audit query tenant isolation remains valid.",
+        "requirements": [
+          "REQ-007"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-006",
+        "statement": "Audit metadata sanitization continues to redact sensitive keys and issue #40 code does not introduce secrets or credentials into metadata.",
+        "requirements": [
+          "REQ-006",
+          "REQ-007"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-007",
+        "statement": "The target tree contains the locked issue #40 POLIS contract at docs/contracts/project-task-audit-v1.polis.json.",
+        "requirements": [
+          "REQ-008"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "No new audit table, storage mechanism, query surface, or logger is introduced; AuditService remains the single audit write path."
+      },
+      {
+        "id": "INV-002",
+        "statement": "Existing API, authorization, tenant-scoping, optimistic concurrency, and domain mutation semantics remain unchanged."
+      },
+      {
+        "id": "INV-003",
+        "statement": "Secrets, tokens, credentials, cookies, and unnecessary personal data are not persisted in audit metadata."
+      },
+      {
+        "id": "INV-004",
+        "statement": "A rejected or failed domain mutation does not persist a success audit event."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORBID-001",
+        "statement": "Legacy ad-hoc actions such as create, update, delete, assign_member, remove_member, task.*, task.member_*, kanban_column.*, kanban_columns.reordered, or kanban_cards.reordered are emitted by the project/task/Kanban integration after this change."
+      },
+      {
+        "id": "FORBID-002",
+        "statement": "A card audit event is persisted without card_number or project_id."
+      },
+      {
+        "id": "FORBID-003",
+        "statement": "A single card movement/reorder produces duplicate domain audit events."
+      },
+      {
+        "id": "FORBID-004",
+        "statement": "Issue #40 adds an audit persistence mechanism separate from AuditService/AuditEvent."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "Authenticated project, task/card, assignee, and Kanban mutation requests already validated against a company context."
+      },
+      {
+        "id": "IN-002",
+        "statement": "Existing AuditService from issue #39 and existing Project, Task, TaskEmployee, EmployeeProject, and KanbanColumn models."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "Successful project/card/Kanban mutations persist canonical audit events with actor, company, project/entity identity, result, and minimal structured metadata."
+      },
+      {
+        "id": "OUT-002",
+        "statement": "Card events include internal card ID, project_id, and card_number; movement and reorder events include the relevant before/after location metadata."
+      },
+      {
+        "id": "OUT-003",
+        "statement": "A versioned locked POLIS contract for issue #40 is stored under docs/contracts/project-task-audit-v1.polis.json."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "Existing domain validation, authorization, not-found, conflict, and stale-version failures retain their current HTTP/domain behavior and do not persist success audit rows."
+      },
+      {
+        "id": "FAIL-002",
+        "statement": "AuditService sanitization and transaction behavior from issue #39 remain authoritative for metadata safety and persistence failures."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "5fb493be5e962b421bf5656dadc0a5d0dc69349e",
+    "base_tree": "26d729dff179a38a5dd374bb2aea7552a7d86480",
+    "policy_sha256": "4dc59521a48d962685d6eadee740a40a9847e2022d8141c5c686cc3d9724cc51",
+    "specification_sha256": "35ba14029cbdc300b2e9a1ddb594ab3485916e73b8202f42b6ec0ecbd2eef8ff"
+  },
+  "behavior": {
+    "argv": [
+      "/Users/marcos.lopes/Documents/@cherry-c/touchin/backend/.venv/bin/python",
+      "-m",
+      "pytest",
+      "tests/test_project_task_audit.py",
+      "-q"
+    ],
+    "cwd": "backend",
+    "timeout_seconds": 180,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "/Users/marcos.lopes/Documents/@cherry-c/touchin/backend/.venv/bin/python",
+      "-m",
+      "pytest",
+      "tests",
+      "-q"
+    ],
+    "cwd": "backend",
+    "timeout_seconds": 1200,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "/Users/marcos.lopes/Documents/@cherry-c/touchin/backend/.venv/bin/python",
+        "-m",
+        "pytest",
+        "tests/test_project_task_audit.py",
+        "-q"
+      ],
+      "cwd": "backend",
+      "timeout_seconds": 180,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "test_project_audit_uses_canonical_actions"
+    ]
+  }
+}
