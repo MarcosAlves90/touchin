@@ -104,32 +104,34 @@ def create_punch(
 
     tasks_for_log = []
     if punch_type in (PunchType.break_start, PunchType.check_out) and current_status.value == "working":
-        if active_project_id or payload.work_log:
-            if not payload.work_log:
-                raise DomainError(ErrorKind.bad_request, "O registro de atividades é obrigatório ao sair para o almoço ou encerrar a jornada.")
+        if not payload.work_log:
+            raise DomainError(ErrorKind.bad_request, "O registro de atividades é obrigatório ao sair para o almoço ou encerrar a jornada.")
+        
+        from app.models import Task, WorkLog
+        
+        task_ids = set(payload.work_log.task_ids)
+        if not task_ids:
+            raise DomainError(ErrorKind.bad_request, "IDs de tarefas não informados.")
             
-            from app.models import Task, WorkLog
+        tasks_for_log = db.scalars(
+            select(Task).where(Task.id.in_(task_ids))
+        ).all()
+        
+        if len(tasks_for_log) != len(task_ids):
+            raise DomainError(ErrorKind.bad_request, "IDs de tarefas inválidos.")
             
-            task_ids = set(payload.work_log.task_ids)
-            if not task_ids:
-                raise DomainError(ErrorKind.bad_request, "IDs de tarefas não informados.")
-                
-            tasks_for_log = db.scalars(
-                select(Task).where(Task.id.in_(task_ids))
-            ).all()
-            
-            if len(tasks_for_log) != len(task_ids):
-                raise DomainError(ErrorKind.bad_request, "IDs de tarefas inválidos.")
-                
-            for t in tasks_for_log:
-                if t.project_id != active_project_id:
-                    raise DomainError(ErrorKind.bad_request, "Tarefas informadas não pertencem ao projeto.")
-                validate_project_for_punch(
-                    db,
-                    company_id=employee.company_id,
-                    employee_id=employee.id,
-                    project_id=t.project_id,
-                )
+        if not active_project_id:
+            active_project_id = tasks_for_log[0].project_id
+
+        for t in tasks_for_log:
+            if t.project_id != active_project_id:
+                raise DomainError(ErrorKind.bad_request, "Tarefas informadas não pertencem ao projeto.")
+            validate_project_for_punch(
+                db,
+                company_id=employee.company_id,
+                employee_id=employee.id,
+                project_id=t.project_id,
+            )
 
     detail = {
         PunchType.check_in: "Entrada registrada com localização validada.",

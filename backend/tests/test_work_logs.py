@@ -89,3 +89,20 @@ def test_monthly_work_logs_report(client: TestClient):
     assert len(record["tasks"]) == 1
     assert record["tasks"][0] == "Report task"
 
+
+def test_mandatory_work_log_no_project_id(client: TestClient):
+    _clear_employee_punches("emp-04")
+    admin_headers = login_headers(client)
+    project = _create_project(client, admin_headers)
+    task = _create_task(client, admin_headers, project["id"])
+    client.post(f"/api/v1/projects/{project['id']}/members", headers=admin_headers, json={"employeeId": "emp-04"})
+    headers = login_headers_for(client, email=JOAO_EMAIL, password=TEST_SEED_SECRET)
+    res = client.post("/api/v1/time-clock/me/punches", headers=headers, json={"type": "checkIn"})
+    res = client.post("/api/v1/time-clock/me/punches", headers=headers, json={"type": "breakStart"})
+    assert res.status_code == 400
+    assert "registro de atividades" in res.json()["detail"].lower()
+    res = client.post("/api/v1/time-clock/me/punches", headers=headers, json={"type": "checkOut"})
+    assert res.status_code == 400
+    assert "registro de atividades" in res.json()["detail"].lower()
+    res = client.post("/api/v1/time-clock/me/punches", headers=headers, json={"type": "checkOut", "workLog": {"description": "desc", "taskIds": [task["id"]]}})
+    assert res.status_code == 200, res.text
