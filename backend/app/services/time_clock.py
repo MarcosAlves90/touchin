@@ -95,13 +95,16 @@ def create_punch(
             project_id=payload.project_id,
         )
 
-    if payload.project_id or payload.work_log:
+    last_punch = all_records[-1] if all_records else None
+    active_project_id = payload.project_id or (last_punch.project_id if last_punch else None)
+
+    if active_project_id or payload.work_log:
         if punch_type == PunchType.check_out and current_status.value == "onBreak":
             raise DomainError(ErrorKind.bad_request, "Não é possível encerrar a jornada durante uma pausa ao usar apontamento de tarefas. Encerre a pausa primeiro.")
 
     tasks_for_log = []
     if punch_type in (PunchType.break_start, PunchType.check_out) and current_status.value == "working":
-        if payload.project_id or payload.work_log:
+        if active_project_id or payload.work_log:
             if not payload.work_log:
                 raise DomainError(ErrorKind.bad_request, "O registro de atividades é obrigatório ao sair para o almoço ou encerrar a jornada.")
             
@@ -119,7 +122,7 @@ def create_punch(
                 raise DomainError(ErrorKind.bad_request, "IDs de tarefas inválidos.")
                 
             for t in tasks_for_log:
-                if t.project_id != payload.project_id:
+                if t.project_id != active_project_id:
                     raise DomainError(ErrorKind.bad_request, "Tarefas informadas não pertencem ao projeto.")
                 validate_project_for_punch(
                     db,
@@ -137,7 +140,7 @@ def create_punch(
     record = Punch(
         company_id=employee.company_id,
         employee_id=employee.id,
-        project_id=payload.project_id,
+        project_id=active_project_id,
         type=punch_type.value,
         timestamp=utcnow(),
         detail_ciphertext=cipher.encrypt(detail) or "",
@@ -164,7 +167,7 @@ def create_punch(
         work_log = WorkLog(
             company_id=employee.company_id,
             employee_id=employee.id,
-            project_id=payload.project_id,
+            project_id=active_project_id,
             punch_id=record.id,
             start_time=start_time,
             end_time=end_time,
