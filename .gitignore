@@ -95,3 +95,8 @@ backend/.svelte-kit/
 backend/.turbo/
 backend/*.tsbuildinfo
 .aider*
+
+# Polis Artifacts
+.polis/artifacts/
+*.polis
+*.zip
