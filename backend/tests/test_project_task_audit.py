@@ -2,18 +2,26 @@ from __future__ import annotations
 
 import json
 
-from sqlalchemy import select
+import pytest
+from sqlalchemy import func, select
 
 from app.db import SessionLocal
-from app.models import AuditEvent
+from app.models import AuditEvent, Company, Project
+from app.services.audit import AuditService
+from app.db import utcnow
 from test_api import TEST_SEED_SECRET, login_headers_for
 
 
 MANAGER_EMAIL = "caio.martins@touchin.com"
+ADMIN_EMAIL = "marina.costa@touchin.com"
 
 
 def _manager_headers(client):
     return login_headers_for(client, email=MANAGER_EMAIL, password=TEST_SEED_SECRET)
+
+
+def _admin_headers(client):
+    return login_headers_for(client, email=ADMIN_EMAIL, password=TEST_SEED_SECRET)
 
 
 def _create_project(client, headers, *, name: str = "Audit project") -> dict:
@@ -170,6 +178,50 @@ def test_card_audit_uses_stable_identity_and_actor_for_assignees(client):
         "description",
         "type",
     }
+
+
+def test_project_member_removal_audits_implicit_card_assignee_revocation(client):
+    headers = _manager_headers(client)
+    project = _create_project(client, headers, name="Revocation audit")
+    assert client.post(
+        f"/api/v1/projects/{project['id']}/members",
+        headers=headers,
+        json={"employeeId": "emp-04"},
+    ).status_code == 201
+    task = _create_task(client, headers, project["id"], name="Assigned card")
+    assigned = client.post(
+        f"/api/v1/projects/{project['id']}/kanban/cards/{task['id']}/assignees/emp-04",
+        headers=headers,
+    )
+    assert assigned.status_code == 200, assigned.text
+
+    removed = client.delete(
+        f"/api/v1/projects/{project['id']}/members/emp-04",
+        headers=headers,
+    )
+    assert removed.status_code == 204, removed.text
+
+    card_events = _events(project_id=project["id"], entity_id=task["id"])
+    assert [event.action for event in card_events] == [
+        "card.created",
+        "card.assignee_added",
+        "card.assignee_removed",
+    ]
+    removal = card_events[-1]
+    assert removal.actor_user_id
+    assert removal.company_id
+    assert removal.project_id == project["id"]
+    assert _metadata(removal) == {
+        "cardNumber": task["cardNumber"],
+        "employeeId": "emp-04",
+    }
+
+    members = client.get(
+        f"/api/v1/projects/{project['id']}/tasks/{task['id']}/members",
+        headers=headers,
+    )
+    assert members.status_code == 200, members.text
+    assert members.json() == []
 
 
 def test_card_move_reorder_and_stale_request_audit_without_duplicates(client):
@@ -350,3 +402,100 @@ def test_kanban_column_audit_uses_canonical_actions_and_column_identity(client):
         assert event.entity_type == "kanban_column"
         assert event.actor_user_id
         assert event.project_id == project["id"]
+
+
+def test_cross_tenant_project_mutation_is_rejected_and_audit_query_remains_isolated(client):
+    manager_headers = _manager_headers(client)
+    admin_headers = _admin_headers(client)
+    foreign_company_id = "company-foreign-audit"
+    foreign_project_id = "project-foreign-audit"
+    foreign_event_id = "evt-foreign-audit"
+
+    with SessionLocal() as db:
+        foreign_company = Company(
+            id=foreign_company_id,
+            legal_name_ciphertext="foreign",
+            trade_name_ciphertext="foreign",
+            cnpj_ciphertext="foreign",
+            cnpj_hash="foreign-cnpj-hash",
+            contact_email_ciphertext="foreign",
+            contact_email_hash="foreign-email-hash",
+            contact_phone_ciphertext="foreign",
+            consented_at=utcnow(),
+            timezone="America/Sao_Paulo",
+        )
+        foreign_project = Project(
+            id=foreign_project_id,
+            company_id=foreign_company_id,
+            name_ciphertext="foreign",
+            description_ciphertext="foreign",
+            task_employee_limit=1,
+            next_card_number=1,
+            kanban_version=0,
+            status="active",
+        )
+        foreign_event = AuditEvent(
+            id=foreign_event_id,
+            timestamp=utcnow(),
+            company_id=foreign_company_id,
+            project_id=foreign_project_id,
+            action="project.created",
+            entity_type="project",
+            entity_id=foreign_project_id,
+            result="success",
+        )
+        db.add_all([foreign_company, foreign_project, foreign_event])
+        db.commit()
+
+    rejected = client.put(
+        f"/api/v1/projects/{foreign_project_id}",
+        headers=manager_headers,
+        json={
+            "name": "Cross tenant update",
+            "description": "Must be rejected.",
+            "taskEmployeeLimit": 2,
+            "status": "active",
+        },
+    )
+    assert rejected.status_code == 404
+
+    with SessionLocal() as db:
+        foreign_events = list(
+            db.scalars(
+                select(AuditEvent).where(AuditEvent.project_id == foreign_project_id),
+            ).all(),
+        )
+        assert [event.id for event in foreign_events] == [foreign_event_id]
+
+    audit_response = client.get("/api/v1/audit-events", headers=admin_headers)
+    assert audit_response.status_code == 200, audit_response.text
+    assert foreign_event_id not in {event["id"] for event in audit_response.json()}
+
+
+def test_audit_failure_rolls_back_domain_mutation(client, monkeypatch):
+    headers = _manager_headers(client)
+    with SessionLocal() as db:
+        project_count_before = db.scalar(select(func.count()).select_from(Project))
+        event_count_before = db.scalar(select(func.count()).select_from(AuditEvent))
+
+    def fail_audit(*args, **kwargs):
+        raise RuntimeError("audit unavailable")
+
+    monkeypatch.setattr(AuditService, "log_action", fail_audit)
+
+    with pytest.raises(RuntimeError, match="audit unavailable"):
+        client.post(
+            "/api/v1/projects",
+            headers=headers,
+            json={
+                "name": "Must roll back",
+                "description": "The project must not persist when auditing fails.",
+                "taskEmployeeLimit": 1,
+            },
+        )
+
+    with SessionLocal() as db:
+        project_count_after = db.scalar(select(func.count()).select_from(Project))
+        event_count_after = db.scalar(select(func.count()).select_from(AuditEvent))
+    assert project_count_after == project_count_before
+    assert event_count_after == event_count_before

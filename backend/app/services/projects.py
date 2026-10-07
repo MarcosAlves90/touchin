@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db import begin_serialized_write
@@ -190,13 +190,30 @@ def remove_project_member(db: Session, *, company_id: str, project_id: str, empl
         ),
     )
 
-    task_ids = select(Task.id).where(Task.project_id == project_id)
-    db.execute(
-        delete(TaskEmployee).where(
+    task_assignments = db.execute(
+        select(TaskEmployee, Task)
+        .join(Task, Task.id == TaskEmployee.task_id)
+        .where(
+            Task.project_id == project_id,
             TaskEmployee.employee_id == employee_id,
-            TaskEmployee.task_id.in_(task_ids),
         ),
-    )
+    ).all()
+    for task_link, task in task_assignments:
+        db.delete(task_link)
+        AuditService.log_action(
+            db,
+            actor_user_id=actor_user_id,
+            action="card.assignee_removed",
+            entity_type="card",
+            entity_id=task.id,
+            company_id=company_id,
+            project_id=project_id,
+            result="success",
+            metadata={
+                "cardNumber": task.card_number,
+                "employeeId": employee_id,
+            },
+        )
     if link is not None:
         db.delete(link)
         AuditService.log_action(
