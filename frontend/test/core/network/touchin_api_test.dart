@@ -108,6 +108,26 @@ void main() {
     );
   });
 
+  test('create punch request serializes project and mandatory work log', () {
+    final request = CreatePunchRequest(
+      type: PunchType.checkOut,
+      projectId: ' project-1 ',
+      workLog: const WorkLogPayload(
+        description: ' atividade concluída ',
+        taskIds: <String>['task-1', 'task-2'],
+      ),
+    );
+
+    expect(request.toApiJson(), <String, dynamic>{
+      'type': 'checkOut',
+      'projectId': 'project-1',
+      'workLog': <String, dynamic>{
+        'description': 'atividade concluída',
+        'taskIds': <String>['task-1', 'task-2'],
+      },
+    });
+  });
+
   test('registerCompany posts payload contract and parses full session',
       () async {
     final client = _FakeApiClient(

@@ -1,8 +1,9 @@
 import 'dart:async';
 
 import 'package:touchin_flutter/contracts/employee.dart';
-import 'package:touchin_flutter/contracts/location.dart';
 import 'package:touchin_flutter/contracts/punch.dart';
+import 'package:touchin_flutter/contracts/project.dart';
+import 'package:touchin_flutter/contracts/task.dart';
 import 'package:touchin_flutter/contracts/time_clock.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
 import 'package:touchin_flutter/features/time_tracking/application/punch_location_service.dart';
@@ -10,10 +11,19 @@ import 'package:touchin_flutter/features/time_tracking/presentation/time_clock_c
 import 'package:flutter_test/flutter_test.dart';
 
 class _FakeTouchInApi extends TouchInApi {
-  _FakeTouchInApi(this.state, {this.refreshStateCompleter});
+  _FakeTouchInApi(
+    this.state, {
+    this.refreshStateCompleter,
+    this.projects = const <ProjectSummary>[],
+    this.tasksByProject = const <String, List<TaskRecord>>{},
+    this.taskListCompleter,
+  });
 
   final TimeClockState state;
   final Completer<TimeClockState>? refreshStateCompleter;
+  final List<ProjectSummary> projects;
+  final Map<String, List<TaskRecord>> tasksByProject;
+  final Completer<List<TaskRecord>>? taskListCompleter;
   int getStateCalls = 0;
   CreatePunchRequest? lastPunchRequest;
 
@@ -40,6 +50,19 @@ class _FakeTouchInApi extends TouchInApi {
       detail: 'registrado',
       location: request.location,
     );
+  }
+
+  @override
+  Future<List<ProjectSummary>> listProjects({ProjectStatus? status}) async {
+    return projects;
+  }
+
+  @override
+  Future<List<TaskRecord>> listTasks(String projectId) async {
+    if (taskListCompleter != null) {
+      return taskListCompleter!.future;
+    }
+    return tasksByProject[projectId] ?? const <TaskRecord>[];
   }
 }
 
@@ -102,6 +125,33 @@ TimeClockState _timeClockState() {
   );
 }
 
+ProjectSummary _project(String id, String name) {
+  final timestamp = DateTime.parse('2026-05-24T08:00:00Z');
+  return ProjectSummary(
+    id: id,
+    name: name,
+    description: null,
+    taskEmployeeLimit: 2,
+    status: ProjectStatus.active,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  );
+}
+
+TaskRecord _task(String id, String projectId, String name) {
+  final timestamp = DateTime.parse('2026-05-24T08:00:00Z');
+  return TaskRecord(
+    id: id,
+    projectId: projectId,
+    parentTaskId: null,
+    name: name,
+    description: 'desc',
+    type: TaskType.feature,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  );
+}
+
 void main() {
   test('start loads time clock state without waiting for location permission',
       () async {
@@ -156,6 +206,98 @@ void main() {
       controller.dispose();
     },
   );
+
+  test('loads authorized work-log projects and tasks', () async {
+    final project = _project('project-1', 'Projeto A');
+    final task = _task('task-1', project.id, 'Tarefa A');
+    final api = _FakeTouchInApi(
+      _timeClockState(),
+      projects: <ProjectSummary>[project],
+      tasksByProject: <String, List<TaskRecord>>{
+        project.id: <TaskRecord>[task],
+      },
+    );
+    final controller = TimeClockController(
+      api: api,
+      punchLocationService: const _FailingPunchLocationService(),
+    );
+
+    expect(await controller.loadWorkLogProjects(), isNull);
+    expect(controller.workLogProjects.map((item) => item.id),
+        <String>[project.id]);
+
+    expect(await controller.loadWorkLogTasks(project.id), isNull);
+    expect(controller.selectedWorkLogProjectId, project.id);
+    expect(controller.workLogTasks.map((item) => item.id), <String>[task.id]);
+
+    controller.dispose();
+  });
+
+  test('reloading work-log projects invalidates an in-flight task load',
+      () async {
+    final project = _project('project-1', 'Projeto A');
+    final task = _task('task-1', project.id, 'Tarefa A');
+    final taskListCompleter = Completer<List<TaskRecord>>();
+    final api = _FakeTouchInApi(
+      _timeClockState(),
+      projects: <ProjectSummary>[project],
+      taskListCompleter: taskListCompleter,
+    );
+    final controller = TimeClockController(
+      api: api,
+      punchLocationService: const _FailingPunchLocationService(),
+    );
+
+    expect(await controller.loadWorkLogProjects(), isNull);
+    final pendingTaskLoad = controller.loadWorkLogTasks(project.id);
+    expect(controller.isLoadingWorkLogTasks, isTrue);
+
+    expect(await controller.loadWorkLogProjects(), isNull);
+    expect(controller.isLoadingWorkLogTasks, isFalse);
+    expect(controller.selectedWorkLogProjectId, isNull);
+    expect(controller.workLogTasks, isEmpty);
+
+    taskListCompleter.complete(<TaskRecord>[task]);
+    expect(await pendingTaskLoad, isNull);
+    expect(controller.workLogTasks, isEmpty);
+
+    controller.dispose();
+  });
+
+  test('handlePunch propagates project and work log to the API request',
+      () async {
+    final api = _FakeTouchInApi(_timeClockState());
+    final controller = TimeClockController(
+      api: api,
+      punchLocationService: _ReadyPunchLocationService(
+        PunchLocationResult.ready(
+          snapshot: PunchLocationSnapshot(
+            latitude: -23.55052,
+            longitude: -46.63331,
+            accuracyMeters: 8,
+            capturedAt: DateTime.parse('2026-05-24T13:29:00Z'),
+          ),
+        ),
+      ),
+    );
+    const workLog = WorkLogPayload(
+      description: 'Implementação concluída',
+      taskIds: <String>['task-1'],
+    );
+
+    final message = await controller.handlePunch(
+      PunchType.breakStart,
+      projectId: 'project-1',
+      workLog: workLog,
+    );
+
+    expect(message, 'Pausa registrado com sucesso.');
+    expect(api.lastPunchRequest?.projectId, 'project-1');
+    expect(api.lastPunchRequest?.workLog?.description, workLog.description);
+    expect(api.lastPunchRequest?.workLog?.taskIds, workLog.taskIds);
+
+    controller.dispose();
+  });
 
   test(
     'handlePunch returns without waiting for the refresh load',

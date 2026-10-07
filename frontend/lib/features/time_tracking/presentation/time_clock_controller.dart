@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:touchin_flutter/contracts/punch.dart';
+import 'package:touchin_flutter/contracts/project.dart';
+import 'package:touchin_flutter/contracts/task.dart';
 import 'package:touchin_flutter/contracts/time_clock.dart';
 import 'package:touchin_flutter/core/network/api_client.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
@@ -40,11 +42,18 @@ class TimeClockController extends ChangeNotifier {
   int recordsTotalPages = 1;
   bool recordsHasPrevious = false;
   bool recordsHasNext = false;
+  List<ProjectSummary> workLogProjects = const <ProjectSummary>[];
+  List<TaskRecord> workLogTasks = const <TaskRecord>[];
+  String? selectedWorkLogProjectId;
+  bool isLoadingWorkLogProjects = false;
+  bool isLoadingWorkLogTasks = false;
+  String? workLogLoadError;
 
   bool get hasTimelinePagination => recordsTotalPages > 1;
 
   Timer? _clockTimer;
   bool _isDisposed = false;
+  int _workLogTaskRequestVersion = 0;
 
   Future<void> start() async {
     now = DateTime.now();
@@ -160,7 +169,90 @@ class TimeClockController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<String?> handlePunch(PunchType type) async {
+  Future<String?> loadWorkLogProjects() async {
+    if (_isDisposed) {
+      return null;
+    }
+
+    isLoadingWorkLogProjects = true;
+    workLogLoadError = null;
+    selectedWorkLogProjectId = null;
+    workLogTasks = const <TaskRecord>[];
+    isLoadingWorkLogTasks = false;
+    _workLogTaskRequestVersion += 1;
+    notifyListeners();
+
+    try {
+      workLogProjects = await _api.listProjects(status: ProjectStatus.active);
+      if (_isDisposed) {
+        return null;
+      }
+      return null;
+    } on ApiException catch (error) {
+      workLogProjects = const <ProjectSummary>[];
+      workLogLoadError = error.message;
+      return error.message;
+    } catch (_) {
+      const message =
+          'Não foi possível carregar os projetos para o registro de atividades.';
+      workLogProjects = const <ProjectSummary>[];
+      workLogLoadError = message;
+      return message;
+    } finally {
+      if (!_isDisposed) {
+        isLoadingWorkLogProjects = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<String?> loadWorkLogTasks(String projectId) async {
+    if (_isDisposed) {
+      return null;
+    }
+
+    final requestVersion = ++_workLogTaskRequestVersion;
+    selectedWorkLogProjectId = projectId;
+    workLogTasks = const <TaskRecord>[];
+    isLoadingWorkLogTasks = true;
+    workLogLoadError = null;
+    notifyListeners();
+
+    try {
+      final tasks = await _api.listTasks(projectId);
+      if (_isDisposed ||
+          requestVersion != _workLogTaskRequestVersion ||
+          selectedWorkLogProjectId != projectId) {
+        return null;
+      }
+      workLogTasks = List<TaskRecord>.unmodifiable(tasks);
+      return null;
+    } on ApiException catch (error) {
+      if (requestVersion == _workLogTaskRequestVersion) {
+        workLogTasks = const <TaskRecord>[];
+        workLogLoadError = error.message;
+      }
+      return error.message;
+    } catch (_) {
+      const message = 'Não foi possível carregar as tarefas do projeto.';
+      if (requestVersion == _workLogTaskRequestVersion) {
+        workLogTasks = const <TaskRecord>[];
+        workLogLoadError = message;
+      }
+      return message;
+    } finally {
+      if (!_isDisposed && requestVersion == _workLogTaskRequestVersion) {
+        isLoadingWorkLogTasks = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<String?> handlePunch(
+    PunchType type, {
+    String? projectId,
+    WorkLogPayload? workLog,
+  }) async {
     if (_isDisposed) {
       return null;
     }
@@ -197,7 +289,9 @@ class TimeClockController extends ChangeNotifier {
       final punch = await _api.createPunch(
         request: CreatePunchRequest(
           type: type,
+          projectId: projectId,
           location: punchLocation,
+          workLog: workLog,
         ),
       );
       unawaited(
