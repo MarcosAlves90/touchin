@@ -37,13 +37,14 @@ def test_mandatory_work_log_on_break_and_checkout(client: TestClient):
     res = client.post("/api/v1/time-clock/me/punches", headers=headers, json={"type": "checkIn"})
     assert res.status_code == 200, res.text
     
-    # 2. Try to break_start without work_log -> should fail
-    res = client.post("/api/v1/time-clock/me/punches", headers=headers, json={"type": "breakStart"})
+    # 2. Try to break_start with projectId but without work_log -> should fail
+    res = client.post("/api/v1/time-clock/me/punches", headers=headers, json={"type": "breakStart", "projectId": project["id"]})
     assert res.status_code == 400
     
     # 3. break_start with valid work_log -> should pass
     res = client.post("/api/v1/time-clock/me/punches", headers=headers, json={
         "type": "breakStart",
+        "projectId": project["id"],
         "workLog": {"description": "Trabalhei muito", "taskIds": [task["id"]]}
     })
     assert res.status_code == 200, res.text
@@ -55,6 +56,7 @@ def test_mandatory_work_log_on_break_and_checkout(client: TestClient):
     # 5. check_out with work_log -> should pass
     res = client.post("/api/v1/time-clock/me/punches", headers=headers, json={
         "type": "checkOut",
+        "projectId": project["id"],
         "workLog": {"description": "Terminei", "taskIds": [task["id"]]}
     })
     assert res.status_code == 200, res.text

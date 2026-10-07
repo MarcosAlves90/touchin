@@ -320,6 +320,7 @@ class WorkLog(Base):
     end_time: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     duration_seconds: Mapped[int] = mapped_column(Integer)
     description_ciphertext: Mapped[str] = mapped_column(Text)
+    task_snapshots_ciphertext: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     punch: Mapped[Punch] = relationship()

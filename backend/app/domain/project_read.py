@@ -169,20 +169,25 @@ def generate_monthly_work_logs_report(
         employee_id=employee_id,
     )
     
-    logs = db.scalars(
-        select(WorkLog)
-        .where(
-            WorkLog.project_id == project_id,
-            WorkLog.company_id == company_id,
-            extract('year', WorkLog.start_time) == year,
-            extract('month', WorkLog.start_time) == month
-        )
-        .order_by(WorkLog.start_time)
-    ).all()
+    query = select(WorkLog).where(
+        WorkLog.project_id == project_id,
+        WorkLog.company_id == company_id,
+        extract('year', WorkLog.start_time) == year,
+        extract('month', WorkLog.start_time) == month
+    )
+    
+    if employee_id is not None:
+        query = query.where(WorkLog.employee_id == employee_id)
+        
+    logs = db.scalars(query.order_by(WorkLog.start_time)).all()
     
     records = []
     for log in logs:
-        tasks = [field_cipher.decrypt(t.name_ciphertext) or "" for t in log.tasks]
+        import json
+        try:
+            tasks = json.loads(field_cipher.decrypt(log.task_snapshots_ciphertext) or "[]")
+        except:
+            tasks = [field_cipher.decrypt(t.name_ciphertext) or "" for t in log.tasks]
         
         # calculate hours and mins
         duration_hours = log.duration_seconds // 3600
