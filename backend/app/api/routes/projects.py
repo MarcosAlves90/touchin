@@ -119,6 +119,7 @@ def assign_project_member_route(
         company_id=context.company.id,
         project_id=project_id,
         employee_id=payload.employee_id,
+        actor_user_id=context.user.id,
     )
     if not created:
         response.status_code = status.HTTP_200_OK
@@ -137,5 +138,6 @@ def remove_project_member_route(
         company_id=context.company.id,
         project_id=project_id,
         employee_id=employee_id,
+        actor_user_id=context.user.id,
     )
     return Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -192,6 +192,7 @@ def add_kanban_assignee_route(
         project_id=project_id,
         task_id=task_id,
         employee_id=employee_id,
+        actor_user_id=context.user.id,
     )
     board = get_kanban_board(
         db,
@@ -220,6 +221,7 @@ def remove_kanban_assignee_route(
         project_id=project_id,
         task_id=task_id,
         employee_id=employee_id,
+        actor_user_id=context.user.id,
     )
     board = get_kanban_board(
         db,
