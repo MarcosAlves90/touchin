@@ -339,6 +339,86 @@ def test_card_move_reorder_and_stale_request_audit_without_duplicates(client):
     ) == 1 + count_before_noop
 
 
+def test_cross_column_move_preserves_explicit_resident_reorder_audit(client):
+    headers = _manager_headers(client)
+    project = _create_project(client, headers, name="Move with resident reorder")
+    moving = _create_task(client, headers, project["id"], name="Moving")
+    source_resident = _create_task(client, headers, project["id"], name="Source resident")
+    target_first = _create_task(client, headers, project["id"], name="Target first")
+    target_second = _create_task(client, headers, project["id"], name="Target second")
+    initial = _board(client, headers, project["id"])
+    source = initial["columns"][0]
+
+    created_column = client.post(
+        f"/api/v1/projects/{project['id']}/kanban/columns",
+        headers=headers,
+        json={"name": "Doing", "expectedVersion": initial["kanbanVersion"]},
+    )
+    assert created_column.status_code == 201, created_column.text
+    with_target = created_column.json()
+    target = next(column for column in with_target["columns"] if column["id"] != source["id"])
+
+    seeded = client.put(
+        f"/api/v1/projects/{project['id']}/kanban/cards/order",
+        headers=headers,
+        json={
+            "expectedVersion": with_target["kanbanVersion"],
+            "columns": [
+                {"columnId": source["id"], "taskIds": [moving["id"], source_resident["id"]]},
+                {"columnId": target["id"], "taskIds": [target_first["id"], target_second["id"]]},
+            ],
+        },
+    )
+    assert seeded.status_code == 200, seeded.text
+    before_event_ids = {event.id for event in _events(project_id=project["id"])}
+
+    moved_and_reordered = client.put(
+        f"/api/v1/projects/{project['id']}/kanban/cards/order",
+        headers=headers,
+        json={
+            "expectedVersion": seeded.json()["kanbanVersion"],
+            "columns": [
+                {"columnId": source["id"], "taskIds": [source_resident["id"]]},
+                {
+                    "columnId": target["id"],
+                    "taskIds": [target_second["id"], target_first["id"], moving["id"]],
+                },
+            ],
+        },
+    )
+    assert moved_and_reordered.status_code == 200, moved_and_reordered.text
+
+    new_events = [
+        event
+        for event in _events(project_id=project["id"])
+        if event.id not in before_event_ids and event.action in {"card.moved", "card.reordered"}
+    ]
+    assert {(event.action, event.entity_id) for event in new_events} == {
+        ("card.moved", moving["id"]),
+        ("card.reordered", target_first["id"]),
+        ("card.reordered", target_second["id"]),
+    }
+    assert not any(event.entity_id == source_resident["id"] for event in new_events)
+
+    reorder_metadata = {
+        event.entity_id: _metadata(event)
+        for event in new_events
+        if event.action == "card.reordered"
+    }
+    assert reorder_metadata[target_first["id"]] == {
+        "cardNumber": target_first["cardNumber"],
+        "columnId": target["id"],
+        "fromPosition": 0,
+        "toPosition": 1,
+    }
+    assert reorder_metadata[target_second["id"]] == {
+        "cardNumber": target_second["cardNumber"],
+        "columnId": target["id"],
+        "fromPosition": 1,
+        "toPosition": 0,
+    }
+
+
 def test_kanban_column_audit_uses_canonical_actions_and_column_identity(client):
     headers = _manager_headers(client)
     project = _create_project(client, headers, name="Column audit")

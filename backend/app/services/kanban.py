@@ -256,11 +256,21 @@ def reorder_cards(
         for task_id, (target_column_id, _) in target_state.items()
         if previous_state[task_id][0] != target_column_id
     }
-    moved_columns = {
-        column_id
-        for task_id in moved_task_ids
-        for column_id in (previous_state[task_id][0], target_state[task_id][0])
-    }
+    reordered_task_ids: set[str] = set()
+    for item in payload.columns:
+        resident_task_ids = [task_id for task_id in item.task_ids if task_id not in moved_task_ids]
+        previous_resident_order = sorted(
+            resident_task_ids,
+            key=lambda task_id: previous_state[task_id][1],
+        )
+        previous_resident_rank = {
+            task_id: position for position, task_id in enumerate(previous_resident_order)
+        }
+        reordered_task_ids.update(
+            task_id
+            for position, task_id in enumerate(resident_task_ids)
+            if previous_resident_rank[task_id] != position
+        )
     for item in payload.columns:
         for task_id in item.task_ids:
             previous_column_id, previous_position, card_number = previous_state[task_id]
@@ -281,7 +291,7 @@ def reorder_cards(
                         "toColumnId": target_column_id,
                     },
                 )
-            elif previous_position != target_position and target_column_id not in moved_columns:
+            elif previous_position != target_position and task_id in reordered_task_ids:
                 AuditService.log_action(
                     db,
                     company_id=company_id,
