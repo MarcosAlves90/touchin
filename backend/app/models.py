@@ -301,6 +301,31 @@ class Punch(Base):
 
 
 
+class WorkLogTask(Base):
+    __tablename__ = "work_log_tasks"
+    work_log_id: Mapped[str] = mapped_column(ForeignKey("work_logs.id", ondelete="CASCADE"), primary_key=True)
+    task_id: Mapped[str] = mapped_column(ForeignKey("tasks.id", ondelete="CASCADE"), primary_key=True)
+
+
+class WorkLog(Base):
+    __tablename__ = "work_logs"
+    
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=generate_id)
+    company_id: Mapped[str] = mapped_column(ForeignKey(_COL_COMPANIES_ID), index=True)
+    employee_id: Mapped[str] = mapped_column(ForeignKey(_COL_EMPLOYEES_ID), index=True)
+    project_id: Mapped[str | None] = mapped_column(ForeignKey(_COL_PROJECTS_ID), nullable=True, index=True)
+    punch_id: Mapped[str] = mapped_column(ForeignKey("punches.id"), index=True)
+
+    start_time: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    end_time: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    duration_seconds: Mapped[int] = mapped_column(Integer)
+    description_ciphertext: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    punch: Mapped[Punch] = relationship()
+    tasks: Mapped[list[Task]] = relationship(secondary="work_log_tasks")
+
+
 class AuditEvent(Base):
     __tablename__ = 'audit_events'
 

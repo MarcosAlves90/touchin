@@ -145,3 +145,63 @@ def list_employee_projects(db: Session, *, company_id: str, employee_id: str) ->
         .order_by(Project.created_at.desc(), Project.id.desc()),
     ).all()
     return [serialize_project(project, cipher=field_cipher) for project in projects]
+
+
+def generate_monthly_work_logs_report(
+    db: Session,
+    *,
+    company_id: str,
+    project_id: str,
+    year: int,
+    month: int,
+    employee_id: str | None = None,
+):
+    from app.models import WorkLog
+    from app.schemas.project import MonthlyWorkLogReport, MonthlyWorkLogRecord
+    from sqlalchemy import extract
+    import datetime
+
+    field_cipher = cipher()
+    project_or_404(
+        db,
+        company_id=company_id,
+        project_id=project_id,
+        employee_id=employee_id,
+    )
+    
+    logs = db.scalars(
+        select(WorkLog)
+        .where(
+            WorkLog.project_id == project_id,
+            WorkLog.company_id == company_id,
+            extract('year', WorkLog.start_time) == year,
+            extract('month', WorkLog.start_time) == month
+        )
+        .order_by(WorkLog.start_time)
+    ).all()
+    
+    records = []
+    for log in logs:
+        tasks = [field_cipher.decrypt(t.name_ciphertext) or "" for t in log.tasks]
+        
+        # calculate hours and mins
+        duration_hours = log.duration_seconds // 3600
+        duration_minutes = (log.duration_seconds % 3600) // 60
+        
+        records.append(
+            MonthlyWorkLogRecord(
+                date=log.start_time.strftime("%d/%m/%Y"),
+                start_time=log.start_time.strftime("%H:%M"),
+                end_time=log.end_time.strftime("%H:%M"),
+                duration=f"{duration_hours}h {duration_minutes:02d}min",
+                tasks=tasks,
+                description=field_cipher.decrypt(log.description_ciphertext) or ""
+            )
+        )
+        
+    return MonthlyWorkLogReport(
+        project_id=project_id,
+        year=year,
+        month=month,
+        records=records
+    )

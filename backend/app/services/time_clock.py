@@ -95,6 +95,32 @@ def create_punch(
             project_id=payload.project_id,
         )
 
+    tasks_for_log = []
+    if punch_type in (PunchType.break_start, PunchType.check_out) and current_status.value == "working":
+        if not payload.work_log:
+            raise DomainError(ErrorKind.bad_request, "O registro de atividades é obrigatório ao sair para o almoço ou encerrar a jornada.")
+        
+        from app.models import Task, WorkLog
+        
+        task_ids = set(payload.work_log.task_ids)
+        if not task_ids:
+            raise DomainError(ErrorKind.bad_request, "IDs de tarefas não informados.")
+            
+        tasks_for_log = db.scalars(
+            select(Task).where(Task.id.in_(task_ids))
+        ).all()
+        
+        if len(tasks_for_log) != len(task_ids):
+            raise DomainError(ErrorKind.bad_request, "IDs de tarefas inválidos.")
+            
+        for t in tasks_for_log:
+            validate_project_for_punch(
+                db,
+                company_id=employee.company_id,
+                employee_id=employee.id,
+                project_id=t.project_id,
+            )
+
     detail = {
         PunchType.check_in: "Entrada registrada com localização validada.",
         PunchType.break_start: "Pausa iniciada com localização capturada.",
@@ -115,6 +141,29 @@ def create_punch(
         ),
     )
     db.add(record)
+    
+    if tasks_for_log:
+        last_punch = all_records[-1]
+        start_time = ensure_utc(last_punch.timestamp)
+        end_time = ensure_utc(record.timestamp)
+        duration_seconds = int((end_time - start_time).total_seconds())
+        if duration_seconds < 0:
+            duration_seconds = 0
+            
+        work_log = WorkLog(
+            company_id=employee.company_id,
+            employee_id=employee.id,
+            project_id=payload.project_id,
+            punch_id=record.id,
+            start_time=start_time,
+            end_time=end_time,
+            duration_seconds=duration_seconds,
+            description_ciphertext=cipher.encrypt(payload.work_log.description) or "",
+            punch=record,
+            tasks=tasks_for_log,
+        )
+        db.add(work_log)
+
     db.commit()
     db.refresh(record)
     return serialize_record(record, cipher=cipher)
