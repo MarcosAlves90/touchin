@@ -454,6 +454,8 @@ def test_time_clock_state_paginates_records(client):
     task_res = client.post(f"/api/v1/projects/{proj_id}/tasks", headers=headers, json={"name": "T1", "type": "feature", "description": "d"})
     task_id = task_res.json()["id"]
 
+    client.post(f"/api/v1/projects/{proj_id}/members", headers=headers, json={"employeeId": "emp-01"})
+
     _clear_employee_punches("emp-01")
 
     punch_payloads = [
