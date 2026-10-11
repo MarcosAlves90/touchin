@@ -15,6 +15,11 @@ virtual_env_python = BACKEND / ".venv" / (
 backend_python = str(virtual_env_python) if virtual_env_python.is_file() else sys.executable
 
 for name, command, directory in (
+    (
+        "POLIS CI adapter",
+        [sys.executable, "-B", "-m", "unittest", "discover", "-s", "scripts/tests", "-v"],
+        ROOT,
+    ),
     ("backend", [backend_python, "-m", "pytest"], BACKEND),
     ("frontend", ["flutter", "test"], FRONTEND),
 ):

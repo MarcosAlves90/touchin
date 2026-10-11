@@ -7,6 +7,7 @@
       ".polis/policy.json",
       "scripts/polis_tests.py",
       "scripts/run_polis_gates.py",
+      "scripts/tests/test_run_polis_gates.py",
       ".github/workflows/ci.yml",
       "frontend/web/index.html",
       "frontend/vercel.json",
@@ -22,7 +23,8 @@
     "allowed_paths": [
       "frontend/test/widget_test.dart",
       "frontend/test/browser/first_paint_smoke.mjs",
-      "frontend/test/core/theme/theme_mode_controller_test.dart"
+      "frontend/test/core/theme/theme_mode_controller_test.dart",
+      "scripts/tests/test_run_polis_gates.py"
     ]
   },
   "development_method": "strict_sdd_tdd_v1",
@@ -97,6 +99,12 @@
         "id": "AC-008",
         "statement": "Under blocked localStorage access, the browser smoke must verify that Flutter mounts the functional login UI while storage remains blocked. GitHub Actions must build Flutter Web and run that Chrome visual smoke using commands from the checked-in POLIS policy; an invalid inline bootstrap CSP hash must fail validation.",
         "requirements": ["REQ-001", "REQ-004", "REQ-005"],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-009",
+        "statement": "The GitHub Actions POLIS policy adapter must enforce each gate's timeout_seconds, terminate its spawned process and descendants if the deadline expires, return a nonzero timeout result, and keep non-timeout exit status, working directory, and the clean environment intact.",
+        "requirements": ["REQ-005"],
         "proof": "regression"
       }
     ],

@@ -54,6 +54,10 @@ jobs:
       - name: Run frontend tests
         run: flutter test
 
+      - name: Test POLIS CI gate runner
+        working-directory: .
+        run: python3 -B -m unittest discover -s scripts/tests -v
+
       - name: Set up Node.js for browser smoke
         uses: actions/setup-node@v4
         with:
