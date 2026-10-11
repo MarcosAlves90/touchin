@@ -5,11 +5,12 @@ from datetime import datetime, time, timedelta, timezone
 import json
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.crypto import FieldCipher, lookup_digest
+from app.db import ensure_utc
 from app.models import Company, Employee, Punch, UserAccount
 from app.security import hash_password
 
@@ -222,54 +223,39 @@ def _build_employees(company_id: str) -> list[Employee]:
     return [_build_employee(company_id, seed) for seed in _employee_seed_rows()]
 
 
-def _build_users(company_id: str, cipher: FieldCipher, settings) -> list[UserAccount]:
+def _user_seed_rows() -> list[tuple[str, str | None, str, str]]:
     return [
-        UserAccount(
-            id="user-marina",
-            company_id=company_id,
-            employee_id="emp-01",
-            email_ciphertext=cipher.encrypt(MARINA_EMAIL) or "",
-            email_hash=_email_hash(MARINA_EMAIL),
-            password_hash=hash_password(settings.seed_admin_password),
-            role="admin",
-        ),
-        UserAccount(
-            id="user-caio",
-            company_id=company_id,
-            employee_id="emp-02",
-            email_ciphertext=cipher.encrypt(CAIO_EMAIL) or "",
-            email_hash=_email_hash(CAIO_EMAIL),
-            password_hash=hash_password(settings.seed_admin_password),
-            role="manager",
-        ),
-        UserAccount(
-            id="user-joao",
-            company_id=company_id,
-            employee_id="emp-04",
-            email_ciphertext=cipher.encrypt(JOAO_EMAIL) or "",
-            email_hash=_email_hash(JOAO_EMAIL),
-            password_hash=hash_password(settings.seed_admin_password),
-            role="employee",
-        ),
-        UserAccount(
-            id="user-bianca",
-            company_id=company_id,
-            employee_id="emp-03",
-            email_ciphertext=cipher.encrypt(BIANCA_EMAIL) or "",
-            email_hash=_email_hash(BIANCA_EMAIL),
-            password_hash=hash_password(settings.seed_admin_password),
-            role="employee",
-        ),
-        UserAccount(
-            id="user-super-admin",
-            company_id=company_id,
-            employee_id=None,
-            email_ciphertext=cipher.encrypt(SUPER_ADMIN_EMAIL) or "",
-            email_hash=_email_hash(SUPER_ADMIN_EMAIL),
-            password_hash=hash_password(settings.seed_admin_password),
-            role="super_admin",
-        ),
+        ("user-marina", "emp-01", MARINA_EMAIL, "admin"),
+        ("user-caio", "emp-02", CAIO_EMAIL, "manager"),
+        ("user-joao", "emp-04", JOAO_EMAIL, "employee"),
+        ("user-bianca", "emp-03", BIANCA_EMAIL, "employee"),
+        ("user-super-admin", None, SUPER_ADMIN_EMAIL, "super_admin"),
     ]
+
+
+def _build_users(
+    company_id: str,
+    cipher: FieldCipher,
+    settings,
+    *,
+    only_ids: set[str] | None = None,
+) -> list[UserAccount]:
+    users = []
+    for user_id, employee_id, email, role in _user_seed_rows():
+        if only_ids is not None and user_id not in only_ids:
+            continue
+        users.append(
+            UserAccount(
+                id=user_id,
+                company_id=company_id,
+                employee_id=employee_id,
+                email_ciphertext=cipher.encrypt(email) or "",
+                email_hash=_email_hash(email),
+                password_hash=hash_password(settings.seed_admin_password),
+                role=role,
+            ),
+        )
+    return users
 
 
 def _build_punch(
@@ -283,6 +269,7 @@ def _build_punch(
 ) -> Punch:
     cipher = _cipher()
     return Punch(
+        id=f"seed-{employee_id}-{punch_type}-{timestamp:%Y%m%d}",
         company_id=company_id,
         employee_id=employee_id,
         type=punch_type,
@@ -401,16 +388,115 @@ def _build_punches(company_id: str) -> list[Punch]:
 
 
 def seed_database_if_empty(db: Session) -> None:
-    if db.scalar(select(Company.id).limit(1)) is not None:
-        return
-
     settings = _settings()
     cipher = _cipher()
-    db.add(_build_company(cipher, settings))
-    db.add_all(_build_employees(COMPANY_ID))
-    db.add_all(_build_users(COMPANY_ID, cipher, settings))
-    db.add_all(_build_punches(COMPANY_ID))
-    db.commit()
+    expected_company = _build_company(cipher, settings)
+
+    try:
+        company = db.get(Company, COMPANY_ID)
+        if company is None:
+            company_conflict = db.scalar(
+                select(Company.id).where(
+                    or_(
+                        Company.cnpj_hash == expected_company.cnpj_hash,
+                        Company.contact_email_hash == expected_company.contact_email_hash,
+                    ),
+                ),
+            )
+            if company_conflict is not None:
+                raise RuntimeError(
+                    "Seed data conflicts with existing non-seed company identity."
+                )
+            db.add(expected_company)
+            db.flush()
+        elif (
+            company.cnpj_hash != expected_company.cnpj_hash
+            or company.contact_email_hash != expected_company.contact_email_hash
+        ):
+            raise RuntimeError(
+                "Seed data conflicts with existing non-seed company identity."
+            )
+
+        for employee in _build_employees(COMPANY_ID):
+            existing = db.get(Employee, employee.id)
+            email_owner = db.scalar(
+                select(Employee.id).where(Employee.email_hash == employee.email_hash),
+            )
+            if existing is not None and (
+                existing.company_id != COMPANY_ID
+                or existing.email_hash != employee.email_hash
+            ):
+                raise RuntimeError(
+                    f"Seed data conflicts with existing non-seed employee: {employee.id}."
+                )
+            if email_owner is not None and email_owner != employee.id:
+                raise RuntimeError(
+                    f"Seed data conflicts with existing non-seed employee: {employee.id}."
+                )
+            if existing is None:
+                db.add(employee)
+
+        missing_user_ids = set()
+        for user_id, employee_id, email, role in _user_seed_rows():
+            email_hash = _email_hash(email)
+            existing = db.get(UserAccount, user_id)
+            email_owner = db.scalar(
+                select(UserAccount.id).where(UserAccount.email_hash == email_hash),
+            )
+            if existing is not None and (
+                existing.company_id != COMPANY_ID
+                or existing.employee_id != employee_id
+                or existing.email_hash != email_hash
+                or existing.role != role
+            ):
+                raise RuntimeError(
+                    f"Seed data conflicts with existing non-seed user: {user_id}."
+                )
+            if email_owner is not None and email_owner != user_id:
+                raise RuntimeError(
+                    f"Seed data conflicts with existing non-seed user: {user_id}."
+                )
+            if existing is None:
+                missing_user_ids.add(user_id)
+
+        db.add_all(
+            _build_users(
+                COMPANY_ID,
+                cipher,
+                settings,
+                only_ids=missing_user_ids,
+            ),
+        )
+
+        for punch in _build_punches(COMPANY_ID):
+            existing = db.get(Punch, punch.id)
+            if existing is not None and (
+                existing.company_id != punch.company_id
+                or existing.employee_id != punch.employee_id
+                or existing.type != punch.type
+                or ensure_utc(existing.timestamp) != ensure_utc(punch.timestamp)
+            ):
+                raise RuntimeError(
+                    f"Seed data conflicts with existing non-seed punch: {punch.id}."
+                )
+            if existing is None:
+                legacy_seed_punch = db.scalar(
+                    select(Punch.id)
+                    .where(
+                        Punch.company_id == punch.company_id,
+                        Punch.employee_id == punch.employee_id,
+                        Punch.type == punch.type,
+                        Punch.timestamp == punch.timestamp,
+                    )
+                    .limit(1),
+                )
+                if legacy_seed_punch is None:
+                    db.add(punch)
+
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
 
 
 def seed_database(db: Session) -> None:
