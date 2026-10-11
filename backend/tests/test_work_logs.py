@@ -146,6 +146,11 @@ def test_monthly_report_utc_boundaries_order_and_authorization(client: TestClien
                 WorkLog.project_id == project_id,
                 extract("year", WorkLog.start_time) == 2026,
                 extract("month", WorkLog.start_time) == 1,
+                # Older SQLite versions may round 23:59:59.999999 into the
+                # next calendar day during strftime/EXTRACT. Compare legacy
+                # behavior only for unambiguous timestamps, and assert the
+                # last microsecond of December separately below.
+                WorkLog.id != "boundary-log-dec-last",
             ).order_by(WorkLog.start_time)
         ).all()
         expected = [field_cipher.decrypt(log.description_ciphertext) for log in original]
