@@ -1,6 +1,55 @@
 from sqlalchemy import create_engine, inspect, text
 
 from app.database_schema import upgrade_database_schema
+from app.db import Base
+from app import models  # noqa: F401
+
+
+WORK_LOG_INDEX = "ix_work_logs_company_project_start_time"
+
+
+def test_new_database_creates_work_log_index(tmp_path):
+    bind = create_engine(f"sqlite:///{tmp_path / 'fresh.db'}")
+    try:
+        Base.metadata.create_all(bind)
+        indexes = {index["name"]: index for index in inspect(bind).get_indexes("work_logs")}
+        assert indexes[WORK_LOG_INDEX]["column_names"] == [
+            "company_id", "project_id", "start_time",
+        ]
+    finally:
+        bind.dispose()
+
+
+def test_upgrade_restores_index_on_existing_work_logs_without_changing_data(tmp_path, monkeypatch):
+    from app import db as db_module
+
+    bind = create_engine(f"sqlite:///{tmp_path / 'existing.db'}")
+    try:
+        Base.metadata.create_all(bind)
+        with bind.begin() as connection:
+            connection.execute(text(f"DROP INDEX {WORK_LOG_INDEX}"))
+            connection.execute(text(
+                "INSERT INTO work_logs "
+                "(id, company_id, employee_id, project_id, punch_id, start_time, end_time, "
+                "duration_seconds, description_ciphertext, task_snapshots_ciphertext, created_at) "
+                "VALUES ('existing-log', 'company', 'employee', 'project', 'punch', "
+                "'2026-01-01 00:00:00', '2026-01-01 00:01:00', 60, 'cipher', '[]', "
+                "'2026-01-01 00:00:00')"
+            ))
+        monkeypatch.setattr(db_module, "engine", bind)
+        # Exercita o caminho real de inicialização usado pelo lifespan e por create_postgres.
+        db_module.init_database()
+        db_module.init_database()
+        indexes = {index["name"]: index for index in inspect(bind).get_indexes("work_logs")}
+        assert indexes[WORK_LOG_INDEX]["column_names"] == [
+            "company_id", "project_id", "start_time",
+        ]
+        with bind.connect() as connection:
+            assert connection.execute(
+                text("SELECT id, duration_seconds FROM work_logs")
+            ).all() == [("existing-log", 60)]
+    finally:
+        bind.dispose()
 
 
 def test_upgrade_database_schema_adds_project_id_to_legacy_punches_table(tmp_path):

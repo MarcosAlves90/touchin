@@ -329,6 +329,16 @@ def _upgrade_punches(bind, inspector) -> None:
                 )
 
 
+def _ensure_work_log_indexes(bind) -> None:
+    with bind.begin() as connection:
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_work_logs_company_project_start_time "
+                "ON work_logs (company_id, project_id, start_time)"
+            ),
+        )
+
+
 def _upgrade_audit_events(bind, inspector) -> None:
     if "audit_events" not in inspector.get_table_names():
         return
@@ -392,5 +402,8 @@ def upgrade_database_schema(bind) -> None:
     _upgrade_tasks_for_kanban(bind, inspector)
     inspector = inspect(bind)
     _upgrade_punches(bind, inspector)
+    inspector = inspect(bind)
+    if "work_logs" in inspector.get_table_names():
+        _ensure_work_log_indexes(bind)
     inspector = inspect(bind)
     _upgrade_audit_events(bind, inspector)

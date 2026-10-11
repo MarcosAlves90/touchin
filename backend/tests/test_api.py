@@ -511,6 +511,37 @@ def test_time_clock_state_paginates_records(client):
     assert [item["type"] for item in payload["records"]] == ["checkIn"]
 
 
+def test_clock_state_uses_latest_punch_even_when_no_records_today(client):
+    from datetime import datetime, timedelta, timezone
+
+    headers = login_headers(client)
+    _clear_employee_punches("emp-01")
+    last_timestamp = datetime.now(timezone.utc) - timedelta(days=1)
+    earlier_timestamp = last_timestamp - timedelta(hours=8)
+    field_cipher = _cipher()
+    with SessionLocal() as db:
+        for record_id, record_type, timestamp in [
+            ("historical-check-in", "checkIn", earlier_timestamp),
+            ("historical-break-start", "breakStart", last_timestamp),
+        ]:
+            db.add(Punch(
+                id=record_id, company_id="company-touchin", employee_id="emp-01",
+                type=record_type, timestamp=timestamp,
+                detail_ciphertext=field_cipher.encrypt("history") or "",
+            ))
+        db.commit()
+
+    response = client.get("/api/v1/time-clock/me?page=99&limit=2", headers=headers)
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["currentStatus"] == "onBreak"
+    assert payload["records"] == []
+    assert payload["recordsTotal"] == 0
+    assert payload["recordsPage"] == 1
+    returned_timestamp = datetime.fromisoformat(payload["lastPunchAt"].replace("Z", "+00:00"))
+    assert returned_timestamp == last_timestamp
+
+
 def test_employee_cannot_manage_employee_punches(client):
     headers = login_headers_for(
         client,
