@@ -8,6 +8,8 @@ from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
+from app.config import get_settings
+from app.crypto import FieldCipher, lookup_digest
 from app.db import Base
 from app.models import Company, Employee, Punch, UserAccount
 from app.seed import COMPANY_ID, seed_database
@@ -209,4 +211,27 @@ def test_seed_recognizes_legacy_punches_after_date_changes(db: Session, monkeypa
 
     current_ids = {punch.id for punch in db.scalars(select(Punch)).all()}
     assert current_ids == legacy_ids
+    assert _counts(db) == (1, 5, 5, 13)
+
+
+def test_seed_preserves_email_edits_on_seed_owned_employee(db: Session) -> None:
+    seed_database(db)
+
+    updated_email = "bianca.updated@touchin.com"
+    cipher = FieldCipher(get_settings().encryption_secret or "")
+    email_hash = lookup_digest(updated_email, get_settings().encryption_secret or "")
+    employee = db.get(Employee, "emp-03")
+    account = db.get(UserAccount, "user-bianca")
+    assert employee is not None
+    assert account is not None
+    employee.email_ciphertext = cipher.encrypt(updated_email) or ""
+    employee.email_hash = email_hash
+    account.email_ciphertext = cipher.encrypt(updated_email) or ""
+    account.email_hash = email_hash
+    db.commit()
+
+    seed_database(db)
+
+    assert db.get(Employee, "emp-03").email_hash == email_hash
+    assert db.get(UserAccount, "user-bianca").email_hash == email_hash
     assert _counts(db) == (1, 5, 5, 13)

@@ -419,44 +419,44 @@ def seed_database_if_empty(db: Session) -> None:
 
         for employee in _build_employees(COMPANY_ID):
             existing = db.get(Employee, employee.id)
+            if existing is not None:
+                if existing.company_id != COMPANY_ID:
+                    raise RuntimeError(
+                        f"Seed data conflicts with existing non-seed employee: {employee.id}."
+                    )
+                continue
+
             email_owner = db.scalar(
                 select(Employee.id).where(Employee.email_hash == employee.email_hash),
             )
-            if existing is not None and (
-                existing.company_id != COMPANY_ID
-                or existing.email_hash != employee.email_hash
-            ):
+            if email_owner is not None:
                 raise RuntimeError(
                     f"Seed data conflicts with existing non-seed employee: {employee.id}."
                 )
-            if email_owner is not None and email_owner != employee.id:
-                raise RuntimeError(
-                    f"Seed data conflicts with existing non-seed employee: {employee.id}."
-                )
-            if existing is None:
-                db.add(employee)
+            db.add(employee)
 
         missing_user_ids = set()
         for user_id, employee_id, email, _role in _user_seed_rows():
             email_hash = _email_hash(email)
             existing = db.get(UserAccount, user_id)
+            if existing is not None:
+                if (
+                    existing.company_id != COMPANY_ID
+                    or existing.employee_id != employee_id
+                ):
+                    raise RuntimeError(
+                        f"Seed data conflicts with existing non-seed user: {user_id}."
+                    )
+                continue
+
             email_owner = db.scalar(
                 select(UserAccount.id).where(UserAccount.email_hash == email_hash),
             )
-            if existing is not None and (
-                existing.company_id != COMPANY_ID
-                or existing.employee_id != employee_id
-                or existing.email_hash != email_hash
-            ):
+            if email_owner is not None:
                 raise RuntimeError(
                     f"Seed data conflicts with existing non-seed user: {user_id}."
                 )
-            if email_owner is not None and email_owner != user_id:
-                raise RuntimeError(
-                    f"Seed data conflicts with existing non-seed user: {user_id}."
-                )
-            if existing is None:
-                missing_user_ids.add(user_id)
+            missing_user_ids.add(user_id)
 
         db.add_all(
             _build_users(
