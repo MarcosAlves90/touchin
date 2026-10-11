@@ -90,6 +90,13 @@ class TouchInApi {
         'newPassword': newPassword,
       },
     );
+
+    final session = await _tokenStorage.readAuthSession();
+    if (session != null && session.mustChangePassword) {
+      await _tokenStorage.saveAuthSession(
+        session.copyWith(mustChangePassword: false),
+      );
+    }
   }
 
   Future<List<EmployeeProfile>> listEmployees() async {

@@ -26,8 +26,6 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  late final Future<AuthSession?> _bootstrapFuture = _bootstrapSession();
-
   TouchInApi get _api => widget.api ?? TouchInApi();
 
   TokenStorage get _tokenStorage => widget.tokenStorage ?? TokenStorage();
@@ -86,10 +84,11 @@ class _MyAppState extends State<MyApp> {
   }
 
   Route<void> _buildRoute(RouteSettings settings) {
+    final sessionFuture = _bootstrapSession();
     return MaterialPageRoute<void>(
       settings: settings,
       builder: (context) => FutureBuilder<AuthSession?>(
-        future: _bootstrapFuture,
+        future: sessionFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
             return const _StartupSplash();

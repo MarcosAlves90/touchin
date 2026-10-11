@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:touchin_flutter/contracts/auth.dart';
 import 'package:touchin_flutter/core/network/api_client.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
 import 'package:touchin_flutter/core/storage/token_storage.dart';
+import 'package:touchin_flutter/features/auth/presentation/auth_session_navigation.dart';
 import 'package:touchin_flutter/main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -242,6 +245,73 @@ void main() {
     expect(find.text('Bater ponto'), findsOneWidget);
     expect(find.text('Administrar equipe'), findsNothing);
     expect(routeUpdates, contains('/time-clock'));
+  });
+
+  testWidgets('navigates after login when startup had no persisted session', (
+    WidgetTester tester,
+  ) async {
+    final tokenStorage = _InMemoryTokenStorage();
+    const company = AuthCompanySummary(
+      id: 'cmp-01',
+      legalName: 'TouchIn Tecnologia LTDA',
+      tradeName: 'TouchIn',
+      cnpjMasked: '12.***.***/****-90',
+      emailMasked: 'co*****@touchin.com',
+      phoneMasked: '11*****0000',
+    );
+    const user = AuthUserSummary(
+      id: 'usr-01',
+      email: 'super.admin@touchin.com',
+      role: 'super_admin',
+    );
+    final session = AuthSession(
+      accessToken: 'token-123',
+      tokenType: 'bearer',
+      expiresAt: DateTime.parse('2099-04-26T18:00:00Z'),
+      company: company,
+      user: user,
+    );
+    final api = _FakeTouchInApi(
+      tokenStorage: tokenStorage,
+      authContext: const AuthContext(company: company, user: user),
+    );
+
+    await tester.pumpWidget(
+      MyApp(api: api, tokenStorage: tokenStorage),
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('Entrar'), findsWidgets);
+
+    await tokenStorage.saveAuthSession(session);
+    unawaited(
+      tester
+          .state<NavigatorState>(find.byType(Navigator).first)
+          .pushReplacement(
+            buildAuthenticatedWorkspaceRoute(session),
+          ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('Administrar equipe'), findsOneWidget);
+
+    tester.state<ScaffoldState>(find.byType(Scaffold).first).openDrawer();
+    await tester.pump(const Duration(seconds: 1));
+    final timeClockMenuItem = tester.widget<InkWell>(
+      find
+          .ancestor(
+            of: find.text('Bater Ponto'),
+            matching: find.byType(InkWell),
+          )
+          .first,
+    );
+    timeClockMenuItem.onTap!();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.text('Bater ponto'), findsOneWidget);
+    expect(find.text('Entrar'), findsNothing);
+    expect(api.authContextRequests, 1);
   });
 }
 
