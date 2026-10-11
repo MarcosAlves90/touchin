@@ -76,36 +76,52 @@ class _MyAppState extends State<MyApp> {
           ],
           supportedLocales: const [Locale('pt', 'BR')],
           locale: const Locale('pt', 'BR'),
-          home: FutureBuilder<AuthSession?>(
-            future: _bootstrapFuture,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState != ConnectionState.done) {
-                return const _StartupSplash();
-              }
-
-              final session = snapshot.data;
-              if (session != null) {
-                return _BootstrapSessionView(session: session);
-              }
-
-              return const LoginPage();
-            },
-          ),
+          onGenerateRoute: _buildRoute,
+          onGenerateInitialRoutes: (initialRoute) => <Route<void>>[
+            _buildRoute(RouteSettings(name: initialRoute)),
+          ],
         );
       },
+    );
+  }
+
+  Route<void> _buildRoute(RouteSettings settings) {
+    return MaterialPageRoute<void>(
+      settings: settings,
+      builder: (context) => FutureBuilder<AuthSession?>(
+        future: _bootstrapFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            return const _StartupSplash();
+          }
+
+          final session = snapshot.data;
+          if (session != null) {
+            return _BootstrapSessionView(
+              session: session,
+              routeName: settings.name,
+            );
+          }
+
+          return const LoginPage();
+        },
+      ),
     );
   }
 }
 
 class _BootstrapSessionView extends StatelessWidget {
-  const _BootstrapSessionView({required this.session});
+  const _BootstrapSessionView({required this.session, this.routeName});
 
   final AuthSession session;
+  final String? routeName;
 
   @override
   Widget build(BuildContext context) {
-    final route = buildAuthenticatedWorkspaceRoute(session)
-        as MaterialPageRoute<void>;
+    final route = buildAuthenticatedWorkspaceRoute(
+      session,
+      routeName: routeName,
+    ) as MaterialPageRoute<void>;
     return route.builder(context);
   }
 }
