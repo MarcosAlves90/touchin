@@ -88,7 +88,9 @@ def _paginate_query_records(
     page_size: int,
 ) -> tuple[list[Punch], int, int, int, int, bool, bool]:
     normalized_page_size = max(page_size, 1)
-    total_records = db.scalar(select(func.count()).select_from(query.subquery())) or 0
+    total_records = db.scalar(
+        select(func.count()).select_from(query.order_by(None).subquery()),
+    ) or 0
     total_pages = max(ceil(total_records / normalized_page_size), 1)
     normalized_page = min(max(page, 1), total_pages)
     records = db.scalars(

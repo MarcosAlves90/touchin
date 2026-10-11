@@ -40,7 +40,7 @@ Commands (from `/touchin/backend`):
 ./.venv/bin/pytest -q
 ```
 
-Observed: **11 targeted passed**, **104 total passed**, four pre-existing dependency/SQLite deprecation warnings, zero failures. `git diff --check` passes.
+Observed in the final COUNT follow-up: **106 backend tests passed** on macOS/Python 3.14 and Linux/Python 3.12.15, with only existing dependency/SQLite deprecation warnings. `git diff --check` passes.
 
 ## PostgreSQL reproducible evidence
 
@@ -112,6 +112,22 @@ ON public.work_logs (company_id, project_id, start_time);
 Then verify the definition and `pg_index.indisvalid`, query plans and representative read/write latencies, and execute the normal schema upgrade to confirm idempotency. `IF NOT EXISTS` checks the name only, not a matching column definition; a same-named incorrect or invalid index requires separate diagnosis. Concurrent index creation can fail and leave an invalid index, which must be addressed under a controlled migration procedure. No index was deployed to staging or production.
 
 ## Remaining findings and limits
+
+### Follow-up: COUNT should not sort
+
+The managed punch listing's total count originally used a subquery with
+`ORDER BY timestamp DESC, id DESC`. Removing only that ordering with
+`query.order_by(None).subquery()` preserves the filters and the ordered
+`LIMIT/OFFSET` query that returns the page. The automated regression in
+`backend/tests/test_time_clock_count_query.py` checks the emitted COUNT SQL,
+absence of SQLite's `TEMP B-TREE` sort, deterministic ordering across tied
+timestamps, out-of-range pages, and the empty result case.
+
+An isolated SQLite benchmark of 100,000 synthetic punches with 33,333 matching
+rows measured median COUNT times over nine executions: **12.167 ms** before,
+**5.668 ms** after (approximately **2.15×** for COUNT alone). The old
+`EXPLAIN QUERY PLAN` contained `USE TEMP B-TREE FOR ORDER BY`; the revised
+plan did not. This is not a production endpoint-level or HTTP speedup.
 
 | Finding | Outcome | Recommendation |
 |---|---|---|
