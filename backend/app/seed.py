@@ -5,12 +5,12 @@ from datetime import datetime, time, timedelta, timezone
 import json
 from zoneinfo import ZoneInfo
 
+from cryptography.fernet import InvalidToken
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.crypto import FieldCipher, lookup_digest
-from app.db import ensure_utc
 from app.models import Company, Employee, Punch, UserAccount
 from app.security import hash_password
 
@@ -269,7 +269,7 @@ def _build_punch(
 ) -> Punch:
     cipher = _cipher()
     return Punch(
-        id=f"seed-{employee_id}-{punch_type}-{timestamp:%Y%m%d}",
+        id=f"seed-{employee_id}-{punch_type}",
         company_id=company_id,
         employee_id=employee_id,
         type=punch_type,
@@ -437,7 +437,7 @@ def seed_database_if_empty(db: Session) -> None:
                 db.add(employee)
 
         missing_user_ids = set()
-        for user_id, employee_id, email, role in _user_seed_rows():
+        for user_id, employee_id, email, _role in _user_seed_rows():
             email_hash = _email_hash(email)
             existing = db.get(UserAccount, user_id)
             email_owner = db.scalar(
@@ -447,7 +447,6 @@ def seed_database_if_empty(db: Session) -> None:
                 existing.company_id != COMPANY_ID
                 or existing.employee_id != employee_id
                 or existing.email_hash != email_hash
-                or existing.role != role
             ):
                 raise RuntimeError(
                     f"Seed data conflicts with existing non-seed user: {user_id}."
@@ -468,30 +467,65 @@ def seed_database_if_empty(db: Session) -> None:
             ),
         )
 
-        for punch in _build_punches(COMPANY_ID):
+        punches = _build_punches(COMPANY_ID)
+        seed_employee_ids = {punch.employee_id for punch in punches}
+        legacy_punch_rows = db.execute(
+            select(
+                Punch.id,
+                Punch.company_id,
+                Punch.employee_id,
+                Punch.detail_ciphertext,
+            ).where(
+                or_(
+                    Punch.id.like("seed-%"),
+                    Punch.employee_id.in_(seed_employee_ids),
+                ),
+            ),
+        ).all()
+        legacy_punches = []
+        for punch_id, company_id, employee_id, detail_ciphertext in legacy_punch_rows:
+            try:
+                detail = cipher.decrypt(detail_ciphertext)
+            except (InvalidToken, UnicodeDecodeError):
+                detail = None
+            legacy_punches.append((punch_id, company_id, employee_id, detail))
+
+        for punch in punches:
             existing = db.get(Punch, punch.id)
             if existing is not None and (
                 existing.company_id != punch.company_id
                 or existing.employee_id != punch.employee_id
-                or existing.type != punch.type
-                or ensure_utc(existing.timestamp) != ensure_utc(punch.timestamp)
             ):
                 raise RuntimeError(
                     f"Seed data conflicts with existing non-seed punch: {punch.id}."
                 )
-            if existing is None:
-                legacy_seed_punch = db.scalar(
-                    select(Punch.id)
-                    .where(
-                        Punch.company_id == punch.company_id,
-                        Punch.employee_id == punch.employee_id,
-                        Punch.type == punch.type,
-                        Punch.timestamp == punch.timestamp,
-                    )
-                    .limit(1),
-                )
-                if legacy_seed_punch is None:
-                    db.add(punch)
+            if existing is not None:
+                continue
+
+            expected_detail = cipher.decrypt(punch.detail_ciphertext)
+            legacy_prefix = f"seed-{punch.employee_id}-{punch.type}-"
+            legacy_match = False
+            for legacy_id, legacy_company_id, legacy_employee_id, legacy_detail in legacy_punches:
+                legacy_suffix = legacy_id[len(legacy_prefix):] if legacy_id.startswith(legacy_prefix) else ""
+                if len(legacy_suffix) == 8 and legacy_suffix.isdigit():
+                    if (
+                        legacy_company_id != punch.company_id
+                        or legacy_employee_id != punch.employee_id
+                    ):
+                        raise RuntimeError(
+                            f"Seed data conflicts with existing non-seed punch: {legacy_id}."
+                        )
+                    legacy_match = True
+                    break
+                if (
+                    legacy_company_id == punch.company_id
+                    and legacy_employee_id == punch.employee_id
+                    and legacy_detail == expected_detail
+                ):
+                    legacy_match = True
+                    break
+            if not legacy_match:
+                db.add(punch)
 
         db.commit()
     except Exception:

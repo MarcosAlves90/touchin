@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Generator
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from sqlalchemy import create_engine, func, select
@@ -77,6 +77,17 @@ def _counts(db: Session) -> tuple[int, int, int, int]:
     )
 
 
+def _use_seed_day(monkeypatch, seed_day: datetime) -> None:
+    def local_today_at(hour: int, minute: int) -> datetime:
+        return seed_day.replace(hour=hour, minute=minute)
+
+    def days_ago_at(days: int, hour: int, minute: int) -> datetime:
+        return seed_day.replace(hour=hour, minute=minute) - timedelta(days=days)
+
+    monkeypatch.setattr("app.seed._local_today_at", local_today_at)
+    monkeypatch.setattr("app.seed._days_ago_at", days_ago_at)
+
+
 def test_seed_repairs_missing_records_alongside_unrelated_company(db: Session) -> None:
     db.add_all([_company(), _employee()])
     db.commit()
@@ -135,3 +146,67 @@ def test_seed_rejects_a_non_seed_company_using_the_reserved_seed_id(db: Session)
 
     assert db.get(Company, COMPANY_ID).trade_name_ciphertext == "unrelated-trade-name"
     assert _counts(db) == (1, 0, 0, 0)
+
+
+def test_seed_preserves_edits_to_seed_owned_rows(db: Session) -> None:
+    seed_database(db)
+
+    user = db.get(UserAccount, "user-bianca")
+    assert user is not None
+    user.role = "manager"
+    punch = db.scalar(
+        select(Punch).where(Punch.employee_id == "emp-01", Punch.type == "checkIn").limit(1),
+    )
+    assert punch is not None
+    punch.type = "breakEnd"
+    punch.timestamp += timedelta(minutes=7)
+    expected_timestamp = punch.timestamp
+    db.commit()
+
+    seed_database(db)
+
+    assert db.get(UserAccount, "user-bianca").role == "manager"
+    preserved_punch = db.get(Punch, punch.id)
+    assert preserved_punch is not None
+    assert preserved_punch.type == "breakEnd"
+    assert preserved_punch.timestamp == expected_timestamp
+    assert _counts(db) == (1, 5, 5, 13)
+
+
+def test_seed_punch_ids_and_timestamps_remain_stable_across_dates(
+    db: Session,
+    monkeypatch,
+) -> None:
+    _use_seed_day(monkeypatch, datetime(2026, 10, 11, tzinfo=timezone.utc))
+    seed_database(db)
+    initial_punches = {
+        punch.id: (punch.type, punch.timestamp)
+        for punch in db.scalars(select(Punch)).all()
+    }
+
+    _use_seed_day(monkeypatch, datetime(2026, 10, 12, tzinfo=timezone.utc))
+    seed_database(db)
+
+    current_punches = {
+        punch.id: (punch.type, punch.timestamp)
+        for punch in db.scalars(select(Punch)).all()
+    }
+    assert current_punches == initial_punches
+    assert _counts(db) == (1, 5, 5, 13)
+
+
+def test_seed_recognizes_legacy_punches_after_date_changes(db: Session, monkeypatch) -> None:
+    _use_seed_day(monkeypatch, datetime(2026, 10, 11, tzinfo=timezone.utc))
+    seed_database(db)
+    legacy_ids = set()
+    for index, punch in enumerate(db.scalars(select(Punch)).all()):
+        punch.id = f"legacy-punch-{index}"
+        legacy_ids.add(punch.id)
+    db.commit()
+
+    _use_seed_day(monkeypatch, datetime(2026, 10, 12, tzinfo=timezone.utc))
+    seed_database(db)
+
+    current_ids = {punch.id for punch in db.scalars(select(Punch)).all()}
+    assert current_ids == legacy_ids
+    assert _counts(db) == (1, 5, 5, 13)
