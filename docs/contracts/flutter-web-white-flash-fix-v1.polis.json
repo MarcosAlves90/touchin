@@ -6,6 +6,8 @@
       "docs/contracts/flutter-web-white-flash-fix-v1.polis.json",
       ".polis/policy.json",
       "scripts/polis_tests.py",
+      "scripts/run_polis_gates.py",
+      ".github/workflows/ci.yml",
       "frontend/web/index.html",
       "frontend/vercel.json",
       "frontend/test/browser/first_paint_smoke.mjs",
@@ -89,6 +91,12 @@
         "id": "AC-007",
         "statement": "Tests cover queued rapid theme choices, pending and rejected secure writes, immediate reload during an uncommitted visual preview, rollback to the last confirmed theme, failed secure reads, and unavailability of browser storage. Error diagnostics state only the operation and do not disclose preference contents or exception text.",
         "requirements": ["REQ-002", "REQ-003", "REQ-005"],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-008",
+        "statement": "Under blocked localStorage access, the browser smoke must verify that Flutter mounts the functional login UI while storage remains blocked. GitHub Actions must build Flutter Web and run that Chrome visual smoke using commands from the checked-in POLIS policy; an invalid inline bootstrap CSP hash must fail validation.",
+        "requirements": ["REQ-001", "REQ-004", "REQ-005"],
         "proof": "regression"
       }
     ],

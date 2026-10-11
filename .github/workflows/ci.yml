@@ -53,3 +53,18 @@ jobs:
 
       - name: Run frontend tests
         run: flutter test
+
+      - name: Set up Node.js for browser smoke
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Set up Chrome for browser smoke
+        id: chrome
+        uses: browser-actions/setup-chrome@v2
+
+      - name: Build Flutter Web and run visual smoke from POLIS policy
+        working-directory: .
+        env:
+          TOUCHIN_CHROME: ${{ steps.chrome.outputs.chrome-path }}
+        run: python3 scripts/run_polis_gates.py build smoke

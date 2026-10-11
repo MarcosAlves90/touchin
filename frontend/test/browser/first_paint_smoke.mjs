@@ -388,15 +388,21 @@ function verifyBackground(pixels, theme, label) {
 }
 
 async function documentState(cdp) {
-  return cdp.evaluate(`(() => ({
-    ready: document.readyState,
-    mode: document.documentElement.getAttribute('data-touchin-theme'),
-    background: getComputedStyle(document.body).backgroundColor,
-    rootBackground: getComputedStyle(document.documentElement).backgroundColor,
-    stored: localStorage.getItem('touchin.themeMode'),
-    flutterView: !!document.querySelector('flutter-view'),
-    semantics: document.querySelectorAll('flt-semantics').length,
-  }))()`);
+  return cdp.evaluate(`(() => {
+    let stored = null;
+    let storageBlocked = false;
+    try { stored = localStorage.getItem('touchin.themeMode'); }
+    catch (_) { storageBlocked = true; }
+    return {
+      ready: document.readyState,
+      mode: document.documentElement.getAttribute('data-touchin-theme'),
+      background: getComputedStyle(document.body).backgroundColor,
+      rootBackground: getComputedStyle(document.documentElement).backgroundColor,
+      stored, storageBlocked,
+      flutterView: !!document.querySelector('flutter-view'),
+      semantics: document.querySelectorAll('flt-semantics').length,
+    };
+  })()`);
 }
 
 async function expectPreFlutter(cdp, mode, expected, label) {
@@ -727,9 +733,26 @@ async function scenarioBlockedLocalStorage(ctx) {
       assert.ok(!/FlutterSecureStorage|touchin\.themeMode|[A-Za-z0-9+/]{40,}={0,2}/.test(entry),
         'Storage warning leaked a key or potentially encoded value');
     }
-    const disableInterception = await release();
-    await disableInterception();
-    console.log(`  PASS blocked localStorage: dark pixel fallback, ${consoleWarnings.length} generic sanitized warnings`);
+    // Keep localStorage blocked while the real Flutter engine boots. The HTML
+    // fallback alone is not sufficient: a storage exception must not prevent
+    // the user from reaching a functional unauthenticated interface.
+    await releaseAndObserveFlutter(ctx, release, 'blocked localStorage: Flutter boot');
+    const semanticsEnabled = await cdp.evaluate(`(() => {
+      const placeholder = document.querySelector('flt-semantics-placeholder');
+      if (placeholder) placeholder.click();
+      return !!placeholder || document.querySelectorAll('flt-semantics').length > 0;
+    })()`);
+    assert.ok(semanticsEnabled, 'Blocked storage: Flutter accessibility semantics unavailable');
+    await waitFor(() => hasVisibleText(cdp, 'O núcleo operacional da sua empresa.'),
+      'login interface after blocked storage', 15000);
+    await waitFor(() => getButton(cdp, 'Cadastrar empresa'),
+      'functional login controls after blocked storage', 15000);
+    assert.ok(await cdp.evaluate(`(() => {
+      try { localStorage.getItem('touchin.themeMode'); return false; }
+      catch (error) { return error.name === 'SecurityError'; }
+    })()`), 'Blocked storage was re-enabled before Flutter became functional');
+    await cdp.frame('blocked localStorage: functional login page');
+    console.log(`  PASS blocked localStorage: dark fallback, Flutter login mounted, ${consoleWarnings.length} sanitized warnings`);
   } finally {
     offConsole();
     await cdp.send('Page.removeScriptToEvaluateOnNewDocument', { identifier });
