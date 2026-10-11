@@ -2,7 +2,7 @@ from fastapi.testclient import TestClient
 from app.main import app
 from app.seed import JOAO_EMAIL, MARINA_EMAIL
 from tests.test_api import login_headers, login_headers_for, TEST_SEED_SECRET, _clear_employee_punches
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 def _create_project(client, headers, *, name: str = "Project") -> dict:
     response = client.post(
@@ -88,6 +88,121 @@ def test_monthly_work_logs_report(client: TestClient):
     assert record["description"] == "Report test"
     assert len(record["tasks"]) == 1
     assert record["tasks"][0] == "Report task"
+
+
+def test_monthly_report_utc_boundaries_order_and_authorization(client: TestClient):
+    from sqlalchemy import extract, select
+    from app.config import get_settings
+    from app.crypto import FieldCipher
+    from app.db import SessionLocal, ensure_utc
+    from app.domain.project_read import generate_monthly_work_logs_report
+    from app.errors import DomainError, ErrorKind
+    from app.models import Punch, WorkLog
+
+    admin_headers = login_headers(client)
+    project = _create_project(client, admin_headers, name="UTC boundaries")
+    other_project = _create_project(client, admin_headers, name="Other project")
+    project_id = project["id"]
+    membership = client.post(
+        f"/api/v1/projects/{project_id}/members",
+        headers=admin_headers,
+        json={"employeeId": "emp-04"},
+    )
+    assert membership.status_code in (200, 201)
+
+    field_cipher = FieldCipher(get_settings().encryption_secret or "")
+    # São Paulo 2025-12-31 21:00 corresponds to January 1st UTC.
+    local_zone = timezone(timedelta(hours=-3))
+    fixtures = [
+        ("dec-last", datetime(2025, 12, 31, 23, 59, 59, 999999, tzinfo=timezone.utc), "emp-04", project_id),
+        ("jan-start", datetime(2025, 12, 31, 21, 0, tzinfo=local_zone), "emp-04", project_id),
+        ("jan-middle", datetime(2026, 1, 10, 12, tzinfo=timezone.utc), "emp-04", project_id),
+        ("other-employee", datetime(2026, 1, 11, 12, tzinfo=timezone.utc), "emp-01", project_id),
+        ("other-project", datetime(2026, 1, 12, 12, tzinfo=timezone.utc), "emp-04", other_project["id"]),
+        ("feb-start", datetime(2026, 2, 1, tzinfo=timezone.utc), "emp-04", project_id),
+    ]
+    with SessionLocal() as db:
+        for marker, timestamp, employee_id, target_project in fixtures:
+            timestamp = ensure_utc(timestamp)
+            punch_id = f"boundary-punch-{marker}"
+            db.add(Punch(
+                id=punch_id, company_id="company-touchin", employee_id=employee_id,
+                project_id=target_project, type="checkIn", timestamp=timestamp,
+                detail_ciphertext=field_cipher.encrypt("") or "",
+            ))
+            db.add(WorkLog(
+                id=f"boundary-log-{marker}", company_id="company-touchin",
+                employee_id=employee_id, project_id=target_project, punch_id=punch_id,
+                start_time=timestamp, end_time=timestamp + timedelta(minutes=15),
+                duration_seconds=900,
+                description_ciphertext=field_cipher.encrypt(marker) or "",
+                task_snapshots_ciphertext=field_cipher.encrypt("[]") or "",
+            ))
+        db.commit()
+
+        original = db.scalars(
+            select(WorkLog).where(
+                WorkLog.company_id == "company-touchin",
+                WorkLog.project_id == project_id,
+                extract("year", WorkLog.start_time) == 2026,
+                extract("month", WorkLog.start_time) == 1,
+            ).order_by(WorkLog.start_time)
+        ).all()
+        expected = [field_cipher.decrypt(log.description_ciphertext) for log in original]
+        report = generate_monthly_work_logs_report(
+            db, company_id="company-touchin", project_id=project_id, year=2026, month=1
+        )
+        assert [row.description for row in report.records] == expected == [
+            "jan-start", "jan-middle", "other-employee",
+        ]
+
+        for month, expected_description in [(12, "dec-last"), (2, "feb-start")]:
+            year = 2025 if month == 12 else 2026
+            response = generate_monthly_work_logs_report(
+                db, company_id="company-touchin", project_id=project_id,
+                year=year, month=month,
+            )
+            assert [row.description for row in response.records] == [expected_description]
+
+        restricted = generate_monthly_work_logs_report(
+            db, company_id="company-touchin", project_id=project_id,
+            year=2026, month=1, employee_id="emp-04",
+        )
+        assert [row.description for row in restricted.records] == [
+            "jan-start", "jan-middle",
+        ]
+        try:
+            generate_monthly_work_logs_report(
+                db, company_id="nonexistent-company", project_id=project_id,
+                year=2026, month=1,
+            )
+            assert False, "cross-company request must be denied"
+        except DomainError as exc:
+            assert exc.kind == ErrorKind.not_found
+
+    path = f"/api/v1/projects/{project_id}/reports/work-logs?year=2026&month=1"
+    admin_result = client.get(path, headers=admin_headers)
+    assert admin_result.status_code == 200
+    assert [item["description"] for item in admin_result.json()["records"]] == expected
+    joao_headers = login_headers_for(client, email=JOAO_EMAIL, password=TEST_SEED_SECRET)
+    employee_result = client.get(path, headers=joao_headers)
+    assert employee_result.status_code == 200
+    assert [item["description"] for item in employee_result.json()["records"]] == [
+        "jan-start", "jan-middle",
+    ]
+    denied = client.get(
+        f"/api/v1/projects/{other_project['id']}/reports/work-logs?year=2026&month=1",
+        headers=joao_headers,
+    )
+    assert denied.status_code == 404
+    # EXTRACT returned no records for out-of-range calendar values.
+    for year, month in [(2026, 0), (2026, 13), (0, 1), (10000, 1), (9999, 12)]:
+        response = client.get(
+            f"/api/v1/projects/{project_id}/reports/work-logs?year={year}&month={month}",
+            headers=admin_headers,
+        )
+        assert response.status_code == 200
+        assert response.json()["records"] == []
 
 
 def test_mandatory_work_log_no_project_id(client: TestClient):

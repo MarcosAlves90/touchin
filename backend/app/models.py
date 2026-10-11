@@ -9,6 +9,7 @@ from sqlalchemy import (
     DateTime,
     event,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -309,6 +310,9 @@ class WorkLogTask(Base):
 
 class WorkLog(Base):
     __tablename__ = "work_logs"
+    __table_args__ = (
+        Index("ix_work_logs_company_project_start_time", "company_id", "project_id", "start_time"),
+    )
     
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=generate_id)
     company_id: Mapped[str] = mapped_column(ForeignKey(_COL_COMPANIES_ID), index=True)

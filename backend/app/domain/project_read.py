@@ -158,7 +158,6 @@ def generate_monthly_work_logs_report(
 ):
     from app.models import WorkLog
     from app.schemas.project import MonthlyWorkLogReport, MonthlyWorkLogRecord
-    from sqlalchemy import extract
     import datetime
 
     field_cipher = cipher()
@@ -169,20 +168,35 @@ def generate_monthly_work_logs_report(
         employee_id=employee_id,
     )
     
+    if not 1 <= month <= 12 or not 1 <= year <= 9999:
+        return MonthlyWorkLogReport(project_id=project_id, year=year, month=month, records=[])
+
+    # A naive bound is interpreted in the PostgreSQL session timezone when
+    # compared with TIMESTAMPTZ, preserving the previous EXTRACT semantics.
+    # SQLite uses the same wall-clock boundaries as its previous EXTRACT filter.
+    month_start = datetime.datetime(year, month, 1)
+    if month == 12:
+        next_month_start = datetime.datetime(year + 1, 1, 1) if year < 9999 else None
+    else:
+        next_month_start = datetime.datetime(year, month + 1, 1)
+
     query = select(WorkLog).where(
         WorkLog.project_id == project_id,
         WorkLog.company_id == company_id,
-        extract('year', WorkLog.start_time) == year,
-        extract('month', WorkLog.start_time) == month
+        WorkLog.start_time >= month_start,
     )
+    if next_month_start is not None:
+        query = query.where(WorkLog.start_time < next_month_start)
     
     if employee_id is not None:
         query = query.where(WorkLog.employee_id == employee_id)
         
-    logs = db.scalars(query.order_by(WorkLog.start_time)).all()
-    
     records = []
-    for log in logs:
+    logs_result = db.scalars(
+        query.order_by(WorkLog.start_time),
+    ).yield_per(200)
+
+    for log in logs_result:
         import json
         try:
             tasks = json.loads(field_cipher.decrypt(log.task_snapshots_ciphertext) or "[]")
