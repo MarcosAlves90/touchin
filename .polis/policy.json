@@ -7,9 +7,8 @@
       "mode": "command",
       "command": {
         "argv": [
-          "bash",
-          "-lc",
-          "cd backend \u0026\u0026 pytest \u0026\u0026 cd ../frontend \u0026\u0026 flutter test"
+          "python3",
+          "scripts/polis_tests.py"
         ],
         "cwd": ".",
         "timeout_seconds": 1200,
@@ -37,8 +36,22 @@
     },
     {
       "id": "lint",
-      "mode": "not_applicable",
-      "reason": "custom profile has no explicit command for lint"
+      "mode": "command",
+      "command": {
+        "argv": [
+          "dart",
+          "analyze",
+          "lib/core/theme",
+          "test/core/theme/theme_mode_controller_test.dart",
+          "test/widget_test.dart"
+        ],
+        "cwd": "frontend",
+        "timeout_seconds": 600,
+        "environment": {
+          "mode": "clean",
+          "pass": ["PATH", "HOME", "TMPDIR", "TMP", "TEMP"]
+        }
+      }
     },
     {
       "id": "typecheck",
@@ -47,13 +60,29 @@
     },
     {
       "id": "build",
-      "mode": "not_applicable",
-      "reason": "custom profile has no explicit command for build"
+      "mode": "command",
+      "command": {
+        "argv": ["flutter", "build", "web", "--release"],
+        "cwd": "frontend",
+        "timeout_seconds": 1200,
+        "environment": {
+          "mode": "clean",
+          "pass": ["PATH", "HOME", "TMPDIR", "TMP", "TEMP"]
+        }
+      }
     },
     {
       "id": "smoke",
-      "mode": "not_applicable",
-      "reason": "custom profile has no explicit command for smoke"
+      "mode": "command",
+      "command": {
+        "argv": ["node", "test/browser/first_paint_smoke.mjs"],
+        "cwd": "frontend",
+        "timeout_seconds": 300,
+        "environment": {
+          "mode": "clean",
+          "pass": ["PATH", "HOME", "TMPDIR", "TMP", "TEMP", "TOUCHIN_CHROME", "TOUCHIN_CHROME_NO_SANDBOX"]
+        }
+      }
     },
     {
       "id": "compatibility",

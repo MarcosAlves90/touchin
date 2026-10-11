@@ -31,6 +31,61 @@
 
   <title>TouchIn</title>
   <link rel="manifest" href="manifest.json">
+  <style>
+    :root {
+      color-scheme: dark;
+      --touchin-background: #161616;
+    }
+
+    :root[data-touchin-theme="light"] {
+      color-scheme: light;
+      --touchin-background: #fafaf7;
+    }
+
+    @media (prefers-color-scheme: light) {
+      :root[data-touchin-theme="system"] {
+        color-scheme: light;
+        --touchin-background: #fafaf7;
+      }
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      background-color: var(--touchin-background);
+    }
+
+    flutter-view {
+      background-color: var(--touchin-background);
+    }
+  </style>
+  <script>
+    (() => {
+      const key = 'touchin.themeMode';
+      const warned = new Set();
+      const normalize = (value) =>
+        value === 'light' || value === 'system' ? value : 'dark';
+      const warn = (operation) => {
+        if (warned.has(operation)) return;
+        warned.add(operation);
+        console.warn('TouchIn: browser theme storage unavailable (' + operation + ').');
+      };
+      const persist = (value) => {
+        try { localStorage.setItem(key, normalize(value)); } catch (_) { warn('write'); }
+      };
+      const apply = (value, commit = true) => {
+        const mode = normalize(value);
+        document.documentElement.dataset.touchinTheme = mode;
+        if (commit) persist(mode);
+      };
+      let mode;
+      try { mode = localStorage.getItem(key); } catch (_) { warn('read'); }
+      apply(mode);
+      window.touchinSetThemeMode = apply;
+      window.touchinPersistThemeMode = persist;
+    })();
+  </script>
 </head>
 <body>
   <!--
