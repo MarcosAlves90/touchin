@@ -20,6 +20,37 @@ void main() {
     expect(find.text('Cadastrar empresa'), findsOneWidget);
   });
 
+  testWidgets('keeps opaque themed backgrounds during auth navigation', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(MyApp(tokenStorage: _InMemoryTokenStorage()));
+    await tester.pumpAndSettle();
+
+    void expectThemedBackgrounds() {
+      for (final element in find.byType(Scaffold).evaluate()) {
+        final scaffold = element.widget as Scaffold;
+        final background = scaffold.backgroundColor ??
+            Theme.of(element).scaffoldBackgroundColor;
+        expect(background, const Color(0xFF161616));
+      }
+    }
+
+    expectThemedBackgrounds();
+    await tester.tap(find.text('Cadastrar empresa'));
+    await tester.pump();
+    expectThemedBackgrounds();
+    await tester.pump(const Duration(milliseconds: 150));
+    expectThemedBackgrounds();
+    await tester.pumpAndSettle();
+    expect(find.text('Cadastrar empresa'), findsWidgets);
+    expectThemedBackgrounds();
+
+    await tester.tap(find.byIcon(Icons.arrow_back_rounded));
+    await tester.pumpAndSettle();
+    expect(find.text('Entrar'), findsWidgets);
+    expectThemedBackgrounds();
+  });
+
   testWidgets('restores persisted session before showing login', (
     WidgetTester tester,
   ) async {
