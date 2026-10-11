@@ -138,6 +138,12 @@ async function startChrome(chromeExecutable) {
     '--headless=new', '--no-first-run', '--disable-gpu',
     '--remote-debugging-port=0', `--user-data-dir=${directory}`, 'about:blank',
   ];
+  // GitHub-hosted Ubuntu runners restrict Chrome's user-namespace sandbox.
+  // Only the isolated CI test browser may opt out; local Chrome keeps its
+  // normal sandbox and the test server remains loopback-only.
+  if (process.platform === 'linux' && process.env.TOUCHIN_CHROME_NO_SANDBOX === '1') {
+    args.push('--no-sandbox');
+  }
   const processHandle = spawn(chromeExecutable, args, {
     stdio: ['ignore', 'ignore', 'pipe'],
   });

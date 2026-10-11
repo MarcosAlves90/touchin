@@ -80,7 +80,7 @@
         "timeout_seconds": 300,
         "environment": {
           "mode": "clean",
-          "pass": ["PATH", "HOME", "TMPDIR", "TMP", "TEMP", "TOUCHIN_CHROME"]
+          "pass": ["PATH", "HOME", "TMPDIR", "TMP", "TEMP", "TOUCHIN_CHROME", "TOUCHIN_CHROME_NO_SANDBOX"]
         }
       }
     },
