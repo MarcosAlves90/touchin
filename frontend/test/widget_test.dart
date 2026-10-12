@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:touchin_flutter/contracts/auth.dart';
 import 'package:touchin_flutter/core/network/api_client.dart';
@@ -313,6 +314,86 @@ void main() {
     expect(find.text('Entrar'), findsNothing);
     expect(api.authContextRequests, 1);
   });
+
+  testWidgets(
+    'keeps requested route retryable after transient session verification failures',
+    (WidgetTester tester) async {
+      tester.binding.platformDispatcher.defaultRouteNameTestValue =
+          '/time-clock';
+      addTearDown(() {
+        tester.binding.platformDispatcher.defaultRouteNameTestValue = '/';
+      });
+      final tokenStorage = _InMemoryTokenStorage()
+        ..savedSession = AuthSession(
+          accessToken: 'token-123',
+          tokenType: 'bearer',
+          expiresAt: DateTime.parse('2099-04-26T18:00:00Z'),
+          company: const AuthCompanySummary(
+            id: 'cmp-01',
+            legalName: 'TouchIn Tecnologia LTDA',
+            tradeName: 'TouchIn',
+            cnpjMasked: '12.***.***/****-90',
+            emailMasked: 'co*****@touchin.com',
+            phoneMasked: '11*****0000',
+          ),
+          user: const AuthUserSummary(
+            id: 'usr-01',
+            email: 'super.admin@touchin.com',
+            role: 'super_admin',
+          ),
+        );
+      const authContext = AuthContext(
+        company: AuthCompanySummary(
+          id: 'cmp-01',
+          legalName: 'TouchIn Tecnologia LTDA',
+          tradeName: 'TouchIn',
+          cnpjMasked: '12.***.***/****-90',
+          emailMasked: 'co*****@touchin.com',
+          phoneMasked: '11*****0000',
+        ),
+        user: AuthUserSummary(
+          id: 'usr-01',
+          email: 'super.admin@touchin.com',
+          role: 'super_admin',
+        ),
+      );
+      final api = _FakeTouchInApi(
+        tokenStorage: tokenStorage,
+        authContextResults: <Object>[
+          ApiException('Serviço temporariamente indisponível.',
+              statusCode: 503),
+          SocketException('Network is unreachable'),
+          authContext,
+        ],
+      );
+
+      await tester.pumpWidget(
+        MyApp(api: api, tokenStorage: tokenStorage),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Não foi possível validar sua sessão'), findsOneWidget);
+      expect(find.text('Entrar'), findsNothing);
+      expect(tokenStorage.savedSession, isNotNull);
+      expect(api.authContextRequests, 1);
+
+      await tester.tap(find.text('Tentar novamente'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Não foi possível validar sua sessão'), findsOneWidget);
+      expect(find.text('Entrar'), findsNothing);
+      expect(tokenStorage.savedSession, isNotNull);
+      expect(api.authContextRequests, 2);
+
+      await tester.tap(find.text('Tentar novamente'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(find.text('Bater ponto'), findsOneWidget);
+      expect(find.text('Entrar'), findsNothing);
+      expect(api.authContextRequests, 3);
+    },
+  );
 }
 
 class _FakeTouchInApi extends TouchInApi {
@@ -320,16 +401,26 @@ class _FakeTouchInApi extends TouchInApi {
     required this.tokenStorage,
     this.authContext,
     this.authContextError,
+    this.authContextResults,
   }) : super(tokenStorage: tokenStorage);
 
   final TokenStorage tokenStorage;
   final AuthContext? authContext;
   final ApiException? authContextError;
+  final List<Object>? authContextResults;
   int authContextRequests = 0;
 
   @override
   Future<AuthContext> getAuthContext() async {
     authContextRequests += 1;
+    final results = authContextResults;
+    if (results != null && results.isNotEmpty) {
+      final result = results.removeAt(0);
+      if (result is AuthContext) {
+        return result;
+      }
+      throw result;
+    }
     if (authContextError != null) {
       throw authContextError!;
     }
