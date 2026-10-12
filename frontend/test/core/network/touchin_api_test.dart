@@ -165,6 +165,52 @@ void main() {
     });
   });
 
+  test('successful forced password change clears the stored session flag',
+      () async {
+    final client = _FakeApiClient(
+      postResponses: {'/auth/change-password': null},
+    );
+    final tokenStorage = _InMemoryTokenStorage()
+      ..savedSession = AuthSession.fromJson(<String, dynamic>{
+        ..._authSessionResponse(),
+        'mustChangePassword': true,
+      });
+    final api = TouchInApi(client: client, tokenStorage: tokenStorage);
+
+    await api.changePassword(
+      currentPassword: _validCredentialFixture,
+      newPassword: 'new-password-fixture',
+    );
+
+    expect(tokenStorage.savedSession?.mustChangePassword, isFalse);
+    expect(client.lastPath, '/auth/change-password');
+  });
+
+  test('failed forced password change preserves the stored session flag',
+      () async {
+    final client = _FakeApiClient(
+      postErrors: {
+        '/auth/change-password': ApiException('Senha atual inválida.'),
+      },
+    );
+    final tokenStorage = _InMemoryTokenStorage()
+      ..savedSession = AuthSession.fromJson(<String, dynamic>{
+        ..._authSessionResponse(),
+        'mustChangePassword': true,
+      });
+    final api = TouchInApi(client: client, tokenStorage: tokenStorage);
+
+    await expectLater(
+      api.changePassword(
+        currentPassword: _invalidCredentialFixture,
+        newPassword: 'new-password-fixture',
+      ),
+      throwsA(isA<ApiException>()),
+    );
+
+    expect(tokenStorage.savedSession?.mustChangePassword, isTrue);
+  });
+
   test('logout calls backend endpoint and clears local token', () async {
     final client = _FakeApiClient(
       postResponses: {

@@ -1,55 +1,43 @@
-## Problema
+## Summary
 
-Descreva o problema real que motivou este PR.
+Briefly describe what this PR changes and why.
 
-- O que estava quebrado?
-- Quem foi afetado?
-- Como o problema aparecia?
-- Qual era o comportamento esperado?
+## What Changed
 
-## Solução
+- Describe the main changes.
+- Mention relevant fixes or improvements.
+- Focus on behavior and outcomes rather than implementation details.
 
-Explique o que foi alterado e por quê.
+## Why
 
-- Quais áreas ou arquivos foram modificados?
-- Qual abordagem foi escolhida?
-- O que foi deixado de fora, se houver?
+Explain the problem, requirement, or motivation behind this change.
 
-## Testes
+## How to Test
 
-Liste os testes executados e o resultado.
+1. Describe the main scenario to test.
+2. Include any relevant edge cases.
+3. Mention any required setup, if applicable.
 
-- Comandos usados
-- Resultado obtido
-- O que não foi possível validar, se aplicável
+## Expected Behavior
 
-## Evidência
+Describe what should happen after these changes.
 
-Adicione evidências objetivas da mudança.
+## Screenshots / Evidence
 
-- Prints
-- Logs
-- Antes/depois
-- Links ou referências relevantes
+Add screenshots, videos, logs, or other evidence when relevant.
 
-## Riscos
+## Risks / Impact
 
-Liste qualquer risco residual ou trade-off aceito.
-
-- O que ainda merece atenção?
-- Existe alguma dependência externa?
-- Há algum comportamento não coberto?
+Mention any known risks, affected areas, regressions to watch for, or compatibility concerns.
 
 ## Checklist
 
-- [ ] O PR resolve um problema real
-- [ ] O escopo está pequeno e claro
-- [ ] O diff não mistura assuntos sem relação
-- [ ] O comportamento foi validado
-- [ ] Os testes relevantes foram executados
-- [ ] A descrição é específica e útil para revisão
-- [ ] A documentação necessária foi atualizada
+- [ ] Changes were tested locally.
+- [ ] Existing behavior was not unintentionally affected.
+- [ ] Relevant tests were added or updated.
+- [ ] Documentation was updated if needed.
+- [ ] No unrelated changes are included.
 
-## Notas adicionais
+## Additional Notes
 
-Use este espaço para contexto extra, se necessário.
+Add any context, limitations, follow-up work, or information that may help reviewers.
