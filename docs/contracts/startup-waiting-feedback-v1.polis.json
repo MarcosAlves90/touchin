@@ -1,0 +1,194 @@
+{
+  "schema_version": 6,
+  "kind": "feature",
+  "scope": {
+    "allowed_paths": [
+      "frontend/lib/main.dart",
+      "frontend/test/widget_test.dart",
+      "docs/contracts/startup-waiting-feedback-v1.polis.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/widget_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Make the existing startup session-verification wait feel intentional by retaining the progress indicator and adding clear server-wait copy, rotating playful Portuguese status messages, and animated trailing dots; preserve all bootstrap decisions and navigation behavior.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "While startup session verification is pending, retain the progress indicator and communicate that the app is waiting for the server."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "During the same pending wait, cycle through short playful Portuguese status messages including 'Escrevendo documentos' and 'Organizando rotinas', and animate the trailing ellipsis in a loop."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "When session bootstrap completes, stop and remove the startup waiting feedback while preserving existing authenticated, unauthenticated, unavailable, retry, and requested-route behavior."
+      },
+      {
+        "id": "REQ-004",
+        "statement": "Store the exact locked POLIS contract at docs/contracts/startup-waiting-feedback-v1.polis.json and include that file in the contract's allowed paths."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "With a persisted session and pending auth-context future, widget coverage finds the progress indicator, explicit server-wait text, and the initial playful message.",
+        "requirements": [
+          "REQ-001",
+          "REQ-002"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "Deterministic fake-time widget coverage observes the status message and trailing dots changing/repeating while the future remains pending.",
+        "requirements": [
+          "REQ-002"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-003",
+        "statement": "Completing the pending auth-context future removes startup waiting copy and renders the existing authenticated destination; all existing widget tests pass.",
+        "requirements": [
+          "REQ-003"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-004",
+        "statement": "The docs/contracts contract file is byte-for-byte identical to the locked contract, and its repository path appears in scope.allowed_paths.",
+        "requirements": [
+          "REQ-004"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "No session bootstrap, API, auth decision, route, retry, backend, or dependency behavior changes."
+      },
+      {
+        "id": "INV-002",
+        "statement": "The startup animation is disposed with its widget and does not delay route resolution or hide errors."
+      },
+      {
+        "id": "INV-003",
+        "statement": "The archived contract is copied byte-for-byte from the locked contract without changing its baseline lock."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "Changing any loading indicator outside the initial session-bootstrap splash."
+      },
+      {
+        "id": "FORB-002",
+        "statement": "A timer remains active after bootstrap completes or the splash is disposed."
+      },
+      {
+        "id": "FORB-003",
+        "statement": "A timeout, retry, artificial delay, or backend change is introduced."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "The current `_StartupSplash` rendered while `_buildRoute` waits for `_bootstrapSession`."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "A themed startup progress state with explanatory and rotating status copy until session bootstrap completes."
+      },
+      {
+        "id": "OUT-002",
+        "statement": "The byte-identical locked POLIS contract at docs/contracts/startup-waiting-feedback-v1.polis.json."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "On the locked baseline, the new pending-bootstrap widget regression fails with the literal marker startup_waiting_feedback_missing; the failing test must be available and executed."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "a42bbdcf41cb8aa8b6244489dcd3189ae779d9c5",
+    "base_tree": "d9e749318bd871e123b42b53aa041ae0f491e7ca",
+    "policy_sha256": "76f07e3704cbf9fc47beadcbcf6d4493c1650abe3d11033115b6b16d82b14b3c",
+    "specification_sha256": "430e968f89dfa504d40c916ffe0a357c0b7294e750160ccbfae087c3c87b63dd"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/widget_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 300,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/widget_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 300,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "python3",
+        "-c",
+        "import subprocess,sys; r=subprocess.run(['flutter','test','test/widget_test.dart','--plain-name','startup splash explains pending session verification'],cwd='frontend'); print('startup_waiting_feedback_missing' if r.returncode else 'startup_waiting_feedback_present'); sys.exit(r.returncode)"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 360,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "startup_waiting_feedback_missing"
+    ]
+  }
+}
