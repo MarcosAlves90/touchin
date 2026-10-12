@@ -222,7 +222,7 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
       borderRadius: BorderRadius.zero,
       constraints: BoxConstraints(
         minWidth: compact ? 40 : 86,
-        minHeight: 38,
+        minHeight: 50,
       ),
       color: colors.onSurfaceVariant,
       selectedColor: colors.onPrimaryContainer,
@@ -268,7 +268,7 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
     }
 
     if (_showBacklog) {
-      return ProjectBacklogView(
+      final backlog = ProjectBacklogView(
         key: ValueKey<String>('project-backlog-${board.projectId}'),
         board: board,
         projectName: _controller.selectedProject?.name ?? '',
@@ -281,15 +281,21 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
         onManageColumns: _openManageBacklogColumns,
         onCreateColumn: _openCreateKanbanColumn,
         onCreateCard: _openCreateKanbanCard,
-        onMoveCard: (taskId, columnId, index) => _controller.moveCard(
-          taskId: taskId,
-          toColumnId: columnId,
-          toIndex: index,
-        ),
+        onMoveCard: _moveCardWithFeedback,
         onEditCard: _openEditKanbanCard,
         onDeleteCard: _confirmDeleteKanbanCard,
         onManageAssignees: _openManageKanbanAssignees,
-        onOpenDetails: _openBacklogCardDetails,
+        onOpenDetails: _openEditKanbanCard,
+      );
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          if (_controller.boardError != null) ...<Widget>[
+            _KanbanNotice(message: _controller.boardError!, onRetry: _controller.reload),
+            const SizedBox(height: 8),
+          ],
+          Expanded(child: backlog),
+        ],
       );
     }
 
@@ -315,11 +321,7 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
                   canManageStructure: _controller.canManageStructure,
                   canManageCards: _controller.canManageCards,
                   canManageAssignees: _controller.canManageAssignees,
-                  onMoveCard: (taskId, columnId, index) => _controller.moveCard(
-                    taskId: taskId,
-                    toColumnId: columnId,
-                    toIndex: index,
-                  ),
+                  onMoveCard: _moveCardWithFeedback,
                   onMoveColumn: (columnId, index) => _controller.moveColumn(
                     columnId: columnId,
                     toIndex: index,
@@ -352,7 +354,7 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
     String initialValue = '',
   }) async {
     final formKey = GlobalKey<FormState>();
-    final controller = TextEditingController(text: initialValue);
+    var name = initialValue;
     final editing = initialValue.trim().isNotEmpty;
 
     final result = await showDialog<String>(
@@ -370,12 +372,13 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
           if (!formKey.currentState!.validate()) {
             return;
           }
-          Navigator.of(dialogContext).pop(controller.text.trim());
+          Navigator.of(dialogContext).pop(name.trim());
         },
         child: Form(
           key: formKey,
           child: TextFormField(
-            controller: controller,
+            initialValue: initialValue,
+            onChanged: (value) => name = value,
             autofocus: true,
             maxLength: 160,
             textInputAction: TextInputAction.done,
@@ -389,14 +392,13 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
             },
             onFieldSubmitted: (_) {
               if (formKey.currentState!.validate()) {
-                Navigator.of(dialogContext).pop(controller.text.trim());
+                Navigator.of(dialogContext).pop(name.trim());
               }
             },
           ),
         ),
       ),
     );
-    controller.dispose();
     return result;
   }
 
@@ -428,22 +430,17 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
   Future<void> _confirmDeleteKanbanColumn(KanbanColumn column) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Excluir coluna?'),
-        content: Text(
+      builder: (dialogContext) => WorkspaceEditorDialog(
+        title: 'Excluir coluna?',
+        subtitle: 'A coluna deve estar vazia e não pode ser a última do quadro.',
+        icon: Icons.delete_outline_rounded,
+        primaryLabel: 'Excluir',
+        onPrimary: () => Navigator.of(dialogContext).pop(true),
+        onSecondary: () => Navigator.of(dialogContext).pop(false),
+        child: Text(
           'A coluna "${column.name}" só pode ser excluída quando estiver vazia '
           'e não for a última coluna do quadro.',
         ),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Excluir'),
-          ),
-        ],
       ),
     );
     if (confirmed != true) {
@@ -491,6 +488,9 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
       builder: (_) => ProjectTaskEditorDialog(
         tasks: _controller.tasks,
         task: card.toTaskRecord(),
+        startInViewMode: true,
+        canEdit: _controller.canManageCards,
+        supplementaryDetails: _buildCardOperationalDetails(card),
       ),
     );
     if (draft == null) {
@@ -503,175 +503,139 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
   }
 
   Future<void> _openManageBacklogColumns() async {
-    if (!_controller.canManageStructure) {
-      return;
-    }
+    if (!_controller.canManageStructure || _controller.isMutating) return;
     final columns = _controller.board?.columns ?? const <KanbanColumn>[];
     await showDialog<void>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Gerenciar colunas'),
-        content: SizedBox(
-          width: 480,
-          height: MediaQuery.sizeOf(dialogContext).height * 0.55,
-          child: columns.isEmpty
-              ? const Center(child: Text('Crie o primeiro status do projeto.'))
-              : ListView.separated(
-                  itemCount: columns.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
-                  itemBuilder: (context, index) {
-                    final column = columns[index];
-                    return ListTile(
-                      dense: true,
-                      title: Text(column.name),
-                      subtitle: Text('${column.cards.length} cards'),
-                      trailing: Wrap(
-                        spacing: 0,
-                        children: <Widget>[
-                          IconButton(
-                            tooltip: 'Mover coluna para cima',
-                            visualDensity: VisualDensity.compact,
-                            onPressed: index == 0 || _controller.isMutating
-                                ? null
-                                : () {
-                                    Navigator.of(dialogContext).pop();
-                                    _runAction(
-                                      () => _controller.moveColumn(
-                                        columnId: column.id,
-                                        toIndex: index - 1,
-                                      ),
-                                      successMessage: 'Colunas reordenadas.',
-                                    );
-                                  },
-                            icon: const Icon(Icons.arrow_upward_rounded),
-                          ),
-                          IconButton(
-                            tooltip: 'Mover coluna para baixo',
-                            visualDensity: VisualDensity.compact,
-                            onPressed: index == columns.length - 1 ||
-                                    _controller.isMutating
-                                ? null
-                                : () {
-                                    Navigator.of(dialogContext).pop();
-                                    _runAction(
-                                      () => _controller.moveColumn(
-                                        columnId: column.id,
-                                        toIndex: index + 1,
-                                      ),
-                                      successMessage: 'Colunas reordenadas.',
-                                    );
-                                  },
-                            icon: const Icon(Icons.arrow_downward_rounded),
-                          ),
-                          IconButton(
-                            tooltip: 'Renomear status',
-                            visualDensity: VisualDensity.compact,
-                            onPressed: _controller.isMutating
-                                ? null
-                                : () {
-                                    Navigator.of(dialogContext).pop();
-                                    _openRenameKanbanColumn(column);
-                                  },
-                            icon: const Icon(Icons.edit_outlined),
-                          ),
-                          IconButton(
-                            tooltip: 'Excluir status',
-                            visualDensity: VisualDensity.compact,
-                            onPressed: _controller.isMutating
-                                ? null
-                                : () {
-                                    Navigator.of(dialogContext).pop();
-                                    _confirmDeleteKanbanColumn(column);
-                                  },
-                            icon: const Icon(Icons.delete_outline_rounded),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
+      builder: (dialogContext) => WorkspaceEditorDialog(
+        title: 'Gerenciar colunas',
+        subtitle: 'Etapas compartilhadas entre Kanban e Backlog.',
+        icon: Icons.view_column_outlined,
+        primaryLabel: 'Novo status',
+        primaryIcon: Icons.add_rounded,
+        secondaryLabel: 'Fechar',
+        onPrimary: () {
+          Navigator.of(dialogContext).pop();
+          _openCreateKanbanColumn();
+        },
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            if (columns.isEmpty) const Text('Crie o primeiro status do projeto.'),
+            for (var index = 0; index < columns.length; index++)
+              ListTile(
+                dense: true,
+                title: Text(columns[index].name),
+                subtitle: Text('${columns[index].cards.length} cards'),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    IconButton(
+                      tooltip: 'Mover coluna para cima',
+                      onPressed: index == 0 ? null : () {
+                        Navigator.of(dialogContext).pop();
+                        _runAction(() => _controller.moveColumn(
+                          columnId: columns[index].id, toIndex: index - 1,
+                        ), successMessage: 'Colunas reordenadas.');
+                      },
+                      icon: const Icon(Icons.arrow_upward_rounded, size: 18),
+                    ),
+                    IconButton(
+                      tooltip: 'Mover coluna para baixo',
+                      onPressed: index == columns.length - 1 ? null : () {
+                        Navigator.of(dialogContext).pop();
+                        _runAction(() => _controller.moveColumn(
+                          columnId: columns[index].id, toIndex: index + 1,
+                        ), successMessage: 'Colunas reordenadas.');
+                      },
+                      icon: const Icon(Icons.arrow_downward_rounded, size: 18),
+                    ),
+                    IconButton(
+                      tooltip: 'Renomear status',
+                      onPressed: () {
+                        Navigator.of(dialogContext).pop();
+                        _openRenameKanbanColumn(columns[index]);
+                      },
+                      icon: const Icon(Icons.edit_outlined, size: 18),
+                    ),
+                    IconButton(
+                      tooltip: 'Excluir status',
+                      onPressed: () {
+                        Navigator.of(dialogContext).pop();
+                        _confirmDeleteKanbanColumn(columns[index]);
+                      },
+                      icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                    ),
+                  ],
                 ),
+              ),
+          ],
         ),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Fechar'),
-          ),
-          FilledButton.icon(
-            onPressed: _controller.isMutating
-                ? null
-                : () {
-                    Navigator.of(dialogContext).pop();
-                    _openCreateKanbanColumn();
-                  },
-            icon: const Icon(Icons.add_rounded),
-            label: const Text('Novo status'),
-          ),
-        ],
       ),
     );
   }
 
-  Future<void> _openBacklogCardDetails(KanbanCard card) async {
-    var columnName = 'Desconhecido';
-    for (final column in _controller.board?.columns ?? const <KanbanColumn>[]) {
-      if (column.id == card.kanbanColumnId) {
-        columnName = column.name;
-        break;
-      }
-    }
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text('#${card.cardNumber} · ${card.name}'),
-        content: SizedBox(
-          width: 480,
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                Text(card.description),
-                const SizedBox(height: 12),
-                Text('Status: $columnName'),
-                Text('Projeto: ${_controller.selectedProject?.name ?? ''}'),
-                Text(
-                  'Responsáveis: ${card.assignees.isEmpty ? 'Sem responsáveis' : card.assignees.map((item) => item.employeeName).join(', ')}',
-                ),
-                Text('Criado: ${card.createdAt.toLocal()}'),
-                Text('Atualizado: ${card.updatedAt.toLocal()}'),
-              ],
+  Future<void> _moveCardWithFeedback(String taskId, String columnId, int index) =>
+      _runAction(
+        () => _controller.moveCard(taskId: taskId, toColumnId: columnId, toIndex: index),
+        successMessage: 'Status do card atualizado.',
+      );
+
+  Widget _buildCardOperationalDetails(KanbanCard initialCard) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        final columns = _controller.board?.columns ?? const <KanbanColumn>[];
+        var card = initialCard;
+        for (final column in columns) {
+          for (final candidate in column.cards) {
+            if (candidate.id == initialCard.id) card = candidate;
+          }
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            const Divider(height: 24),
+            WorkspaceInstantSelectField<String>(
+              key: const ValueKey<String>('card-dialog-status'),
+              value: card.kanbanColumnId,
+              decoration: const InputDecoration(labelText: 'Status'),
+              options: columns.map((column) => WorkspaceSelectOption(
+                value: column.id, label: column.name,
+              )).toList(),
+              onChanged: !_controller.canMoveCards || _controller.isMutating
+                  ? null
+                  : (value) {
+                      if (value == null || value == card.kanbanColumnId) return;
+                      final column = columns.firstWhere((column) => column.id == value);
+                      _moveCardWithFeedback(card.id, value, column.cards.length);
+                    },
             ),
-          ),
-        ),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Fechar'),
-          ),
-        ],
-      ),
+            const SizedBox(height: 12),
+            Text('Projeto: ${_controller.selectedProject?.name ?? ''}'),
+            Text('Responsáveis: ${card.assignees.isEmpty ? 'Sem responsáveis' : card.assignees.map((item) => item.employeeName).join(', ')}'),
+            Text('Criado: ${card.createdAt.toLocal()}'),
+            Text('Atualizado: ${card.updatedAt.toLocal()}'),
+          ],
+        );
+      },
     );
   }
 
   Future<void> _confirmDeleteKanbanCard(KanbanCard card) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text('Excluir #${card.cardNumber}?'),
-        content: Text(
+      builder: (dialogContext) => WorkspaceEditorDialog(
+        title: 'Excluir #${card.cardNumber}?',
+        subtitle: 'Esta operação remove o card do projeto.',
+        icon: Icons.delete_outline_rounded,
+        primaryLabel: 'Excluir',
+        onPrimary: () => Navigator.of(dialogContext).pop(true),
+        onSecondary: () => Navigator.of(dialogContext).pop(false),
+        child: Text(
           'O card "${card.name}" será removido. O número '
           '#${card.cardNumber} não será reutilizado.',
         ),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Excluir'),
-          ),
-        ],
       ),
     );
     if (confirmed != true) {
@@ -685,70 +649,39 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
 
   Future<void> _openManageKanbanAssignees(KanbanCard card) async {
     final project = _controller.selectedProject;
-    if (project == null) {
-      return;
-    }
+    if (project == null || !_controller.canManageAssignees || _controller.isMutating) return;
     final assignedIds = card.assignees.map((item) => item.employeeId).toSet();
     final atCapacity = assignedIds.length >= project.taskEmployeeLimit;
-
     await showDialog<void>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text('Responsáveis de #${card.cardNumber}'),
-        content: SizedBox(
-          width: 420,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text(
-                '${assignedIds.length}/${project.taskEmployeeLimit} responsável(is)',
-              ),
-              const SizedBox(height: 12),
-              Flexible(
-                child: ListView(
-                  shrinkWrap: true,
-                  children: _controller.projectMembers.map((member) {
-                    final assigned = assignedIds.contains(member.employeeId);
-                    return CheckboxListTile(
-                      value: assigned,
-                      title: Text(member.employeeName),
-                      controlAffinity: ListTileControlAffinity.leading,
-                      onChanged: _controller.isMutating || (!assigned && atCapacity)
-                          ? null
-                          : (selected) async {
-                              Navigator.of(dialogContext).pop();
-                              if (selected == true) {
-                                await _runAction(
-                                  () => _controller.addAssignee(
-                                    card.id,
-                                    member.employeeId,
-                                  ),
-                                  successMessage: 'Responsável adicionado.',
-                                );
-                              } else {
-                                await _runAction(
-                                  () => _controller.removeAssignee(
-                                    card.id,
-                                    member.employeeId,
-                                  ),
-                                  successMessage: 'Responsável removido.',
-                                );
-                              }
-                            },
-                    );
-                  }).toList(),
-                ),
-              ),
-            ],
-          ),
+      builder: (dialogContext) => WorkspaceEditorDialog(
+        title: 'Responsáveis de #${card.cardNumber}',
+        subtitle: '${assignedIds.length}/${project.taskEmployeeLimit} responsável(is)',
+        icon: Icons.people_outline_rounded,
+        primaryLabel: 'Fechar',
+        onPrimary: () => Navigator.of(dialogContext).pop(),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: _controller.projectMembers.map((member) {
+            final assigned = assignedIds.contains(member.employeeId);
+            return CheckboxListTile(
+              dense: true,
+              value: assigned,
+              title: Text(member.employeeName),
+              controlAffinity: ListTileControlAffinity.leading,
+              onChanged: !assigned && atCapacity ? null : (selected) async {
+                Navigator.of(dialogContext).pop();
+                await _runAction(
+                  () => selected == true
+                      ? _controller.addAssignee(card.id, member.employeeId)
+                      : _controller.removeAssignee(card.id, member.employeeId),
+                  successMessage: selected == true
+                      ? 'Responsável adicionado.' : 'Responsável removido.',
+                );
+              },
+            );
+          }).toList(),
         ),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Fechar'),
-          ),
-        ],
       ),
     );
   }
@@ -759,7 +692,7 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
   }) async {
     try {
       await action();
-      if (!mounted) {
+      if (!mounted || _controller.boardError != null) {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1075,7 +1008,7 @@ class _KanbanMetricsStrip extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
       key: const ValueKey<String>('kanban-project-metrics'),
-      height: 48,
+      height: 52,
       decoration: BoxDecoration(
         color: colorScheme.surface.withValues(alpha: 0.58),
         border: Border.all(color: colorScheme.outlineVariant),

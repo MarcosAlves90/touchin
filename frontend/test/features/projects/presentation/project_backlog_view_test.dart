@@ -51,10 +51,33 @@ void main() {
           );
           expect(tester.getSize(button).width, lessThan(210));
           expect(tester.getSize(button).height, lessThanOrEqualTo(40));
+          expect(tester.getRect(button).top,
+              tester.getRect(find.byKey(const ValueKey('backlog-search'))).top);
         }
         expect(find.byType(WorkspaceInstantSelectField<String>), findsNWidgets(3));
+        for (final key in <String>[
+          'backlog-status-filter',
+          'backlog-assignee-filter',
+          'backlog-sort',
+        ]) {
+          final field = find.byKey(ValueKey<String>(key));
+          expect(tester.getSize(field).height, 40);
+          final select = tester.widget<WorkspaceInstantSelectField<String>>(field);
+          expect(select.decoration.labelText, isNull);
+          expect(select.decoration.prefixIcon, isNotNull);
+          expect(select.semanticLabel, isNotEmpty);
+          expect(tester.getRect(field).top,
+              tester.getRect(find.byKey(const ValueKey('backlog-search'))).top);
+        }
         expect(tester.getSize(find.byKey(const ValueKey('backlog-table'))).width,
             greaterThanOrEqualTo(size.width - 2));
+        if (size.width >= 1440) {
+          final toolbar = tester.getRect(find.byKey(const ValueKey('backlog-toolbar')));
+          final lastAction = tester.getRect(find.ancestor(
+            of: find.text('Novo card'), matching: find.byType(FilledButton),
+          ));
+          expect(lastAction.right, greaterThan(toolbar.right - 24));
+        }
         expect(tester.takeException(), isNull);
       }
     }
@@ -100,8 +123,9 @@ void main() {
     expect(find.text('#1'), findsOneWidget);
     expect(find.text('Preparar proposta'), findsOneWidget);
     expect(find.text('Descrição detalhada'), findsOneWidget);
-    expect(find.text('A fazer'), findsOneWidget);
-    expect(find.text('Em andamento'), findsOneWidget);
+    final table = tester.widget<DataTable>(find.byType(DataTable));
+    expect(table.columns.where((column) => column.label is Text &&
+        (column.label as Text).data == 'Status'), isEmpty);
     expect(find.text('Projeto: Projeto Alpha'), findsNWidgets(2));
     expect(find.text('Ana Souza'), findsOneWidget);
     expect(find.byTooltip('Editar #1'), findsNothing);
@@ -182,7 +206,8 @@ void main() {
     expect(find.text('Novo card'), findsOneWidget);
     expect(find.byTooltip('Editar #1'), findsOneWidget);
     expect(find.byTooltip('Excluir #1'), findsOneWidget);
-    expect(find.byTooltip('Mover #1 para cima'), findsOneWidget);
+    expect(find.byTooltip('Mover #1 para cima'), findsNothing);
+    expect(find.byTooltip('Mover #1 para baixo'), findsNothing);
     await tester.tap(find.text('Novo status'));
     await tester.tap(find.text('Gerenciar colunas'));
     expect(createColumnCalls, 1);
@@ -192,17 +217,57 @@ void main() {
     expect(openedCard?.id, 'task-1');
     expect(openedCard?.cardNumber, 1);
 
-    await tester
-        .tap(find.byKey(const ValueKey('backlog-card-status-task-1-column-1')));
+    expect(movedTaskId, isNull);
+    expect(movedColumnId, isNull);
+  });
+
+  testWidgets('headers filter and sort while children stay below parents', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1800, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: ProjectBacklogView(
+      board: _board(hierarchical: true), projectName: 'Projeto Alpha',
+      projectMembers: const <ProjectMemberSummary>[],
+      canManageStructure: false, canManageCards: false,
+      canManageAssignees: false, canMoveCards: false, isBusy: false,
+      onManageColumns: () {}, onCreateColumn: () {}, onCreateCard: (_) {},
+      onMoveCard: (_, __, ___) {}, onEditCard: (_) {}, onDeleteCard: (_) {},
+      onManageAssignees: (_) {}, onOpenDetails: (_) {},
+    ))));
+    for (final field in <String>['number', 'title', 'description', 'assignees', 'project', 'created', 'updated']) {
+      expect(find.byKey(ValueKey('backlog-header-$field')), findsOneWidget);
+    }
+    await tester.tap(find.byKey(const ValueKey('backlog-header-title')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Em andamento').last);
+    await tester.tap(find.text('Ordenar crescente'));
     await tester.pumpAndSettle();
-    expect(movedTaskId, 'task-1');
-    expect(movedColumnId, 'column-2');
+    final parent = tester.getRect(find.text('Preparar proposta'));
+    final child = tester.getRect(find.text('Corrigir defeito'));
+    expect(child.top, greaterThan(parent.top));
+    expect(child.left, greaterThan(parent.left));
+    expect(find.byTooltip('Subtarefa de Preparar proposta'), findsOneWidget);
+    final childArrow = tester.getRect(
+      find.byKey(const ValueKey('hierarchy-indicator-task-2')),
+    );
+    final grandchildArrow = tester.getRect(
+      find.byKey(const ValueKey('hierarchy-indicator-task-3')),
+    );
+    expect(find.byTooltip('Subtarefa de Corrigir defeito'), findsOneWidget);
+    expect(grandchildArrow.left, greaterThan(childArrow.left));
+    expect(grandchildArrow.top, greaterThan(childArrow.top));
+    await tester.tap(find.byKey(const ValueKey('backlog-header-description')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Filtrar coluna'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField), 'formulário');
+    await tester.tap(find.text('Aplicar filtro'));
+    await tester.pumpAndSettle();
+    expect(find.text('Corrigir defeito'), findsOneWidget);
+    expect(find.text('Preparar proposta'), findsNothing);
+    expect(tester.takeException(), isNull);
   });
 }
 
-KanbanBoard _board() {
+KanbanBoard _board({bool hierarchical = false}) {
   final first = KanbanCard(
     id: 'task-1',
     projectId: 'project-1',
@@ -227,7 +292,7 @@ KanbanBoard _board() {
   final second = KanbanCard(
     id: 'task-2',
     projectId: 'project-1',
-    parentTaskId: null,
+    parentTaskId: hierarchical ? 'task-1' : null,
     cardNumber: 2,
     kanbanColumnId: 'column-2',
     kanbanPosition: 0,
@@ -237,6 +302,20 @@ KanbanBoard _board() {
     assignees: const <TaskMemberSummary>[],
     createdAt: DateTime(2026, 1, 4),
     updatedAt: DateTime(2026, 1, 5),
+  );
+  final third = KanbanCard(
+    id: 'task-3',
+    projectId: 'project-1',
+    parentTaskId: 'task-2',
+    cardNumber: 3,
+    kanbanColumnId: 'column-2',
+    kanbanPosition: 1,
+    name: 'Revisar subtarefa',
+    description: 'Detalhe da subtarefa',
+    type: TaskType.improvement,
+    assignees: const <TaskMemberSummary>[],
+    createdAt: DateTime(2026, 1, 6),
+    updatedAt: DateTime(2026, 1, 6),
   );
   return KanbanBoard(
     projectId: 'project-1',
@@ -256,7 +335,7 @@ KanbanBoard _board() {
         projectId: 'project-1',
         name: 'Em andamento',
         position: 1,
-        cards: <KanbanCard>[second],
+        cards: hierarchical ? <KanbanCard>[second, third] : <KanbanCard>[second],
         createdAt: DateTime(2026, 1, 1),
         updatedAt: DateTime(2026, 1, 1),
       ),
