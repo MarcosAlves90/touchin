@@ -7,13 +7,172 @@ import 'package:touchin_flutter/contracts/kanban.dart';
 import 'package:touchin_flutter/contracts/project.dart';
 import 'package:touchin_flutter/contracts/task.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
+import 'package:touchin_flutter/core/network/api_client.dart';
 import 'package:touchin_flutter/features/projects/presentation/project_kanban_page.dart';
 import 'package:touchin_flutter/features/projects/presentation/widgets/project_kanban_board.dart';
+import 'package:touchin_flutter/features/projects/presentation/widgets/task_editor_dialog.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_editor_dialog.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_instant_select_field.dart';
 import 'package:touchin_flutter/theme/app_theme.dart';
 
 void main() {
+  testWidgets('employee views shared card modal without protected edit controls', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1600, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(MaterialApp(home: ProjectKanbanPage(api: _EmployeeKanbanApi())));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Backlog'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Detalhes de #1'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ProjectTaskEditorDialog), findsOneWidget);
+    expect(find.text('Editar'), findsNothing);
+    expect(find.text('Salvar'), findsNothing);
+    expect(tester.widgetList<TextField>(find.descendant(of: find.byType(ProjectTaskEditorDialog), matching: find.byType(TextField))).every((field) => field.readOnly), isTrue);
+    expect(tester.widget<WorkspaceInstantSelectField<String>>(find.byKey(const ValueKey('card-dialog-status'))).onChanged, isNotNull);
+  });
+
+  testWidgets('explicit card editing saves through the shared API and keeps identity', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1600, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final api = _FakeKanbanApi();
+    await tester.pumpWidget(MaterialApp(home: ProjectKanbanPage(api: api)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Backlog'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Detalhes de #1'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Editar'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField).first, 'Título atualizado');
+    await tester.tap(find.text('Salvar'));
+    await tester.pumpAndSettle();
+    expect(api.updatedDrafts.keys.toList(), <String>['task-01']);
+    expect(find.text('Título atualizado'), findsOneWidget);
+    expect(find.text('#1'), findsOneWidget);
+    await tester.tap(find.text('Kanban'));
+    await tester.pumpAndSettle();
+    expect(find.text('Título atualizado'), findsOneWidget);
+    expect(find.text('#1'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final status in <int>[403, 409]) {
+    testWidgets('status failure $status reports feedback without unhandled errors', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1600, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(MaterialApp(home: ProjectKanbanPage(api: _FailedMoveApi(status))));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Backlog'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Detalhes de #1'));
+      await tester.pumpAndSettle();
+      final select = find.byKey(const ValueKey('card-dialog-status'));
+      await tester.ensureVisible(select);
+      await tester.pumpAndSettle();
+      await tester.tap(select);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Concluído').last);
+      await tester.pumpAndSettle();
+      expect(find.textContaining(status == 403 ? 'Movimento rejeitado' : 'O quadro mudou em outra sessão'), findsOneWidget);
+      expect(find.text('Status do card atualizado.'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('column creation closes safely and sends exactly one versioned request', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1600, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final api = _FakeKanbanApi();
+    await tester.pumpWidget(MaterialApp(home: ProjectKanbanPage(api: api)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Backlog'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Novo status'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField), '  Em revisão  ');
+    await tester.tap(find.text('Criar coluna'));
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(api.createdColumnNames, <String>['Em revisão']);
+    expect(api.boardVersion, 2);
+    await tester.tap(find.text('Novo status'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cancelar'));
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    await tester.pumpAndSettle();
+    expect(api.createdColumnNames.length, 1);
+  });
+
+  testWidgets('card details reuse the Kanban editor and require explicit edit activation', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1600, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(MaterialApp(home: ProjectKanbanPage(api: _FakeKanbanApi())));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Backlog'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Detalhes de #1'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ProjectTaskEditorDialog), findsOneWidget);
+    expect(find.byType(WorkspaceEditorDialog), findsOneWidget);
+    expect(tester.widgetList<TextField>(find.descendant(of: find.byType(ProjectTaskEditorDialog), matching: find.byType(TextField))).every((field) => field.readOnly), isTrue);
+    await tester.tap(find.text('Editar'));
+    await tester.pumpAndSettle();
+    expect(tester.widgetList<TextField>(find.descendant(of: find.byType(ProjectTaskEditorDialog), matching: find.byType(TextField))).every((field) => !field.readOnly), isTrue);
+    expect(find.text('Salvar'), findsOneWidget);
+    await tester.tap(find.text('Cancelar'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Responsáveis de #1'));
+    await tester.pumpAndSettle();
+    expect(find.byType(WorkspaceEditorDialog), findsOneWidget);
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('renders Backlog for the selected project', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      MaterialApp(home: ProjectKanbanPage(api: _FakeKanbanApi())),
+    );
+    await tester.pumpAndSettle();
+
+    final overview = find.byKey(
+      const ValueKey<String>('kanban-project-overview'),
+    );
+    final viewSwitch = find.descendant(
+      of: overview,
+      matching: find.byType(ToggleButtons),
+    );
+    expect(viewSwitch, findsOneWidget);
+    expect(
+      tester.widget<ToggleButtons>(viewSwitch).borderRadius,
+      BorderRadius.zero,
+    );
+
+    await tester.tap(find.text('Backlog'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('#1'), findsOneWidget);
+    expect(find.text('Implementar tela'), findsOneWidget);
+    expect(find.text('Descrição da tarefa'), findsOneWidget);
+    expect(find.text('A fazer'), findsNothing);
+    expect(find.text('Projeto principal'), findsWidgets);
+    expect(find.textContaining('Criado'), findsOneWidget);
+    expect(find.textContaining('Atualizado'), findsWidgets);
+    await tester.tap(find.text('Gerenciar colunas'));
+    await tester.pumpAndSettle();
+    expect(find.byType(WorkspaceEditorDialog), findsOneWidget);
+    expect(find.byTooltip('Renomear status'), findsOneWidget);
+    await tester.tap(find.text('Fechar').last);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('builds Kanban without redundant page titles and keeps board bounded', (
     tester,
   ) async {
@@ -165,7 +324,20 @@ void main() {
       const ValueKey<String>('kanban-project-metrics'),
     );
     expect(metrics, findsOneWidget);
-    expect(tester.getRect(metrics).height, 48);
+    expect(tester.getRect(metrics).height, 52);
+    final overview = find.byKey(
+      const ValueKey<String>('kanban-project-overview'),
+    );
+    final viewSwitch = find.descendant(
+      of: overview,
+      matching: find.byKey(const ValueKey<String>('project-view-switch')),
+    );
+    final projectSelector = find.descendant(
+      of: overview,
+      matching: find.byType(WorkspaceInstantSelectField<String>),
+    );
+    expect(tester.getSize(viewSwitch).height, 52);
+    expect(tester.getSize(projectSelector).height, 52);
     expect(find.text('Quadro'), findsOneWidget);
     expect(find.text('v1'), findsNothing);
     expect(
@@ -175,9 +347,6 @@ void main() {
     expect(find.text('Feature'), findsOneWidget);
     expect(find.text('Adicionar card'), findsOneWidget);
     expect(find.text('Sem responsáveis'), findsOneWidget);
-    final overview = find.byKey(
-      const ValueKey<String>('kanban-project-overview'),
-    );
     expect(overview, findsOneWidget);
     expect(tester.getRect(overview).height, lessThan(80));
     expect(tester.takeException(), isNull);
@@ -398,6 +567,28 @@ class _FakeKanbanApi extends TouchInApi {
   final int cardsPerColumn;
   int boardVersion = 1;
   List<String>? lastColumnOrdering;
+  final List<String> createdColumnNames = <String>[];
+  final Map<String, TaskDraft> updatedDrafts = <String, TaskDraft>{};
+
+  @override
+  Future<TaskRecord> updateTask(String projectId, String taskId, TaskDraft draft) async {
+    final old = (await listTasks(projectId)).firstWhere((task) => task.id == taskId);
+    updatedDrafts[taskId] = draft;
+    return TaskRecord(id: old.id, projectId: old.projectId,
+      parentTaskId: draft.parentTaskId, cardNumber: old.cardNumber,
+      kanbanColumnId: old.kanbanColumnId, kanbanPosition: old.kanbanPosition,
+      name: draft.name, description: draft.description, type: draft.type,
+      createdAt: old.createdAt, updatedAt: DateTime(2026, 10, 11));
+  }
+
+  @override
+  Future<KanbanBoard> createKanbanColumn(String projectId, {
+    required String name, required int expectedVersion,
+  }) async {
+    createdColumnNames.add(name);
+    boardVersion = expectedVersion + 1;
+    return _buildBoard(projectId);
+  }
 
   @override
   Future<AuthContext> getAuthContext() async {
@@ -564,6 +755,8 @@ class _FakeKanbanApi extends TouchInApi {
   }
 
   String _cardName(int columnIndex, int cardIndex) {
+    final draft = updatedDrafts[_cardId(columnIndex, cardIndex)];
+    if (draft != null) return draft.name;
     if (columnIndex == 0 && cardIndex == 0) {
       return 'Implementar tela';
     }
@@ -579,4 +772,22 @@ double _scrollOffset(WidgetTester tester, Key scrollViewKey) {
       )
       .first;
   return tester.state<ScrollableState>(scrollable).position.pixels;
+}
+
+class _EmployeeKanbanApi extends _FakeKanbanApi {
+  @override
+  Future<AuthContext> getAuthContext() async {
+    final auth = await super.getAuthContext();
+    return AuthContext(company: auth.company,
+      user: const AuthUserSummary(id: 'user-employee', email: 'employee@example.test', role: 'employee', employeeId: 'emp-01'));
+  }
+}
+
+class _FailedMoveApi extends _FakeKanbanApi {
+  _FailedMoveApi(this.status) : super(columnCount: 2);
+  final int status;
+  @override
+  Future<KanbanBoard> reorderKanbanCards(String projectId, {
+    required int expectedVersion, required Map<String, List<String>> columnTaskIds,
+  }) async => throw ApiException('Movimento rejeitado', statusCode: status);
 }

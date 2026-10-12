@@ -14,12 +14,14 @@ class WorkspaceInstantSelectField<T> extends StatefulWidget {
     required this.options,
     required this.decoration,
     required this.onChanged,
+    this.semanticLabel,
   });
 
   final T? value;
   final List<WorkspaceSelectOption<T>> options;
   final InputDecoration decoration;
   final ValueChanged<T?>? onChanged;
+  final String? semanticLabel;
 
   @override
   State<WorkspaceInstantSelectField<T>> createState() =>
@@ -43,7 +45,7 @@ class _WorkspaceInstantSelectFieldState<T>
       button: true,
       enabled: _enabled,
       expanded: _menuOpen,
-      label: widget.decoration.labelText,
+      label: widget.semanticLabel ?? widget.decoration.labelText,
       child: MouseRegion(
         cursor: _enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
         child: InkWell(

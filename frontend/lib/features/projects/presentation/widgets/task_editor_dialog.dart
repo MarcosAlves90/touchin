@@ -9,10 +9,16 @@ class ProjectTaskEditorDialog extends StatefulWidget {
     super.key,
     required this.tasks,
     this.task,
+    this.startInViewMode = false,
+    this.canEdit = true,
+    this.supplementaryDetails,
   });
 
   final List<TaskRecord> tasks;
   final TaskRecord? task;
+  final bool startInViewMode;
+  final bool canEdit;
+  final Widget? supplementaryDetails;
 
   @override
   State<ProjectTaskEditorDialog> createState() =>
@@ -25,12 +31,15 @@ class _ProjectTaskEditorDialogState extends State<ProjectTaskEditorDialog> {
   late final TextEditingController _descriptionController;
   late TaskType _type;
   String? _parentTaskId;
+  late bool _viewMode;
+  bool get _readOnly => _viewMode || !widget.canEdit;
 
   bool get _isEditing => widget.task != null;
 
   @override
   void initState() {
     super.initState();
+    _viewMode = widget.task != null && widget.startInViewMode;
     _nameController = TextEditingController(text: widget.task?.name ?? '');
     _descriptionController =
         TextEditingController(text: widget.task?.description ?? '');
@@ -54,12 +63,19 @@ class _ProjectTaskEditorDialogState extends State<ProjectTaskEditorDialog> {
         .toList();
 
     return WorkspaceEditorDialog(
-      title: _isEditing ? 'Editar tarefa' : 'Nova tarefa',
+      title: _viewMode ? '#${widget.task!.cardNumber} · ${widget.task!.name}' : _isEditing ? 'Editar tarefa' : 'Nova tarefa',
       subtitle: 'Detalhes da tarefa',
       icon: _isEditing ? Icons.edit_note_rounded : Icons.add_task,
-      primaryLabel: _isEditing ? 'Salvar' : 'Criar tarefa',
-      primaryIcon: _isEditing ? Icons.save_outlined : Icons.add_rounded,
-      onPrimary: _submit,
+      primaryLabel: _viewMode ? (widget.canEdit ? 'Editar' : 'Fechar') : _isEditing ? 'Salvar' : 'Criar tarefa',
+      primaryIcon: _viewMode ? Icons.edit_outlined : _isEditing ? Icons.save_outlined : Icons.add_rounded,
+      secondaryLabel: _viewMode ? 'Fechar' : 'Cancelar',
+      onPrimary: _viewMode ? () {
+        if (widget.canEdit) {
+          setState(() => _viewMode = false);
+        } else {
+          Navigator.of(context).pop();
+        }
+      } : _submit,
       child: Form(
         key: _formKey,
         child: Column(
@@ -67,7 +83,8 @@ class _ProjectTaskEditorDialogState extends State<ProjectTaskEditorDialog> {
           children: <Widget>[
             TextFormField(
               controller: _nameController,
-              autofocus: !compact,
+              readOnly: _readOnly,
+              autofocus: !compact && !_readOnly,
               maxLength: taskNameMaxLength,
               maxLengthEnforcement: MaxLengthEnforcement.enforced,
               textInputAction: TextInputAction.next,
@@ -80,6 +97,7 @@ class _ProjectTaskEditorDialogState extends State<ProjectTaskEditorDialog> {
             const SizedBox(height: 12),
             TextFormField(
               controller: _descriptionController,
+              readOnly: _readOnly,
               minLines: compact ? 2 : 3,
               maxLines: compact ? 4 : 5,
               maxLength: taskDescriptionMaxLength,
@@ -108,7 +126,7 @@ class _ProjectTaskEditorDialogState extends State<ProjectTaskEditorDialog> {
                           ),
                         )
                         .toList(),
-                    onChanged: (value) {
+                    onChanged: _readOnly ? null : (value) {
                       if (value != null) {
                         setState(() => _type = value);
                       }
@@ -132,7 +150,7 @@ class _ProjectTaskEditorDialogState extends State<ProjectTaskEditorDialog> {
                         ),
                       ),
                     ],
-                    onChanged: (value) => setState(
+                    onChanged: _readOnly ? null : (value) => setState(
                       () => _parentTaskId =
                           value == null || value.isEmpty ? null : value,
                     ),
@@ -159,6 +177,7 @@ class _ProjectTaskEditorDialogState extends State<ProjectTaskEditorDialog> {
                 );
               },
             ),
+            if (widget.supplementaryDetails != null) widget.supplementaryDetails!,
           ],
         ),
       ),
@@ -166,6 +185,7 @@ class _ProjectTaskEditorDialogState extends State<ProjectTaskEditorDialog> {
   }
 
   void _submit() {
+    if (_readOnly) return;
     if (!_formKey.currentState!.validate()) {
       return;
     }
