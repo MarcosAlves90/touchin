@@ -14,6 +14,47 @@ import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_i
 import 'package:touchin_flutter/theme/app_theme.dart';
 
 void main() {
+  testWidgets('renders Backlog for the selected project', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      MaterialApp(home: ProjectKanbanPage(api: _FakeKanbanApi())),
+    );
+    await tester.pumpAndSettle();
+
+    final overview = find.byKey(
+      const ValueKey<String>('kanban-project-overview'),
+    );
+    final viewSwitch = find.descendant(
+      of: overview,
+      matching: find.byType(ToggleButtons),
+    );
+    expect(viewSwitch, findsOneWidget);
+    expect(
+      tester.widget<ToggleButtons>(viewSwitch).borderRadius,
+      BorderRadius.zero,
+    );
+
+    await tester.tap(find.text('Backlog'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('#1'), findsOneWidget);
+    expect(find.text('Implementar tela'), findsOneWidget);
+    expect(find.text('Descrição da tarefa'), findsOneWidget);
+    expect(find.text('A fazer'), findsOneWidget);
+    expect(find.text('Projeto principal'), findsWidgets);
+    expect(find.textContaining('Criado'), findsOneWidget);
+    expect(find.textContaining('Atualizado'), findsWidgets);
+    await tester.tap(find.text('Gerenciar colunas'));
+    await tester.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(find.byTooltip('Renomear status'), findsOneWidget);
+    await tester.tap(find.text('Fechar').last);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('builds Kanban without redundant page titles and keeps board bounded', (
     tester,
   ) async {

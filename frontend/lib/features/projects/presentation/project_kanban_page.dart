@@ -4,6 +4,7 @@ import 'package:touchin_flutter/contracts/task.dart';
 import 'package:touchin_flutter/core/network/api_client.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
 import 'package:touchin_flutter/features/projects/presentation/kanban_controller.dart';
+import 'package:touchin_flutter/features/projects/presentation/widgets/project_backlog_view.dart';
 import 'package:touchin_flutter/features/projects/presentation/widgets/project_kanban_board.dart';
 import 'package:touchin_flutter/features/projects/presentation/widgets/task_editor_dialog.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_editor_dialog.dart';
@@ -24,6 +25,7 @@ class ProjectKanbanPage extends StatefulWidget {
 class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
   late final ProjectKanbanController _controller;
   late final bool _ownsController;
+  bool _showBacklog = false;
 
   @override
   void initState() {
@@ -165,6 +167,7 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
           : () => _controller.reload(),
       icon: const Icon(Icons.refresh_rounded),
     );
+    final viewSwitch = _buildProjectViewSwitch(compact: compact);
 
     return Material(
       key: const ValueKey<String>('kanban-project-overview'),
@@ -176,10 +179,12 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
         padding: EdgeInsets.all(compact ? 7 : 8),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            if (!compact && constraints.maxWidth >= 780) {
+            if (!compact && constraints.maxWidth >= 1080) {
               return Row(
                 children: <Widget>[
                   Expanded(child: selector),
+                  const SizedBox(width: 8),
+                  viewSwitch,
                   const SizedBox(width: 8),
                   SizedBox(width: 292, child: metrics),
                   const SizedBox(width: 2),
@@ -195,6 +200,8 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
                   children: <Widget>[
                     Expanded(child: selector),
                     const SizedBox(width: 4),
+                    _buildProjectViewSwitch(compact: true),
+                    const SizedBox(width: 2),
                     refresh,
                   ],
                 ),
@@ -205,6 +212,41 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
           },
         ),
       ),
+    );
+  }
+
+  Widget _buildProjectViewSwitch({required bool compact}) {
+    final colors = Theme.of(context).colorScheme;
+    return ToggleButtons(
+      key: const ValueKey<String>('project-view-switch'),
+      borderRadius: BorderRadius.zero,
+      constraints: BoxConstraints(
+        minWidth: compact ? 40 : 86,
+        minHeight: 38,
+      ),
+      color: colors.onSurfaceVariant,
+      selectedColor: colors.onPrimaryContainer,
+      fillColor: colors.primaryContainer,
+      borderColor: colors.outlineVariant,
+      selectedBorderColor: colors.primary,
+      isSelected: <bool>[!_showBacklog, _showBacklog],
+      onPressed: (index) => setState(() => _showBacklog = index == 1),
+      children: <Widget>[
+        if (compact)
+          const Tooltip(
+            message: 'Kanban',
+            child: Icon(Icons.view_kanban_outlined, size: 18),
+          )
+        else
+          const Text('Kanban'),
+        if (compact)
+          const Tooltip(
+            message: 'Backlog',
+            child: Icon(Icons.view_list_outlined, size: 18),
+          )
+        else
+          const Text('Backlog'),
+      ],
     );
   }
 
@@ -222,6 +264,32 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
         message: _controller.boardError ?? 'Não foi possível carregar o Kanban.',
         actionLabel: 'Recarregar',
         onAction: _controller.reload,
+      );
+    }
+
+    if (_showBacklog) {
+      return ProjectBacklogView(
+        key: ValueKey<String>('project-backlog-${board.projectId}'),
+        board: board,
+        projectName: _controller.selectedProject?.name ?? '',
+        projectMembers: _controller.projectMembers,
+        canManageStructure: _controller.canManageStructure,
+        canManageCards: _controller.canManageCards,
+        canManageAssignees: _controller.canManageAssignees,
+        canMoveCards: _controller.canMoveCards,
+        isBusy: _controller.isMutating,
+        onManageColumns: _openManageBacklogColumns,
+        onCreateColumn: _openCreateKanbanColumn,
+        onCreateCard: _openCreateKanbanCard,
+        onMoveCard: (taskId, columnId, index) => _controller.moveCard(
+          taskId: taskId,
+          toColumnId: columnId,
+          toIndex: index,
+        ),
+        onEditCard: _openEditKanbanCard,
+        onDeleteCard: _confirmDeleteKanbanCard,
+        onManageAssignees: _openManageKanbanAssignees,
+        onOpenDetails: _openBacklogCardDetails,
       );
     }
 
@@ -431,6 +499,157 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
     await _runAction(
       () => _controller.updateCard(card.toTaskRecord(), draft),
       successMessage: 'Card atualizado.',
+    );
+  }
+
+  Future<void> _openManageBacklogColumns() async {
+    if (!_controller.canManageStructure) {
+      return;
+    }
+    final columns = _controller.board?.columns ?? const <KanbanColumn>[];
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Gerenciar colunas'),
+        content: SizedBox(
+          width: 480,
+          height: MediaQuery.sizeOf(dialogContext).height * 0.55,
+          child: columns.isEmpty
+              ? const Center(child: Text('Crie o primeiro status do projeto.'))
+              : ListView.separated(
+                  itemCount: columns.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemBuilder: (context, index) {
+                    final column = columns[index];
+                    return ListTile(
+                      dense: true,
+                      title: Text(column.name),
+                      subtitle: Text('${column.cards.length} cards'),
+                      trailing: Wrap(
+                        spacing: 0,
+                        children: <Widget>[
+                          IconButton(
+                            tooltip: 'Mover coluna para cima',
+                            visualDensity: VisualDensity.compact,
+                            onPressed: index == 0 || _controller.isMutating
+                                ? null
+                                : () {
+                                    Navigator.of(dialogContext).pop();
+                                    _runAction(
+                                      () => _controller.moveColumn(
+                                        columnId: column.id,
+                                        toIndex: index - 1,
+                                      ),
+                                      successMessage: 'Colunas reordenadas.',
+                                    );
+                                  },
+                            icon: const Icon(Icons.arrow_upward_rounded),
+                          ),
+                          IconButton(
+                            tooltip: 'Mover coluna para baixo',
+                            visualDensity: VisualDensity.compact,
+                            onPressed: index == columns.length - 1 ||
+                                    _controller.isMutating
+                                ? null
+                                : () {
+                                    Navigator.of(dialogContext).pop();
+                                    _runAction(
+                                      () => _controller.moveColumn(
+                                        columnId: column.id,
+                                        toIndex: index + 1,
+                                      ),
+                                      successMessage: 'Colunas reordenadas.',
+                                    );
+                                  },
+                            icon: const Icon(Icons.arrow_downward_rounded),
+                          ),
+                          IconButton(
+                            tooltip: 'Renomear status',
+                            visualDensity: VisualDensity.compact,
+                            onPressed: _controller.isMutating
+                                ? null
+                                : () {
+                                    Navigator.of(dialogContext).pop();
+                                    _openRenameKanbanColumn(column);
+                                  },
+                            icon: const Icon(Icons.edit_outlined),
+                          ),
+                          IconButton(
+                            tooltip: 'Excluir status',
+                            visualDensity: VisualDensity.compact,
+                            onPressed: _controller.isMutating
+                                ? null
+                                : () {
+                                    Navigator.of(dialogContext).pop();
+                                    _confirmDeleteKanbanColumn(column);
+                                  },
+                            icon: const Icon(Icons.delete_outline_rounded),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Fechar'),
+          ),
+          FilledButton.icon(
+            onPressed: _controller.isMutating
+                ? null
+                : () {
+                    Navigator.of(dialogContext).pop();
+                    _openCreateKanbanColumn();
+                  },
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('Novo status'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openBacklogCardDetails(KanbanCard card) async {
+    var columnName = 'Desconhecido';
+    for (final column in _controller.board?.columns ?? const <KanbanColumn>[]) {
+      if (column.id == card.kanbanColumnId) {
+        columnName = column.name;
+        break;
+      }
+    }
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('#${card.cardNumber} · ${card.name}'),
+        content: SizedBox(
+          width: 480,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Text(card.description),
+                const SizedBox(height: 12),
+                Text('Status: $columnName'),
+                Text('Projeto: ${_controller.selectedProject?.name ?? ''}'),
+                Text(
+                  'Responsáveis: ${card.assignees.isEmpty ? 'Sem responsáveis' : card.assignees.map((item) => item.employeeName).join(', ')}',
+                ),
+                Text('Criado: ${card.createdAt.toLocal()}'),
+                Text('Atualizado: ${card.updatedAt.toLocal()}'),
+              ],
+            ),
+          ),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Fechar'),
+          ),
+        ],
+      ),
     );
   }
 
