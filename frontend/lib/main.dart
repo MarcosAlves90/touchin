@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:touchin_flutter/contracts/auth.dart';
 import 'package:touchin_flutter/core/network/api_client.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
@@ -223,14 +225,77 @@ class _SessionVerificationError extends StatelessWidget {
   }
 }
 
-class _StartupSplash extends StatelessWidget {
+class _StartupSplash extends StatefulWidget {
   const _StartupSplash();
 
   @override
+  State<_StartupSplash> createState() => _StartupSplashState();
+}
+
+class _StartupSplashState extends State<_StartupSplash> {
+  static const _statusMessages = <String>[
+    'Escrevendo documentos',
+    'Organizando rotinas',
+    'Alinhando os planetas',
+    'Preparando tudo por aqui',
+  ];
+
+  late final Timer _statusTimer;
+  int _statusIndex = 0;
+  int _dotCount = 0;
+  int _ticks = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _statusTimer = Timer.periodic(const Duration(milliseconds: 500), (_) {
+      setState(() {
+        _ticks += 1;
+        _dotCount = _ticks % 4;
+        if (_ticks % 6 == 0) {
+          _statusIndex = (_statusIndex + 1) % _statusMessages.length;
+        }
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _statusTimer.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return const Scaffold(
+    final theme = Theme.of(context);
+    return Scaffold(
       body: Center(
-        child: CircularProgressIndicator(),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            const CircularProgressIndicator(),
+            const SizedBox(height: 20),
+            Text(
+              'Aguardando o servidor',
+              style: theme.textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Text(
+                  _statusMessages[_statusIndex],
+                  style: theme.textTheme.bodyMedium,
+                ),
+                Text(
+                  '.' * _dotCount,
+                  key: const ValueKey<String>('startup-status-dots'),
+                  style: theme.textTheme.bodyMedium,
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

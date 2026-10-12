@@ -25,6 +25,80 @@ void main() {
     expect(find.text('Cadastrar empresa'), findsOneWidget);
   });
 
+  testWidgets('startup splash explains pending session verification', (
+    WidgetTester tester,
+  ) async {
+    final tokenStorage = _InMemoryTokenStorage()
+      ..savedSession = AuthSession(
+        accessToken: 'token-123',
+        tokenType: 'bearer',
+        expiresAt: DateTime.parse('2099-04-26T18:00:00Z'),
+        company: const AuthCompanySummary(
+          id: 'cmp-01',
+          legalName: 'TouchIn Tecnologia LTDA',
+          tradeName: 'TouchIn',
+          cnpjMasked: '12.***.***/****-90',
+          emailMasked: 'co*****@touchin.com',
+          phoneMasked: '11*****0000',
+        ),
+        user: const AuthUserSummary(
+          id: 'usr-01',
+          email: 'super.admin@touchin.com',
+          role: 'super_admin',
+        ),
+      );
+    final authContextCompleter = Completer<AuthContext>();
+    final api = _FakeTouchInApi(
+      tokenStorage: tokenStorage,
+      authContextCompleter: authContextCompleter,
+    );
+
+    await tester.pumpWidget(
+      MyApp(api: api, tokenStorage: tokenStorage),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.text('Aguardando o servidor'), findsOneWidget);
+    expect(find.text('Escrevendo documentos'), findsOneWidget);
+    final initialDots = tester.widget<Text>(
+      find.byKey(const ValueKey<String>('startup-status-dots')),
+    ).data;
+
+    await tester.pump(const Duration(milliseconds: 500));
+    final animatedDots = tester.widget<Text>(
+      find.byKey(const ValueKey<String>('startup-status-dots')),
+    ).data;
+    expect(animatedDots, isNot(initialDots));
+
+    await tester.pump(const Duration(seconds: 3));
+    expect(find.text('Organizando rotinas'), findsOneWidget);
+
+    authContextCompleter.complete(
+      const AuthContext(
+        company: AuthCompanySummary(
+          id: 'cmp-01',
+          legalName: 'TouchIn Tecnologia LTDA',
+          tradeName: 'TouchIn',
+          cnpjMasked: '12.***.***/****-90',
+          emailMasked: 'co*****@touchin.com',
+          phoneMasked: '11*****0000',
+        ),
+        user: AuthUserSummary(
+          id: 'usr-01',
+          email: 'super.admin@touchin.com',
+          role: 'super_admin',
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.text('Aguardando o servidor'), findsNothing);
+    expect(find.text('Administrar equipe'), findsOneWidget);
+  });
+
   testWidgets('keeps opaque themed backgrounds during auth navigation', (
     WidgetTester tester,
   ) async {
@@ -402,17 +476,22 @@ class _FakeTouchInApi extends TouchInApi {
     this.authContext,
     this.authContextError,
     this.authContextResults,
+    this.authContextCompleter,
   }) : super(tokenStorage: tokenStorage);
 
   final TokenStorage tokenStorage;
   final AuthContext? authContext;
   final ApiException? authContextError;
   final List<Object>? authContextResults;
+  final Completer<AuthContext>? authContextCompleter;
   int authContextRequests = 0;
 
   @override
   Future<AuthContext> getAuthContext() async {
     authContextRequests += 1;
+    if (authContextCompleter != null) {
+      return await authContextCompleter!.future;
+    }
     final results = authContextResults;
     if (results != null && results.isNotEmpty) {
       final result = results.removeAt(0);
