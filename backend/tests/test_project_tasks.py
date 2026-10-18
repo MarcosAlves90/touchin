@@ -68,6 +68,75 @@ def _create_task(
     return response.json()
 
 
+def test_creation_key_replays_committed_card_after_lost_response(client):
+    headers = _manager_headers(client)
+    project = _create_project(client, headers)
+    path = f"/api/v1/projects/{project['id']}/tasks"
+    payload = {
+        "name": "Recuperar criação",
+        "description": "A resposta da primeira criação se perdeu.",
+        "type": "feature",
+        "creationKey": "retry-after-response-loss-01",
+    }
+    first = client.post(path, headers=headers, json=payload)
+    assert first.status_code == 201, first.text
+    # The transport loses the first 201 after COMMIT: only retry reaches the UI.
+    replay = client.post(path, headers=headers, json=payload)
+    assert replay.status_code == 201, replay.text
+    assert replay.json()["id"] == first.json()["id"]
+    assert replay.json()["cardNumber"] == first.json()["cardNumber"] == 1
+
+    with SessionLocal() as db:
+        from app.models import AuditEvent, Project, TaskCreationRequest
+        assert db.scalar(select(func.count()).select_from(Task).where(
+            Task.project_id == project["id"],
+        )) == 1
+        current_project = db.get(Project, project["id"])
+        assert current_project.next_card_number == 2
+        assert db.scalar(select(func.count()).select_from(TaskCreationRequest).where(
+            TaskCreationRequest.project_id == project["id"],
+        )) == 1
+        assert db.scalar(select(func.count()).select_from(AuditEvent).where(
+            AuditEvent.project_id == project["id"],
+            AuditEvent.action == "card.created",
+        )) == 1
+        # Look up by the natural key without requiring the login fixture's user ID.
+        recorded = db.scalar(select(TaskCreationRequest).where(
+            TaskCreationRequest.project_id == project["id"],
+        ))
+        assert "Recuperar criação" not in recorded.response_ciphertext
+
+    revised = client.put(f"{path}/{first.json()['id']}", headers=headers, json={
+        "name": "Título editado posteriormente",
+        "description": "Conteúdo alterado depois da criação.",
+        "type": "feature",
+    })
+    assert revised.status_code == 200, revised.text
+    still_original = client.post(path, headers=headers, json=payload)
+    assert still_original.status_code == 201
+    assert still_original.json() == first.json()
+
+    mismatched = client.post(path, headers=headers, json={
+        **payload, "name": "Outro nome",
+    })
+    assert mismatched.status_code == 409
+    assert mismatched.json()["code"] == "task_creation_key_conflict"
+
+    deleted = client.delete(
+        f"{path}/{first.json()['id']}", headers=headers,
+    )
+    assert deleted.status_code == 204
+    after_delete = client.post(path, headers=headers, json=payload)
+    assert after_delete.status_code == 201
+    assert after_delete.json()["id"] == first.json()["id"]
+
+    new_attempt = client.post(path, headers=headers, json={
+        **payload, "creationKey": "another-intent-02",
+    })
+    assert new_attempt.status_code == 201
+    assert new_attempt.json()["cardNumber"] == 2
+
+
 def test_manager_can_create_typed_tasks_and_employee_cannot(client):
     manager_headers = _manager_headers(client)
     employee_headers = _employee_headers(client)
@@ -460,3 +529,73 @@ def test_concurrent_task_membership_cannot_exceed_capacity(tmp_path):
             select(func.count()).select_from(TaskEmployee).where(TaskEmployee.task_id == task.id),
         )
         assert count == 1
+
+
+def test_simultaneous_card_edits_accept_only_one_revision(tmp_path):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+
+    from app.db import Base
+    from app.errors import DomainError, ErrorKind
+    from app.schemas.project import ProjectDraftPayload
+    from app.schemas.task import TaskDraftPayload, TaskUpdatePayload
+    from app.seed import seed_database
+    from app.services.projects import create_project
+    from app.services.tasks import create_task, update_task
+    from app.domain.task_read import get_task
+    from app.models import Project
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'simultaneous-card-edits.db'}",
+        future=True, connect_args={"timeout": 10},
+    )
+    LocalSession = sessionmaker(bind=engine, expire_on_commit=False)
+    Base.metadata.create_all(bind=engine)
+    with LocalSession() as db:
+        seed_database(db)
+        project = create_project(
+            db, company_id="company-touchin",
+            payload=ProjectDraftPayload(name="Edição paralela", description="Concorrência"),
+        )
+        card = create_task(
+            db, company_id="company-touchin", project_id=project.id,
+            payload=TaskDraftPayload(name="Original", description="Antes", type="feature"),
+        )
+        old_revision = get_task(
+            db, company_id="company-touchin", project_id=project.id, task_id=card.id,
+        ).updated_at
+        initial_version = db.get(Project, project.id).kanban_version
+
+    barrier = Barrier(2)
+
+    def writer(name: str) -> str:
+        with LocalSession() as db:
+            barrier.wait()
+            try:
+                update_task(
+                    db, company_id="company-touchin", project_id=project.id,
+                    task_id=card.id,
+                    payload=TaskUpdatePayload(
+                        name=name, description=f"Descrição {name}", type="feature",
+                        expected_updated_at=old_revision,
+                    ),
+                )
+                return "updated"
+            except DomainError as exc:
+                assert exc.kind is ErrorKind.conflict
+                assert exc.code == "task_version_conflict"
+                db.rollback()
+                return "conflict"
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        results = list(executor.map(writer, ("A", "B")))
+    assert sorted(results) == ["conflict", "updated"]
+    with LocalSession() as db:
+        saved = get_task(db, company_id="company-touchin",
+                         project_id=project.id, task_id=card.id)
+        assert saved.name in {"A", "B"}
+        assert saved.description == f"Descrição {saved.name}"
+        assert db.get(Project, project.id).kanban_version == initial_version + 1

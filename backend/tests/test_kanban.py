@@ -97,6 +97,193 @@ def test_manager_can_read_board_without_project_membership_and_employee_requires
     assert allowed.status_code == 200
 
 
+def test_global_employee_deletion_invalidates_assignee_snapshots_for_each_project(client):
+    headers = _manager_headers(client)
+    snapshots = []
+    for name in ("Projeto desligamento A", "Projeto desligamento B"):
+        project_id = _create_project(client, headers, name=name)["id"]
+        _assign_project_member(client, headers, project_id, "emp-04")
+        card = _create_task(client, headers, project_id, name="Com responsável")
+        assigned = client.post(
+            f"/api/v1/projects/{project_id}/kanban/cards/{card['id']}/assignees/emp-04",
+            headers=headers,
+        )
+        assert assigned.status_code == 200, assigned.text
+        before = _board(client, headers, project_id)
+        assert len(before["columns"][0]["cards"][0]["assignees"]) == 1
+        snapshots.append((project_id, card["id"], before))
+
+    deleted = client.delete("/api/v1/employees/emp-04", headers=headers)
+    assert deleted.status_code == 204, deleted.text
+
+    for project_id, task_id, before in snapshots:
+        current = _board(client, headers, project_id)
+        assert current["columns"][0]["cards"][0]["assignees"] == []
+        assert current["kanbanVersion"] == before["kanbanVersion"] + 1
+        stale = client.put(
+            f"/api/v1/projects/{project_id}/kanban/cards/order",
+            headers=headers,
+            json={"expectedVersion": before["kanbanVersion"], "columns": [
+                {"columnId": before["columns"][0]["id"], "taskIds": [task_id]},
+            ]},
+        )
+        assert stale.status_code == 409
+
+
+def test_stale_card_edit_rejected_without_overwriting_newer_fields(client):
+    headers = _manager_headers(client)
+    project_id = _create_project(client, headers)["id"]
+    task = _create_task(client, headers, project_id, name="Original")
+    old_version = _board(client, headers, project_id)["kanbanVersion"]
+    url = f"/api/v1/projects/{project_id}/tasks/{task['id']}"
+    first = client.put(url, headers=headers, json={
+        "name": "Versão A", "description": "Alterada por A", "type": "feature",
+        "expectedVersion": old_version,
+    })
+    assert first.status_code == 200, first.text
+    stale = client.put(url, headers=headers, json={
+        "name": "Versão B", "description": "Descrição original", "type": "feature",
+        "expectedVersion": old_version,
+    })
+    assert stale.status_code == 409, stale.text
+    saved = client.get(url, headers=headers)
+    assert saved.status_code == 200
+    assert saved.json()["name"] == "Versão A"
+    assert saved.json()["description"] == "Alterada por A"
+
+
+def test_stale_card_timestamp_rejected_after_unrelated_board_change(client):
+    headers = _manager_headers(client)
+    project_id = _create_project(client, headers)["id"]
+    task = _create_task(client, headers, project_id, name="Original")
+    first = client.get(f"/api/v1/projects/{project_id}/tasks/{task['id']}", headers=headers).json()
+    assert first["updatedAt"].endswith("Z") or first["updatedAt"].endswith("+00:00")
+    assert _board(client, headers, project_id)["columns"][0]["cards"][0]["updatedAt"].endswith(
+        ("Z", "+00:00")
+    )
+    url = f"/api/v1/projects/{project_id}/tasks/{task['id']}"
+    a = client.put(url, headers=headers, json={
+        "name": "Atualizado A", "description": "A", "type": "feature",
+        "expectedUpdatedAt": first["updatedAt"],
+    })
+    assert a.status_code == 200, a.text
+    b = client.put(url, headers=headers, json={
+        "name": "Atualizado B", "description": "B", "type": "feature",
+        "expectedUpdatedAt": first["updatedAt"],
+    })
+    assert b.status_code == 409, b.text
+    assert b.json()["code"] == "task_version_conflict"
+    assert client.get(url, headers=headers).json()["name"] == "Atualizado A"
+
+    unrelated = _create_task(client, headers, project_id, name="Outro card")
+    assert unrelated["id"] != task["id"]
+    latest = client.get(url, headers=headers).json()
+    c = client.put(url, headers=headers, json={
+        "name": "Atualizado C", "description": "C", "type": "feature",
+        "expectedUpdatedAt": latest["updatedAt"],
+    })
+    assert c.status_code == 200, c.text
+
+
+def test_project_revocation_between_request_authorization_and_reorder_is_denied(
+    client, monkeypatch,
+):
+    from importlib import import_module
+    from app.db import SessionLocal
+    from app.services.projects import remove_project_member
+
+    headers = _manager_headers(client)
+    employee_headers = _employee_headers(client)
+    project_id = _create_project(client, headers)["id"]
+    _assign_project_member(client, headers, project_id, "emp-04")
+    task = _create_task(client, headers, project_id, name="Card")
+    before = _board(client, headers, project_id)
+    module = import_module("app.api.routes.kanban")
+    original = module.reorder_cards
+
+    def revoke_before_write(*args, **kwargs):
+        with SessionLocal() as other:
+            remove_project_member(
+                other, company_id="company-touchin",
+                project_id=project_id, employee_id="emp-04",
+            )
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(module, "reorder_cards", revoke_before_write)
+    response = client.put(
+        f"/api/v1/projects/{project_id}/kanban/cards/order",
+        headers=employee_headers,
+        json={"expectedVersion": before["kanbanVersion"], "columns": [
+            {"columnId": before["columns"][0]["id"], "taskIds": [task["id"]]},
+        ]},
+    )
+    assert response.status_code == 404, response.text
+    current = _board(client, headers, project_id)
+    assert current["kanbanVersion"] == before["kanbanVersion"]
+    assert current["columns"][0]["cards"][0]["id"] == task["id"]
+
+
+def test_board_read_retries_if_writer_commits_between_snapshot_queries(tmp_path, monkeypatch):
+    from sqlalchemy.orm import Session
+
+    from app.domain.kanban_read import get_kanban_board
+    from app.domain.task_read import get_task
+    from app.schemas.task import TaskUpdatePayload
+    from app.services.tasks import update_task
+
+    isolated_engine = create_engine(
+        f"sqlite:///{tmp_path / 'snapshot-interleave.db'}",
+        future=True, connect_args={"timeout": 10},
+    )
+    LocalSession = sessionmaker(bind=isolated_engine, expire_on_commit=False)
+    Base.metadata.create_all(bind=isolated_engine)
+    with LocalSession() as db:
+        seed_database(db)
+        project = create_project(
+            db, company_id="company-touchin",
+            payload=ProjectDraftPayload(
+                name="Snapshot concorrente", description="Leitura contra escrita"),
+        )
+        task = create_task(
+            db, company_id="company-touchin", project_id=project.id,
+            payload=TaskDraftPayload(
+                name="Antes", description="Antes", type="feature",
+            ),
+        )
+
+    original_refresh = Session.refresh
+    injected = False
+
+    def interleaved_refresh(session, instance, *args, **kwargs):
+        nonlocal injected
+        if (
+            not injected
+            and kwargs.get("attribute_names") == ["kanban_version"]
+        ):
+            injected = True
+            with LocalSession() as writer:
+                current = get_task(writer, company_id="company-touchin",
+                                   project_id=project.id, task_id=task.id)
+                update_task(
+                    writer, company_id="company-touchin", project_id=project.id,
+                    task_id=task.id,
+                    payload=TaskUpdatePayload(
+                        name="Depois", description="Depois", type="feature",
+                        expected_updated_at=current.updated_at,
+                    ),
+                )
+        return original_refresh(session, instance, *args, **kwargs)
+
+    monkeypatch.setattr(Session, "refresh", interleaved_refresh)
+    with LocalSession() as reader:
+        board = get_kanban_board(
+            reader, company_id="company-touchin", project_id=project.id,
+        )
+    assert injected
+    assert board.columns[0].cards[0].name == "Depois"
+    assert board.kanban_version == 2
+
+
 def test_legacy_task_create_gets_monotonic_card_identity_and_deleted_number_is_not_reused(client):
     headers = _manager_headers(client)
     project = _create_project(client, headers)
@@ -382,7 +569,7 @@ def test_legacy_schema_upgrade_backfills_kanban_identity_and_is_idempotent(tmp_p
     project_columns = {c["name"] for c in inspector.get_columns("projects")}
     task_columns = {c["name"] for c in inspector.get_columns("tasks")}
     assert {"next_card_number", "kanban_version"} <= project_columns
-    assert {"card_number", "kanban_column_id", "kanban_position"} <= task_columns
+    assert {"card_number", "kanban_column_id", "kanban_position", "revision"} <= task_columns
     assert "kanban_columns" in inspector.get_table_names()
 
     with engine.connect() as connection:
@@ -391,7 +578,7 @@ def test_legacy_schema_upgrade_backfills_kanban_identity_and_is_idempotent(tmp_p
         ).one()
         tasks = connection.execute(
             text(
-                "SELECT id, card_number, kanban_column_id, kanban_position "
+                "SELECT id, card_number, kanban_column_id, kanban_position, revision "
                 "FROM tasks WHERE project_id='p1' ORDER BY card_number"
             )
         ).all()
@@ -406,6 +593,7 @@ def test_legacy_schema_upgrade_backfills_kanban_identity_and_is_idempotent(tmp_p
         ("t2", 2, 1),
     ]
     assert len({row.kanban_column_id for row in tasks}) == 1
+    assert all(row.revision == 0 for row in tasks)
     assert len(columns) == 1
     assert columns[0].position == 0
 

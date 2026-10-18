@@ -164,13 +164,13 @@ def reorder_kanban_cards_route(
     context: AuthenticatedContext = Depends(require_permission("kanban.cards.move")),
     db: Session = Depends(get_db),
 ) -> KanbanBoardResponse:
-    _ensure_project_access(db, context=context, project_id=project_id)
     return reorder_cards(
         db,
         company_id=context.company.id,
         project_id=project_id,
         payload=payload,
         actor_user_id=context.user.id,
+        employee_id=_project_access_employee_id(context),
     )
 
 
@@ -193,6 +193,7 @@ def add_kanban_assignee_route(
         task_id=task_id,
         employee_id=employee_id,
         actor_user_id=context.user.id,
+        requester_employee_id=requester_employee_id,
     )
     board = get_kanban_board(
         db,
@@ -222,6 +223,7 @@ def remove_kanban_assignee_route(
         task_id=task_id,
         employee_id=employee_id,
         actor_user_id=context.user.id,
+        requester_employee_id=requester_employee_id,
     )
     board = get_kanban_board(
         db,

@@ -32,6 +32,7 @@ class TaskRecord {
     this.cardNumber = 0,
     this.kanbanColumnId = '',
     this.kanbanPosition = 0,
+    this.revision,
     required this.name,
     required this.description,
     required this.type,
@@ -45,6 +46,7 @@ class TaskRecord {
   final int cardNumber;
   final String kanbanColumnId;
   final int kanbanPosition;
+  final int? revision;
   final String name;
   final String description;
   final TaskType type;
@@ -64,6 +66,7 @@ class TaskRecord {
       kanbanPosition: json['kanbanPosition'] == null
           ? 0
           : requireInt(json, 'kanbanPosition'),
+      revision: json['revision'] == null ? null : requireInt(json, 'revision'),
       name: requireString(json, 'name'),
       description: requireString(json, 'description'),
       type: taskTypeFromApi(requireString(json, 'type')),
@@ -80,6 +83,7 @@ class TaskDraft {
     required this.type,
     this.parentTaskId,
     this.columnId,
+    this.creationKey,
   });
 
   final String name;
@@ -87,6 +91,8 @@ class TaskDraft {
   final TaskType type;
   final String? parentTaskId;
   final String? columnId;
+  /// Stable for retries of the same create dialog; omitted for legacy clients.
+  final String? creationKey;
 
   factory TaskDraft.fromTask(TaskRecord task) {
     return TaskDraft(
@@ -105,6 +111,7 @@ class TaskDraft {
       'type': taskTypeToApi(type),
       'parentTaskId': parentTaskId,
       if (includeColumnId && columnId != null) 'columnId': columnId,
+      if (includeColumnId && creationKey != null) 'creationKey': creationKey,
     };
   }
 }

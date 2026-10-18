@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.crypto import FieldCipher, lookup_digest
+from app.db import begin_serialized_write
 from app.domain.employee_read import (
     employee_or_404,
     get_employee as read_employee,
@@ -13,7 +14,7 @@ from app.domain.employee_read import (
 )
 from app.domain.identity import normalize_email
 from app.errors import DomainError, ErrorKind
-from app.models import Employee, UserAccount
+from app.models import Employee, Project, Task, TaskEmployee, UserAccount
 from app.schemas.employee import EmployeeDraftPayload, EmployeeProfileResponse
 from app.security import generate_temp_password, hash_password
 from app.services.auth import AuthenticatedContext
@@ -253,7 +254,24 @@ def delete_employee(
     actor_user_id: str | None = None,
 ) -> None:
     from app.services.audit import AuditService
+    begin_serialized_write(db)
+    # Lock projects in a deterministic order before deleting task membership.
+    # Task/kanban writes lock the same Project row, so removals and card writes
+    # cannot interleave without invalidating their shared board version.
+    project_query = select(Project).where(
+        Project.company_id == company_id,
+    ).order_by(Project.id)
+    if db.bind is not None and db.bind.dialect.name != "sqlite":
+        project_query = project_query.with_for_update()
+    projects = {project.id: project for project in db.scalars(project_query).all()}
+    affected_ids = set(db.scalars(
+        select(Task.project_id)
+        .join(TaskEmployee, TaskEmployee.task_id == Task.id)
+        .where(TaskEmployee.employee_id == employee_id)
+    ).all())
     employee = employee_or_404(db, company_id=company_id, employee_id=employee_id)
+    for project_id in affected_ids:
+        projects[project_id].kanban_version += 1
 
     linked_accounts = db.scalars(
         select(UserAccount).where(

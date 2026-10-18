@@ -181,7 +181,7 @@ def assign_project_member(
 def remove_project_member(db: Session, *, company_id: str, project_id: str, employee_id: str, actor_user_id: str | None = None) -> None:
     from app.services.audit import AuditService
     begin_serialized_write(db)
-    _locked_project_or_404(db, company_id=company_id, project_id=project_id)
+    project = _locked_project_or_404(db, company_id=company_id, project_id=project_id)
     employee_or_404(db, company_id=company_id, employee_id=employee_id)
     link = db.scalar(
         select(EmployeeProject).where(
@@ -214,6 +214,10 @@ def remove_project_member(db: Session, *, company_id: str, project_id: str, empl
                 "employeeId": employee_id,
             },
         )
+    if task_assignments:
+        # The serialized Kanban snapshot exposes each card's assignees.
+        # Revoking them must invalidate versions held by other editors.
+        project.kanban_version += 1
     if link is not None:
         db.delete(link)
         AuditService.log_action(

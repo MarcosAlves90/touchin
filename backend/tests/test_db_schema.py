@@ -116,3 +116,23 @@ def test_upgrade_database_schema_adds_task_employee_limit_to_legacy_projects(tmp
             text("select task_employee_limit from projects where id = 'project-legacy'"),
         ).scalar_one()
         assert default_value == 1
+
+
+def test_upgrade_adds_creation_request_ledger_to_existing_project_database(tmp_path):
+    engine = create_engine(f"sqlite:///{tmp_path / 'legacy-idempotency.db'}")
+    try:
+        with engine.begin() as connection:
+            connection.execute(text(
+                "CREATE TABLE projects ("
+                "id VARCHAR(64) PRIMARY KEY, "
+                "company_id VARCHAR(64) NOT NULL)"
+            ))
+        upgrade_database_schema(engine)
+        upgrade_database_schema(engine)
+        inspector = inspect(engine)
+        assert "task_creation_requests" in inspector.get_table_names()
+        assert inspector.get_pk_constraint("task_creation_requests")["constrained_columns"] == [
+            "project_id", "actor_user_id", "request_key",
+        ]
+    finally:
+        engine.dispose()

@@ -7,14 +7,765 @@ import 'package:touchin_flutter/contracts/kanban.dart';
 import 'package:touchin_flutter/contracts/project.dart';
 import 'package:touchin_flutter/contracts/task.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
+import 'package:touchin_flutter/core/network/api_client.dart';
 import 'package:touchin_flutter/features/projects/presentation/project_kanban_page.dart';
 import 'package:touchin_flutter/features/projects/presentation/widgets/project_kanban_board.dart';
+import 'package:touchin_flutter/features/projects/presentation/widgets/task_editor_dialog.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_editor_dialog.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_instant_select_field.dart';
 import 'package:touchin_flutter/theme/app_theme.dart';
 
 void main() {
-  testWidgets('builds Kanban without redundant page titles and keeps board bounded', (
+  for (final inBacklog in <bool>[false, true]) {
+    testWidgets(
+        '${inBacklog ? 'Backlog' : 'Kanban'} create retains draft on 403/500 and retries',
+        (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1650, 1000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final api = _DelayedCreateKanbanApi();
+      await tester.pumpWidget(MaterialApp(home: ProjectKanbanPage(api: api)));
+      await tester.pumpAndSettle();
+
+      if (inBacklog) {
+        await tester.tap(find.text('Backlog'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Novo card'));
+      } else {
+        await tester.tap(find.byTooltip('Adicionar card em Concluído'));
+      }
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+          find.widgetWithText(TextFormField, 'Nome'), 'Card recuperável');
+      await tester.enterText(find.widgetWithText(TextFormField, 'Descrição'),
+          'Detalhes que não podem sumir');
+      final expectedColumnId = inBacklog ? 'column-01' : 'column-02';
+
+      for (final status in <int>[403, 500]) {
+        await tester.tap(find.text('Criar tarefa').last);
+        await tester.pump();
+        expect(find.byType(ProjectTaskEditorDialog), findsOneWidget);
+        expect(api.drafts.last.columnId, expectedColumnId);
+        final attempts = api.drafts.length;
+
+        await tester.tap(find.text('Criar tarefa').last);
+        await tester.tap(find.text('Cancelar').last);
+        await tester.pump();
+        expect(api.drafts.length, attempts);
+        expect(find.byType(ProjectTaskEditorDialog), findsOneWidget);
+
+        api.gates.last.completeError(
+          ApiException('Erro de criação $status', statusCode: status),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(ProjectTaskEditorDialog), findsOneWidget);
+        expect(find.text('Card recuperável'), findsOneWidget);
+        expect(find.text('Detalhes que não podem sumir'), findsOneWidget);
+        expect(find.text('Erro de criação $status'), findsOneWidget);
+        expect(find.textContaining('Card criado em'), findsNothing);
+      }
+
+      await tester.tap(find.text('Criar tarefa').last);
+      await tester.pump();
+      expect(api.drafts.length, 3);
+      expect(api.drafts.every((draft) => draft.columnId == expectedColumnId),
+          isTrue);
+      expect(api.drafts.first.creationKey, isNotNull);
+      expect(api.drafts.every(
+          (draft) => draft.creationKey == api.drafts.first.creationKey), isTrue);
+      expect(find.byType(ProjectTaskEditorDialog), findsOneWidget);
+      api.gates.last.complete();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ProjectTaskEditorDialog), findsNothing);
+      expect(
+          find.text('Card criado em ${inBacklog ? 'A fazer' : 'Concluído'}.'),
+          findsOneWidget);
+      final persisted = (await api.getKanbanBoard('project-01'))
+          .columns
+          .firstWhere((column) => column.id == expectedColumnId)
+          .cards;
+      expect(persisted.any((card) => card.name == 'Card recuperável'), isTrue);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('conflicting Backlog edit retains the typed draft for recovery',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1650, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final api = _ConflictEditKanbanApi();
+    await tester.pumpWidget(MaterialApp(home: ProjectKanbanPage(api: api)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Backlog'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Detalhes de #1'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Editar').last);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextFormField, 'Nome'),
+        'Rascunho que não pode sumir');
+    await tester.enterText(find.widgetWithText(TextFormField, 'Descrição'),
+        'Detalhe que precisa permanecer');
+    await tester.tap(find.text('Salvar').last);
+    await tester.pumpAndSettle();
+    expect(api.attempts, 1);
+    expect(find.text('Rascunho que não pode sumir'), findsOneWidget);
+    expect(find.text('Detalhe que precisa permanecer'), findsOneWidget);
+    expect(find.textContaining('alterado em outra sessão'), findsWidgets);
+    expect(find.text('Card atualizado.'), findsNothing);
+  });
+
+  testWidgets('pending Backlog save submits once and preserves draft on 409',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1650, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final api = _DelayedConflictEditKanbanApi();
+    await tester.pumpWidget(MaterialApp(home: ProjectKanbanPage(api: api)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Backlog'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Detalhes de #1'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Editar').last);
+    await tester.pumpAndSettle();
+    await tester.enterText(
+        find.widgetWithText(TextFormField, 'Nome'), 'Rascunho em voo');
+    await tester.tap(find.text('Salvar').last);
+    await tester.tap(find.text('Salvar').last);
+    expect(api.attempts, 1);
+    api.pending.completeError(ApiException(
+      'Conflito de revisão',
+      statusCode: 409,
+      code: 'task_version_conflict',
+    ));
+    await tester.pumpAndSettle();
+    expect(api.attempts, 1);
+    expect(find.text('Rascunho em voo'), findsOneWidget);
+    expect(
+        find.byKey(const ValueKey('task-editor-copy-draft')), findsOneWidget);
+    expect(find.text('Card atualizado.'), findsNothing);
+  });
+  testWidgets('pending Backlog edit cannot discard or modify draft before 409',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1650, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final api = _DelayedConflictEditKanbanApi();
+    await tester.pumpWidget(MaterialApp(home: ProjectKanbanPage(api: api)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Backlog'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Detalhes de #1'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Editar').last);
+    await tester.pumpAndSettle();
+    final nameField = find.widgetWithText(TextFormField, 'Nome');
+    await tester.enterText(nameField, 'Rascunho enviado ao servidor');
+    await tester.tap(find.text('Salvar').last);
+    await tester.pump();
+    expect(api.attempts, 1);
+    expect(
+        tester
+            .widget<TextField>(find.descendant(
+              of: nameField,
+              matching: find.byType(TextField),
+            ))
+            .readOnly,
+        isTrue);
+    await tester.tap(find.text('Cancelar').last);
+    await tester.pump();
+    expect(find.byType(ProjectTaskEditorDialog), findsOneWidget);
+    await tester.tap(find.byTooltip('Fechar').last);
+    await tester.pump();
+    expect(find.byType(ProjectTaskEditorDialog), findsOneWidget);
+    await tester.tapAt(const Offset(5, 5));
+    await tester.pump();
+    expect(find.byType(ProjectTaskEditorDialog), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+    expect(find.byType(ProjectTaskEditorDialog), findsOneWidget);
+    expect(find.text('Rascunho enviado ao servidor'), findsOneWidget);
+    api.pending.completeError(ApiException('Conflito de revisão',
+        statusCode: 409, code: 'task_version_conflict'));
+    await tester.pumpAndSettle();
+    expect(find.text('Rascunho enviado ao servidor'), findsOneWidget);
+    expect(
+        find.byKey(const ValueKey('task-editor-copy-draft')), findsOneWidget);
+    await tester.tap(find.text('Cancelar').last);
+    await tester.pumpAndSettle();
+    expect(find.byType(ProjectTaskEditorDialog), findsNothing);
+  });
+  testWidgets('successful pending Backlog edit closes after server response',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1650, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final api = _DelayedConflictEditKanbanApi();
+    await tester.pumpWidget(MaterialApp(home: ProjectKanbanPage(api: api)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Backlog'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Detalhes de #1'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Editar').last);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextFormField, 'Nome'),
+        'Edição confirmada pelo servidor');
+    await tester.tap(find.text('Salvar').last);
+    await tester.pump();
+    expect(find.byType(ProjectTaskEditorDialog), findsOneWidget);
+    api.pending.complete((await api.listTasks('project-01')).first);
+    await tester.pumpAndSettle();
+    expect(find.byType(ProjectTaskEditorDialog), findsNothing);
+    expect(find.text('Card atualizado.'), findsOneWidget);
+  });
+  test('fake API invalidates old reordering versions after task CRUD',
+      () async {
+    final api = _FakeKanbanApi(columnCount: 2);
+    const projectId = 'project-01';
+    final created = await api.createTask(
+        projectId,
+        const TaskDraft(
+          name: 'Nova tarefa',
+          description: 'Teste de versão',
+          type: TaskType.feature,
+          columnId: 'column-01',
+        ));
+    expect(api.boardVersion, 2);
+    await expectLater(
+      api.reorderKanbanCards(projectId, expectedVersion: 1, columnTaskIds: {
+        'column-01': ['task-01', created.id],
+      }),
+      throwsA(isA<ApiException>().having((e) => e.statusCode, 'status', 409)),
+    );
+    await api.updateTask(
+        projectId,
+        created.id,
+        const TaskDraft(
+          name: 'Atualizada',
+          description: 'Versão seguinte',
+          type: TaskType.feature,
+        ));
+    expect(api.boardVersion, 3);
+    await api.addKanbanAssignee(projectId, created.id, 'emp-01');
+    expect(api.boardVersion, 4);
+    await api.removeKanbanAssignee(projectId, created.id, 'emp-01');
+    expect(api.boardVersion, 5);
+    await api.deleteTask(projectId, created.id);
+    expect(api.boardVersion, 6);
+    expect(
+        (await api.getKanbanBoard(projectId))
+            .columns
+            .first
+            .cards
+            .map((card) => card.id),
+        ['task-01']);
+  });
+
+  test('fake API persists created and reordered columns across reads',
+      () async {
+    final api = _FakeKanbanApi();
+    final created = await api.createKanbanColumn('project-01',
+        name: 'Em revisão', expectedVersion: 1);
+    expect(created.columns.map((column) => column.name),
+        ['A fazer', 'Em revisão']);
+    final newId = created.columns.last.id;
+    await api.reorderKanbanColumns('project-01',
+        expectedVersion: 2, columnIds: [newId, created.columns.first.id]);
+    final reloaded = await api.getKanbanBoard('project-01');
+    expect(reloaded.kanbanVersion, 3);
+    expect(reloaded.columns.map((column) => column.id),
+        [newId, created.columns.first.id]);
+    expect(reloaded.columns.first.name, 'Em revisão');
+  });
+
+  testWidgets('non-member employee cannot reorder or edit cards in Backlog',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1700, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(MaterialApp(
+      home: ProjectKanbanPage(api: _OutsiderKanbanApi()),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Backlog'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Mover #2 para cima no Kanban'), findsNothing);
+    expect(find.byTooltip('Editar #1'), findsNothing);
+    expect(find.byTooltip('Responsáveis de #1'), findsNothing);
+    expect(find.text('Novo card'), findsNothing);
+    await tester.tap(find.byTooltip('Detalhes de #1'));
+    await tester.pumpAndSettle();
+    expect(find.text('Editar'), findsNothing);
+    expect(
+        tester
+            .widget<WorkspaceInstantSelectField<String>>(
+              find.byKey(const ValueKey('card-dialog-status')),
+            )
+            .onChanged,
+        isNull);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      '409 reorder conflict shows refreshed board without success toast',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1800, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final api = _FakeKanbanApi(cardsPerColumn: 3);
+    await tester.pumpWidget(MaterialApp(home: ProjectKanbanPage(api: api)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Backlog'));
+    await tester.pumpAndSettle();
+    api.boardVersion += 1; // A different session changed the board.
+    await tester.tap(find.byTooltip('Mover #2 para cima no Kanban'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('outra sessão'), findsWidgets);
+    expect(find.text('Card movido.'), findsNothing);
+    expect(api.lastCardOrdering, isNull);
+    expect(find.text('#1'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'employee views shared card modal without protected edit controls',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1600, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+        MaterialApp(home: ProjectKanbanPage(api: _EmployeeKanbanApi())));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Backlog'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Detalhes de #1'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ProjectTaskEditorDialog), findsOneWidget);
+    expect(find.text('Editar'), findsNothing);
+    expect(find.text('Salvar'), findsNothing);
+    expect(
+        tester
+            .widgetList<TextField>(find.descendant(
+                of: find.byType(ProjectTaskEditorDialog),
+                matching: find.byType(TextField)))
+            .every((field) => field.readOnly),
+        isTrue);
+    expect(
+        tester
+            .widget<WorkspaceInstantSelectField<String>>(
+                find.byKey(const ValueKey('card-dialog-status')))
+            .onChanged,
+        isNotNull);
+  });
+
+  testWidgets(
+      'explicit card editing saves through the shared API and keeps identity',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1600, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final api = _FakeKanbanApi();
+    await tester.pumpWidget(MaterialApp(home: ProjectKanbanPage(api: api)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Backlog'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Detalhes de #1'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Editar'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+        find.byType(TextFormField).first, 'Título atualizado');
+    await tester.tap(find.text('Salvar'));
+    await tester.pumpAndSettle();
+    expect(api.updatedDrafts.keys.toList(), <String>['task-01']);
+    expect(find.text('Título atualizado'), findsOneWidget);
+    expect(find.text('#1'), findsOneWidget);
+    await tester.tap(find.text('Kanban'));
+    await tester.pumpAndSettle();
+    expect(find.text('Título atualizado'), findsOneWidget);
+    expect(find.text('#1'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'Backlog reorders through versioned API and survives switching and reloading',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1800, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final api = _FakeKanbanApi(columnCount: 2, cardsPerColumn: 3);
+    await tester.pumpWidget(MaterialApp(home: ProjectKanbanPage(api: api)));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Backlog'));
+    await tester.pumpAndSettle();
+    expect(
+        tester
+            .widget<Text>(find.byKey(const ValueKey('backlog-status-task-01')))
+            .data,
+        'A fazer');
+    await tester.tap(find.byTooltip('Mover #2 para cima no Kanban'));
+    await tester.pumpAndSettle();
+
+    expect(api.lastExpectedCardVersion, 1);
+    expect(api.boardVersion, 2);
+    expect(api.lastCardOrdering?['column-01'],
+        <String>['task-1-2', 'task-01', 'task-1-3']);
+    expect(find.text('#2'), findsOneWidget);
+
+    await tester.tap(find.text('Kanban'));
+    await tester.pumpAndSettle();
+    var cards = tester
+        .widget<ProjectKanbanBoard>(find.byType(ProjectKanbanBoard))
+        .board
+        .columns
+        .first
+        .cards;
+    expect(
+        cards.map((card) => (card.id, card.cardNumber, card.kanbanPosition)),
+        <(String, int, int)>[
+          ('task-1-2', 2, 0),
+          ('task-01', 1, 1),
+          ('task-1-3', 3, 2),
+        ]);
+
+    await tester.tap(find.byTooltip('Atualizar quadro'));
+    await tester.pumpAndSettle();
+    cards = tester
+        .widget<ProjectKanbanBoard>(find.byType(ProjectKanbanBoard))
+        .board
+        .columns
+        .first
+        .cards;
+    expect(cards.first.id, 'task-1-2');
+
+    await tester.tap(find.text('Backlog'));
+    await tester.pumpAndSettle();
+    final table = tester.widget<DataTable>(find.byType(DataTable));
+    expect(
+        table.rows.first.key, const ValueKey<String>('backlog-card-task-1-2'));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'status changed from Backlog appears in Kanban and remains after reload',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1800, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final api = _FakeKanbanApi(columnCount: 2);
+    await tester.pumpWidget(MaterialApp(home: ProjectKanbanPage(api: api)));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Backlog'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Detalhes de #1'));
+    await tester.pumpAndSettle();
+    final status = find.byKey(const ValueKey('card-dialog-status'));
+    await tester.ensureVisible(status);
+    await tester.tap(status);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Concluído').last);
+    await tester.pumpAndSettle();
+    expect(api.lastCardOrdering?['column-02'], contains('task-01'));
+    expect(api.lastExpectedCardVersion, 1);
+
+    await tester.tap(find.text('Fechar').last);
+    await tester.pumpAndSettle();
+    expect(
+        tester
+            .widget<Text>(find.byKey(const ValueKey('backlog-status-task-01')))
+            .data,
+        'Concluído');
+
+    await tester.tap(find.text('Kanban'));
+    await tester.pumpAndSettle();
+    var columns = tester
+        .widget<ProjectKanbanBoard>(find.byType(ProjectKanbanBoard))
+        .board
+        .columns;
+    expect(columns.first.cards, isEmpty);
+    expect(columns.last.cards.any((card) => card.id == 'task-01'), isTrue);
+    expect(
+        columns.last.cards
+            .firstWhere((card) => card.id == 'task-01')
+            .cardNumber,
+        1);
+
+    await tester.tap(find.byTooltip('Atualizar quadro'));
+    await tester.pumpAndSettle();
+    columns = tester
+        .widget<ProjectKanbanBoard>(find.byType(ProjectKanbanBoard))
+        .board
+        .columns;
+    expect(columns.last.cards.any((card) => card.id == 'task-01'), isTrue);
+    await tester.tap(find.text('Backlog'));
+    await tester.pumpAndSettle();
+    expect(
+        tester
+            .widget<Text>(find.byKey(const ValueKey('backlog-status-task-01')))
+            .data,
+        'Concluído');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Kanban movement updates Backlog without changing card identity',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1800, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final api = _FakeKanbanApi(columnCount: 2);
+    await tester.pumpWidget(MaterialApp(home: ProjectKanbanPage(api: api)));
+    await tester.pumpAndSettle();
+
+    final kanban =
+        tester.widget<ProjectKanbanBoard>(find.byType(ProjectKanbanBoard));
+    await kanban.onMoveCard('task-01', 'column-02', 1);
+    await tester.pumpAndSettle();
+    expect(api.lastExpectedCardVersion, 1);
+
+    await tester.tap(find.text('Backlog'));
+    await tester.pumpAndSettle();
+    expect(
+        tester
+            .widget<Text>(find.byKey(const ValueKey('backlog-status-task-01')))
+            .data,
+        'Concluído');
+    expect(find.text('#1'), findsOneWidget);
+    expect(find.byTooltip('Detalhes de #1'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Backlog creates, assigns, deletes and retains card-number gaps',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1800, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final api = _FakeKanbanApi();
+    await tester.pumpWidget(MaterialApp(home: ProjectKanbanPage(api: api)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Backlog'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Novo card'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField).first, 'Nova entrega');
+    await tester.enterText(
+        find.byType(TextFormField).last, 'Criada pelo Backlog');
+    await tester.tap(find.text('Criar tarefa'));
+    await tester.pumpAndSettle();
+    expect(find.text('Nova entrega'), findsOneWidget);
+    expect(find.text('#2'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Responsáveis de #2'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(CheckboxListTile, 'Gestor TouchIn'));
+    await tester.pumpAndSettle();
+    expect(find.text('Gestor TouchIn'), findsOneWidget);
+
+    await tester.tap(find.text('Kanban'));
+    await tester.pumpAndSettle();
+    final cards = tester
+        .widget<ProjectKanbanBoard>(find.byType(ProjectKanbanBoard))
+        .board
+        .columns
+        .first
+        .cards;
+    expect(cards.last.id, 'created-1');
+    expect(cards.last.cardNumber, 2);
+    expect(cards.last.assignees.single.employeeId, 'emp-01');
+
+    await tester.tap(find.text('Backlog'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Detalhes de #2'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Editar'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+        find.byType(TextFormField).first, 'Nova entrega revisada');
+    await tester.tap(find.text('Salvar'));
+    await tester.pumpAndSettle();
+    expect(find.text('Nova entrega revisada'), findsOneWidget);
+    expect(api.updatedDrafts['created-1']?.name, 'Nova entrega revisada');
+
+    await tester.tap(find.text('Kanban'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Atualizar quadro'));
+    await tester.pumpAndSettle();
+    final editedCard = tester
+        .widget<ProjectKanbanBoard>(find.byType(ProjectKanbanBoard))
+        .board
+        .columns
+        .first
+        .cards
+        .last;
+    expect(editedCard.id, 'created-1');
+    expect(editedCard.name, 'Nova entrega revisada');
+    expect(editedCard.cardNumber, 2);
+
+    await tester.tap(find.text('Backlog'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Excluir #2'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Excluir').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Nova entrega revisada'), findsNothing);
+
+    await tester.tap(find.text('Novo card'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+        find.byType(TextFormField).first, 'Entrega seguinte');
+    await tester.enterText(
+        find.byType(TextFormField).last, 'Número sem reutilização');
+    await tester.tap(find.text('Criar tarefa'));
+    await tester.pumpAndSettle();
+    expect(find.text('#2'), findsNothing);
+    expect(find.text('#3'), findsOneWidget);
+    await tester.tap(find.text('Kanban'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Atualizar quadro'));
+    await tester.pumpAndSettle();
+    final reloadedCards = tester
+        .widget<ProjectKanbanBoard>(find.byType(ProjectKanbanBoard))
+        .board
+        .columns
+        .first
+        .cards;
+    expect(reloadedCards.map((card) => (card.id, card.cardNumber)),
+        <(String, int)>[('task-01', 1), ('created-2', 3)]);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final status in <int>[403, 409]) {
+    testWidgets(
+        'status failure $status reports feedback without unhandled errors',
+        (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1600, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+          MaterialApp(home: ProjectKanbanPage(api: _FailedMoveApi(status))));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Backlog'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Detalhes de #1'));
+      await tester.pumpAndSettle();
+      final select = find.byKey(const ValueKey('card-dialog-status'));
+      await tester.ensureVisible(select);
+      await tester.pumpAndSettle();
+      await tester.tap(select);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Concluído').last);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Movimento rejeitado'), findsOneWidget);
+      expect(find.text('Status do card atualizado.'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets(
+      'column creation closes safely and sends exactly one versioned request',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1600, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final api = _FakeKanbanApi();
+    await tester.pumpWidget(MaterialApp(home: ProjectKanbanPage(api: api)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Backlog'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Novo status'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField), '  Em revisão  ');
+    await tester.tap(find.text('Criar coluna'));
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(api.createdColumnNames, <String>['Em revisão']);
+    expect(api.boardVersion, 2);
+    await tester.tap(find.text('Novo status'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cancelar'));
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    await tester.pumpAndSettle();
+    expect(api.createdColumnNames.length, 1);
+  });
+
+  testWidgets(
+      'card details reuse the Kanban editor and require explicit edit activation',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1600, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+        MaterialApp(home: ProjectKanbanPage(api: _FakeKanbanApi())));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Backlog'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Detalhes de #1'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ProjectTaskEditorDialog), findsOneWidget);
+    expect(find.byType(WorkspaceEditorDialog), findsOneWidget);
+    expect(
+        tester
+            .widgetList<TextField>(find.descendant(
+                of: find.byType(ProjectTaskEditorDialog),
+                matching: find.byType(TextField)))
+            .every((field) => field.readOnly),
+        isTrue);
+    await tester.tap(find.text('Editar'));
+    await tester.pumpAndSettle();
+    expect(
+        tester
+            .widgetList<TextField>(find.descendant(
+                of: find.byType(ProjectTaskEditorDialog),
+                matching: find.byType(TextField)))
+            .every((field) => !field.readOnly),
+        isTrue);
+    expect(find.text('Salvar'), findsOneWidget);
+    await tester.tap(find.text('Cancelar'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Responsáveis de #1'));
+    await tester.pumpAndSettle();
+    expect(find.byType(WorkspaceEditorDialog), findsOneWidget);
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('renders Backlog for the selected project', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      MaterialApp(home: ProjectKanbanPage(api: _FakeKanbanApi())),
+    );
+    await tester.pumpAndSettle();
+
+    final overview = find.byKey(
+      const ValueKey<String>('kanban-project-overview'),
+    );
+    final viewSwitch = find.descendant(
+      of: overview,
+      matching: find.byType(ToggleButtons),
+    );
+    expect(viewSwitch, findsOneWidget);
+    expect(
+      tester.widget<ToggleButtons>(viewSwitch).borderRadius,
+      BorderRadius.zero,
+    );
+
+    await tester.tap(find.text('Backlog'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('#1'), findsOneWidget);
+    expect(find.text('Implementar tela'), findsOneWidget);
+    expect(find.text('Descrição da tarefa'), findsOneWidget);
+    expect(find.text('A fazer'), findsOneWidget);
+    expect(find.text('Projeto principal'), findsWidgets);
+    expect(find.textContaining('Criado'), findsOneWidget);
+    expect(find.textContaining('Atualizado'), findsWidgets);
+    await tester.tap(find.text('Gerenciar colunas'));
+    await tester.pumpAndSettle();
+    expect(find.byType(WorkspaceEditorDialog), findsOneWidget);
+    expect(find.byTooltip('Renomear status'), findsOneWidget);
+    await tester.tap(find.text('Fechar').last);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'builds Kanban without redundant page titles and keeps board bounded', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(1440, 900));
@@ -30,7 +781,8 @@ void main() {
     expect(find.byType(AppBar), findsNothing);
     final topBar = find.byKey(const ValueKey<String>('kanban-topbar'));
     expect(topBar, findsOneWidget);
-    expect(find.descendant(of: topBar, matching: find.text('Kanban')), findsNothing);
+    expect(find.descendant(of: topBar, matching: find.text('Kanban')),
+        findsNothing);
     expect(
       find.descendant(of: topBar, matching: find.text('Projeto principal')),
       findsNothing,
@@ -95,7 +847,9 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('intrinsic layout regression keeps the board on finite flex constraints', (
+  testWidgets(
+      'intrinsic layout regression keeps the board on finite flex constraints',
+      (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(1440, 900));
@@ -116,7 +870,8 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('production theme keeps the board header button finitely constrained', (
+  testWidgets(
+      'production theme keeps the board header button finitely constrained', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(1440, 900));
@@ -165,7 +920,20 @@ void main() {
       const ValueKey<String>('kanban-project-metrics'),
     );
     expect(metrics, findsOneWidget);
-    expect(tester.getRect(metrics).height, 48);
+    expect(tester.getRect(metrics).height, 52);
+    final overview = find.byKey(
+      const ValueKey<String>('kanban-project-overview'),
+    );
+    final viewSwitch = find.descendant(
+      of: overview,
+      matching: find.byKey(const ValueKey<String>('project-view-switch')),
+    );
+    final projectSelector = find.descendant(
+      of: overview,
+      matching: find.byType(WorkspaceInstantSelectField<String>),
+    );
+    expect(tester.getSize(viewSwitch).height, 52);
+    expect(tester.getSize(projectSelector).height, 52);
     expect(find.text('Quadro'), findsOneWidget);
     expect(find.text('v1'), findsNothing);
     expect(
@@ -175,9 +943,6 @@ void main() {
     expect(find.text('Feature'), findsOneWidget);
     expect(find.text('Adicionar card'), findsOneWidget);
     expect(find.text('Sem responsáveis'), findsOneWidget);
-    final overview = find.byKey(
-      const ValueKey<String>('kanban-project-overview'),
-    );
     expect(overview, findsOneWidget);
     expect(tester.getRect(overview).height, lessThan(80));
     expect(tester.takeException(), isNull);
@@ -222,7 +987,8 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('column editor reuses the workspace editor dialog', (tester) async {
+  testWidgets('column editor reuses the workspace editor dialog',
+      (tester) async {
     await tester.binding.setSurfaceSize(const Size(1440, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -240,7 +1006,8 @@ void main() {
     expect(find.byType(WorkspaceEditorDialog), findsOneWidget);
     expect(find.byType(AlertDialog), findsNothing);
     expect(find.text('Nova coluna'), findsOneWidget);
-    expect(find.text('Crie uma nova etapa para organizar o fluxo.'), findsOneWidget);
+    expect(find.text('Crie uma nova etapa para organizar o fluxo.'),
+        findsOneWidget);
     final nameField = tester.widget<InputDecorator>(
       find.byWidgetPredicate(
         (widget) =>
@@ -267,7 +1034,8 @@ void main() {
     expect(find.text('#1'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
-  testWidgets('compact cards and responsive chrome remain bounded', (tester) async {
+  testWidgets('compact cards and responsive chrome remain bounded',
+      (tester) async {
     for (final size in <Size>[
       const Size(320, 568),
       const Size(360, 800),
@@ -311,8 +1079,10 @@ void main() {
 
     final topBar = find.byKey(const ValueKey<String>('kanban-topbar'));
     expect(topBar, findsOneWidget);
-    expect(find.descendant(of: topBar, matching: find.text('TOUCHIN')), findsOneWidget);
-    expect(find.descendant(of: topBar, matching: find.text('Kanban')), findsNothing);
+    expect(find.descendant(of: topBar, matching: find.text('TOUCHIN')),
+        findsOneWidget);
+    expect(find.descendant(of: topBar, matching: find.text('Kanban')),
+        findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -337,7 +1107,8 @@ void main() {
       find.descendant(of: topBar, matching: find.text('Sincronizado')),
       findsOneWidget,
     );
-    expect(find.text('Arraste pelo ícone para mover cards entre etapas.'), findsNothing);
+    expect(find.text('Arraste pelo ícone para mover cards entre etapas.'),
+        findsNothing);
     expect(find.byTooltip('Adicionar card em A fazer'), findsOneWidget);
 
     final counter = find.byKey(
@@ -350,7 +1121,8 @@ void main() {
 
     final board = find.byType(ProjectKanbanBoard);
     final popupMenus = tester.widgetList<PopupMenuButton<String>>(
-      find.descendant(of: board, matching: find.byType(PopupMenuButton<String>)),
+      find.descendant(
+          of: board, matching: find.byType(PopupMenuButton<String>)),
     );
     expect(popupMenus, isNotEmpty);
     expect(
@@ -398,6 +1170,128 @@ class _FakeKanbanApi extends TouchInApi {
   final int cardsPerColumn;
   int boardVersion = 1;
   List<String>? lastColumnOrdering;
+  final List<String> createdColumnNames = <String>[];
+  List<String>? _persistedColumnIds;
+  final Map<String, TaskDraft> updatedDrafts = <String, TaskDraft>{};
+  final Map<String, List<String>> _cardOrdering = <String, List<String>>{};
+  final Map<String, TaskRecord> _createdTasks = <String, TaskRecord>{};
+  final Set<String> _deletedTasks = <String>{};
+  final Map<String, Set<String>> _assigneesByCard = <String, Set<String>>{};
+  int _createdCount = 0;
+  Map<String, List<String>>? lastCardOrdering;
+  int? lastExpectedCardVersion;
+
+  @override
+  Future<TaskRecord> createTask(String projectId, TaskDraft draft) async {
+    _createdCount += 1;
+    final taskId = 'created-$_createdCount';
+    final columnId = draft.columnId ?? _columnId(0);
+    final task = TaskRecord(
+      id: taskId,
+      projectId: projectId,
+      parentTaskId: draft.parentTaskId,
+      cardNumber: columnCount * cardsPerColumn + _createdCount,
+      kanbanColumnId: columnId,
+      kanbanPosition: _cardsForColumn(projectId, columnId).length,
+      name: draft.name,
+      description: draft.description,
+      type: draft.type,
+      createdAt: DateTime(2026, 10, 12),
+      updatedAt: DateTime(2026, 10, 12),
+    );
+    _createdTasks[taskId] = task;
+    _cardOrdering
+        .putIfAbsent(columnId, () => _defaultCardIds(columnId))
+        .add(taskId);
+    boardVersion += 1;
+    return task;
+  }
+
+  @override
+  Future<void> deleteTask(String projectId, String taskId) async {
+    _deletedTasks.add(taskId);
+    _createdTasks.remove(taskId);
+    for (final cardIds in _cardOrdering.values) {
+      cardIds.remove(taskId);
+    }
+    boardVersion += 1;
+  }
+
+  @override
+  Future<KanbanCard> addKanbanAssignee(
+      String projectId, String taskId, String employeeId) async {
+    if (!_assigneesByCard
+        .putIfAbsent(taskId, () => <String>{})
+        .add(employeeId)) {
+      throw ApiException('Responsável já adicionado', statusCode: 409);
+    }
+    boardVersion += 1;
+    return _findCard(projectId, taskId);
+  }
+
+  @override
+  Future<KanbanCard> removeKanbanAssignee(
+      String projectId, String taskId, String employeeId) async {
+    if (_assigneesByCard[taskId]?.remove(employeeId) == true) {
+      boardVersion += 1;
+    }
+    return _findCard(projectId, taskId);
+  }
+
+  KanbanCard _findCard(String projectId, String taskId) =>
+      _buildBoard(projectId)
+          .columns
+          .expand((column) => column.cards)
+          .firstWhere((card) => card.id == taskId);
+
+  @override
+  Future<TaskRecord> updateTask(
+      String projectId, String taskId, TaskDraft draft,
+      {DateTime? expectedUpdatedAt, int? expectedRevision}) async {
+    final old =
+        (await listTasks(projectId)).firstWhere((task) => task.id == taskId);
+    updatedDrafts[taskId] = draft;
+    final updated = TaskRecord(
+        id: old.id,
+        projectId: old.projectId,
+        parentTaskId: draft.parentTaskId,
+        cardNumber: old.cardNumber,
+        kanbanColumnId: old.kanbanColumnId,
+        kanbanPosition: old.kanbanPosition,
+        name: draft.name,
+        description: draft.description,
+        type: draft.type,
+        createdAt: old.createdAt,
+        updatedAt: DateTime(2026, 10, 11));
+    if (_createdTasks.containsKey(taskId)) {
+      _createdTasks[taskId] = updated;
+    }
+    boardVersion += 1;
+    return updated;
+  }
+
+  @override
+  Future<KanbanBoard> createKanbanColumn(
+    String projectId, {
+    required String name,
+    required int expectedVersion,
+  }) async {
+    if (expectedVersion != boardVersion) {
+      throw ApiException(
+        'Kanban version conflict: expected $expectedVersion, current $boardVersion.',
+        statusCode: 409,
+        code: 'kanban_version_conflict',
+      );
+    }
+    createdColumnNames.add(name);
+    _persistedColumnIds ??= [
+      for (var index = 0; index < columnCount; index++) _columnId(index)
+    ];
+    _persistedColumnIds!
+        .add(_columnId(columnCount + createdColumnNames.length - 1));
+    boardVersion += 1;
+    return _buildBoard(projectId);
+  }
 
   @override
   Future<AuthContext> getAuthContext() async {
@@ -435,7 +1329,8 @@ class _FakeKanbanApi extends TouchInApi {
   }
 
   @override
-  Future<List<ProjectMemberSummary>> listProjectMembers(String projectId) async {
+  Future<List<ProjectMemberSummary>> listProjectMembers(
+      String projectId) async {
     return <ProjectMemberSummary>[
       ProjectMemberSummary(
         employeeId: 'emp-01',
@@ -448,26 +1343,7 @@ class _FakeKanbanApi extends TouchInApi {
 
   @override
   Future<List<TaskRecord>> listTasks(String projectId) async {
-    if (!includeCard) {
-      return <TaskRecord>[];
-    }
-    return <TaskRecord>[
-      for (var columnIndex = 0; columnIndex < columnCount; columnIndex++)
-        for (var cardIndex = 0; cardIndex < cardsPerColumn; cardIndex++)
-          TaskRecord(
-            id: _cardId(columnIndex, cardIndex),
-            projectId: projectId,
-            parentTaskId: null,
-            cardNumber: columnIndex * cardsPerColumn + cardIndex + 1,
-            kanbanColumnId: _columnId(columnIndex),
-            kanbanPosition: cardIndex,
-            name: _cardName(columnIndex, cardIndex),
-            description: 'Descrição da tarefa',
-            type: TaskType.feature,
-            createdAt: DateTime(2026, 9, 9),
-            updatedAt: DateTime(2026, 9, 9),
-          ),
-    ];
+    return _buildBoard(projectId).taskRecords;
   }
 
   @override
@@ -484,13 +1360,69 @@ class _FakeKanbanApi extends TouchInApi {
     required int expectedVersion,
     required List<String> columnIds,
   }) async {
-    boardVersion = expectedVersion + 1;
+    if (expectedVersion != boardVersion) {
+      throw ApiException(
+        'Kanban version conflict: expected $expectedVersion, current $boardVersion.',
+        statusCode: 409,
+        code: 'kanban_version_conflict',
+      );
+    }
+    final existing =
+        _buildBoard(projectId).columns.map((column) => column.id).toSet();
+    if (columnIds.length != existing.length ||
+        columnIds.toSet().length != existing.length ||
+        !columnIds.toSet().containsAll(existing)) {
+      throw ApiException('Ordem de colunas inválida', statusCode: 400);
+    }
+    _persistedColumnIds = List<String>.of(columnIds);
+    boardVersion += 1;
     lastColumnOrdering = List<String>.from(columnIds);
-    return _buildBoard(projectId, columnIds: columnIds);
+    return _buildBoard(projectId);
+  }
+
+  @override
+  Future<KanbanBoard> reorderKanbanCards(
+    String projectId, {
+    required int expectedVersion,
+    required Map<String, List<String>> columnTaskIds,
+  }) async {
+    if (expectedVersion != boardVersion) {
+      throw ApiException(
+        'Kanban version conflict: expected $expectedVersion, current $boardVersion.',
+        statusCode: 409,
+        code: 'kanban_version_conflict',
+      );
+    }
+    final affectedColumns = _buildBoard(projectId)
+        .columns
+        .where((column) => columnTaskIds.containsKey(column.id))
+        .toList();
+    final expectedIds = affectedColumns
+        .expand((column) => column.cards)
+        .map((card) => card.id)
+        .toSet();
+    final requestedIds = columnTaskIds.values.expand((ids) => ids).toList();
+    if (affectedColumns.length != columnTaskIds.length ||
+        requestedIds.length != requestedIds.toSet().length ||
+        requestedIds.toSet().length != expectedIds.length ||
+        !requestedIds.toSet().containsAll(expectedIds)) {
+      throw ApiException('Ordem de cards inválida', statusCode: 400);
+    }
+    lastExpectedCardVersion = expectedVersion;
+    lastCardOrdering = <String, List<String>>{
+      for (final entry in columnTaskIds.entries)
+        entry.key: List<String>.of(entry.value),
+    };
+    for (final entry in columnTaskIds.entries) {
+      _cardOrdering[entry.key] = List<String>.of(entry.value);
+    }
+    boardVersion += 1;
+    return _buildBoard(projectId);
   }
 
   KanbanBoard _buildBoard(String projectId, {List<String>? columnIds}) {
     final orderedColumnIds = columnIds ??
+        _persistedColumnIds ??
         <String>[
           for (var index = 0; index < columnCount; index++) _columnId(index),
         ];
@@ -505,34 +1437,7 @@ class _FakeKanbanApi extends TouchInApi {
             name: _columnName(_columnIndex(orderedColumnIds[position])),
             position: position,
             cards: includeCard
-                ? <KanbanCard>[
-                    for (var cardIndex = 0;
-                        cardIndex < cardsPerColumn;
-                        cardIndex++)
-                      KanbanCard(
-                        id: _cardId(
-                          _columnIndex(orderedColumnIds[position]),
-                          cardIndex,
-                        ),
-                        projectId: projectId,
-                        parentTaskId: null,
-                        cardNumber: _columnIndex(orderedColumnIds[position]) *
-                                cardsPerColumn +
-                            cardIndex +
-                            1,
-                        kanbanColumnId: orderedColumnIds[position],
-                        kanbanPosition: cardIndex,
-                        name: _cardName(
-                          _columnIndex(orderedColumnIds[position]),
-                          cardIndex,
-                        ),
-                        description: 'Descrição da tarefa',
-                        type: TaskType.feature,
-                        assignees: const <TaskMemberSummary>[],
-                        createdAt: DateTime(2026, 9, 9),
-                        updatedAt: DateTime(2026, 9, 9),
-                      ),
-                  ]
+                ? _cardsForColumn(projectId, orderedColumnIds[position])
                 : <KanbanCard>[],
             createdAt: DateTime(2026, 9, 9),
             updatedAt: DateTime(2026, 9, 9),
@@ -541,12 +1446,81 @@ class _FakeKanbanApi extends TouchInApi {
     );
   }
 
+  List<KanbanCard> _cardsForColumn(String projectId, String columnId) {
+    final cardIds = _cardOrdering[columnId] ?? _defaultCardIds(columnId);
+    return <KanbanCard>[
+      for (var position = 0; position < cardIds.length; position++)
+        _makeCard(projectId, columnId, cardIds[position], position),
+    ];
+  }
+
+  List<String> _defaultCardIds(String columnId) => <String>[
+        for (var index = 0;
+            index < (_columnIndex(columnId) < columnCount ? cardsPerColumn : 0);
+            index++)
+          if (!_deletedTasks.contains(_cardId(_columnIndex(columnId), index)))
+            _cardId(_columnIndex(columnId), index),
+      ];
+
+  KanbanCard _makeCard(
+      String projectId, String columnId, String cardId, int position) {
+    final created = _createdTasks[cardId];
+    if (created != null) {
+      return KanbanCard(
+        id: cardId,
+        projectId: projectId,
+        parentTaskId: created.parentTaskId,
+        cardNumber: created.cardNumber,
+        kanbanColumnId: columnId,
+        kanbanPosition: position,
+        name: created.name,
+        description: created.description,
+        type: created.type,
+        assignees: _cardAssignees(cardId),
+        createdAt: created.createdAt,
+        updatedAt: created.updatedAt,
+      );
+    }
+    final parts = cardId.split('-');
+    final originalColumn = cardId == 'task-01' ? 0 : int.parse(parts[1]) - 1;
+    final originalPosition = cardId == 'task-01' ? 0 : int.parse(parts[2]) - 1;
+    return KanbanCard(
+      id: cardId,
+      projectId: projectId,
+      parentTaskId: null,
+      cardNumber: originalColumn * cardsPerColumn + originalPosition + 1,
+      kanbanColumnId: columnId,
+      kanbanPosition: position,
+      name: _cardName(originalColumn, originalPosition),
+      description: updatedDrafts[cardId]?.description ?? 'Descrição da tarefa',
+      type: updatedDrafts[cardId]?.type ?? TaskType.feature,
+      assignees: _cardAssignees(cardId),
+      createdAt: DateTime(2026, 9, 9),
+      updatedAt: DateTime(2026, 9, 9),
+    );
+  }
+
+  List<TaskMemberSummary> _cardAssignees(String cardId) => <TaskMemberSummary>[
+        for (final employeeId in _assigneesByCard[cardId] ?? <String>{})
+          TaskMemberSummary(
+            employeeId: employeeId,
+            taskId: cardId,
+            employeeName:
+                employeeId == 'emp-01' ? 'Gestor TouchIn' : employeeId,
+            createdAt: DateTime(2026, 10, 12),
+          ),
+      ];
+
   String _columnId(int index) =>
       'column-${(index + 1).toString().padLeft(2, '0')}';
 
   int _columnIndex(String id) => int.parse(id.split('-').last) - 1;
 
   String _columnName(int index) {
+    if (index >= columnCount &&
+        index - columnCount < createdColumnNames.length) {
+      return createdColumnNames[index - columnCount];
+    }
     if (index == 0) {
       return 'A fazer';
     }
@@ -564,6 +1538,8 @@ class _FakeKanbanApi extends TouchInApi {
   }
 
   String _cardName(int columnIndex, int cardIndex) {
+    final draft = updatedDrafts[_cardId(columnIndex, cardIndex)];
+    if (draft != null) return draft.name;
     if (columnIndex == 0 && cardIndex == 0) {
       return 'Implementar tela';
     }
@@ -579,4 +1555,90 @@ double _scrollOffset(WidgetTester tester, Key scrollViewKey) {
       )
       .first;
   return tester.state<ScrollableState>(scrollable).position.pixels;
+}
+
+class _DelayedCreateKanbanApi extends _FakeKanbanApi {
+  _DelayedCreateKanbanApi() : super(columnCount: 2);
+
+  final List<TaskDraft> drafts = <TaskDraft>[];
+  final List<Completer<void>> gates = <Completer<void>>[];
+
+  @override
+  Future<TaskRecord> createTask(String projectId, TaskDraft draft) async {
+    drafts.add(draft);
+    final gate = Completer<void>();
+    gates.add(gate);
+    await gate.future;
+    return super.createTask(projectId, draft);
+  }
+}
+
+class _EmployeeKanbanApi extends _FakeKanbanApi {
+  @override
+  Future<AuthContext> getAuthContext() async {
+    final auth = await super.getAuthContext();
+    return AuthContext(
+        company: auth.company,
+        user: const AuthUserSummary(
+            id: 'user-employee',
+            email: 'employee@example.test',
+            role: 'employee',
+            employeeId: 'emp-01'));
+  }
+}
+
+class _OutsiderKanbanApi extends _FakeKanbanApi {
+  _OutsiderKanbanApi() : super(cardsPerColumn: 3);
+
+  @override
+  Future<AuthContext> getAuthContext() async {
+    final auth = await super.getAuthContext();
+    return AuthContext(
+      company: auth.company,
+      user: const AuthUserSummary(
+        id: 'user-external',
+        email: 'external@example.test',
+        role: 'employee',
+        employeeId: 'emp-not-member',
+      ),
+    );
+  }
+}
+
+class _ConflictEditKanbanApi extends _FakeKanbanApi {
+  int attempts = 0;
+
+  @override
+  Future<TaskRecord> updateTask(
+      String projectId, String taskId, TaskDraft draft,
+      {DateTime? expectedUpdatedAt, int? expectedRevision}) async {
+    attempts++;
+    throw ApiException('Este card foi alterado em outra sessão.',
+        statusCode: 409, code: 'task_version_conflict');
+  }
+}
+
+class _DelayedConflictEditKanbanApi extends _FakeKanbanApi {
+  final Completer<TaskRecord> pending = Completer<TaskRecord>();
+  int attempts = 0;
+
+  @override
+  Future<TaskRecord> updateTask(
+      String projectId, String taskId, TaskDraft draft,
+      {DateTime? expectedUpdatedAt, int? expectedRevision}) {
+    attempts++;
+    return pending.future;
+  }
+}
+
+class _FailedMoveApi extends _FakeKanbanApi {
+  _FailedMoveApi(this.status) : super(columnCount: 2);
+  final int status;
+  @override
+  Future<KanbanBoard> reorderKanbanCards(
+    String projectId, {
+    required int expectedVersion,
+    required Map<String, List<String>> columnTaskIds,
+  }) async =>
+      throw ApiException('Movimento rejeitado', statusCode: status);
 }

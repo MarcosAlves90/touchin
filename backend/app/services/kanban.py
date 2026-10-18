@@ -7,7 +7,7 @@ from app.db import begin_serialized_write
 from app.domain.kanban_read import get_kanban_board
 from app.domain.project_read import cipher
 from app.errors import DomainError, ErrorKind
-from app.models import KanbanColumn, Project, Task
+from app.models import EmployeeProject, KanbanColumn, Project, Task
 from app.schemas.kanban import (
     KanbanBoardResponse,
     KanbanCardOrderPayload,
@@ -31,6 +31,7 @@ def _check_version(project: Project, expected_version: int) -> None:
         raise DomainError(
             ErrorKind.conflict,
             f"Kanban version conflict: expected {expected_version}, current {project.kanban_version}.",
+            code="kanban_version_conflict",
         )
 
 
@@ -203,10 +204,20 @@ def reorder_cards(
     project_id: str,
     payload: KanbanCardOrderPayload,
     actor_user_id: str | None = None,
+    employee_id: str | None = None,
 ) -> KanbanBoardResponse:
     from app.services.audit import AuditService
     begin_serialized_write(db)
     project = _locked_project_or_404(db, company_id=company_id, project_id=project_id)
+    if employee_id is not None:
+        membership = db.scalar(
+            select(EmployeeProject.project_id).where(
+                EmployeeProject.project_id == project.id,
+                EmployeeProject.employee_id == employee_id,
+            )
+        )
+        if membership is None:
+            raise DomainError(ErrorKind.not_found, "Project not found.")
     _check_version(project, payload.expected_version)
 
     column_ids = [item.column_id for item in payload.columns]

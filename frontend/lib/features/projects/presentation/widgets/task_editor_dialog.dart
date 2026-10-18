@@ -1,18 +1,39 @@
+import 'dart:convert';
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:touchin_flutter/contracts/task.dart';
+import 'package:touchin_flutter/core/network/api_client.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_editor_dialog.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_instant_select_field.dart';
+
+String _newTaskCreationKey() {
+  final random = Random.secure();
+  return base64Url
+      .encode(List<int>.generate(16, (_) => random.nextInt(256)))
+      .replaceAll('=', '');
+}
 
 class ProjectTaskEditorDialog extends StatefulWidget {
   const ProjectTaskEditorDialog({
     super.key,
     required this.tasks,
     this.task,
+    this.startInViewMode = false,
+    this.canEdit = true,
+    this.supplementaryDetails,
+    this.onSave,
   });
 
   final List<TaskRecord> tasks;
   final TaskRecord? task;
+  final bool startInViewMode;
+  final bool canEdit;
+  final Widget? supplementaryDetails;
+
+  /// When supplied, drafts remain in this dialog until persistence succeeds.
+  final Future<void> Function(TaskDraft draft)? onSave;
 
   @override
   State<ProjectTaskEditorDialog> createState() =>
@@ -20,17 +41,25 @@ class ProjectTaskEditorDialog extends StatefulWidget {
 }
 
 class _ProjectTaskEditorDialogState extends State<ProjectTaskEditorDialog> {
+  // A dialog represents one creation attempt, even across network retries.
+  late final String _creationKey = _newTaskCreationKey();
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameController;
   late final TextEditingController _descriptionController;
   late TaskType _type;
   String? _parentTaskId;
+  late bool _viewMode;
+  bool get _readOnly => _viewMode || !widget.canEdit || _saving;
+  bool _saving = false;
+  String? _saveError;
+  bool _editConflict = false;
 
   bool get _isEditing => widget.task != null;
 
   @override
   void initState() {
     super.initState();
+    _viewMode = widget.task != null && widget.startInViewMode;
     _nameController = TextEditingController(text: widget.task?.name ?? '');
     _descriptionController =
         TextEditingController(text: widget.task?.description ?? '');
@@ -53,21 +82,66 @@ class _ProjectTaskEditorDialogState extends State<ProjectTaskEditorDialog> {
         .where((candidate) => candidate.id != widget.task?.id)
         .toList();
 
-    return WorkspaceEditorDialog(
-      title: _isEditing ? 'Editar tarefa' : 'Nova tarefa',
+    final dialog = WorkspaceEditorDialog(
+      title: _viewMode
+          ? '#${widget.task!.cardNumber} · ${widget.task!.name}'
+          : _isEditing
+              ? 'Editar tarefa'
+              : 'Nova tarefa',
       subtitle: 'Detalhes da tarefa',
       icon: _isEditing ? Icons.edit_note_rounded : Icons.add_task,
-      primaryLabel: _isEditing ? 'Salvar' : 'Criar tarefa',
-      primaryIcon: _isEditing ? Icons.save_outlined : Icons.add_rounded,
-      onPrimary: _submit,
+      primaryLabel: _viewMode
+          ? (widget.canEdit ? 'Editar' : 'Fechar')
+          : _isEditing
+              ? 'Salvar'
+              : 'Criar tarefa',
+      primaryIcon: _viewMode
+          ? Icons.edit_outlined
+          : _isEditing
+              ? Icons.save_outlined
+              : Icons.add_rounded,
+      secondaryLabel: _viewMode ? 'Fechar' : 'Cancelar',
+      onSecondary: () {
+        if (!_saving) Navigator.of(context).pop();
+      },
+      onPrimary: _viewMode
+          ? () {
+              if (widget.canEdit) {
+                setState(() => _viewMode = false);
+              } else {
+                Navigator.of(context).pop();
+              }
+            }
+          : _submit,
       child: Form(
         key: _formKey,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
+            if (_saveError != null) ...[
+              Text(
+                _saveError!,
+                key: const ValueKey('task-editor-save-error'),
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+              if (_editConflict)
+                TextButton.icon(
+                  key: const ValueKey('task-editor-copy-draft'),
+                  onPressed: () => Clipboard.setData(ClipboardData(
+                    text: 'Nome: ${_nameController.text}\n'
+                        'Descrição: ${_descriptionController.text}\n'
+                        'Tipo: ${_type.name}\n'
+                        'Tarefa-pai: ${_parentTaskId ?? 'Nenhuma'}',
+                  )),
+                  icon: const Icon(Icons.copy_outlined),
+                  label: const Text('Copiar rascunho antes de revisar'),
+                ),
+              const SizedBox(height: 12),
+            ],
             TextFormField(
               controller: _nameController,
-              autofocus: !compact,
+              readOnly: _readOnly,
+              autofocus: !compact && !_readOnly,
               maxLength: taskNameMaxLength,
               maxLengthEnforcement: MaxLengthEnforcement.enforced,
               textInputAction: TextInputAction.next,
@@ -80,6 +154,7 @@ class _ProjectTaskEditorDialogState extends State<ProjectTaskEditorDialog> {
             const SizedBox(height: 12),
             TextFormField(
               controller: _descriptionController,
+              readOnly: _readOnly,
               minLines: compact ? 2 : 3,
               maxLines: compact ? 4 : 5,
               maxLength: taskDescriptionMaxLength,
@@ -108,11 +183,13 @@ class _ProjectTaskEditorDialogState extends State<ProjectTaskEditorDialog> {
                           ),
                         )
                         .toList(),
-                    onChanged: (value) {
-                      if (value != null) {
-                        setState(() => _type = value);
-                      }
-                    },
+                    onChanged: _readOnly
+                        ? null
+                        : (value) {
+                            if (value != null) {
+                              setState(() => _type = value);
+                            }
+                          },
                   ),
                   WorkspaceInstantSelectField<String>(
                     value: _parentTaskId ?? '',
@@ -132,10 +209,12 @@ class _ProjectTaskEditorDialogState extends State<ProjectTaskEditorDialog> {
                         ),
                       ),
                     ],
-                    onChanged: (value) => setState(
-                      () => _parentTaskId =
-                          value == null || value.isEmpty ? null : value,
-                    ),
+                    onChanged: _readOnly
+                        ? null
+                        : (value) => setState(
+                              () => _parentTaskId =
+                                  value == null || value.isEmpty ? null : value,
+                            ),
                   ),
                 ];
 
@@ -159,27 +238,58 @@ class _ProjectTaskEditorDialogState extends State<ProjectTaskEditorDialog> {
                 );
               },
             ),
+            if (widget.supplementaryDetails != null)
+              widget.supplementaryDetails!,
           ],
         ),
       ),
     );
+    return PopScope(canPop: !_saving, child: dialog);
   }
 
-  void _submit() {
+  Future<void> _submit() async {
+    if (_readOnly || _saving) return;
     if (!_formKey.currentState!.validate()) {
       return;
     }
-    Navigator.of(context).pop(
-      TaskDraft(
-        name: _nameController.text,
-        description: _descriptionController.text,
-        type: _type,
-        parentTaskId: _parentTaskId,
-      ),
+    final draft = TaskDraft(
+      name: _nameController.text,
+      description: _descriptionController.text,
+      type: _type,
+      parentTaskId: _parentTaskId,
+      creationKey: _isEditing ? null : _creationKey,
     );
+    if (widget.onSave == null) {
+      Navigator.of(context).pop(draft);
+      return;
+    }
+    setState(() {
+      _saving = true;
+      _saveError = null;
+      _editConflict = false;
+    });
+    try {
+      await widget.onSave!(draft);
+      if (mounted) Navigator.of(context).pop();
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _editConflict = error.code == 'task_version_conflict';
+        _saveError = _editConflict
+            ? '${error.message} Os campos permanecem aqui; copie o rascunho '
+                'e compare-o com a versão mais recente antes de editar novamente.'
+            : error.message;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _saveError = 'Não foi possível salvar. O rascunho foi mantido.';
+      });
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 }
-
 
 String? _requiredTextWithinLimit(
   String? value, {

@@ -35,6 +35,26 @@ def _upgrade_projects(bind, inspector) -> None:
             connection.execute(text(statement))
 
 
+def _ensure_task_creation_requests_table(bind, inspector) -> None:
+    if "projects" not in inspector.get_table_names():
+        return
+    timestamp_type = "TIMESTAMP" if bind.dialect.name == "postgresql" else "DATETIME"
+    with bind.begin() as connection:
+        connection.execute(text(
+            "CREATE TABLE IF NOT EXISTS task_creation_requests ("
+            "project_id VARCHAR(64) NOT NULL, "
+            "actor_user_id VARCHAR(64) NOT NULL, "
+            "request_key VARCHAR(64) NOT NULL, "
+            "payload_digest VARCHAR(64) NOT NULL, "
+            "task_id VARCHAR(64) NOT NULL, "
+            "response_ciphertext TEXT NOT NULL, "
+            f"created_at {timestamp_type} NOT NULL, "
+            "PRIMARY KEY (project_id, actor_user_id, request_key), "
+            "FOREIGN KEY(project_id) REFERENCES projects(id)"
+            ")"
+        ))
+
+
 def _ensure_kanban_columns_table(bind, inspector) -> None:
     if "projects" not in inspector.get_table_names():
         return
@@ -66,6 +86,10 @@ def _ensure_kanban_columns_table(bind, inspector) -> None:
 def _add_task_kanban_columns(bind, inspector) -> None:
     task_columns = {column["name"] for column in inspector.get_columns("tasks")}
     with bind.begin() as connection:
+        if "revision" not in task_columns:
+            connection.execute(
+                text("ALTER TABLE tasks ADD COLUMN revision INTEGER NOT NULL DEFAULT 0")
+            )
         if "card_number" not in task_columns:
             connection.execute(text("ALTER TABLE tasks ADD COLUMN card_number INTEGER"))
         if "kanban_column_id" not in task_columns:
@@ -396,6 +420,8 @@ def _upgrade_audit_events(bind, inspector) -> None:
 def upgrade_database_schema(bind) -> None:
     inspector = inspect(bind)
     _upgrade_projects(bind, inspector)
+    inspector = inspect(bind)
+    _ensure_task_creation_requests_table(bind, inspector)
     inspector = inspect(bind)
     _ensure_kanban_columns_table(bind, inspector)
     inspector = inspect(bind)

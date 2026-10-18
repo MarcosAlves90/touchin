@@ -175,6 +175,7 @@ def join_task_route(
         task_id=task_id,
         employee_id=_employee_id_or_403(context),
         actor_user_id=context.user.id,
+        requester_employee_id=_project_read_employee_id(context),
     )
     if not created:
         response.status_code = status.HTTP_200_OK
@@ -196,6 +197,7 @@ def leave_task_route(
         task_id=task_id,
         employee_id=_employee_id_or_403(context),
         actor_user_id=context.user.id,
+        requester_employee_id=_project_read_employee_id(context),
     )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
@@ -221,6 +223,7 @@ def add_task_member_route(
         task_id=task_id,
         employee_id=payload.employee_id,
         actor_user_id=context.user.id,
+        requester_employee_id=_project_read_employee_id(context),
     )
     if not created:
         response.status_code = status.HTTP_200_OK
@@ -246,5 +249,6 @@ def remove_task_member_route(
         task_id=task_id,
         employee_id=employee_id,
         actor_user_id=context.user.id,
+        requester_employee_id=_project_read_employee_id(context),
     )
     return Response(status_code=status.HTTP_204_NO_CONTENT)

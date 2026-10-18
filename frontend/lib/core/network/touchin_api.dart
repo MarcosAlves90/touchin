@@ -388,14 +388,17 @@ class TouchInApi {
   }
 
   Future<TaskRecord> updateTask(
-    String projectId,
-    String taskId,
-    TaskDraft draft,
-  ) async {
+      String projectId, String taskId, TaskDraft draft,
+      {DateTime? expectedUpdatedAt, int? expectedRevision}) async {
     final response = await _client.put(
       '/projects/$projectId/tasks/$taskId',
       withAuth: true,
-      body: draft.toApiJson(includeColumnId: false),
+      body: {
+        ...draft.toApiJson(includeColumnId: false),
+        if (expectedUpdatedAt != null)
+          'expectedUpdatedAt': expectedUpdatedAt.toUtc().toIso8601String(),
+        if (expectedRevision != null) 'expectedRevision': expectedRevision,
+      },
     );
     return _parseContract(
       'update task',
@@ -641,7 +644,6 @@ class TouchInApi {
     );
   }
 
-
   Future<List<AuditEventResponse>> listAuditEvents({
     DateTime? startDate,
     DateTime? endDate,
@@ -658,8 +660,10 @@ class TouchInApi {
       'page': page.toString(),
       'limit': limit.toString(),
     };
-    if (startDate != null) queryParameters['start_date'] = startDate.toIso8601String();
-    if (endDate != null) queryParameters['end_date'] = endDate.toIso8601String();
+    if (startDate != null)
+      queryParameters['start_date'] = startDate.toIso8601String();
+    if (endDate != null)
+      queryParameters['end_date'] = endDate.toIso8601String();
     if (actorUserId != null) queryParameters['actor_user_id'] = actorUserId;
     if (action != null) queryParameters['action'] = action;
     if (entityType != null) queryParameters['entity_type'] = entityType;

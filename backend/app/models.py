@@ -142,6 +142,10 @@ class Project(Base):
         back_populates="project",
         cascade=_CASCADE_ALL_DELETE_ORPHAN,
     )
+    task_creation_requests: Mapped[list["TaskCreationRequest"]] = relationship(
+        back_populates="project",
+        cascade=_CASCADE_ALL_DELETE_ORPHAN,
+    )
     kanban_columns: Mapped[list["KanbanColumn"]] = relationship(
         back_populates="project",
         cascade=_CASCADE_ALL_DELETE_ORPHAN,
@@ -205,6 +209,7 @@ class Task(Base):
     card_number: Mapped[int] = mapped_column(Integer)
     kanban_column_id: Mapped[str] = mapped_column(ForeignKey("kanban_columns.id"), index=True)
     kanban_position: Mapped[int] = mapped_column(Integer)
+    revision: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     name_ciphertext: Mapped[str] = mapped_column(Text)
     description_ciphertext: Mapped[str] = mapped_column(Text)
     type: Mapped[str] = mapped_column(String(32), index=True)
@@ -230,6 +235,20 @@ class Task(Base):
         back_populates="task",
         cascade=_CASCADE_ALL_DELETE_ORPHAN,
     )
+
+
+class TaskCreationRequest(Base):
+    __tablename__ = "task_creation_requests"
+
+    project_id: Mapped[str] = mapped_column(ForeignKey(_COL_PROJECTS_ID), primary_key=True)
+    actor_user_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    request_key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    payload_digest: Mapped[str] = mapped_column(String(64))
+    task_id: Mapped[str] = mapped_column(String(64))
+    response_ciphertext: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    project: Mapped[Project] = relationship(back_populates="task_creation_requests")
 
 
 class TaskEmployee(Base):

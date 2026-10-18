@@ -27,8 +27,7 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
   @override
   void initState() {
     super.initState();
-    _controller =
-        widget.controller ?? ProjectTasksController(api: widget.api);
+    _controller = widget.controller ?? ProjectTasksController(api: widget.api);
     _ownsController = widget.controller == null;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _controller.start();
@@ -66,7 +65,8 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
       summaryChildren: <Widget>[
         WorkspaceSummaryStripe(
           label: 'Projetos',
-          value: _controller.isLoading ? '...' : '${_controller.projects.length}',
+          value:
+              _controller.isLoading ? '...' : '${_controller.projects.length}',
           helper: 'Projetos ativos disponíveis para a empresa atual.',
         ),
         WorkspaceSummaryStripe(
@@ -326,7 +326,8 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
                   if (_controller.canManageProjects) ...<Widget>[
                     const SizedBox(height: 14),
                     OutlinedButton.icon(
-                      onPressed: _controller.isMutating ? null : _openCreateProject,
+                      onPressed:
+                          _controller.isMutating ? null : _openCreateProject,
                       icon: const Icon(Icons.create_new_folder_outlined),
                       label: const Text('Novo projeto'),
                     ),
@@ -564,9 +565,7 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
             actions: <Widget>[
               if (_controller.canManageTasks)
                 FilledButton.tonalIcon(
-                  onPressed: _controller.isMutating
-                      ? null
-                      : _openCreateTask,
+                  onPressed: _controller.isMutating ? null : _openCreateTask,
                   icon: const Icon(Icons.add_task_rounded),
                   label: const Text('Nova tarefa'),
                 ),
@@ -697,7 +696,9 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
                   ),
                   title: Text(member.employeeName),
                   subtitle: Text(
-                    isCurrent ? 'Você • ${member.employeeId}' : member.employeeId,
+                    isCurrent
+                        ? 'Você • ${member.employeeId}'
+                        : member.employeeId,
                   ),
                   trailing: _controller.canManageMembership
                       ? IconButton(
@@ -725,7 +726,6 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
       ),
     );
   }
-
 
   String? _parentTaskName(TaskRecord task) {
     final parentId = task.parentTaskId;
@@ -798,35 +798,37 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
   }
 
   Future<void> _openCreateTask() async {
-    final draft = await showDialog<TaskDraft>(
+    await showDialog<void>(
       context: context,
       builder: (_) => ProjectTaskEditorDialog(
         tasks: _controller.tasks,
+        onSave: (draft) async {
+          await _controller.createTask(draft);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Tarefa criada.')),
+            );
+          }
+        },
       ),
-    );
-    if (draft == null) {
-      return;
-    }
-    await _runAction(
-      () => _controller.createTask(draft),
-      successMessage: 'Tarefa criada.',
     );
   }
 
   Future<void> _openEditTask(TaskRecord task) async {
-    final draft = await showDialog<TaskDraft>(
+    await showDialog<void>(
       context: context,
       builder: (_) => ProjectTaskEditorDialog(
         tasks: _controller.tasks,
         task: task,
+        onSave: (draft) async {
+          await _controller.updateTask(task, draft);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Tarefa atualizada.')),
+            );
+          }
+        },
       ),
-    );
-    if (draft == null) {
-      return;
-    }
-    await _runAction(
-      () => _controller.updateTask(task, draft),
-      successMessage: 'Tarefa atualizada.',
     );
   }
 
@@ -883,9 +885,8 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
       context: context,
       builder: (_) => _AddTaskMemberDialog(
         projectMembers: _controller.projectMembers,
-        existingEmployeeIds: _controller.taskMembers
-            .map((member) => member.employeeId)
-            .toSet(),
+        existingEmployeeIds:
+            _controller.taskMembers.map((member) => member.employeeId).toSet(),
       ),
     );
     if (employeeId == null) {
@@ -1038,9 +1039,8 @@ class _ProjectListTile extends StatelessWidget {
                       child: Icon(
                         Icons.folder_open_rounded,
                         size: 20,
-                        color: selected
-                            ? AppTheme.accent
-                            : colorScheme.onSurface,
+                        color:
+                            selected ? AppTheme.accent : colorScheme.onSurface,
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -1329,7 +1329,8 @@ class _ProjectOverviewCard extends StatelessWidget {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.88),
+              color:
+                  colorScheme.surfaceContainerHighest.withValues(alpha: 0.88),
               border: Border.all(color: colorScheme.outlineVariant),
             ),
             child: Icon(icon, size: 18, color: colorScheme.onSurfaceVariant),
@@ -1394,7 +1395,8 @@ class _TaskTile extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             border: Border.all(
-              color: selected ? colorScheme.primary : colorScheme.outlineVariant,
+              color:
+                  selected ? colorScheme.primary : colorScheme.outlineVariant,
             ),
           ),
           child: Row(
@@ -1413,9 +1415,10 @@ class _TaskTile extends StatelessWidget {
                       children: <Widget>[
                         Text(
                           task.name,
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w800,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                  ),
                         ),
                         Chip(
                           visualDensity: VisualDensity.compact,
@@ -1434,10 +1437,11 @@ class _TaskTile extends StatelessWidget {
                       const SizedBox(height: 8),
                       Text(
                         'Subtarefa de: $parentName',
-                        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                              fontWeight: FontWeight.w600,
-                            ),
+                        style:
+                            Theme.of(context).textTheme.labelMedium?.copyWith(
+                                  color: colorScheme.onSurfaceVariant,
+                                  fontWeight: FontWeight.w600,
+                                ),
                       ),
                     ],
                   ],

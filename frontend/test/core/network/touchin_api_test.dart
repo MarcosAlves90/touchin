@@ -16,6 +16,27 @@ const _validCredentialFixture = 'fixture-auth-value';
 const _invalidCredentialFixture = 'invalid-auth-value';
 
 void main() {
+  test('HTTP 409 retains structured version code independent of message',
+      () async {
+    final apiClient = ApiClient(
+      client: _FakeHttpClient(responses: {
+        'GET http://localhost:8071/api/v1/versioned': http.Response(
+          '{"detail":"Mensagem modificada pelo servidor.",'
+          '"code":"kanban_version_conflict"}',
+          409,
+          headers: {'content-type': 'application/json'},
+        ),
+      }),
+    );
+    await expectLater(
+      apiClient.get('/versioned'),
+      throwsA(isA<ApiException>()
+          .having((e) => e.statusCode, 'status', 409)
+          .having((e) => e.code, 'code', 'kanban_version_conflict')
+          .having((e) => e.message, 'message',
+              'O quadro mudou em outra sessão. Recarregue antes de mover cards.')),
+    );
+  });
   test('login posts credentials contract and stores session token', () async {
     final client = _FakeApiClient(
       postResponses: {

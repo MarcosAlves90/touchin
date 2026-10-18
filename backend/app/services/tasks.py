@@ -1,15 +1,19 @@
 from __future__ import annotations
 
+from json import dumps
+
 from app.services.audit import AuditService
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
-from app.db import begin_serialized_write
+from app.config import get_settings
+from app.crypto import lookup_digest
+from app.db import begin_serialized_write, ensure_utc
 from app.domain.project_read import cipher, employee_or_404
 from app.domain.task_read import serialize_task, serialize_task_member
 from app.errors import DomainError, ErrorKind
-from app.models import EmployeeProject, KanbanColumn, Project, Task, TaskEmployee
+from app.models import EmployeeProject, KanbanColumn, Project, Task, TaskCreationRequest, TaskEmployee
 from app.schemas.task import (
     TaskDraftPayload,
     TaskMemberSummary,
@@ -27,6 +31,17 @@ def _locked_project_or_404(db: Session, *, company_id: str, project_id: str) -> 
     if project is None:
         raise DomainError(ErrorKind.not_found, "Project not found.")
     return project
+
+
+def _ensure_locked_project_access(db: Session, *, project_id: str, requester_employee_id: str | None) -> None:
+    if requester_employee_id is None:
+        return
+    membership = db.scalar(select(EmployeeProject.project_id).where(
+        EmployeeProject.project_id == project_id,
+        EmployeeProject.employee_id == requester_employee_id,
+    ))
+    if membership is None:
+        raise DomainError(ErrorKind.not_found, "Project not found.")
 
 
 def _locked_task_or_404(
@@ -131,6 +146,24 @@ def create_task(
 ) -> TaskResponse:
     begin_serialized_write(db)
     project = _locked_project_or_404(db, company_id=company_id, project_id=project_id)
+    request_key = payload.creation_key
+    digest = None
+    if request_key is not None:
+        canonical_payload = dumps(
+            payload.model_dump(mode="json", exclude={"creation_key"}),
+            sort_keys=True, separators=(",", ":"),
+        )
+        digest = lookup_digest(canonical_payload, get_settings().encryption_secret or "")
+        prior = db.get(TaskCreationRequest, (project.id, actor_user_id or "", request_key))
+        if prior is not None:
+            if prior.payload_digest != digest:
+                raise DomainError(
+                    ErrorKind.conflict,
+                    "Creation key was already used with different task fields.",
+                    code="task_creation_key_conflict",
+                )
+            snapshot = cipher().decrypt_json(prior.response_ciphertext)
+            return TaskResponse.model_validate(snapshot)
     _validate_parent(
         db,
         company_id=company_id,
@@ -157,6 +190,18 @@ def create_task(
     project.kanban_version += 1
     db.add(task)
     db.flush()
+    result = serialize_task(task, field_cipher=field_cipher)
+    if request_key is not None:
+        db.add(TaskCreationRequest(
+            project_id=project.id,
+            actor_user_id=actor_user_id or "",
+            request_key=request_key,
+            payload_digest=digest,
+            task_id=task.id,
+            response_ciphertext=field_cipher.encrypt_json(
+                result.model_dump(mode="json", by_alias=True)
+            ),
+        ))
     AuditService.log_action(
         db,
         company_id=company_id,
@@ -168,8 +213,7 @@ def create_task(
         metadata={"cardNumber": task.card_number},
     )
     db.commit()
-    db.refresh(task)
-    return serialize_task(task, field_cipher=field_cipher)
+    return result
 
 
 def update_task(
@@ -184,6 +228,26 @@ def update_task(
     begin_serialized_write(db)
     project = _locked_project_or_404(db, company_id=company_id, project_id=project_id)
     task = _locked_task_or_404(db, project_id=project_id, task_id=task_id)
+    if (payload.expected_revision is not None
+            and task.revision != payload.expected_revision):
+        raise DomainError(
+            ErrorKind.conflict,
+            "Task was updated in another session.",
+            code="task_version_conflict",
+        )
+    if payload.expected_version is not None and project.kanban_version != payload.expected_version:
+        raise DomainError(
+            ErrorKind.conflict,
+            f"Kanban version conflict: expected {payload.expected_version}, current {project.kanban_version}.",
+            code="kanban_version_conflict",
+        )
+    if (payload.expected_updated_at is not None
+            and ensure_utc(task.updated_at) != ensure_utc(payload.expected_updated_at)):
+        raise DomainError(
+            ErrorKind.conflict,
+            "Task was updated in another session.",
+            code="task_version_conflict",
+        )
     _validate_parent(
         db,
         company_id=company_id,
@@ -206,6 +270,7 @@ def update_task(
     task.name_ciphertext = field_cipher.encrypt(payload.name) or ""
     task.description_ciphertext = field_cipher.encrypt(payload.description) or ""
     task.type = new_type
+    task.revision += 1
     project.kanban_version += 1
     if changed_fields:
         AuditService.log_action(
@@ -269,9 +334,11 @@ def add_task_member(
     task_id: str,
     employee_id: str,
     actor_user_id: str | None = None,
+    requester_employee_id: str | None = None,
 ) -> tuple[TaskMemberSummary, bool]:
     begin_serialized_write(db)
     project = _locked_project_or_404(db, company_id=company_id, project_id=project_id)
+    _ensure_locked_project_access(db, project_id=project.id, requester_employee_id=requester_employee_id)
     task = _locked_task_or_404(db, project_id=project_id, task_id=task_id)
     employee = employee_or_404(db, company_id=company_id, employee_id=employee_id)
     project_link = db.scalar(
@@ -329,9 +396,11 @@ def remove_task_member(
     task_id: str,
     employee_id: str,
     actor_user_id: str | None = None,
+    requester_employee_id: str | None = None,
 ) -> None:
     begin_serialized_write(db)
     project = _locked_project_or_404(db, company_id=company_id, project_id=project_id)
+    _ensure_locked_project_access(db, project_id=project.id, requester_employee_id=requester_employee_id)
     task = _locked_task_or_404(db, project_id=project_id, task_id=task_id)
     employee_or_404(db, company_id=company_id, employee_id=employee_id)
     link = db.scalar(

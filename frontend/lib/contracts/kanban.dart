@@ -9,6 +9,7 @@ class KanbanCard {
     required this.cardNumber,
     required this.kanbanColumnId,
     required this.kanbanPosition,
+    this.revision,
     required this.name,
     required this.description,
     required this.type,
@@ -23,6 +24,7 @@ class KanbanCard {
   final int cardNumber;
   final String kanbanColumnId;
   final int kanbanPosition;
+  final int? revision;
   final String name;
   final String description;
   final TaskType type;
@@ -39,6 +41,7 @@ class KanbanCard {
       cardNumber: requireInt(json, 'cardNumber'),
       kanbanColumnId: requireString(json, 'kanbanColumnId'),
       kanbanPosition: requireInt(json, 'kanbanPosition'),
+      revision: json['revision'] == null ? null : requireInt(json, 'revision'),
       name: requireString(json, 'name'),
       description: requireString(json, 'description'),
       type: taskTypeFromApi(requireString(json, 'type')),
@@ -62,6 +65,7 @@ class KanbanCard {
       cardNumber: cardNumber,
       kanbanColumnId: kanbanColumnId,
       kanbanPosition: kanbanPosition,
+      revision: revision,
       name: name,
       description: description,
       type: type,

@@ -441,7 +441,27 @@ class ProjectKanbanController extends ChangeNotifier {
       if (!canManageCards) {
         throw StateError('Usuário sem permissão para editar cards.');
       }
-      final updated = await _api.updateTask(task.projectId, task.id, draft);
+      TaskRecord updated;
+      try {
+        updated = await _api.updateTask(task.projectId, task.id, draft,
+            expectedUpdatedAt: task.updatedAt,
+            expectedRevision: task.revision);
+      } on ApiException catch (error) {
+        if (error.code == 'task_version_conflict' &&
+            _selectedProjectId == task.projectId) {
+          try {
+            await _reloadBoardAndTasks(task.projectId);
+          } catch (_) {
+            if (_selectedProjectId == task.projectId) {
+              _boardError =
+                  'A edição foi rejeitada por conflito e não foi salva. '
+                  'Não foi possível recarregar o quadro; tente novamente.';
+              notifyListeners();
+            }
+          }
+        }
+        rethrow;
+      }
       if (_selectedProjectId == task.projectId) {
         await _refreshAfterMutation(task.projectId);
       }
@@ -506,7 +526,13 @@ class ProjectKanbanController extends ChangeNotifier {
   }
 
   Future<void> _handleConflict(ApiException error, String projectId) async {
-    if (error.statusCode != 409 || _selectedProjectId != projectId) {
+    // HTTP 409 also covers business constraints such as non-empty columns.
+    // The backend uses this distinct detail for optimistic version conflicts.
+    if (error.statusCode != 409 ||
+        (error.code != 'kanban_version_conflict' &&
+            !(error.code == null &&
+                error.message.startsWith('Kanban version conflict:'))) ||
+        _selectedProjectId != projectId) {
       throw error;
     }
     _boardError =
