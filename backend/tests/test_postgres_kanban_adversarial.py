@@ -28,7 +28,7 @@ from app.seed import seed_database
 from app.services.kanban import reorder_cards
 from app.services.projects import assign_project_member, create_project
 from app.services.employees import delete_employee
-from app.services.tasks import add_task_member, create_task, update_task
+from app.services.tasks import add_task_member, create_task, remove_task_member, update_task
 
 COMPANY = "company-touchin"
 
@@ -397,6 +397,61 @@ def test_reorder_waiting_for_project_lock_cannot_ignore_revoked_membership(pg):
         assert unchanged.kanban_version == board.kanban_version
         assert [card.id for card in unchanged.columns[0].cards] == [
             cards[0].id, cards[1].id
+        ]
+
+
+@pytest.mark.parametrize("operation", ["add", "remove"])
+def test_assignee_write_waiting_for_project_lock_rechecks_requester_access(pg, operation):
+    SessionFactory, _ = pg
+    with SessionFactory() as db:
+        project_id, (card,), _ = _setup(db, cards=1)
+        for employee_id in ("emp-04", "emp-05"):
+            assign_project_member(
+                db, company_id=COMPANY, project_id=project_id, employee_id=employee_id,
+            )
+        if operation == "remove":
+            add_task_member(
+                db, company_id=COMPANY, project_id=project_id,
+                task_id=card.id, employee_id="emp-05",
+            )
+        before = get_kanban_board(db, company_id=COMPANY, project_id=project_id)
+
+    started = Event()
+
+    def queued_write():
+        with SessionFactory() as db:
+            started.set()
+            try:
+                write = add_task_member if operation == "add" else remove_task_member
+                write(
+                    db, company_id=COMPANY, project_id=project_id,
+                    task_id=card.id, employee_id="emp-05",
+                    requester_employee_id="emp-04",
+                )
+            except DomainError as exc:
+                db.rollback()
+                return exc.kind
+            return None
+
+    with SessionFactory() as revoker:
+        revoker.scalar(select(Project).where(Project.id == project_id).with_for_update())
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(queued_write)
+            assert started.wait(timeout=10)
+            link = revoker.scalar(select(EmployeeProject).where(
+                EmployeeProject.project_id == project_id,
+                EmployeeProject.employee_id == "emp-04",
+            ))
+            assert link is not None
+            revoker.delete(link)
+            revoker.commit()
+            assert future.result(timeout=10) == ErrorKind.not_found
+
+    with SessionFactory() as db:
+        after = get_kanban_board(db, company_id=COMPANY, project_id=project_id)
+        assert after.kanban_version == before.kanban_version
+        assert [member.employee_id for member in after.columns[0].cards[0].assignees] == [
+            member.employee_id for member in before.columns[0].cards[0].assignees
         ]
 
 

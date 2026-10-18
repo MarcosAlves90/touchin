@@ -22,7 +22,7 @@ class ProjectTaskEditorDialog extends StatefulWidget {
   final bool canEdit;
   final Widget? supplementaryDetails;
 
-  /// When supplied, edit drafts remain in this dialog until persistence succeeds.
+  /// When supplied, drafts remain in this dialog until persistence succeeds.
   final Future<void> Function(TaskDraft draft)? onSave;
 
   @override

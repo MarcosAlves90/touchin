@@ -16,6 +16,77 @@ import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_i
 import 'package:touchin_flutter/theme/app_theme.dart';
 
 void main() {
+  for (final inBacklog in <bool>[false, true]) {
+    testWidgets(
+        '${inBacklog ? 'Backlog' : 'Kanban'} create retains draft on 403/500 and retries',
+        (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1650, 1000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final api = _DelayedCreateKanbanApi();
+      await tester.pumpWidget(MaterialApp(home: ProjectKanbanPage(api: api)));
+      await tester.pumpAndSettle();
+
+      if (inBacklog) {
+        await tester.tap(find.text('Backlog'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Novo card'));
+      } else {
+        await tester.tap(find.byTooltip('Adicionar card em Concluído'));
+      }
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+          find.widgetWithText(TextFormField, 'Nome'), 'Card recuperável');
+      await tester.enterText(find.widgetWithText(TextFormField, 'Descrição'),
+          'Detalhes que não podem sumir');
+      final expectedColumnId = inBacklog ? 'column-01' : 'column-02';
+
+      for (final status in <int>[403, 500]) {
+        await tester.tap(find.text('Criar tarefa').last);
+        await tester.pump();
+        expect(find.byType(ProjectTaskEditorDialog), findsOneWidget);
+        expect(api.drafts.last.columnId, expectedColumnId);
+        final attempts = api.drafts.length;
+
+        await tester.tap(find.text('Criar tarefa').last);
+        await tester.tap(find.text('Cancelar').last);
+        await tester.pump();
+        expect(api.drafts.length, attempts);
+        expect(find.byType(ProjectTaskEditorDialog), findsOneWidget);
+
+        api.gates.last.completeError(
+          ApiException('Erro de criação $status', statusCode: status),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(ProjectTaskEditorDialog), findsOneWidget);
+        expect(find.text('Card recuperável'), findsOneWidget);
+        expect(find.text('Detalhes que não podem sumir'), findsOneWidget);
+        expect(find.text('Erro de criação $status'), findsOneWidget);
+        expect(find.textContaining('Card criado em'), findsNothing);
+      }
+
+      await tester.tap(find.text('Criar tarefa').last);
+      await tester.pump();
+      expect(api.drafts.length, 3);
+      expect(api.drafts.every((draft) => draft.columnId == expectedColumnId),
+          isTrue);
+      expect(find.byType(ProjectTaskEditorDialog), findsOneWidget);
+      api.gates.last.complete();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ProjectTaskEditorDialog), findsNothing);
+      expect(
+          find.text('Card criado em ${inBacklog ? 'A fazer' : 'Concluído'}.'),
+          findsOneWidget);
+      final persisted = (await api.getKanbanBoard('project-01'))
+          .columns
+          .firstWhere((column) => column.id == expectedColumnId)
+          .cards;
+      expect(persisted.any((card) => card.name == 'Card recuperável'), isTrue);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('conflicting Backlog edit retains the typed draft for recovery',
       (tester) async {
     await tester.binding.setSurfaceSize(const Size(1650, 1000));
@@ -1481,6 +1552,22 @@ double _scrollOffset(WidgetTester tester, Key scrollViewKey) {
       )
       .first;
   return tester.state<ScrollableState>(scrollable).position.pixels;
+}
+
+class _DelayedCreateKanbanApi extends _FakeKanbanApi {
+  _DelayedCreateKanbanApi() : super(columnCount: 2);
+
+  final List<TaskDraft> drafts = <TaskDraft>[];
+  final List<Completer<void>> gates = <Completer<void>>[];
+
+  @override
+  Future<TaskRecord> createTask(String projectId, TaskDraft draft) async {
+    drafts.add(draft);
+    final gate = Completer<void>();
+    gates.add(gate);
+    await gate.future;
+    return super.createTask(projectId, draft);
+  }
 }
 
 class _EmployeeKanbanApi extends _FakeKanbanApi {

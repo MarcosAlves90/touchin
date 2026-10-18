@@ -459,26 +459,27 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
     if (_controller.selectedProject == null) {
       return;
     }
-    final draft = await showDialog<TaskDraft>(
+    await showDialog<void>(
       context: context,
       builder: (_) => ProjectTaskEditorDialog(
         tasks: _controller.tasks,
+        onSave: (draft) async {
+          await _controller.createCard(
+            TaskDraft(
+              name: draft.name,
+              description: draft.description,
+              type: draft.type,
+              parentTaskId: draft.parentTaskId,
+              columnId: column.id,
+            ),
+          );
+          if (mounted && _controller.boardError == null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Card criado em ${column.name}.')),
+            );
+          }
+        },
       ),
-    );
-    if (draft == null) {
-      return;
-    }
-    await _runAction(
-      () => _controller.createCard(
-        TaskDraft(
-          name: draft.name,
-          description: draft.description,
-          type: draft.type,
-          parentTaskId: draft.parentTaskId,
-          columnId: column.id,
-        ),
-      ),
-      successMessage: 'Card criado em ${column.name}.',
     );
   }
 

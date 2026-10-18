@@ -29,6 +29,17 @@ def _locked_project_or_404(db: Session, *, company_id: str, project_id: str) -> 
     return project
 
 
+def _ensure_locked_project_access(db: Session, *, project_id: str, requester_employee_id: str | None) -> None:
+    if requester_employee_id is None:
+        return
+    membership = db.scalar(select(EmployeeProject.project_id).where(
+        EmployeeProject.project_id == project_id,
+        EmployeeProject.employee_id == requester_employee_id,
+    ))
+    if membership is None:
+        raise DomainError(ErrorKind.not_found, "Project not found.")
+
+
 def _locked_task_or_404(
     db: Session,
     *,
@@ -290,9 +301,11 @@ def add_task_member(
     task_id: str,
     employee_id: str,
     actor_user_id: str | None = None,
+    requester_employee_id: str | None = None,
 ) -> tuple[TaskMemberSummary, bool]:
     begin_serialized_write(db)
     project = _locked_project_or_404(db, company_id=company_id, project_id=project_id)
+    _ensure_locked_project_access(db, project_id=project.id, requester_employee_id=requester_employee_id)
     task = _locked_task_or_404(db, project_id=project_id, task_id=task_id)
     employee = employee_or_404(db, company_id=company_id, employee_id=employee_id)
     project_link = db.scalar(
@@ -350,9 +363,11 @@ def remove_task_member(
     task_id: str,
     employee_id: str,
     actor_user_id: str | None = None,
+    requester_employee_id: str | None = None,
 ) -> None:
     begin_serialized_write(db)
     project = _locked_project_or_404(db, company_id=company_id, project_id=project_id)
+    _ensure_locked_project_access(db, project_id=project.id, requester_employee_id=requester_employee_id)
     task = _locked_task_or_404(db, project_id=project_id, task_id=task_id)
     employee_or_404(db, company_id=company_id, employee_id=employee_id)
     link = db.scalar(

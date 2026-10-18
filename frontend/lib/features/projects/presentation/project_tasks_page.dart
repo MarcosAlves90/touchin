@@ -798,18 +798,19 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
   }
 
   Future<void> _openCreateTask() async {
-    final draft = await showDialog<TaskDraft>(
+    await showDialog<void>(
       context: context,
       builder: (_) => ProjectTaskEditorDialog(
         tasks: _controller.tasks,
+        onSave: (draft) async {
+          await _controller.createTask(draft);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Tarefa criada.')),
+            );
+          }
+        },
       ),
-    );
-    if (draft == null) {
-      return;
-    }
-    await _runAction(
-      () => _controller.createTask(draft),
-      successMessage: 'Tarefa criada.',
     );
   }
 

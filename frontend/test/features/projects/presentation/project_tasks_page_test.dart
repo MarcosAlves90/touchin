@@ -13,6 +13,56 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('Tasks create retains draft on 403/500 and succeeds on retry',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1400, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final api = _DelayedCreateProjectTasksApi();
+    await tester.pumpWidget(MaterialApp(home: ProjectTasksPage(api: api)));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Nova tarefa'));
+    await tester.tap(find.text('Nova tarefa'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+        find.widgetWithText(TextFormField, 'Nome'), 'Tarefa recuperável');
+    await tester.enterText(find.widgetWithText(TextFormField, 'Descrição'),
+        'Descrição preservada para retry');
+
+    for (final status in <int>[403, 500]) {
+      await tester.tap(find.text('Criar tarefa').last);
+      await tester.pump();
+      final attempts = api.drafts.length;
+      expect(attempts, status == 403 ? 1 : 2);
+
+      await tester.tap(find.text('Criar tarefa').last);
+      await tester.tap(find.text('Cancelar').last);
+      await tester.pump();
+      expect(api.drafts.length, attempts);
+      expect(find.text('Tarefa recuperável'), findsOneWidget);
+
+      api.gates.last.completeError(
+        ApiException('Criação rejeitada $status', statusCode: status),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Tarefa recuperável'), findsOneWidget);
+      expect(find.text('Descrição preservada para retry'), findsOneWidget);
+      expect(find.text('Criação rejeitada $status'), findsOneWidget);
+      expect(find.text('Tarefa criada.'), findsNothing);
+    }
+
+    await tester.tap(find.text('Criar tarefa').last);
+    await tester.pump();
+    expect(api.drafts.length, 3);
+    expect(api.drafts.every((draft) => draft.name == 'Tarefa recuperável'),
+        isTrue);
+    api.gates.last.complete();
+    await tester.pumpAndSettle();
+    expect(find.text('Criar tarefa'), findsNothing);
+    expect(find.text('Tarefa recuperável'), findsWidgets);
+    expect(find.text('Tarefa criada.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Tasks pending save blocks dismissal and preserves draft on 409',
       (tester) async {
     await tester.binding.setSurfaceSize(const Size(1400, 900));
@@ -432,6 +482,32 @@ class _FakeProjectTasksApi extends TouchInApi {
       taskId: taskId,
       employeeName: 'João Lima',
       createdAt: DateTime(2026, 9, 9),
+    );
+  }
+}
+
+class _DelayedCreateProjectTasksApi extends _FakeProjectTasksApi {
+  _DelayedCreateProjectTasksApi()
+      : super(role: 'manager', employeeId: 'emp-02');
+
+  final List<TaskDraft> drafts = <TaskDraft>[];
+  final List<Completer<void>> gates = <Completer<void>>[];
+
+  @override
+  Future<TaskRecord> createTask(String projectId, TaskDraft draft) async {
+    drafts.add(draft);
+    final gate = Completer<void>();
+    gates.add(gate);
+    await gate.future;
+    return TaskRecord(
+      id: 'task-created',
+      projectId: projectId,
+      parentTaskId: draft.parentTaskId,
+      name: draft.name,
+      description: draft.description,
+      type: draft.type,
+      createdAt: DateTime(2026, 10, 18),
+      updatedAt: DateTime(2026, 10, 18),
     );
   }
 }
