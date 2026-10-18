@@ -400,6 +400,37 @@ def test_reorder_waiting_for_project_lock_cannot_ignore_revoked_membership(pg):
         ]
 
 
+def test_concurrent_creation_retries_return_single_committed_card(pg):
+    SessionFactory, _ = pg
+    with SessionFactory() as db:
+        project_id, _, before = _setup(db, cards=1)
+    barrier = Barrier(6)
+
+    def submit():
+        with SessionFactory() as db:
+            barrier.wait(timeout=10)
+            created = create_task(
+                db, company_id=COMPANY, project_id=project_id,
+                actor_user_id="user-pr67",
+                payload=TaskDraftPayload(
+                    name="Criação única", description="Resposta repetida",
+                    type="feature", creation_key="same-intent-under-contention",
+                ),
+            )
+            return created.id, created.card_number
+
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        results = list(pool.map(lambda _: submit(), range(6)))
+    assert len(set(results)) == 1
+    with SessionFactory() as db:
+        after = get_kanban_board(db, company_id=COMPANY, project_id=project_id)
+        assert after.kanban_version == before.kanban_version + 1
+        assert sum(
+            card.name == "Criação única"
+            for column in after.columns for card in column.cards
+        ) == 1
+
+
 @pytest.mark.parametrize("operation", ["add", "remove"])
 def test_assignee_write_waiting_for_project_lock_rechecks_requester_access(pg, operation):
     SessionFactory, _ = pg

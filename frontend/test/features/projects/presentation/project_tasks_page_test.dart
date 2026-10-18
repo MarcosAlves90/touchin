@@ -55,6 +55,9 @@ void main() {
     expect(api.drafts.length, 3);
     expect(api.drafts.every((draft) => draft.name == 'Tarefa recuperável'),
         isTrue);
+    expect(api.drafts.first.creationKey, isNotNull);
+    expect(api.drafts.every(
+        (draft) => draft.creationKey == api.drafts.first.creationKey), isTrue);
     api.gates.last.complete();
     await tester.pumpAndSettle();
     expect(find.text('Criar tarefa'), findsNothing);

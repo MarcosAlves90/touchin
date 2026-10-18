@@ -35,6 +35,26 @@ def _upgrade_projects(bind, inspector) -> None:
             connection.execute(text(statement))
 
 
+def _ensure_task_creation_requests_table(bind, inspector) -> None:
+    if "projects" not in inspector.get_table_names():
+        return
+    timestamp_type = "TIMESTAMP" if bind.dialect.name == "postgresql" else "DATETIME"
+    with bind.begin() as connection:
+        connection.execute(text(
+            "CREATE TABLE IF NOT EXISTS task_creation_requests ("
+            "project_id VARCHAR(64) NOT NULL, "
+            "actor_user_id VARCHAR(64) NOT NULL, "
+            "request_key VARCHAR(64) NOT NULL, "
+            "payload_digest VARCHAR(64) NOT NULL, "
+            "task_id VARCHAR(64) NOT NULL, "
+            "response_ciphertext TEXT NOT NULL, "
+            f"created_at {timestamp_type} NOT NULL, "
+            "PRIMARY KEY (project_id, actor_user_id, request_key), "
+            "FOREIGN KEY(project_id) REFERENCES projects(id)"
+            ")"
+        ))
+
+
 def _ensure_kanban_columns_table(bind, inspector) -> None:
     if "projects" not in inspector.get_table_names():
         return
@@ -400,6 +420,8 @@ def _upgrade_audit_events(bind, inspector) -> None:
 def upgrade_database_schema(bind) -> None:
     inspector = inspect(bind)
     _upgrade_projects(bind, inspector)
+    inspector = inspect(bind)
+    _ensure_task_creation_requests_table(bind, inspector)
     inspector = inspect(bind)
     _ensure_kanban_columns_table(bind, inspector)
     inspector = inspect(bind)

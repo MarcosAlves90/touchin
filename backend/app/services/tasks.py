@@ -1,15 +1,19 @@
 from __future__ import annotations
 
+from json import dumps
+
 from app.services.audit import AuditService
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
+from app.config import get_settings
+from app.crypto import lookup_digest
 from app.db import begin_serialized_write, ensure_utc
 from app.domain.project_read import cipher, employee_or_404
 from app.domain.task_read import serialize_task, serialize_task_member
 from app.errors import DomainError, ErrorKind
-from app.models import EmployeeProject, KanbanColumn, Project, Task, TaskEmployee
+from app.models import EmployeeProject, KanbanColumn, Project, Task, TaskCreationRequest, TaskEmployee
 from app.schemas.task import (
     TaskDraftPayload,
     TaskMemberSummary,
@@ -142,6 +146,24 @@ def create_task(
 ) -> TaskResponse:
     begin_serialized_write(db)
     project = _locked_project_or_404(db, company_id=company_id, project_id=project_id)
+    request_key = payload.creation_key
+    digest = None
+    if request_key is not None:
+        canonical_payload = dumps(
+            payload.model_dump(mode="json", exclude={"creation_key"}),
+            sort_keys=True, separators=(",", ":"),
+        )
+        digest = lookup_digest(canonical_payload, get_settings().encryption_secret or "")
+        prior = db.get(TaskCreationRequest, (project.id, actor_user_id or "", request_key))
+        if prior is not None:
+            if prior.payload_digest != digest:
+                raise DomainError(
+                    ErrorKind.conflict,
+                    "Creation key was already used with different task fields.",
+                    code="task_creation_key_conflict",
+                )
+            snapshot = cipher().decrypt_json(prior.response_ciphertext)
+            return TaskResponse.model_validate(snapshot)
     _validate_parent(
         db,
         company_id=company_id,
@@ -168,6 +190,18 @@ def create_task(
     project.kanban_version += 1
     db.add(task)
     db.flush()
+    result = serialize_task(task, field_cipher=field_cipher)
+    if request_key is not None:
+        db.add(TaskCreationRequest(
+            project_id=project.id,
+            actor_user_id=actor_user_id or "",
+            request_key=request_key,
+            payload_digest=digest,
+            task_id=task.id,
+            response_ciphertext=field_cipher.encrypt_json(
+                result.model_dump(mode="json", by_alias=True)
+            ),
+        ))
     AuditService.log_action(
         db,
         company_id=company_id,
@@ -179,8 +213,7 @@ def create_task(
         metadata={"cardNumber": task.card_number},
     )
     db.commit()
-    db.refresh(task)
-    return serialize_task(task, field_cipher=field_cipher)
+    return result
 
 
 def update_task(

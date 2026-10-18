@@ -471,6 +471,7 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
               type: draft.type,
               parentTaskId: draft.parentTaskId,
               columnId: column.id,
+              creationKey: draft.creationKey,
             ),
           );
           if (mounted && _controller.boardError == null) {

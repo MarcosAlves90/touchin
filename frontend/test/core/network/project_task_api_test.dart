@@ -114,6 +114,7 @@ void main() {
         type: TaskType.bug,
         parentTaskId: 'task-parent',
         columnId: 'column-01',
+        creationKey: 'creation-key-123',
       ),
     );
     expect(created.id, 'task-02');
@@ -123,6 +124,7 @@ void main() {
       'type': 'bug',
       'parentTaskId': 'task-parent',
       'columnId': 'column-01',
+      'creationKey': 'creation-key-123',
     });
 
     final updated = await api.updateTask(

@@ -1,9 +1,19 @@
+import 'dart:convert';
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:touchin_flutter/contracts/task.dart';
 import 'package:touchin_flutter/core/network/api_client.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_editor_dialog.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_instant_select_field.dart';
+
+String _newTaskCreationKey() {
+  final random = Random.secure();
+  return base64Url
+      .encode(List<int>.generate(16, (_) => random.nextInt(256)))
+      .replaceAll('=', '');
+}
 
 class ProjectTaskEditorDialog extends StatefulWidget {
   const ProjectTaskEditorDialog({
@@ -31,6 +41,8 @@ class ProjectTaskEditorDialog extends StatefulWidget {
 }
 
 class _ProjectTaskEditorDialogState extends State<ProjectTaskEditorDialog> {
+  // A dialog represents one creation attempt, even across network retries.
+  late final String _creationKey = _newTaskCreationKey();
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameController;
   late final TextEditingController _descriptionController;
@@ -245,6 +257,7 @@ class _ProjectTaskEditorDialogState extends State<ProjectTaskEditorDialog> {
       description: _descriptionController.text,
       type: _type,
       parentTaskId: _parentTaskId,
+      creationKey: _isEditing ? null : _creationKey,
     );
     if (widget.onSave == null) {
       Navigator.of(context).pop(draft);

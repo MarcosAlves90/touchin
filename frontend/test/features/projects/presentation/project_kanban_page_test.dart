@@ -70,6 +70,9 @@ void main() {
       expect(api.drafts.length, 3);
       expect(api.drafts.every((draft) => draft.columnId == expectedColumnId),
           isTrue);
+      expect(api.drafts.first.creationKey, isNotNull);
+      expect(api.drafts.every(
+          (draft) => draft.creationKey == api.drafts.first.creationKey), isTrue);
       expect(find.byType(ProjectTaskEditorDialog), findsOneWidget);
       api.gates.last.complete();
       await tester.pumpAndSettle();

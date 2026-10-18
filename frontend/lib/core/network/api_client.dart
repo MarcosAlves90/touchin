@@ -123,6 +123,8 @@ class ApiClient {
           'O quadro mudou em outra sessão. Recarregue antes de mover cards.',
         'kanban_snapshot_conflict' =>
           'O quadro mudou durante a leitura. Tente recarregar.',
+        'task_creation_key_conflict' =>
+          'Esta tentativa de criação já foi processada com outros dados. Confira o quadro antes de criar novamente.',
         _ => null,
       };
 

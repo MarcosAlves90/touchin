@@ -44,6 +44,9 @@ class TaskFieldsPayload(CamelModel):
 
 class TaskDraftPayload(TaskFieldsPayload):
     column_id: str | None = Field(default=None, min_length=1)
+    creation_key: str | None = Field(
+        default=None, min_length=1, max_length=64, pattern=r"^[A-Za-z0-9_-]+$"
+    )
 
     @field_validator("column_id")
     @classmethod

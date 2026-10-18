@@ -68,6 +68,75 @@ def _create_task(
     return response.json()
 
 
+def test_creation_key_replays_committed_card_after_lost_response(client):
+    headers = _manager_headers(client)
+    project = _create_project(client, headers)
+    path = f"/api/v1/projects/{project['id']}/tasks"
+    payload = {
+        "name": "Recuperar criação",
+        "description": "A resposta da primeira criação se perdeu.",
+        "type": "feature",
+        "creationKey": "retry-after-response-loss-01",
+    }
+    first = client.post(path, headers=headers, json=payload)
+    assert first.status_code == 201, first.text
+    # The transport loses the first 201 after COMMIT: only retry reaches the UI.
+    replay = client.post(path, headers=headers, json=payload)
+    assert replay.status_code == 201, replay.text
+    assert replay.json()["id"] == first.json()["id"]
+    assert replay.json()["cardNumber"] == first.json()["cardNumber"] == 1
+
+    with SessionLocal() as db:
+        from app.models import AuditEvent, Project, TaskCreationRequest
+        assert db.scalar(select(func.count()).select_from(Task).where(
+            Task.project_id == project["id"],
+        )) == 1
+        current_project = db.get(Project, project["id"])
+        assert current_project.next_card_number == 2
+        assert db.scalar(select(func.count()).select_from(TaskCreationRequest).where(
+            TaskCreationRequest.project_id == project["id"],
+        )) == 1
+        assert db.scalar(select(func.count()).select_from(AuditEvent).where(
+            AuditEvent.project_id == project["id"],
+            AuditEvent.action == "card.created",
+        )) == 1
+        # Look up by the natural key without requiring the login fixture's user ID.
+        recorded = db.scalar(select(TaskCreationRequest).where(
+            TaskCreationRequest.project_id == project["id"],
+        ))
+        assert "Recuperar criação" not in recorded.response_ciphertext
+
+    revised = client.put(f"{path}/{first.json()['id']}", headers=headers, json={
+        "name": "Título editado posteriormente",
+        "description": "Conteúdo alterado depois da criação.",
+        "type": "feature",
+    })
+    assert revised.status_code == 200, revised.text
+    still_original = client.post(path, headers=headers, json=payload)
+    assert still_original.status_code == 201
+    assert still_original.json() == first.json()
+
+    mismatched = client.post(path, headers=headers, json={
+        **payload, "name": "Outro nome",
+    })
+    assert mismatched.status_code == 409
+    assert mismatched.json()["code"] == "task_creation_key_conflict"
+
+    deleted = client.delete(
+        f"{path}/{first.json()['id']}", headers=headers,
+    )
+    assert deleted.status_code == 204
+    after_delete = client.post(path, headers=headers, json=payload)
+    assert after_delete.status_code == 201
+    assert after_delete.json()["id"] == first.json()["id"]
+
+    new_attempt = client.post(path, headers=headers, json={
+        **payload, "creationKey": "another-intent-02",
+    })
+    assert new_attempt.status_code == 201
+    assert new_attempt.json()["cardNumber"] == 2
+
+
 def test_manager_can_create_typed_tasks_and_employee_cannot(client):
     manager_headers = _manager_headers(client)
     employee_headers = _employee_headers(client)

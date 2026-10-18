@@ -83,6 +83,7 @@ class TaskDraft {
     required this.type,
     this.parentTaskId,
     this.columnId,
+    this.creationKey,
   });
 
   final String name;
@@ -90,6 +91,8 @@ class TaskDraft {
   final TaskType type;
   final String? parentTaskId;
   final String? columnId;
+  /// Stable for retries of the same create dialog; omitted for legacy clients.
+  final String? creationKey;
 
   factory TaskDraft.fromTask(TaskRecord task) {
     return TaskDraft(
@@ -108,6 +111,7 @@ class TaskDraft {
       'type': taskTypeToApi(type),
       'parentTaskId': parentTaskId,
       if (includeColumnId && columnId != null) 'columnId': columnId,
+      if (includeColumnId && creationKey != null) 'creationKey': creationKey,
     };
   }
 }
