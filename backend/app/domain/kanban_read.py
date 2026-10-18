@@ -3,7 +3,9 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from app.db import ensure_utc
 from app.domain.project_read import cipher, project_or_404
+from app.errors import DomainError, ErrorKind
 from app.models import Employee, KanbanColumn, Task, TaskEmployee
 from app.schemas.kanban import KanbanBoardResponse, KanbanCardResponse, KanbanColumnResponse
 from app.schemas.task import TaskMemberSummary
@@ -15,6 +17,7 @@ def get_kanban_board(
     company_id: str,
     project_id: str,
     employee_id: str | None = None,
+    _attempt: int = 0,
 ) -> KanbanBoardResponse:
     project = project_or_404(
         db,
@@ -22,6 +25,7 @@ def get_kanban_board(
         project_id=project_id,
         employee_id=employee_id,
     )
+    observed_version = project.kanban_version
     field_cipher = cipher()
     columns = db.scalars(
         select(KanbanColumn)
@@ -63,12 +67,13 @@ def get_kanban_board(
                     card_number=task.card_number,
                     kanban_column_id=task.kanban_column_id,
                     kanban_position=task.kanban_position,
+                    revision=task.revision,
                     name=field_cipher.decrypt(task.name_ciphertext) or "",
                     description=field_cipher.decrypt(task.description_ciphertext) or "",
                     type=task.type,
                     assignees=assignees,
-                    created_at=task.created_at,
-                    updated_at=task.updated_at,
+                    created_at=ensure_utc(task.created_at),
+                    updated_at=ensure_utc(task.updated_at),
                 ),
             )
         cards.sort(key=lambda card: (card.kanban_position, card.id))
@@ -84,8 +89,30 @@ def get_kanban_board(
             ),
         )
 
-    return KanbanBoardResponse(
+    result = KanbanBoardResponse(
         project_id=project.id,
-        kanban_version=project.kanban_version,
+        kanban_version=observed_version,
         columns=column_responses,
     )
+    # PostgreSQL READ COMMITTED permits another writer to commit between
+    # the column, task and assignee SELECTs. Never return a mixed snapshot
+    # paired with its old optimistic version.
+    db.refresh(project, attribute_names=["kanban_version"])
+    if project.kanban_version != observed_version:
+        if _attempt >= 2:
+            raise DomainError(
+                ErrorKind.conflict, "Kanban changed during snapshot read.",
+                code="kanban_snapshot_conflict",
+            )
+        db.expire_all()
+        return get_kanban_board(
+            db, company_id=company_id, project_id=project_id,
+            employee_id=employee_id, _attempt=_attempt + 1,
+        )
+    if employee_id is not None:
+        # Check read access again if membership may have changed mid-read.
+        project_or_404(
+            db, company_id=company_id, project_id=project_id,
+            employee_id=employee_id,
+        )
+    return result

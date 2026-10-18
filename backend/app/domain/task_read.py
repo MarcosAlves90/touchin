@@ -3,6 +3,7 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from app.db import ensure_utc
 from app.crypto import FieldCipher
 from app.domain.project_read import cipher, project_or_404
 from app.errors import DomainError, ErrorKind
@@ -40,11 +41,12 @@ def serialize_task(task: Task, *, field_cipher: FieldCipher) -> TaskResponse:
         card_number=task.card_number,
         kanban_column_id=task.kanban_column_id,
         kanban_position=task.kanban_position,
+        revision=task.revision,
         name=field_cipher.decrypt(task.name_ciphertext) or "",
         description=field_cipher.decrypt(task.description_ciphertext) or "",
         type=task.type,
-        created_at=task.created_at,
-        updated_at=task.updated_at,
+        created_at=ensure_utc(task.created_at),
+        updated_at=ensure_utc(task.updated_at),
     )
 
 

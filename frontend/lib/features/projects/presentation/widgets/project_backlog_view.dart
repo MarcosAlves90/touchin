@@ -47,18 +47,54 @@ class ProjectBacklogView extends StatefulWidget {
 }
 
 class _ProjectBacklogViewState extends State<ProjectBacklogView> {
+  static const int _pageSize = 50;
   String _query = '';
   String _status = '';
   String _assignee = '';
   String _sort = 'kanban';
   bool _sortAscending = true;
+  int _page = 0;
+  final TextEditingController _searchController = TextEditingController();
+  final ScrollController _tableScroll = ScrollController();
   final Map<String, String> _columnFilters = <String, String>{};
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _tableScroll.dispose();
+    super.dispose();
+  }
+
+  void _resetPage() {
+    _page = 0;
+    if (_tableScroll.hasClients) _tableScroll.jumpTo(0);
+  }
+
+  void _changePage(int page) {
+    setState(() => _page = page);
+    if (_tableScroll.hasClients) _tableScroll.jumpTo(0);
+  }
 
   @override
   void didUpdateWidget(covariant ProjectBacklogView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!widget.board.columns.any((column) => column.id == _status)) _status = '';
-    if (!widget.projectMembers.any((member) => member.employeeId == _assignee)) _assignee = '';
+    if (widget.board.projectId != oldWidget.board.projectId) {
+      _query = '';
+      _searchController.clear();
+      _status = '';
+      _assignee = '';
+      _sort = 'kanban';
+      _sortAscending = true;
+      _columnFilters.clear();
+      _resetPage();
+    }
+    if (!widget.board.columns.any((column) => column.id == _status)) {
+      _status = '';
+    }
+    if (!widget.projectMembers
+        .any((member) => member.employeeId == _assignee)) {
+      _assignee = '';
+    }
   }
 
   @override
@@ -67,6 +103,14 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
       for (final column in widget.board.columns)
         for (final card in column.cards) (column: column, card: card),
     ]..sort(_compare);
+    final byId = <String, KanbanCard>{
+      for (final row in ordered) row.card.id: row.card,
+    };
+    final positionById = <String, int>{
+      for (final column in widget.board.columns)
+        for (var index = 0; index < column.cards.length; index++)
+          column.cards[index].id: index,
+    };
     final ids = ordered.map((row) => row.card.id).toSet();
     final children = <String, List<({KanbanColumn column, KanbanCard card})>>{};
     for (final row in ordered) {
@@ -78,14 +122,26 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
     final rows = <({KanbanColumn column, KanbanCard card, int depth})>[];
     final visited = <String>{};
     void visit(({KanbanColumn column, KanbanCard card}) row, int depth) {
-      if (!visited.add(row.card.id)) return;
-      if (_matches(row.card, row.column)) {
-        rows.add((column: row.column, card: row.card, depth: depth));
-      }
-      for (final child in children[row.card.id] ?? []) {
-        visit(child, depth + 1);
+      final pending = <({KanbanColumn column, KanbanCard card, int depth})>[
+        (column: row.column, card: row.card, depth: depth),
+      ];
+      while (pending.isNotEmpty) {
+        final current = pending.removeLast();
+        if (!visited.add(current.card.id)) continue;
+        if (_matches(current.card, current.column)) {
+          rows.add(current);
+        }
+        // Push in reverse to preserve sibling order in depth-first traversal.
+        for (final child in (children[current.card.id] ?? []).reversed) {
+          pending.add((
+            column: child.column,
+            card: child.card,
+            depth: current.depth + 1,
+          ));
+        }
       }
     }
+
     for (final row in ordered) {
       if (!ids.contains(row.card.parentTaskId)) visit(row, 0);
     }
@@ -97,12 +153,17 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
       0,
       (sum, column) => sum + column.cards.length,
     );
+    // Sorting and filtering always cover the full board; only visible widgets
+    // are paginated. The Kanban position and parent ID stay unchanged.
+    final pageCount = (rows.length + _pageSize - 1) ~/ _pageSize;
+    _page = _page.clamp(0, pageCount == 0 ? 0 : pageCount - 1);
+    final visibleRows = rows.skip(_page * _pageSize).take(_pageSize);
 
     return Column(
       key: const ValueKey<String>('project-backlog-view'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        _buildToolbar(rows.length, total),
+        _buildToolbar(rows.length, total, _page, pageCount),
         const SizedBox(height: 10),
         Expanded(
           child: rows.isEmpty
@@ -110,7 +171,9 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
                   child: Text(
                     widget.board.columns.isEmpty
                         ? 'Este projeto não possui colunas.'
-                        : 'Nenhum card corresponde aos filtros.',
+                        : total == 0
+                            ? 'Nenhum card neste projeto.'
+                            : 'Nenhum card corresponde aos filtros.',
                   ),
                 )
               : LayoutBuilder(builder: (context, constraints) {
@@ -123,6 +186,7 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
                     ),
                     child: SingleChildScrollView(
                       key: const ValueKey<String>('backlog-table-scroll'),
+                      controller: _tableScroll,
                       child: SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
                         child: ConstrainedBox(
@@ -146,13 +210,19 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
                             dividerThickness: 0.5,
                             columns: <DataColumn>[
                               for (final field in <(String, String)>[
-                                ('number', '#'), ('title', 'Título'),
-                                ('description', 'Descrição'), ('assignees', 'Responsáveis'),
-                                ('project', 'Projeto'), ('created', 'Criado'), ('updated', 'Atualizado'),
-                              ]) DataColumn(label: _header(field.$1, field.$2)),
+                                ('number', '#'),
+                                ('title', 'Título'),
+                                ('description', 'Descrição'),
+                                ('status', 'Status'),
+                                ('assignees', 'Responsáveis'),
+                                ('project', 'Projeto'),
+                                ('created', 'Criado'),
+                                ('updated', 'Atualizado'),
+                              ])
+                                DataColumn(label: _header(field.$1, field.$2)),
                             ],
                             rows: <DataRow>[
-                              for (final row in rows)
+                              for (final row in visibleRows)
                                 DataRow(
                                   key: ValueKey<String>(
                                       'backlog-card-${row.card.id}'),
@@ -167,35 +237,53 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
                                       child: Row(children: <Widget>[
                                         Expanded(
                                           child: Padding(
-                                            padding: EdgeInsets.only(left: row.depth * 14.0),
+                                            padding: EdgeInsets.only(
+                                                left: row.depth.clamp(0, 5) *
+                                                    14.0),
                                             child: Row(children: <Widget>[
                                               if (row.depth > 0)
                                                 Padding(
-                                                  padding: const EdgeInsets.only(right: 6),
+                                                  padding:
+                                                      const EdgeInsets.only(
+                                                          right: 6),
                                                   child: Tooltip(
-                                                    key: ValueKey<String>('hierarchy-indicator-${row.card.id}'),
-                                                    message: 'Subtarefa de ${ordered.firstWhere((candidate) => candidate.card.id == row.card.parentTaskId).card.name}',
+                                                    key: ValueKey<String>(
+                                                        'hierarchy-indicator-${row.card.id}'),
+                                                    message:
+                                                        'Subtarefa de ${byId[row.card.parentTaskId]!.name}',
                                                     child: Icon(
-                                                      Icons.subdirectory_arrow_right_rounded,
+                                                      Icons
+                                                          .subdirectory_arrow_right_rounded,
                                                       size: 17,
                                                       color: colors.primary,
                                                     ),
                                                   ),
                                                 ),
-                                              Expanded(child: Tooltip(
+                                              Expanded(
+                                                  child: Tooltip(
                                                 message: row.card.name,
                                                 child: InkWell(
-                                                  onTap: () => widget.onOpenDetails(row.card),
-                                                  child: Text(row.card.name, maxLines: 1,
-                                                    overflow: TextOverflow.ellipsis,
-                                                    style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+                                                  onTap: () => widget
+                                                      .onOpenDetails(row.card),
+                                                  child: Text(
+                                                    row.card.name,
+                                                    maxLines: 1,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    style: theme
+                                                        .textTheme.bodySmall
+                                                        ?.copyWith(
+                                                            fontWeight:
+                                                                FontWeight
+                                                                    .w600),
                                                   ),
                                                 ),
                                               )),
                                             ]),
                                           ),
                                         ),
-                                        _cardActions(row.card, row.column),
+                                        _cardActions(row.card, row.column,
+                                            positionById[row.card.id]!),
                                       ]),
                                     )),
                                     DataCell(
@@ -215,6 +303,11 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
                                         ),
                                       ),
                                     ),
+                                    DataCell(Text(
+                                      row.column.name,
+                                      key: ValueKey<String>(
+                                          'backlog-status-${row.card.id}'),
+                                    )),
                                     DataCell(
                                       SizedBox(
                                         width: 150,
@@ -250,16 +343,18 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
     );
   }
 
-  Widget _buildToolbar(int visible, int total) {
+  Widget _buildToolbar(int visible, int total, int page, int pageCount) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final buttonStyle = ButtonStyle(
       minimumSize: const WidgetStatePropertyAll(Size(0, 40)),
-      padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 10)),
+      padding:
+          const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 10)),
       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       iconSize: const WidgetStatePropertyAll(16),
       textStyle: WidgetStatePropertyAll(
-        theme.textTheme.labelMedium?.copyWith(fontSize: 12, fontWeight: FontWeight.w600),
+        theme.textTheme.labelMedium
+            ?.copyWith(fontSize: 12, fontWeight: FontWeight.w600),
       ),
     );
     final controls = <({int flex, double width, Widget child})>[
@@ -268,13 +363,17 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
         width: 260,
         child: TextField(
           key: const ValueKey<String>('backlog-search'),
+          controller: _searchController,
           decoration: const InputDecoration(
             hintText: 'Buscar por título ou #número',
             prefixIcon: Icon(Icons.search_rounded, size: 18),
             isDense: true,
             contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           ),
-          onChanged: (value) => setState(() => _query = value.trim()),
+          onChanged: (value) => setState(() {
+            _query = value.trim();
+            _resetPage();
+          }),
         ),
       ),
       (
@@ -292,7 +391,10 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
                   label: column.name,
                 )),
           ],
-          onChanged: (value) => setState(() => _status = value ?? ''),
+          onChanged: (value) => setState(() {
+            _status = value ?? '';
+            _resetPage();
+          }),
         ),
       ),
       (
@@ -310,7 +412,10 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
                   label: member.employeeName,
                 )),
           ],
-          onChanged: (value) => setState(() => _assignee = value ?? ''),
+          onChanged: (value) => setState(() {
+            _assignee = value ?? '';
+            _resetPage();
+          }),
         ),
       ),
       (
@@ -326,14 +431,17 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
             WorkspaceSelectOption(value: 'number', label: 'Número'),
             WorkspaceSelectOption(value: 'title', label: 'Título'),
             WorkspaceSelectOption(value: 'description', label: 'Descrição'),
+            WorkspaceSelectOption(value: 'status', label: 'Status'),
             WorkspaceSelectOption(value: 'assignees', label: 'Responsáveis'),
             WorkspaceSelectOption(value: 'project', label: 'Projeto'),
             WorkspaceSelectOption(value: 'created', label: 'Criação'),
-            WorkspaceSelectOption(value: 'updated', label: 'Atualização recente'),
+            WorkspaceSelectOption(
+                value: 'updated', label: 'Atualização recente'),
           ],
           onChanged: (value) => setState(() {
             _sort = value ?? 'kanban';
             _sortAscending = _sort != 'updated';
+            _resetPage();
           }),
         ),
       ),
@@ -345,7 +453,8 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
             style: buttonStyle,
             onPressed: widget.isBusy ? null : widget.onManageColumns,
             icon: const Icon(Icons.view_column_outlined),
-            label: const Text('Gerenciar colunas', maxLines: 1, overflow: TextOverflow.ellipsis),
+            label: const Text('Gerenciar colunas',
+                maxLines: 1, overflow: TextOverflow.ellipsis),
           ),
         ),
       if (widget.canManageStructure)
@@ -356,7 +465,8 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
             style: buttonStyle,
             onPressed: widget.isBusy ? null : widget.onCreateColumn,
             icon: const Icon(Icons.add_rounded),
-            label: const Text('Novo status', maxLines: 1, overflow: TextOverflow.ellipsis),
+            label: const Text('Novo status',
+                maxLines: 1, overflow: TextOverflow.ellipsis),
           ),
         ),
       if (widget.canManageCards && widget.board.columns.isNotEmpty)
@@ -365,9 +475,12 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
           width: 140,
           child: FilledButton.icon(
             style: buttonStyle,
-            onPressed: widget.isBusy ? null : () => widget.onCreateCard(widget.board.columns.first),
+            onPressed: widget.isBusy
+                ? null
+                : () => widget.onCreateCard(widget.board.columns.first),
             icon: const Icon(Icons.add_task_rounded),
-            label: const Text('Novo card', maxLines: 1, overflow: TextOverflow.ellipsis),
+            label: const Text('Novo card',
+                maxLines: 1, overflow: TextOverflow.ellipsis),
           ),
         ),
     ];
@@ -409,12 +522,35 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
                   child: SizedBox(height: 40, child: row),
                 ),
               const SizedBox(height: 8),
-              Text(
-                '$visible de $total cards',
-                style: theme.textTheme.labelMedium?.copyWith(
-                  color: colors.onSurfaceVariant,
+              Row(children: <Widget>[
+                Text(
+                  '$visible de $total cards',
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: colors.onSurfaceVariant,
+                  ),
                 ),
-              ),
+                if (pageCount > 1) ...<Widget>[
+                  const Spacer(),
+                  IconButton(
+                    key: const ValueKey<String>('backlog-page-previous'),
+                    tooltip: 'Página anterior',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: page == 0 ? null : () => _changePage(page - 1),
+                    icon: const Icon(Icons.chevron_left_rounded),
+                  ),
+                  Text('Página ${page + 1} de $pageCount',
+                      key: const ValueKey<String>('backlog-page-label')),
+                  IconButton(
+                    key: const ValueKey<String>('backlog-page-next'),
+                    tooltip: 'Próxima página',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: page == pageCount - 1
+                        ? null
+                        : () => _changePage(page + 1),
+                    icon: const Icon(Icons.chevron_right_rounded),
+                  ),
+                ],
+              ]),
             ],
           );
         }),
@@ -423,54 +559,69 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
   }
 
   InputDecoration _filterDecoration(IconData icon) => InputDecoration(
-    isDense: true,
-    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-    prefixIcon: Icon(icon, size: 17),
-    prefixIconConstraints: const BoxConstraints(minWidth: 36, minHeight: 40),
-    suffixIconConstraints: const BoxConstraints(minWidth: 36, minHeight: 40),
-  );
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        prefixIcon: Icon(icon, size: 17),
+        prefixIconConstraints:
+            const BoxConstraints(minWidth: 36, minHeight: 40),
+        suffixIconConstraints:
+            const BoxConstraints(minWidth: 36, minHeight: 40),
+      );
 
   Widget _header(String field, String label) => PopupMenuButton<String>(
-    key: ValueKey<String>('backlog-header-$field'),
-    tooltip: 'Filtrar ou ordenar $label',
-    popUpAnimationStyle: AnimationStyle.noAnimation,
-    onSelected: (action) {
-      if (action == 'filter') {
-        _filterColumn(field, label);
-      } else {
-        setState(() {
-          if (action == 'clear') {
-            _columnFilters.remove(field);
+        key: ValueKey<String>('backlog-header-$field'),
+        tooltip: 'Filtrar ou ordenar $label',
+        popUpAnimationStyle: AnimationStyle.noAnimation,
+        onSelected: (action) {
+          if (action == 'filter') {
+            _filterColumn(field, label);
           } else {
-            _sort = field;
-            _sortAscending = action == 'asc';
+            setState(() {
+              if (action == 'clear') {
+                _columnFilters.remove(field);
+              } else {
+                _sort = field;
+                _sortAscending = action == 'asc';
+              }
+              _resetPage();
+            });
           }
-        });
-      }
-    },
-    itemBuilder: (_) => <PopupMenuEntry<String>>[
-      const PopupMenuItem(value: 'asc', child: Text('Ordenar crescente')),
-      const PopupMenuItem(value: 'desc', child: Text('Ordenar decrescente')),
-      const PopupMenuItem(value: 'filter', child: Text('Filtrar coluna')),
-      if (_columnFilters.containsKey(field))
-        const PopupMenuItem(value: 'clear', child: Text('Limpar filtro')),
-    ],
-    child: Row(mainAxisSize: MainAxisSize.min, children: <Widget>[
-      Text(label), const SizedBox(width: 6),
-      Icon(_sort == field ? (_sortAscending ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded) : Icons.unfold_more_rounded, size: 14),
-      if (_columnFilters.containsKey(field)) const Icon(Icons.filter_alt_outlined, size: 14),
-    ]),
-  );
+        },
+        itemBuilder: (_) => <PopupMenuEntry<String>>[
+          const PopupMenuItem(value: 'asc', child: Text('Ordenar crescente')),
+          const PopupMenuItem(
+              value: 'desc', child: Text('Ordenar decrescente')),
+          const PopupMenuItem(value: 'filter', child: Text('Filtrar coluna')),
+          if (_columnFilters.containsKey(field))
+            const PopupMenuItem(value: 'clear', child: Text('Limpar filtro')),
+        ],
+        child: Row(mainAxisSize: MainAxisSize.min, children: <Widget>[
+          Text(label),
+          const SizedBox(width: 6),
+          Icon(
+              _sort == field
+                  ? (_sortAscending
+                      ? Icons.arrow_upward_rounded
+                      : Icons.arrow_downward_rounded)
+                  : Icons.unfold_more_rounded,
+              size: 14),
+          if (_columnFilters.containsKey(field))
+            const Icon(Icons.filter_alt_outlined, size: 14),
+        ]),
+      );
 
   Future<void> _filterColumn(String field, String label) async {
     var value = _columnFilters[field] ?? '';
     final result = await showDialog<String>(
       context: context,
       builder: (dialogContext) => WorkspaceEditorDialog(
-        title: 'Filtrar $label', subtitle: 'Filtre os cards por este campo.',
-        icon: Icons.filter_alt_outlined, primaryLabel: 'Aplicar filtro',
+        title: 'Filtrar $label',
+        subtitle: 'Filtre os cards por este campo.',
+        icon: Icons.filter_alt_outlined,
+        primaryLabel: 'Aplicar filtro',
         onPrimary: () => Navigator.of(dialogContext).pop(value.trim()),
-        child: TextFormField(initialValue: value,
+        child: TextFormField(
+          initialValue: value,
           decoration: const InputDecoration(labelText: 'Valor'),
           onChanged: (text) => value = text,
         ),
@@ -483,19 +634,33 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
       } else {
         _columnFilters[field] = result;
       }
+      _resetPage();
     });
   }
 
-  String _fieldValue(KanbanCard card, String field) => switch (field) {
-    'number' => '#${card.cardNumber}', 'title' => card.name,
-    'description' => card.description,
-    'assignees' => card.assignees.isEmpty ? 'Sem responsáveis' : card.assignees.map((item) => item.employeeName).join(', '),
-    'project' => widget.projectName,
-    'created' => _shortDate(card.createdAt), 'updated' => _shortDate(card.updatedAt),
-    _ => '',
-  };
+  String _fieldValue(KanbanCard card, String field, [KanbanColumn? column]) =>
+      switch (field) {
+        'number' => '#${card.cardNumber}',
+        'title' => card.name,
+        'description' => card.description,
+        'status' => column?.name ?? '',
+        'assignees' => card.assignees.isEmpty
+            ? 'Sem responsáveis'
+            : card.assignees.map((item) => item.employeeName).join(', '),
+        'project' => widget.projectName,
+        'created' => _shortDate(card.createdAt),
+        'updated' => _shortDate(card.updatedAt),
+        _ => '',
+      };
 
-  Widget _cardActions(KanbanCard card, KanbanColumn column) {
+  Widget _cardActions(KanbanCard card, KanbanColumn column, int position) {
+    final canReorder = widget.canMoveCards &&
+        _sort == 'kanban' &&
+        _sortAscending &&
+        _query.isEmpty &&
+        _status.isEmpty &&
+        _assignee.isEmpty &&
+        _columnFilters.isEmpty;
     final actionButtons = <Widget>[
       IconButton(
         tooltip: 'Detalhes de #${card.cardNumber}',
@@ -503,6 +668,24 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
         onPressed: () => widget.onOpenDetails(card),
         icon: const Icon(Icons.open_in_new_rounded, size: 18),
       ),
+      if (canReorder && column.cards.length > 1) ...<Widget>[
+        IconButton(
+          tooltip: 'Mover #${card.cardNumber} para cima no Kanban',
+          visualDensity: VisualDensity.compact,
+          onPressed: widget.isBusy || position == 0
+              ? null
+              : () => widget.onMoveCard(card.id, column.id, position - 1),
+          icon: const Icon(Icons.arrow_upward_rounded, size: 18),
+        ),
+        IconButton(
+          tooltip: 'Mover #${card.cardNumber} para baixo no Kanban',
+          visualDensity: VisualDensity.compact,
+          onPressed: widget.isBusy || position == column.cards.length - 1
+              ? null
+              : () => widget.onMoveCard(card.id, column.id, position + 2),
+          icon: const Icon(Icons.arrow_downward_rounded, size: 18),
+        ),
+      ],
       if (widget.canManageCards) ...<Widget>[
         IconButton(
           tooltip: 'Editar #${card.cardNumber}',
@@ -545,7 +728,9 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
       if (filter.key == 'number') {
         final number = int.tryParse(value.replaceFirst('#', '').trim());
         if (number != card.cardNumber) return false;
-      } else if (!_fieldValue(card, filter.key).toLowerCase().contains(value)) {
+      } else if (!_fieldValue(card, filter.key, column)
+          .toLowerCase()
+          .contains(value)) {
         return false;
       }
     }
@@ -559,7 +744,11 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
     if (_query.isEmpty) {
       return true;
     }
-    final query = _query.startsWith('#') ? _query.substring(1).trim() : _query;
+    if (_query.startsWith('#')) {
+      final number = int.tryParse(_query.substring(1).trim());
+      return number != null && card.cardNumber == number;
+    }
+    final query = _query;
     final number = int.tryParse(query);
     return card.name.toLowerCase().contains(query.toLowerCase()) ||
         (number != null
@@ -575,12 +764,25 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
       'number' => a.card.cardNumber.compareTo(b.card.cardNumber),
       'created' => a.card.createdAt.compareTo(b.card.createdAt),
       'updated' => a.card.updatedAt.compareTo(b.card.updatedAt),
-      'title' || 'description' || 'assignees' || 'project' => _fieldValue(a.card, _sort).toLowerCase().compareTo(_fieldValue(b.card, _sort).toLowerCase()),
+      'title' ||
+      'description' ||
+      'status' ||
+      'assignees' ||
+      'project' =>
+        _fieldValue(a.card, _sort, a.column)
+            .toLowerCase()
+            .compareTo(_fieldValue(b.card, _sort, b.column).toLowerCase()),
       _ => a.column.position != b.column.position
           ? a.column.position.compareTo(b.column.position)
           : a.card.kanbanPosition.compareTo(b.card.kanbanPosition),
     };
-    return _sortAscending ? result : -result;
+    if (result != 0) return _sortAscending ? result : -result;
+    // Sorting must preserve an unambiguous order for equal values across pages.
+    final columnOrder = a.column.position.compareTo(b.column.position);
+    if (columnOrder != 0) return columnOrder;
+    final cardOrder = a.card.kanbanPosition.compareTo(b.card.kanbanPosition);
+    if (cardOrder != 0) return cardOrder;
+    return a.card.id.compareTo(b.card.id);
   }
 
   String _shortDate(DateTime value) {

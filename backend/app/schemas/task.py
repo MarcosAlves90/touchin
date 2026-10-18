@@ -58,6 +58,9 @@ class TaskDraftPayload(TaskFieldsPayload):
 
 class TaskUpdatePayload(TaskFieldsPayload):
     """Task field updates cannot move cards; use the versioned Kanban API."""
+    expected_version: int | None = Field(default=None, ge=0)
+    expected_updated_at: datetime | None = None
+    expected_revision: int | None = Field(default=None, ge=0)
 
 
 class TaskResponse(CamelModel):
@@ -67,6 +70,7 @@ class TaskResponse(CamelModel):
     card_number: int
     kanban_column_id: str
     kanban_position: int
+    revision: int = 0
     name: str
     description: str
     type: TaskType

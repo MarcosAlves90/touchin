@@ -205,6 +205,7 @@ class Task(Base):
     card_number: Mapped[int] = mapped_column(Integer)
     kanban_column_id: Mapped[str] = mapped_column(ForeignKey("kanban_columns.id"), index=True)
     kanban_position: Mapped[int] = mapped_column(Integer)
+    revision: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     name_ciphertext: Mapped[str] = mapped_column(Text)
     description_ciphertext: Mapped[str] = mapped_column(Text)
     type: Mapped[str] = mapped_column(String(32), index=True)

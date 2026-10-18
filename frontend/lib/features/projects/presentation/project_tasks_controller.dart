@@ -126,7 +126,8 @@ class ProjectTasksController extends ChangeNotifier {
       notifyListeners();
     } catch (error) {
       isLoading = false;
-      loadError = _errorMessage(error, 'Não foi possível carregar os projetos.');
+      loadError =
+          _errorMessage(error, 'Não foi possível carregar os projetos.');
       notifyListeners();
     }
   }
@@ -251,7 +252,8 @@ class ProjectTasksController extends ChangeNotifier {
         return;
       }
       isLoadingTasks = false;
-      tasksError = _errorMessage(error, 'Não foi possível carregar as tarefas.');
+      tasksError =
+          _errorMessage(error, 'Não foi possível carregar as tarefas.');
       notifyListeners();
     }
   }
@@ -337,7 +339,8 @@ class ProjectTasksController extends ChangeNotifier {
     return _mutate(() async {
       final updated = await _api.updateProject(project.id, draft);
       if (updated.status == ProjectStatus.inactive) {
-        projects = projects.where((current) => current.id != updated.id).toList();
+        projects =
+            projects.where((current) => current.id != updated.id).toList();
         if (selectedProjectId == updated.id) {
           _invalidateProjectScopedRequests();
           selectedProjectId = projects.isEmpty ? null : projects.first.id;
@@ -425,7 +428,18 @@ class ProjectTasksController extends ChangeNotifier {
 
   Future<TaskRecord> updateTask(TaskRecord task, TaskDraft draft) async {
     return _mutate(() async {
-      final updated = await _api.updateTask(task.projectId, task.id, draft);
+      TaskRecord updated;
+      try {
+        updated = await _api.updateTask(task.projectId, task.id, draft,
+            expectedUpdatedAt: task.updatedAt,
+            expectedRevision: task.revision);
+      } on ApiException catch (error) {
+        if (error.code == 'task_version_conflict' &&
+            selectedProjectId == task.projectId) {
+          await _loadTasksForSelectedProject(notifyLoading: false);
+        }
+        rethrow;
+      }
       tasks = tasks
           .map((current) => current.id == updated.id ? updated : current)
           .toList();

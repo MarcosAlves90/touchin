@@ -32,6 +32,7 @@ class TaskRecord {
     this.cardNumber = 0,
     this.kanbanColumnId = '',
     this.kanbanPosition = 0,
+    this.revision,
     required this.name,
     required this.description,
     required this.type,
@@ -45,6 +46,7 @@ class TaskRecord {
   final int cardNumber;
   final String kanbanColumnId;
   final int kanbanPosition;
+  final int? revision;
   final String name;
   final String description;
   final TaskType type;
@@ -64,6 +66,7 @@ class TaskRecord {
       kanbanPosition: json['kanbanPosition'] == null
           ? 0
           : requireInt(json, 'kanbanPosition'),
+      revision: json['revision'] == null ? null : requireInt(json, 'revision'),
       name: requireString(json, 'name'),
       description: requireString(json, 'description'),
       type: taskTypeFromApi(requireString(json, 'type')),

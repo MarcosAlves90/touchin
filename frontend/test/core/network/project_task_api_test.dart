@@ -143,6 +143,39 @@ void main() {
       'parentTaskId': null,
     });
 
+    await api.updateTask(
+      'project-01',
+      'task-01',
+      const TaskDraft(
+        name: 'Atualizada',
+        description: 'Descrição atualizada',
+        type: TaskType.improvement,
+      ),
+      expectedUpdatedAt: DateTime.utc(2026, 10, 18, 13, 42, 1),
+    );
+    expect((client.lastBody as Map<String, dynamic>)['expectedUpdatedAt'],
+        '2026-10-18T13:42:01.000Z');
+
+    await api.updateTask(
+      'project-01',
+      'task-01',
+      const TaskDraft(
+        name: 'Atualizada',
+        description: 'Descrição atualizada',
+        type: TaskType.improvement,
+      ),
+      expectedRevision: 0,
+      expectedUpdatedAt: DateTime.utc(2026, 10, 18, 13, 42, 1),
+    );
+    expect(client.lastBody, <String, dynamic>{
+      'name': 'Atualizada',
+      'description': 'Descrição atualizada',
+      'type': 'improvement',
+      'parentTaskId': null,
+      'expectedRevision': 0,
+      'expectedUpdatedAt': '2026-10-18T13:42:01.000Z',
+    });
+
     final members = await api.listTaskMembers('project-01', 'task-01');
     expect(members.single.employeeId, 'emp-04');
 

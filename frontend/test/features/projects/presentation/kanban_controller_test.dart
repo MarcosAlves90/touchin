@@ -19,8 +19,10 @@ void main() {
     expect(api.requestedStatus, ProjectStatus.active);
     expect(controller.selectedProjectId, 'project-a');
     expect(controller.board?.projectId, 'project-a');
-    expect(controller.tasks.map((task) => task.projectId), everyElement('project-a'));
-    expect(controller.projectMembers.map((member) => member.projectId), everyElement('project-a'));
+    expect(controller.tasks.map((task) => task.projectId),
+        everyElement('project-a'));
+    expect(controller.projectMembers.map((member) => member.projectId),
+        everyElement('project-a'));
     expect(controller.canManageStructure, isTrue);
   });
 
@@ -75,6 +77,44 @@ void main() {
     });
   });
 
+  for (final (cardId, targetIndex, expected) in <(String, int, List<String>)>[
+    ('task-03', 1, <String>['task-01', 'task-03', 'task-02']),
+    ('task-01', 2, <String>['task-02', 'task-01', 'task-03']),
+    ('task-02', 0, <String>['task-02', 'task-01', 'task-03']),
+  ]) {
+    test('same-column move $cardId to $targetIndex retains all identities',
+        () async {
+      final api = _KanbanApi();
+      api.boards['project-a'] = _board('project-a',
+          version: 1,
+          cardColumnId: 'column-a',
+          cardIds: const ['task-01', 'task-02', 'task-03']);
+      final controller = ProjectKanbanController(api: api);
+      await controller.start();
+      await controller.moveCard(
+          taskId: cardId, toColumnId: 'column-a', toIndex: targetIndex);
+      expect(api.lastCardOrdering?['column-a'], expected);
+      expect(api.lastExpectedVersion, 1);
+    });
+  }
+
+  test('queued moves use sequential accepted board versions', () async {
+    final api = _KanbanApi();
+    final controller = ProjectKanbanController(api: api);
+    await controller.start();
+    final gate = Completer<KanbanBoard>();
+    api.reorderCardsCompleter = gate;
+    final first = controller.moveCard(
+        taskId: 'task-01', toColumnId: 'column-b', toIndex: 0);
+    final second = controller.moveCard(
+        taskId: 'task-01', toColumnId: 'column-a', toIndex: 0);
+    await Future<void>.delayed(Duration.zero);
+    expect(api.reorderExpectedVersions, [1]);
+    gate.complete(_board('project-a', version: 2, cardColumnId: 'column-b'));
+    await Future.wait([first, second]);
+    expect(api.reorderExpectedVersions, [1, 2]);
+  });
+
   test('reuses immutable snapshot lists between unchanged reads', () async {
     final api = _KanbanApi();
     final controller = ProjectKanbanController(api: api);
@@ -82,14 +122,16 @@ void main() {
     await controller.start();
 
     expect(identical(controller.projects, controller.projects), isTrue);
-    expect(identical(controller.projectMembers, controller.projectMembers), isTrue);
+    expect(identical(controller.projectMembers, controller.projectMembers),
+        isTrue);
     expect(identical(controller.tasks, controller.tasks), isTrue);
     expect(() => controller.projects.clear(), throwsUnsupportedError);
     expect(() => controller.projectMembers.clear(), throwsUnsupportedError);
     expect(() => controller.tasks.clear(), throwsUnsupportedError);
   });
 
-  test('discards stale board snapshots after project selection changes', () async {
+  test('discards stale board snapshots after project selection changes',
+      () async {
     final api = _KanbanApi();
     final controller = ProjectKanbanController(api: api);
     await controller.start();
@@ -118,7 +160,8 @@ void main() {
     expect(controller.board?.kanbanVersion, 3);
   });
 
-  test('card move remains server-authoritative until accepted response arrives', () async {
+  test('card move remains server-authoritative until accepted response arrives',
+      () async {
     final api = _KanbanApi();
     final controller = ProjectKanbanController(api: api);
     await controller.start();
@@ -173,6 +216,27 @@ void main() {
     expect(controller.board!.columns.last.cards.single.id, 'task-01');
     expect(controller.boardError, contains('outra sessão'));
   });
+
+  test('business-rule 409 preserves the original API error', () async {
+    final api = _KanbanApi();
+    final controller = ProjectKanbanController(api: api);
+    await controller.start();
+    api.deleteColumnError = ApiException(
+      'A non-empty Kanban column cannot be deleted.',
+      statusCode: 409,
+    );
+
+    await expectLater(
+      controller.deleteColumn('column-a'),
+      throwsA(isA<ApiException>().having(
+        (error) => error.message,
+        'message',
+        'A non-empty Kanban column cannot be deleted.',
+      )),
+    );
+    expect(controller.board?.kanbanVersion, 1);
+    expect(controller.boardError, isNull);
+  });
   test('queued move intent cannot cross a project selection boundary',
       () async {
     final api = _KanbanApi();
@@ -223,12 +287,14 @@ class _KanbanApi extends TouchInApi {
   bool controlBoards = false;
   bool throwConflictOnReorder = false;
   bool failNextBoardRead = false;
+  ApiException? deleteColumnError;
   int createTaskCalls = 0;
   Completer<KanbanBoard>? reorderCardsCompleter;
   int? lastExpectedVersion;
   Map<String, List<String>>? lastCardOrdering;
   List<String>? lastColumnOrdering;
   final List<String> reorderCardProjects = <String>[];
+  final List<int> reorderExpectedVersions = <int>[];
 
   final Map<String, Completer<KanbanBoard>> boardCompleters =
       <String, Completer<KanbanBoard>>{};
@@ -267,7 +333,8 @@ class _KanbanApi extends TouchInApi {
   }
 
   @override
-  Future<List<ProjectMemberSummary>> listProjectMembers(String projectId) async {
+  Future<List<ProjectMemberSummary>> listProjectMembers(
+      String projectId) async {
     return <ProjectMemberSummary>[
       ProjectMemberSummary(
         employeeId: 'emp-01',
@@ -323,13 +390,18 @@ class _KanbanApi extends TouchInApi {
     required Map<String, List<String>> columnTaskIds,
   }) {
     reorderCardProjects.add(projectId);
+    reorderExpectedVersions.add(expectedVersion);
     lastExpectedVersion = expectedVersion;
     lastCardOrdering = <String, List<String>>{
       for (final entry in columnTaskIds.entries)
         entry.key: List<String>.from(entry.value),
     };
     if (throwConflictOnReorder) {
-      throw ApiException('Conflict', statusCode: 409);
+      throw ApiException(
+        'Kanban version conflict: expected 1, current 7.',
+        statusCode: 409,
+        code: 'kanban_version_conflict',
+      );
     }
     final completer = reorderCardsCompleter;
     if (completer != null) {
@@ -341,6 +413,18 @@ class _KanbanApi extends TouchInApi {
   }
 
   @override
+  Future<KanbanBoard> deleteKanbanColumn(
+    String projectId,
+    String columnId, {
+    required int expectedVersion,
+  }) async {
+    final failure = deleteColumnError;
+    if (failure != null) throw failure;
+    return _board(projectId,
+        version: expectedVersion + 1, cardColumnId: 'column-a');
+  }
+
+  @override
   Future<KanbanBoard> reorderKanbanColumns(
     String projectId, {
     required int expectedVersion,
@@ -348,7 +432,8 @@ class _KanbanApi extends TouchInApi {
   }) async {
     lastExpectedVersion = expectedVersion;
     lastColumnOrdering = List<String>.from(columnIds);
-    return _board(projectId, version: expectedVersion + 1, cardColumnId: 'column-a');
+    return _board(projectId,
+        version: expectedVersion + 1, cardColumnId: 'column-a');
   }
 }
 

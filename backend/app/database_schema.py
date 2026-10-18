@@ -66,6 +66,10 @@ def _ensure_kanban_columns_table(bind, inspector) -> None:
 def _add_task_kanban_columns(bind, inspector) -> None:
     task_columns = {column["name"] for column in inspector.get_columns("tasks")}
     with bind.begin() as connection:
+        if "revision" not in task_columns:
+            connection.execute(
+                text("ALTER TABLE tasks ADD COLUMN revision INTEGER NOT NULL DEFAULT 0")
+            )
         if "card_number" not in task_columns:
             connection.execute(text("ALTER TABLE tasks ADD COLUMN card_number INTEGER"))
         if "kanban_column_id" not in task_columns:

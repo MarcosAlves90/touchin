@@ -168,12 +168,35 @@ def test_removing_project_member_revokes_task_assignments(client):
         f"/api/v1/projects/{project['id']}/tasks/{task['id']}/members/me",
         headers=employee_headers,
     ).status_code == 201
+    board_before = client.get(
+        f"/api/v1/projects/{project['id']}/kanban",
+        headers=admin_headers,
+    ).json()
+    assert board_before["columns"][0]["cards"][0]["assignees"]
 
     remove_response = client.delete(
         f"/api/v1/projects/{project['id']}/members/emp-04",
         headers=admin_headers,
     )
     assert remove_response.status_code == 204
+    board_after = client.get(
+        f"/api/v1/projects/{project['id']}/kanban",
+        headers=admin_headers,
+    ).json()
+    assert board_after["columns"][0]["cards"][0]["assignees"] == []
+    assert board_after["kanbanVersion"] == board_before["kanbanVersion"] + 1
+    stale = client.put(
+        f"/api/v1/projects/{project['id']}/kanban/cards/order",
+        headers=admin_headers,
+        json={
+            "expectedVersion": board_before["kanbanVersion"],
+            "columns": [{
+                "columnId": board_before["columns"][0]["id"],
+                "taskIds": [task["id"]],
+            }],
+        },
+    )
+    assert stale.status_code == 409
 
     with SessionLocal() as db:
         task_link = db.scalar(

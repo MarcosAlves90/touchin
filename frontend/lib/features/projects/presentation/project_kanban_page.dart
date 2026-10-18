@@ -261,7 +261,8 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
     if (board == null) {
       return _KanbanPageMessage(
         title: 'Quadro indisponível',
-        message: _controller.boardError ?? 'Não foi possível carregar o Kanban.',
+        message:
+            _controller.boardError ?? 'Não foi possível carregar o Kanban.',
         actionLabel: 'Recarregar',
         onAction: _controller.reload,
       );
@@ -291,7 +292,8 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           if (_controller.boardError != null) ...<Widget>[
-            _KanbanNotice(message: _controller.boardError!, onRetry: _controller.reload),
+            _KanbanNotice(
+                message: _controller.boardError!, onRetry: _controller.reload),
             const SizedBox(height: 8),
           ],
           Expanded(child: backlog),
@@ -432,7 +434,8 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
       context: context,
       builder: (dialogContext) => WorkspaceEditorDialog(
         title: 'Excluir coluna?',
-        subtitle: 'A coluna deve estar vazia e não pode ser a última do quadro.',
+        subtitle:
+            'A coluna deve estar vazia e não pode ser a última do quadro.',
         icon: Icons.delete_outline_rounded,
         primaryLabel: 'Excluir',
         onPrimary: () => Navigator.of(dialogContext).pop(true),
@@ -483,7 +486,7 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
     if (_controller.selectedProject == null) {
       return;
     }
-    final draft = await showDialog<TaskDraft>(
+    await showDialog<void>(
       context: context,
       builder: (_) => ProjectTaskEditorDialog(
         tasks: _controller.tasks,
@@ -491,14 +494,15 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
         startInViewMode: true,
         canEdit: _controller.canManageCards,
         supplementaryDetails: _buildCardOperationalDetails(card),
+        onSave: (draft) async {
+          await _controller.updateCard(card.toTaskRecord(), draft);
+          if (mounted && _controller.boardError == null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Card atualizado.')),
+            );
+          }
+        },
       ),
-    );
-    if (draft == null) {
-      return;
-    }
-    await _runAction(
-      () => _controller.updateCard(card.toTaskRecord(), draft),
-      successMessage: 'Card atualizado.',
     );
   }
 
@@ -521,7 +525,8 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            if (columns.isEmpty) const Text('Crie o primeiro status do projeto.'),
+            if (columns.isEmpty)
+              const Text('Crie o primeiro status do projeto.'),
             for (var index = 0; index < columns.length; index++)
               ListTile(
                 dense: true,
@@ -532,22 +537,32 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
                   children: <Widget>[
                     IconButton(
                       tooltip: 'Mover coluna para cima',
-                      onPressed: index == 0 ? null : () {
-                        Navigator.of(dialogContext).pop();
-                        _runAction(() => _controller.moveColumn(
-                          columnId: columns[index].id, toIndex: index - 1,
-                        ), successMessage: 'Colunas reordenadas.');
-                      },
+                      onPressed: index == 0
+                          ? null
+                          : () {
+                              Navigator.of(dialogContext).pop();
+                              _runAction(
+                                  () => _controller.moveColumn(
+                                        columnId: columns[index].id,
+                                        toIndex: index - 1,
+                                      ),
+                                  successMessage: 'Colunas reordenadas.');
+                            },
                       icon: const Icon(Icons.arrow_upward_rounded, size: 18),
                     ),
                     IconButton(
                       tooltip: 'Mover coluna para baixo',
-                      onPressed: index == columns.length - 1 ? null : () {
-                        Navigator.of(dialogContext).pop();
-                        _runAction(() => _controller.moveColumn(
-                          columnId: columns[index].id, toIndex: index + 1,
-                        ), successMessage: 'Colunas reordenadas.');
-                      },
+                      onPressed: index == columns.length - 1
+                          ? null
+                          : () {
+                              Navigator.of(dialogContext).pop();
+                              _runAction(
+                                  () => _controller.moveColumn(
+                                        columnId: columns[index].id,
+                                        toIndex: index + 1,
+                                      ),
+                                  successMessage: 'Colunas reordenadas.');
+                            },
                       icon: const Icon(Icons.arrow_downward_rounded, size: 18),
                     ),
                     IconButton(
@@ -575,9 +590,11 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
     );
   }
 
-  Future<void> _moveCardWithFeedback(String taskId, String columnId, int index) =>
+  Future<void> _moveCardWithFeedback(
+          String taskId, String columnId, int index) =>
       _runAction(
-        () => _controller.moveCard(taskId: taskId, toColumnId: columnId, toIndex: index),
+        () => _controller.moveCard(
+            taskId: taskId, toColumnId: columnId, toIndex: index),
         successMessage: 'Status do card atualizado.',
       );
 
@@ -600,20 +617,26 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
               key: const ValueKey<String>('card-dialog-status'),
               value: card.kanbanColumnId,
               decoration: const InputDecoration(labelText: 'Status'),
-              options: columns.map((column) => WorkspaceSelectOption(
-                value: column.id, label: column.name,
-              )).toList(),
+              options: columns
+                  .map((column) => WorkspaceSelectOption(
+                        value: column.id,
+                        label: column.name,
+                      ))
+                  .toList(),
               onChanged: !_controller.canMoveCards || _controller.isMutating
                   ? null
                   : (value) {
                       if (value == null || value == card.kanbanColumnId) return;
-                      final column = columns.firstWhere((column) => column.id == value);
-                      _moveCardWithFeedback(card.id, value, column.cards.length);
+                      final column =
+                          columns.firstWhere((column) => column.id == value);
+                      _moveCardWithFeedback(
+                          card.id, value, column.cards.length);
                     },
             ),
             const SizedBox(height: 12),
             Text('Projeto: ${_controller.selectedProject?.name ?? ''}'),
-            Text('Responsáveis: ${card.assignees.isEmpty ? 'Sem responsáveis' : card.assignees.map((item) => item.employeeName).join(', ')}'),
+            Text(
+                'Responsáveis: ${card.assignees.isEmpty ? 'Sem responsáveis' : card.assignees.map((item) => item.employeeName).join(', ')}'),
             Text('Criado: ${card.createdAt.toLocal()}'),
             Text('Atualizado: ${card.updatedAt.toLocal()}'),
           ],
@@ -649,14 +672,17 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
 
   Future<void> _openManageKanbanAssignees(KanbanCard card) async {
     final project = _controller.selectedProject;
-    if (project == null || !_controller.canManageAssignees || _controller.isMutating) return;
+    if (project == null ||
+        !_controller.canManageAssignees ||
+        _controller.isMutating) return;
     final assignedIds = card.assignees.map((item) => item.employeeId).toSet();
     final atCapacity = assignedIds.length >= project.taskEmployeeLimit;
     await showDialog<void>(
       context: context,
       builder: (dialogContext) => WorkspaceEditorDialog(
         title: 'Responsáveis de #${card.cardNumber}',
-        subtitle: '${assignedIds.length}/${project.taskEmployeeLimit} responsável(is)',
+        subtitle:
+            '${assignedIds.length}/${project.taskEmployeeLimit} responsável(is)',
         icon: Icons.people_outline_rounded,
         primaryLabel: 'Fechar',
         onPrimary: () => Navigator.of(dialogContext).pop(),
@@ -669,16 +695,21 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
               value: assigned,
               title: Text(member.employeeName),
               controlAffinity: ListTileControlAffinity.leading,
-              onChanged: !assigned && atCapacity ? null : (selected) async {
-                Navigator.of(dialogContext).pop();
-                await _runAction(
-                  () => selected == true
-                      ? _controller.addAssignee(card.id, member.employeeId)
-                      : _controller.removeAssignee(card.id, member.employeeId),
-                  successMessage: selected == true
-                      ? 'Responsável adicionado.' : 'Responsável removido.',
-                );
-              },
+              onChanged: !assigned && atCapacity
+                  ? null
+                  : (selected) async {
+                      Navigator.of(dialogContext).pop();
+                      await _runAction(
+                        () => selected == true
+                            ? _controller.addAssignee(
+                                card.id, member.employeeId)
+                            : _controller.removeAssignee(
+                                card.id, member.employeeId),
+                        successMessage: selected == true
+                            ? 'Responsável adicionado.'
+                            : 'Responsável removido.',
+                      );
+                    },
             );
           }).toList(),
         ),
@@ -755,7 +786,8 @@ class _KanbanBoardSkeleton extends StatelessWidget {
                 children: List<Widget>.generate(laneCount, (index) {
                   return Expanded(
                     child: Padding(
-                      padding: EdgeInsets.only(right: index == laneCount - 1 ? 0 : 12),
+                      padding: EdgeInsets.only(
+                          right: index == laneCount - 1 ? 0 : 12),
                       child: _KanbanLaneSkeleton(index: index),
                     ),
                   );

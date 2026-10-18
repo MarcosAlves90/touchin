@@ -5,10 +5,11 @@ import 'package:touchin_flutter/core/storage/token_storage.dart';
 import 'package:http/http.dart' as http;
 
 class ApiException implements Exception {
-  ApiException(this.message, {this.statusCode});
+  ApiException(this.message, {this.statusCode, this.code});
 
   final String message;
   final int? statusCode;
+  final String? code;
 
   @override
   String toString() {
@@ -104,12 +105,26 @@ class ApiClient {
       return parsedBody;
     }
 
-    final message = _translateMessage(
-          _extractMessage(parsedBody) ?? 'Falha na comunicacao com a API.',
-        ) ??
-        'Falha na comunicacao com a API.';
-    throw ApiException(message, statusCode: response.statusCode);
+    final detail =
+        _extractMessage(parsedBody) ?? 'Falha na comunicacao com a API.';
+    final code =
+        parsedBody is Map<String, dynamic> && parsedBody['code'] is String
+            ? parsedBody['code'] as String
+            : null;
+    final message =
+        _translateErrorCode(code) ?? _translateMessage(detail) ?? detail;
+    throw ApiException(message, statusCode: response.statusCode, code: code);
   }
+
+  String? _translateErrorCode(String? code) => switch (code) {
+        'task_version_conflict' =>
+          'Este card foi alterado em outra sessão. Revise a versão atual antes de salvar novamente.',
+        'kanban_version_conflict' =>
+          'O quadro mudou em outra sessão. Recarregue antes de mover cards.',
+        'kanban_snapshot_conflict' =>
+          'O quadro mudou durante a leitura. Tente recarregar.',
+        _ => null,
+      };
 
   String? _extractMessage(dynamic parsedBody) {
     if (parsedBody is Map<String, dynamic>) {
@@ -133,8 +148,7 @@ class ApiClient {
         'Sessão expirada. Faça login novamente.',
       'The account associated with this token is unavailable.' =>
         'A sessão autenticada não está mais disponível.',
-      'The company account is inactive.' =>
-        'A conta da empresa está inativa.',
+      'The company account is inactive.' => 'A conta da empresa está inativa.',
       'This account is inactive.' => 'Esta conta está inativa.',
       'Project task employee limit is below current task membership.' =>
         'O limite por tarefa não pode ser menor que a quantidade de funcionários já associados a uma tarefa. Remova participantes antes de reduzir o limite.',

@@ -5,7 +5,7 @@ from app.services.audit import AuditService
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
-from app.db import begin_serialized_write
+from app.db import begin_serialized_write, ensure_utc
 from app.domain.project_read import cipher, employee_or_404
 from app.domain.task_read import serialize_task, serialize_task_member
 from app.errors import DomainError, ErrorKind
@@ -184,6 +184,26 @@ def update_task(
     begin_serialized_write(db)
     project = _locked_project_or_404(db, company_id=company_id, project_id=project_id)
     task = _locked_task_or_404(db, project_id=project_id, task_id=task_id)
+    if (payload.expected_revision is not None
+            and task.revision != payload.expected_revision):
+        raise DomainError(
+            ErrorKind.conflict,
+            "Task was updated in another session.",
+            code="task_version_conflict",
+        )
+    if payload.expected_version is not None and project.kanban_version != payload.expected_version:
+        raise DomainError(
+            ErrorKind.conflict,
+            f"Kanban version conflict: expected {payload.expected_version}, current {project.kanban_version}.",
+            code="kanban_version_conflict",
+        )
+    if (payload.expected_updated_at is not None
+            and ensure_utc(task.updated_at) != ensure_utc(payload.expected_updated_at)):
+        raise DomainError(
+            ErrorKind.conflict,
+            "Task was updated in another session.",
+            code="task_version_conflict",
+        )
     _validate_parent(
         db,
         company_id=company_id,
@@ -206,6 +226,7 @@ def update_task(
     task.name_ciphertext = field_cipher.encrypt(payload.name) or ""
     task.description_ciphertext = field_cipher.encrypt(payload.description) or ""
     task.type = new_type
+    task.revision += 1
     project.kanban_version += 1
     if changed_fields:
         AuditService.log_action(

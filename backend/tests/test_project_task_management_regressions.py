@@ -200,7 +200,11 @@ def test_inactive_projects_never_remain_in_active_controller_list():
 
     assert "created.status == ProjectStatus.active" in create_method
     assert "updated.status == ProjectStatus.inactive" in update_method
-    assert "projects = projects.where((current) => current.id != updated.id).toList();" in update_method
+    # Dart formatting can wrap assignment lines without changing semantics.
+    assert (
+        "projects = projects.where((current) => current.id != updated.id).toList();"
+        in " ".join(update_method.split())
+    )
 
 
 def test_stale_task_creation_does_not_mutate_new_project_selection():

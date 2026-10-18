@@ -39,7 +39,7 @@ def create_app() -> FastAPI:
     async def domain_error_handler(request: Request, exc: DomainError):
         return JSONResponse(
             status_code=ERROR_STATUS_CODES[exc.kind],
-            content={"detail": exc.detail},
+            content={"detail": exc.detail, **({"code": exc.code} if exc.code else {})},
         )
 
     @app.middleware("http")

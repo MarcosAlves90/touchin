@@ -15,6 +15,7 @@ class KanbanCardResponse(CamelModel):
     card_number: int
     kanban_column_id: str
     kanban_position: int
+    revision: int = 0
     name: str
     description: str
     type: TaskType

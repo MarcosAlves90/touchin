@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:touchin_flutter/contracts/auth.dart';
 import 'package:touchin_flutter/contracts/employee.dart';
 import 'package:touchin_flutter/contracts/project.dart';
 import 'package:touchin_flutter/contracts/task.dart';
+import 'package:touchin_flutter/core/network/api_client.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
 import 'package:touchin_flutter/features/projects/presentation/project_tasks_page.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_editor_dialog.dart';
@@ -10,7 +13,59 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('manager sees project and task management actions', (tester) async {
+  testWidgets('Tasks pending save blocks dismissal and preserves draft on 409',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1400, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final api = _DelayedProjectTasksApi();
+    await tester.pumpWidget(MaterialApp(home: ProjectTasksPage(api: api)));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byTooltip('Editar tarefa'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Editar tarefa'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextFormField, 'Nome'),
+        'Edição Tasks ainda pendente');
+    await tester.tap(find.text('Salvar').last);
+    await tester.pump();
+    expect(api.attempts, 1);
+    await tester.tap(find.text('Cancelar').last);
+    await tester.pump();
+    expect(find.text('Edição Tasks ainda pendente'), findsOneWidget);
+    api.pending.completeError(ApiException('Conflito Tasks',
+        statusCode: 409, code: 'task_version_conflict'));
+    await tester.pumpAndSettle();
+    expect(find.text('Edição Tasks ainda pendente'), findsOneWidget);
+    expect(
+        find.byKey(const ValueKey('task-editor-copy-draft')), findsOneWidget);
+    expect(find.text('Tarefa atualizada.'), findsNothing);
+  });
+  testWidgets('Tasks edit conflict keeps original draft available for copying',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1400, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final api = _ConflictProjectTasksApi();
+    await tester.pumpWidget(MaterialApp(home: ProjectTasksPage(api: api)));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byTooltip('Editar tarefa'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Editar tarefa'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextFormField, 'Nome'),
+        'Rascunho Tasks preservado');
+    await tester.enterText(find.widgetWithText(TextFormField, 'Descrição'),
+        'Descrição que não deve desaparecer');
+    await tester.tap(find.text('Salvar').last);
+    await tester.pumpAndSettle();
+    expect(api.attempts, 1);
+    expect(find.text('Rascunho Tasks preservado'), findsOneWidget);
+    expect(find.text('Descrição que não deve desaparecer'), findsOneWidget);
+    expect(
+        find.byKey(const ValueKey('task-editor-copy-draft')), findsOneWidget);
+    expect(find.text('Tarefa atualizada.'), findsNothing);
+  });
+  testWidgets('manager sees project and task management actions',
+      (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         home: ProjectTasksPage(
@@ -37,7 +92,6 @@ void main() {
     expect(find.text('#1'), findsNothing);
     expect(find.text('Coluna'), findsNothing);
   });
-
 
   testWidgets('selected project list icon keeps accent contrast in dark theme',
       (tester) async {
@@ -110,8 +164,7 @@ void main() {
     final projectDescriptionField = tester.widget<TextField>(
       find.byWidgetPredicate(
         (widget) =>
-            widget is TextField &&
-            widget.decoration?.labelText == 'Descrição',
+            widget is TextField && widget.decoration?.labelText == 'Descrição',
       ),
     );
     expect(projectNameField.maxLength, projectNameMaxLength);
@@ -138,14 +191,12 @@ void main() {
     final taskDescriptionField = tester.widget<TextField>(
       find.byWidgetPredicate(
         (widget) =>
-            widget is TextField &&
-            widget.decoration?.labelText == 'Descrição',
+            widget is TextField && widget.decoration?.labelText == 'Descrição',
       ),
     );
     expect(taskNameField.maxLength, taskNameMaxLength);
     expect(taskDescriptionField.maxLength, taskDescriptionMaxLength);
   });
-
 
   testWidgets('editing project explains the occupied-task limit constraint',
       (tester) async {
@@ -198,7 +249,8 @@ void main() {
     expect(find.text('Sair da tarefa'), findsOneWidget);
     expect(find.text('1 de 2 vaga(s) ocupada(s).'), findsOneWidget);
   });
-  testWidgets('task editor reuses workspace dialog and standard inputs', (tester) async {
+  testWidgets('task editor reuses workspace dialog and standard inputs',
+      (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 844));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -246,7 +298,6 @@ void main() {
     expect(tester.getRect(dialogFinder).width, lessThanOrEqualTo(390));
     expect(tester.takeException(), isNull);
   });
-
 }
 
 class _FakeProjectTasksApi extends TouchInApi {
@@ -298,7 +349,8 @@ class _FakeProjectTasksApi extends TouchInApi {
   }
 
   @override
-  Future<List<ProjectMemberSummary>> listProjectMembers(String projectId) async {
+  Future<List<ProjectMemberSummary>> listProjectMembers(
+      String projectId) async {
     if (employeeId == null) {
       return <ProjectMemberSummary>[];
     }
@@ -381,5 +433,38 @@ class _FakeProjectTasksApi extends TouchInApi {
       employeeName: 'João Lima',
       createdAt: DateTime(2026, 9, 9),
     );
+  }
+}
+
+class _ConflictProjectTasksApi extends _FakeProjectTasksApi {
+  _ConflictProjectTasksApi() : super(role: 'manager', employeeId: 'emp-02');
+
+  int attempts = 0;
+
+  @override
+  Future<TaskRecord> updateTask(
+      String projectId, String taskId, TaskDraft draft,
+      {DateTime? expectedUpdatedAt, int? expectedRevision}) async {
+    attempts++;
+    throw ApiException(
+      'Este card foi alterado em outra sessão.',
+      statusCode: 409,
+      code: 'task_version_conflict',
+    );
+  }
+}
+
+class _DelayedProjectTasksApi extends _FakeProjectTasksApi {
+  _DelayedProjectTasksApi() : super(role: 'manager', employeeId: 'emp-02');
+
+  final pending = Completer<TaskRecord>();
+  int attempts = 0;
+
+  @override
+  Future<TaskRecord> updateTask(
+      String projectId, String taskId, TaskDraft draft,
+      {DateTime? expectedUpdatedAt, int? expectedRevision}) {
+    attempts++;
+    return pending.future;
   }
 }

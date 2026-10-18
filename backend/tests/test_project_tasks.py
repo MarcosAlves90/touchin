@@ -460,3 +460,73 @@ def test_concurrent_task_membership_cannot_exceed_capacity(tmp_path):
             select(func.count()).select_from(TaskEmployee).where(TaskEmployee.task_id == task.id),
         )
         assert count == 1
+
+
+def test_simultaneous_card_edits_accept_only_one_revision(tmp_path):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+
+    from app.db import Base
+    from app.errors import DomainError, ErrorKind
+    from app.schemas.project import ProjectDraftPayload
+    from app.schemas.task import TaskDraftPayload, TaskUpdatePayload
+    from app.seed import seed_database
+    from app.services.projects import create_project
+    from app.services.tasks import create_task, update_task
+    from app.domain.task_read import get_task
+    from app.models import Project
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'simultaneous-card-edits.db'}",
+        future=True, connect_args={"timeout": 10},
+    )
+    LocalSession = sessionmaker(bind=engine, expire_on_commit=False)
+    Base.metadata.create_all(bind=engine)
+    with LocalSession() as db:
+        seed_database(db)
+        project = create_project(
+            db, company_id="company-touchin",
+            payload=ProjectDraftPayload(name="Edição paralela", description="Concorrência"),
+        )
+        card = create_task(
+            db, company_id="company-touchin", project_id=project.id,
+            payload=TaskDraftPayload(name="Original", description="Antes", type="feature"),
+        )
+        old_revision = get_task(
+            db, company_id="company-touchin", project_id=project.id, task_id=card.id,
+        ).updated_at
+        initial_version = db.get(Project, project.id).kanban_version
+
+    barrier = Barrier(2)
+
+    def writer(name: str) -> str:
+        with LocalSession() as db:
+            barrier.wait()
+            try:
+                update_task(
+                    db, company_id="company-touchin", project_id=project.id,
+                    task_id=card.id,
+                    payload=TaskUpdatePayload(
+                        name=name, description=f"Descrição {name}", type="feature",
+                        expected_updated_at=old_revision,
+                    ),
+                )
+                return "updated"
+            except DomainError as exc:
+                assert exc.kind is ErrorKind.conflict
+                assert exc.code == "task_version_conflict"
+                db.rollback()
+                return "conflict"
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        results = list(executor.map(writer, ("A", "B")))
+    assert sorted(results) == ["conflict", "updated"]
+    with LocalSession() as db:
+        saved = get_task(db, company_id="company-touchin",
+                         project_id=project.id, task_id=card.id)
+        assert saved.name in {"A", "B"}
+        assert saved.description == f"Descrição {saved.name}"
+        assert db.get(Project, project.id).kanban_version == initial_version + 1
