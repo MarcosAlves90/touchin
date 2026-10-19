@@ -1214,7 +1214,12 @@ class _KanbanNotice extends StatelessWidget {
         children: <Widget>[
           const Icon(Icons.info_outline_rounded),
           const SizedBox(width: 10),
-          Expanded(child: Text(message)),
+          Expanded(
+            child: Semantics(
+              liveRegion: true,
+              child: Text(message),
+            ),
+          ),
           TextButton(onPressed: onRetry, child: const Text('Recarregar')),
         ],
       ),

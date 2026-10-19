@@ -335,6 +335,9 @@ class _ProjectKanbanBoardState extends State<ProjectKanbanBoard> {
                                       'kanban-card-${card.id}',
                                     ),
                                     card: card,
+                                    column: column,
+                                    position: index,
+                                    columns: widget.board.columns,
                                     isBusy: widget.isBusy,
                                     isDragging:
                                         _dragSession?.card.id == card.id,
@@ -351,6 +354,8 @@ class _ProjectKanbanBoardState extends State<ProjectKanbanBoard> {
                                     onDelete: () => widget.onDeleteCard(card),
                                     onManageAssignees: () =>
                                         widget.onManageAssignees(card),
+                                    onMove: (columnId, index) =>
+                                        widget.onMoveCard(card.id, columnId, index),
                                   ),
                                 );
                               },
@@ -768,6 +773,9 @@ class _KanbanCardTile extends StatefulWidget {
   const _KanbanCardTile({
     super.key,
     required this.card,
+    required this.column,
+    required this.position,
+    required this.columns,
     required this.isBusy,
     required this.isDragging,
     required this.canMove,
@@ -780,9 +788,13 @@ class _KanbanCardTile extends StatefulWidget {
     required this.onEdit,
     required this.onDelete,
     required this.onManageAssignees,
+    required this.onMove,
   });
 
   final KanbanCard card;
+  final KanbanColumn column;
+  final int position;
+  final List<KanbanColumn> columns;
   final bool isBusy;
   final bool isDragging;
   final bool canMove;
@@ -795,6 +807,7 @@ class _KanbanCardTile extends StatefulWidget {
   final VoidCallback onEdit;
   final VoidCallback onDelete;
   final VoidCallback onManageAssignees;
+  final void Function(String columnId, int index) onMove;
 
   @override
   State<_KanbanCardTile> createState() => _KanbanCardTileState();
@@ -807,6 +820,8 @@ class _KanbanCardTileState extends State<_KanbanCardTile> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final canMoveWithMenu = widget.canMove &&
+        (widget.column.cards.length > 1 || widget.columns.length > 1);
 
     return RepaintBoundary(
       child: MouseRegion(
@@ -859,10 +874,10 @@ class _KanbanCardTileState extends State<_KanbanCardTile> {
                       if (widget.canMove && !widget.isBusy) ...<Widget>[
                         const SizedBox(width: 4),
                         Semantics(
-                          label: 'Arrastar card #${widget.card.cardNumber}',
-                          button: true,
+                          label: 'Arrastar card #${widget.card.cardNumber}. '
+                              'Para mover com teclado, use ações do card.',
                           child: Tooltip(
-                            message: 'Arraste para mover',
+                            message: 'Arraste para mover ou use ações do card',
                             child: MouseRegion(
                               cursor: SystemMouseCursors.grab,
                               child: Listener(
@@ -882,10 +897,10 @@ class _KanbanCardTileState extends State<_KanbanCardTile> {
                           ),
                         ),
                       ],
-                      if (widget.canManageCards)
+                      if (widget.canManageCards || canMoveWithMenu)
                         PopupMenuButton<String>(
                           popUpAnimationStyle: AnimationStyle.noAnimation,
-                          tooltip: 'Ações do card',
+                          tooltip: 'Ações do card #${widget.card.cardNumber}',
                           padding: EdgeInsets.zero,
                           iconSize: 18,
                           style: IconButton.styleFrom(
@@ -900,25 +915,63 @@ class _KanbanCardTileState extends State<_KanbanCardTile> {
                               widget.onEdit();
                             } else if (value == 'delete') {
                               widget.onDelete();
+                            } else if (value == 'up') {
+                              widget.onMove(
+                                  widget.column.id, widget.position - 1);
+                            } else if (value == 'down') {
+                              // The controller adjusts for the source removal.
+                              widget.onMove(
+                                  widget.column.id, widget.position + 2);
+                            } else if (value.startsWith('column:')) {
+                              final targetId =
+                                  value.substring('column:'.length);
+                              final target = widget.columns.firstWhere(
+                                (column) => column.id == targetId,
+                              );
+                              widget.onMove(target.id, target.cards.length);
                             }
                           },
-                          itemBuilder: (_) => const <PopupMenuEntry<String>>[
-                            PopupMenuItem(
-                              value: 'edit',
-                              child: ListTile(
-                                dense: true,
-                                leading: Icon(Icons.edit_outlined),
-                                title: Text('Editar card'),
+                          itemBuilder: (_) => <PopupMenuEntry<String>>[
+                            if (widget
+                                .canManageCards) ...<PopupMenuEntry<String>>[
+                              const PopupMenuItem(
+                                value: 'edit',
+                                child: ListTile(
+                                  dense: true,
+                                  leading: Icon(Icons.edit_outlined),
+                                  title: Text('Editar card'),
+                                ),
                               ),
-                            ),
-                            PopupMenuItem(
-                              value: 'delete',
-                              child: ListTile(
-                                dense: true,
-                                leading: Icon(Icons.delete_outline_rounded),
-                                title: Text('Excluir card'),
+                              const PopupMenuItem(
+                                value: 'delete',
+                                child: ListTile(
+                                  dense: true,
+                                  leading: Icon(Icons.delete_outline_rounded),
+                                  title: Text('Excluir card'),
+                                ),
                               ),
-                            ),
+                            ],
+                            if (widget.canManageCards && canMoveWithMenu)
+                              const PopupMenuDivider(),
+                            if (widget.canMove && widget.position > 0)
+                              const PopupMenuItem(
+                                value: 'up',
+                                child: Text('Mover card para cima'),
+                              ),
+                            if (widget.canMove &&
+                                widget.position <
+                                    widget.column.cards.length - 1)
+                              const PopupMenuItem(
+                                value: 'down',
+                                child: Text('Mover card para baixo'),
+                              ),
+                            if (widget.canMove)
+                              for (final target in widget.columns)
+                                if (target.id != widget.column.id)
+                                  PopupMenuItem(
+                                    value: 'column:${target.id}',
+                                    child: Text('Mover para ${target.name}'),
+                                  ),
                           ],
                         ),
                     ],

@@ -153,6 +153,41 @@ void main() {
     expect(find.text('Ponto 5'), findsNothing);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('employee search and selection expose accessible controls',
+      (WidgetTester tester) async {
+    final semantics = tester.ensureSemantics();
+    tester.view.physicalSize = const Size(1440, 1200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      MaterialApp(home: AdminEmployeesPage(api: _FakeAdminApi())),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+        find.widgetWithText(TextField, 'Buscar funcionário'), 'Renata');
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Limpar busca'), findsOneWidget);
+    await tester.tap(find.byTooltip('Limpar busca'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Limpar busca'), findsNothing);
+
+    final employeeName = find.text('Renata Souza').first;
+    await tester.ensureVisible(employeeName);
+    await tester.tap(employeeName);
+    await tester.pumpAndSettle();
+    expect(
+      find.ancestor(
+        of: employeeName,
+        matching: find.byWidgetPredicate((widget) =>
+            widget is Semantics && widget.properties.selected == true),
+      ),
+      findsOneWidget,
+    );
+    semantics.dispose();
+  });
 }
 
 class _FakeAdminApi extends TouchInApi {

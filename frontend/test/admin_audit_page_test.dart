@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:touchin_flutter/features/admin/presentation/admin_audit_page.dart';
@@ -8,6 +10,7 @@ class FakeTouchInApi extends TouchInApi {
   List<AuditEventResponse> mockEvents = [];
   Map<String, dynamic> lastParams = {};
   List<int> requestedPages = [];
+  Completer<List<AuditEventResponse>>? secondPageResponse;
 
   @override
   Future<List<AuditEventResponse>> listAuditEvents({
@@ -35,7 +38,11 @@ class FakeTouchInApi extends TouchInApi {
       'projectId': projectId,
       'result': result,
     };
-    
+
+    if (page == 2 && secondPageResponse != null) {
+      return secondPageResponse!.future;
+    }
+
     // Simulate pagination
     int start = (page - 1) * limit;
     if (start >= mockEvents.length) {
@@ -50,7 +57,77 @@ class FakeTouchInApi extends TouchInApi {
 }
 
 void main() {
-  testWidgets('AdminAuditPage loads events and shows filters', (WidgetTester tester) async {
+  testWidgets('load-more control retains keyboard focus while fetching',
+      (tester) async {
+    final mockApi = FakeTouchInApi()
+      ..secondPageResponse = Completer<List<AuditEventResponse>>()
+      ..mockEvents = List.generate(
+        51,
+        (index) => AuditEventResponse(
+          id: 'evt_$index',
+          timestamp: DateTime.utc(2026, 9, 25),
+          companyId: 'company_1',
+          actorUserId: 'user_1',
+          projectId: null,
+          action: 'task.action_$index',
+          entityType: 'task',
+          entityId: 'task_1',
+          result: 'success',
+          metadataPayload: null,
+        ),
+      );
+
+    await tester.binding.setSurfaceSize(const Size(1200, 760));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(MaterialApp(home: AdminAuditPage(api: mockApi)));
+    await tester.pumpAndSettle();
+    await tester.dragUntilVisible(
+      find.text('Carregar mais eventos'),
+      find.byType(ListView),
+      const Offset(0, -300),
+      maxIteration: 60,
+    );
+    await tester.pump();
+    expect(mockApi.requestedPages, [1, 2]);
+
+    final button = tester.widget<OutlinedButton>(
+      find.widgetWithText(OutlinedButton, 'Carregar mais eventos'),
+    );
+    button.focusNode!.requestFocus();
+    await tester.pump();
+    expect(button.focusNode!.hasFocus, isTrue);
+    expect(find.text('Carregando mais eventos'), findsOneWidget);
+
+    mockApi.secondPageResponse!.complete([mockApi.mockEvents.last]);
+    await tester.pumpAndSettle();
+    expect(find.text('task.action_50 - success'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('AdminAuditPage keeps filters usable in a narrow viewport',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(360, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester
+        .pumpWidget(MaterialApp(home: AdminAuditPage(api: FakeTouchInApi())));
+    await tester.pumpAndSettle();
+
+    final actor = find.widgetWithText(TextField, 'Actor User ID');
+    final action = find.widgetWithText(TextField, 'Action');
+    expect(actor, findsOneWidget);
+    expect(action, findsOneWidget);
+    expect(tester.getTopLeft(actor).dx, tester.getTopLeft(action).dx);
+    await tester.ensureVisible(find.widgetWithText(TextField, 'Result'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.byTooltip('Abrir menu'), findsOneWidget);
+  });
+
+  testWidgets('AdminAuditPage loads events and shows filters',
+      (WidgetTester tester) async {
     final mockApi = FakeTouchInApi();
 
     mockApi.mockEvents = [
@@ -92,9 +169,12 @@ void main() {
     expect(find.text('task.created - success'), findsOneWidget);
     expect(find.text('task.deleted - failed'), findsOneWidget);
 
-    await tester.enterText(find.widgetWithText(TextField, 'Actor User ID'), 'user_1');
-    await tester.enterText(find.widgetWithText(TextField, 'Action'), 'task.created');
-    await tester.enterText(find.widgetWithText(TextField, 'Entity ID'), 'task_1');
+    await tester.enterText(
+        find.widgetWithText(TextField, 'Actor User ID'), 'user_1');
+    await tester.enterText(
+        find.widgetWithText(TextField, 'Action'), 'task.created');
+    await tester.enterText(
+        find.widgetWithText(TextField, 'Entity ID'), 'task_1');
     await tester.enterText(find.widgetWithText(TextField, 'Result'), 'success');
 
     mockApi.requestedPages.clear();
@@ -108,22 +188,26 @@ void main() {
     expect(mockApi.lastParams['result'], 'success');
   });
 
-  testWidgets('AdminAuditPage paginates correctly without gaps or duplicates and stops on short page', (WidgetTester tester) async {
+  testWidgets(
+      'AdminAuditPage paginates correctly without gaps or duplicates and stops on short page',
+      (WidgetTester tester) async {
     final mockApi = FakeTouchInApi();
 
     // Create 60 items
-    mockApi.mockEvents = List.generate(60, (index) => AuditEventResponse(
-      id: 'evt_$index',
-      timestamp: DateTime.utc(2026, 9, 25, 12, 0, 0),
-      companyId: 'company_1',
-      actorUserId: 'user_1',
-      projectId: 'proj_1',
-      action: 'task.action_$index',
-      entityType: 'task',
-      entityId: 'task_1',
-      result: 'success',
-      metadataPayload: null,
-    ));
+    mockApi.mockEvents = List.generate(
+        60,
+        (index) => AuditEventResponse(
+              id: 'evt_$index',
+              timestamp: DateTime.utc(2026, 9, 25, 12, 0, 0),
+              companyId: 'company_1',
+              actorUserId: 'user_1',
+              projectId: 'proj_1',
+              action: 'task.action_$index',
+              entityType: 'task',
+              entityId: 'task_1',
+              result: 'success',
+              metadataPayload: null,
+            ));
 
     await tester.pumpWidget(MaterialApp(
       home: Scaffold(
@@ -134,10 +218,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(mockApi.requestedPages, [1]);
-    
+
     // Scroll through the list to force loading page 2
     int drags = 0;
-    while (find.text('task.action_50 - success').evaluate().isEmpty && drags < 40) {
+    while (find.text('task.action_50 - success').evaluate().isEmpty &&
+        drags < 40) {
       await tester.drag(find.byType(ListView), const Offset(0, -500));
       await tester.pumpAndSettle();
       drags++;
@@ -146,20 +231,22 @@ void main() {
     // Must have requested exactly page 1 and page 2
     expect(mockApi.requestedPages, [1, 2]);
     expect(find.text('task.action_50 - success'), findsOneWidget);
-    
+
     // Continue scrolling to 59
-    while (find.text('task.action_59 - success').evaluate().isEmpty && drags < 40) {
+    while (find.text('task.action_59 - success').evaluate().isEmpty &&
+        drags < 40) {
       await tester.drag(find.byType(ListView), const Offset(0, -500));
       await tester.pumpAndSettle();
       drags++;
     }
     expect(find.text('task.action_59 - success'), findsOneWidget);
-    
+
     // Attempt another scroll past the end to ensure it DOES NOT request page 3
     await tester.drag(find.byType(ListView), const Offset(0, -500));
     await tester.pumpAndSettle();
-    
-    expect(mockApi.requestedPages, [1, 2]); // Should still only have requested pages 1 and 2
+
+    expect(mockApi.requestedPages,
+        [1, 2]); // Should still only have requested pages 1 and 2
 
     // Validate explicitly that the collection has exactly 60 events loaded
     // Since _hasMore becomes false, the itemCount should be exactly 60

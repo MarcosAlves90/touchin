@@ -670,6 +670,105 @@ async function scenarioRouteNavigation(ctx) {
   console.log('  PASS login → registration → login with verified rendered route changes');
 }
 
+async function pressKeyboardKey(cdp, key, code, virtualKey, modifiers = 0) {
+  const event = {key, code, windowsVirtualKeyCode: virtualKey, modifiers};
+  await cdp.send('Input.dispatchKeyEvent', {type: 'rawKeyDown', ...event});
+  await cdp.send('Input.dispatchKeyEvent', {type: 'keyUp', ...event});
+}
+
+async function scenarioKeyboardAccessibility(ctx) {
+  const {cdp} = ctx;
+  await cdp.send('Accessibility.enable');
+  const {nodes} = await cdp.send('Accessibility.getFullAXTree');
+  const controls = new Set(nodes.filter((node) => !node.ignored)
+    .map((node) => `${node.role?.value}:${node.name?.value}`));
+  for (const expected of [
+    'heading:Entrar', 'textbox:E-mail', 'textbox:Senha',
+    'button:Mostrar senha', 'button:Entrar', 'button:Cadastrar empresa',
+  ]) {
+    assert.ok(controls.has(expected), `Chrome accessibility tree missing ${expected}`);
+  }
+
+  await cdp.evaluate(`(() => {
+    const email = [...document.querySelectorAll('input')]
+      .find((input) => (input.getAttribute('aria-label') || '').startsWith('E-mail'));
+    if (!email) return false;
+    email.focus();
+    return true;
+  })()`);
+  const focused = new Set();
+  for (let i = 0; i < 32; i++) {
+    await pressKeyboardKey(cdp, 'Tab', 'Tab', 9);
+    // Flutter updates the semantics focus after the browser key event.
+    await delay(25);
+    const name = await cdp.evaluate(`(() => {
+      const active = document.activeElement;
+      return (active?.getAttribute('aria-label') || active?.textContent || '').trim();
+    })()`);
+    if (name && name.length < 80) focused.add(name);
+  }
+  assert.ok(focused.has('Mostrar senha'), `Keyboard Tab cannot reach password visibility button: ${[...focused]}`);
+  assert.ok(focused.has('Entrar'), `Keyboard Tab cannot reach login submission: ${[...focused]}`);
+  assert.ok(focused.has('Cadastrar empresa'), `Keyboard Tab cannot reach registration: ${[...focused]}`);
+  await pressKeyboardKey(cdp, 'Tab', 'Tab', 9, 8);
+  assert.ok(await cdp.evaluate('!!document.activeElement'), 'Shift+Tab lost browser focus');
+
+  await cdp.evaluate(`(() => {
+    const button = [...document.querySelectorAll('flt-semantics[role="button"]')]
+      .find((node) => node.textContent.trim() === 'Mostrar senha');
+    button?.focus();
+  })()`);
+  await pressKeyboardKey(cdp, 'Enter', 'Enter', 13);
+  await waitFor(() => getButton(cdp, 'Ocultar senha'),
+    'password visibility after keyboard Enter', 5000);
+  await cdp.evaluate(`(() => {
+    [...document.querySelectorAll('flt-semantics[role="button"]')]
+      .find((node) => node.textContent.trim() === 'Ocultar senha')?.focus();
+  })()`);
+  await pressKeyboardKey(cdp, 'Enter', 'Enter', 13);
+  await waitFor(() => getButton(cdp, 'Mostrar senha'),
+    'password hiding after keyboard Enter', 5000);
+
+  await cdp.evaluate(`(() => {
+    [...document.querySelectorAll('flt-semantics[role="button"]')]
+      .find((node) => node.textContent.trim() === 'Entrar')?.focus();
+  })()`);
+  await pressKeyboardKey(cdp, 'Enter', 'Enter', 13);
+  await waitFor(() => hasVisibleText(cdp, 'Confira os campos destacados e tente novamente.'),
+    'validation error after keyboard submission', 5000);
+
+  try {
+    for (const width of [360, 320, 600]) {
+      await cdp.send('Emulation.setDeviceMetricsOverride', {
+        width, height: 700, deviceScaleFactor: 1, mobile: false,
+      });
+      await waitFor(async () => await cdp.evaluate('innerWidth') === width,
+        `${width}px responsive viewport`, 5000);
+      const geometry = await cdp.evaluate(`(() => {
+        const labels = ['Entrar', 'Mostrar senha', 'Cadastrar empresa'];
+        const buttons = [...document.querySelectorAll('flt-semantics[role="button"]')]
+          .filter((node) => labels.includes((node.textContent || '').trim()));
+        return {overflow:document.documentElement.scrollWidth > innerWidth + 1,
+          buttons: buttons.map((button) => {
+            const r = button.getBoundingClientRect();
+            return {label:button.textContent.trim(), left:r.left, right:r.right, width:r.width};
+          })};
+      })()`);
+      assert.ok(!geometry.overflow, `${width}px: horizontal document overflow`);
+      for (const label of ['Entrar', 'Mostrar senha', 'Cadastrar empresa']) {
+        assert.ok(geometry.buttons.some((b) => b.label === label &&
+          b.width > 0 && b.left >= 0 && b.right <= width + 1),
+        `${width}px: accessible ${label} is horizontally clipped`);
+      }
+    }
+  } finally {
+    await cdp.send('Emulation.setDeviceMetricsOverride', {
+      width: WIDTH, height: HEIGHT, deviceScaleFactor: 1, mobile: false,
+    });
+  }
+  console.log('  PASS Chrome AX names, Tab/Shift+Tab reachability and 320/360/600px layouts');
+}
+
 async function scenarioEncryptedLegacyMigration(ctx) {
   const { cdp, url } = ctx;
   // flutter_secure_storage_web uses a 256-bit AES-GCM key and a split base64
@@ -803,6 +902,7 @@ async function smoke() {
     await scenarioStaleHint(context);
     await scenarioLiveSystemAndPreviewAPI(context);
     await scenarioRouteNavigation(context);
+    await scenarioKeyboardAccessibility(context);
     await scenarioEncryptedLegacyMigration(context);
     await scenarioCsp(context);
     await scenarioBlockedLocalStorage(context);

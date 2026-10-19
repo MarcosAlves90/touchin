@@ -209,63 +209,63 @@ class WorkspaceNavigationDrawer extends StatelessWidget {
               ],
             ),
           ),
-          Expanded(child: ListView(padding: EdgeInsets.zero, children: [
-          const SizedBox(height: 16),
-          _buildDrawerItem(
-            context,
-            icon: Icons.timer_outlined,
-            label: 'Bater Ponto',
-            onTap: () {
-              Navigator.of(context).pop();
-              Navigator.of(context).pushReplacementNamed('/time-clock');
-            },
-          ),
-          _buildDrawerItem(
-            context,
-            icon: Icons.groups_2_rounded,
-            label: 'Administrar Equipe',
-            onTap: () {
-              Navigator.of(context).pop();
-              Navigator.of(context).pushReplacementNamed('/admin/employees');
-            },
-          ),
-
-          _buildDrawerItem(
-            context,
-            icon: Icons.history_edu,
-            label: 'Trilha de Auditoria',
-            onTap: () {
-              Navigator.of(context).pop();
-              Navigator.of(context).pushReplacementNamed('/admin/audit');
-            },
-          ),
-          _buildDrawerItem(
-            context,
-            icon: Icons.account_tree_outlined,
-            label: 'Projetos e tarefas',
-            onTap: () {
-              Navigator.of(context).pop();
-              Navigator.of(context).pushReplacementNamed('/projects');
-            },
-          ),
-          _buildDrawerItem(
-            context,
-            icon: Icons.view_kanban_outlined,
-            label: 'Kanban',
-            onTap: () {
-              Navigator.of(context).pop();
-              Navigator.of(context).pushReplacementNamed('/kanban');
-            },
-          ),
-          _buildDrawerItem(
-            context,
-            icon: Icons.tune_rounded,
-            label: 'Configurações',
-            onTap: () {
-              Navigator.of(context).pop();
-              Navigator.of(context).pushReplacementNamed('/settings');
-            },
-          ),
+          Expanded(
+              child: ListView(padding: EdgeInsets.zero, children: [
+            const SizedBox(height: 16),
+            _buildDrawerItem(
+              context,
+              icon: Icons.timer_outlined,
+              label: 'Bater Ponto',
+              onTap: () {
+                Navigator.of(context).pop();
+                Navigator.of(context).pushReplacementNamed('/time-clock');
+              },
+            ),
+            _buildDrawerItem(
+              context,
+              icon: Icons.groups_2_rounded,
+              label: 'Administrar Equipe',
+              onTap: () {
+                Navigator.of(context).pop();
+                Navigator.of(context).pushReplacementNamed('/admin/employees');
+              },
+            ),
+            _buildDrawerItem(
+              context,
+              icon: Icons.history_edu,
+              label: 'Trilha de Auditoria',
+              onTap: () {
+                Navigator.of(context).pop();
+                Navigator.of(context).pushReplacementNamed('/admin/audit');
+              },
+            ),
+            _buildDrawerItem(
+              context,
+              icon: Icons.account_tree_outlined,
+              label: 'Projetos e tarefas',
+              onTap: () {
+                Navigator.of(context).pop();
+                Navigator.of(context).pushReplacementNamed('/projects');
+              },
+            ),
+            _buildDrawerItem(
+              context,
+              icon: Icons.view_kanban_outlined,
+              label: 'Kanban',
+              onTap: () {
+                Navigator.of(context).pop();
+                Navigator.of(context).pushReplacementNamed('/kanban');
+              },
+            ),
+            _buildDrawerItem(
+              context,
+              icon: Icons.tune_rounded,
+              label: 'Configurações',
+              onTap: () {
+                Navigator.of(context).pop();
+                Navigator.of(context).pushReplacementNamed('/settings');
+              },
+            ),
           ])),
           const SizedBox(height: 16),
           Padding(
@@ -393,13 +393,16 @@ class WorkspaceSidebar extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 48),
-          Text(
-            title,
-            style: theme.textTheme.displaySmall?.copyWith(
-              color: colorScheme.onPrimary,
-              fontWeight: FontWeight.w900,
-              height: 1.1,
-              letterSpacing: -0.8,
+          Semantics(
+            header: true,
+            child: Text(
+              title,
+              style: theme.textTheme.displaySmall?.copyWith(
+                color: colorScheme.onPrimary,
+                fontWeight: FontWeight.w900,
+                height: 1.1,
+                letterSpacing: -0.8,
+              ),
             ),
           ),
           const SizedBox(height: 16),
@@ -425,7 +428,7 @@ class WorkspaceSidebar extends StatelessWidget {
             Text(
               'RESUMO',
               style: theme.textTheme.labelSmall?.copyWith(
-                color: colorScheme.onPrimary.withValues(alpha: 0.5),
+                color: colorScheme.onPrimary.withValues(alpha: 0.85),
                 letterSpacing: 1.5,
                 fontWeight: FontWeight.w800,
               ),
@@ -483,6 +486,7 @@ class WorkspaceSidebar extends StatelessWidget {
             IconButton(
               onPressed: () => Scaffold.of(context).openDrawer(),
               icon: Icon(Icons.menu_rounded, color: colorScheme.onPrimary),
+              tooltip: 'Abrir menu',
               visualDensity: VisualDensity.compact,
             ),
             const SizedBox(width: 8),
@@ -556,10 +560,13 @@ class WorkspaceHeader extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Text(
-                title,
-                style: theme.textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
+              Semantics(
+                header: true,
+                child: Text(
+                  title,
+                  style: theme.textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
               const SizedBox(height: 8),

@@ -578,6 +578,7 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
               suffixIcon: _searchQuery.isEmpty
                   ? null
                   : IconButton(
+                      tooltip: 'Limpar busca',
                       onPressed: () {
                         _controller.clearSearch();
                       },

@@ -81,10 +81,13 @@ class ThemeSettingsPage extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Tema da interface',
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
+                    Semantics(
+                      header: true,
+                      child: Text(
+                        'Tema da interface',
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -96,42 +99,48 @@ class ThemeSettingsPage extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 20),
-                    RadioListTile<ThemeMode>(
-                      contentPadding: EdgeInsets.zero,
-                      value: ThemeMode.light,
+                    if (_controller.hasPersistenceError) ...[
+                      Semantics(
+                        liveRegion: true,
+                        child: Text(
+                          'Não foi possível carregar ou salvar a preferência de tema. '
+                          'Selecione o tema novamente para tentar salvar.',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: colorScheme.error,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    RadioGroup<ThemeMode>(
                       groupValue: currentMode,
                       onChanged: (value) {
                         if (value != null) {
                           unawaited(_controller.setThemeMode(value));
                         }
                       },
-                      title: const Text('Tema claro'),
-                      subtitle: const Text('Força a interface clara.'),
-                    ),
-                    RadioListTile<ThemeMode>(
-                      contentPadding: EdgeInsets.zero,
-                      value: ThemeMode.dark,
-                      groupValue: currentMode,
-                      onChanged: (value) {
-                        if (value != null) {
-                          unawaited(_controller.setThemeMode(value));
-                        }
-                      },
-                      title: const Text('Tema escuro'),
-                      subtitle: const Text('Força a interface escura.'),
-                    ),
-                    RadioListTile<ThemeMode>(
-                      contentPadding: EdgeInsets.zero,
-                      value: ThemeMode.system,
-                      groupValue: currentMode,
-                      onChanged: (value) {
-                        if (value != null) {
-                          unawaited(_controller.setThemeMode(value));
-                        }
-                      },
-                      title: const Text('Seguir sistema'),
-                      subtitle: const Text(
-                        'Segue a preferência do dispositivo.',
+                      child: Column(
+                        children: const [
+                          RadioListTile<ThemeMode>(
+                            contentPadding: EdgeInsets.zero,
+                            value: ThemeMode.light,
+                            title: Text('Tema claro'),
+                            subtitle: Text('Força a interface clara.'),
+                          ),
+                          RadioListTile<ThemeMode>(
+                            contentPadding: EdgeInsets.zero,
+                            value: ThemeMode.dark,
+                            title: Text('Tema escuro'),
+                            subtitle: Text('Força a interface escura.'),
+                          ),
+                          RadioListTile<ThemeMode>(
+                            contentPadding: EdgeInsets.zero,
+                            value: ThemeMode.system,
+                            title: Text('Seguir sistema'),
+                            subtitle:
+                                Text('Segue a preferência do dispositivo.'),
+                          ),
+                        ],
                       ),
                     ),
                     const SizedBox(height: 16),
