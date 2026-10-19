@@ -202,6 +202,9 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
                 ),
                 const Spacer(),
                 ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: const Size(0, 52),
+                  ),
                   onPressed: () => _loadEvents(refresh: true),
                   child: const Text('Apply Filters'),
                 ),

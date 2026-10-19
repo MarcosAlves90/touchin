@@ -159,6 +159,15 @@ class WorkspaceNavigationDrawer extends StatelessWidget {
 
   final WorkspaceLogoutHandler onLogoutRequested;
 
+  void _navigateTo(BuildContext context, String routeName) {
+    final navigator = Navigator.of(context);
+    final currentRoute = ModalRoute.of(context)?.settings.name;
+    navigator.pop(); // Close the drawer while preserving the current page.
+    if (currentRoute != routeName) {
+      navigator.pushNamed(routeName);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -216,8 +225,7 @@ class WorkspaceNavigationDrawer extends StatelessWidget {
             icon: Icons.timer_outlined,
             label: 'Bater Ponto',
             onTap: () {
-              Navigator.of(context).pop();
-              Navigator.of(context).pushReplacementNamed('/time-clock');
+              _navigateTo(context, '/time-clock');
             },
           ),
           _buildDrawerItem(
@@ -225,8 +233,7 @@ class WorkspaceNavigationDrawer extends StatelessWidget {
             icon: Icons.groups_2_rounded,
             label: 'Administrar Equipe',
             onTap: () {
-              Navigator.of(context).pop();
-              Navigator.of(context).pushReplacementNamed('/admin/employees');
+              _navigateTo(context, '/admin/employees');
             },
           ),
 
@@ -235,8 +242,7 @@ class WorkspaceNavigationDrawer extends StatelessWidget {
             icon: Icons.history_edu,
             label: 'Trilha de Auditoria',
             onTap: () {
-              Navigator.of(context).pop();
-              Navigator.of(context).pushReplacementNamed('/admin/audit');
+              _navigateTo(context, '/admin/audit');
             },
           ),
           _buildDrawerItem(
@@ -244,8 +250,7 @@ class WorkspaceNavigationDrawer extends StatelessWidget {
             icon: Icons.account_tree_outlined,
             label: 'Projetos e tarefas',
             onTap: () {
-              Navigator.of(context).pop();
-              Navigator.of(context).pushReplacementNamed('/projects');
+              _navigateTo(context, '/projects');
             },
           ),
           _buildDrawerItem(
@@ -253,8 +258,7 @@ class WorkspaceNavigationDrawer extends StatelessWidget {
             icon: Icons.view_kanban_outlined,
             label: 'Kanban',
             onTap: () {
-              Navigator.of(context).pop();
-              Navigator.of(context).pushReplacementNamed('/kanban');
+              _navigateTo(context, '/kanban');
             },
           ),
           _buildDrawerItem(
@@ -262,8 +266,7 @@ class WorkspaceNavigationDrawer extends StatelessWidget {
             icon: Icons.tune_rounded,
             label: 'Configurações',
             onTap: () {
-              Navigator.of(context).pop();
-              Navigator.of(context).pushReplacementNamed('/settings');
+              _navigateTo(context, '/settings');
             },
           ),
           ])),

@@ -6,12 +6,138 @@ import 'package:touchin_flutter/core/network/api_client.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
 import 'package:touchin_flutter/core/storage/token_storage.dart';
 import 'package:touchin_flutter/features/auth/presentation/auth_session_navigation.dart';
+import 'package:touchin_flutter/features/admin/presentation/admin_audit_page.dart';
+import 'package:touchin_flutter/features/admin/presentation/admin_employees_page.dart';
+import 'package:touchin_flutter/features/projects/presentation/project_kanban_page.dart';
+import 'package:touchin_flutter/features/projects/presentation/project_tasks_page.dart';
+import 'package:touchin_flutter/features/settings/presentation/settings_page.dart';
+import 'package:touchin_flutter/features/time_tracking/presentation/time_clock_page.dart';
 import 'package:touchin_flutter/main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  const company = AuthCompanySummary(
+    id: 'cmp-01',
+    legalName: 'TouchIn Tecnologia LTDA',
+    tradeName: 'TouchIn',
+    cnpjMasked: '12.***.***/****-90',
+    emailMasked: 'co*****@touchin.com',
+    phoneMasked: '11*****0000',
+  );
+  const user = AuthUserSummary(
+    id: 'usr-01',
+    email: 'super.admin@touchin.com',
+    role: 'super_admin',
+  );
+  const primaryRoutes = <String, Type>{
+    '/time-clock': TimeClockPage,
+    '/admin/employees': AdminEmployeesPage,
+    '/admin/audit': AdminAuditPage,
+    '/projects': ProjectTasksPage,
+    '/kanban': ProjectKanbanPage,
+    '/settings': ThemeSettingsPage,
+  };
+
+  testWidgets('authenticated login replacement publishes canonical browser URL',
+      (tester) async {
+    final routeUpdates = <String>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.navigation,
+      (call) async {
+        if (call.method == 'routeInformationUpdated') {
+          final args = call.arguments! as Map<dynamic, dynamic>;
+          routeUpdates.add(args['uri']! as String);
+        }
+        return null;
+      },
+    );
+    addTearDown(() {
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.navigation,
+        null,
+      );
+    });
+    await tester.pumpWidget(MyApp(tokenStorage: _InMemoryTokenStorage()));
+    await tester.pumpAndSettle();
+
+    final session = AuthSession(
+      accessToken: 'token-123',
+      tokenType: 'bearer',
+      expiresAt: DateTime.parse('2099-04-26T18:00:00Z'),
+      company: company,
+      user: user,
+    );
+    unawaited(
+      tester.state<NavigatorState>(find.byType(Navigator).first).pushReplacement(
+            buildAuthenticatedWorkspaceRoute(session),
+          ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.byType(AdminEmployeesPage), findsOneWidget);
+    expect(routeUpdates, contains('/admin/employees'));
+  });
+
+  for (final route in primaryRoutes.entries) {
+    testWidgets('deep link to ${route.key} opens the expected workspace',
+        (tester) async {
+      tester.binding.platformDispatcher.defaultRouteNameTestValue = route.key;
+      addTearDown(() {
+        tester.binding.platformDispatcher.defaultRouteNameTestValue = '/';
+      });
+      final tokenStorage = _InMemoryTokenStorage()
+        ..savedSession = AuthSession(
+          accessToken: 'token-123',
+          tokenType: 'bearer',
+          expiresAt: DateTime.parse('2099-04-26T18:00:00Z'),
+          company: company,
+          user: user,
+        );
+      final api = _FakeTouchInApi(
+        tokenStorage: tokenStorage,
+        authContext: const AuthContext(company: company, user: user),
+      );
+
+      await tester.pumpWidget(MyApp(api: api, tokenStorage: tokenStorage));
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.byType(route.value), findsOneWidget);
+      expect(find.text('Entrar'), findsNothing);
+      expect(api.authContextRequests, 1);
+    });
+  }
+
+  testWidgets('revoked session blocks a protected deep link', (tester) async {
+    tester.binding.platformDispatcher.defaultRouteNameTestValue = '/kanban';
+    addTearDown(() {
+      tester.binding.platformDispatcher.defaultRouteNameTestValue = '/';
+    });
+    final tokenStorage = _InMemoryTokenStorage()
+      ..savedSession = AuthSession(
+        accessToken: 'revoked-token',
+        tokenType: 'bearer',
+        expiresAt: DateTime.parse('2099-04-26T18:00:00Z'),
+        company: company,
+        user: user,
+      );
+    final api = _FakeTouchInApi(
+      tokenStorage: tokenStorage,
+      authContextError: ApiException('Sessão revogada', statusCode: 401),
+    );
+
+    await tester.pumpWidget(MyApp(api: api, tokenStorage: tokenStorage));
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.byType(ProjectKanbanPage), findsNothing);
+    expect(find.text('Entrar'), findsWidgets);
+    expect(tokenStorage.savedSession, isNull);
+  });
+
   testWidgets('renders login experience on startup', (
     WidgetTester tester,
   ) async {
@@ -62,14 +188,18 @@ void main() {
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
     expect(find.text('Aguardando o servidor'), findsOneWidget);
     expect(find.text('Escrevendo documentos'), findsOneWidget);
-    final initialDots = tester.widget<Text>(
-      find.byKey(const ValueKey<String>('startup-status-dots')),
-    ).data;
+    final initialDots = tester
+        .widget<Text>(
+          find.byKey(const ValueKey<String>('startup-status-dots')),
+        )
+        .data;
 
     await tester.pump(const Duration(milliseconds: 500));
-    final animatedDots = tester.widget<Text>(
-      find.byKey(const ValueKey<String>('startup-status-dots')),
-    ).data;
+    final animatedDots = tester
+        .widget<Text>(
+          find.byKey(const ValueKey<String>('startup-status-dots')),
+        )
+        .data;
     expect(animatedDots, isNot(initialDots));
 
     await tester.pump(const Duration(seconds: 3));

@@ -14,6 +14,7 @@ Route<void> buildAuthenticatedWorkspaceRoute(
 }) {
   if (session.mustChangePassword) {
     return MaterialPageRoute<void>(
+      settings: const RouteSettings(name: '/must-change-password'),
       builder: (_) => const MustChangePasswordPage(),
     );
   }
@@ -28,17 +29,22 @@ Route<void> buildAuthenticatedWorkspaceRoute(
     _ => null,
   };
   if (requestedPage != null) {
-    return MaterialPageRoute<void>(builder: (_) => requestedPage);
+    return MaterialPageRoute<void>(
+      settings: RouteSettings(name: routeName),
+      builder: (_) => requestedPage,
+    );
   }
 
   if (session.user.hasAdminWorkspaceAccess ||
       !session.user.hasEmployeeProfile) {
     return MaterialPageRoute<void>(
+      settings: const RouteSettings(name: '/admin/employees'),
       builder: (_) => const AdminEmployeesPage(),
     );
   }
 
   return MaterialPageRoute<void>(
+    settings: const RouteSettings(name: '/time-clock'),
     builder: (_) => const TimeClockPage(),
   );
 }
