@@ -75,3 +75,10 @@ jobs:
           # opt-out to this isolated, headless CI browser smoke process.
           TOUCHIN_CHROME_NO_SANDBOX: '1'
         run: python3 scripts/run_polis_gates.py build smoke
+
+      - name: Verify authenticated browser navigation history in Chrome
+        working-directory: frontend
+        env:
+          TOUCHIN_CHROME: ${{ steps.chrome.outputs.chrome-path }}
+          TOUCHIN_CHROME_NO_SANDBOX: '1'
+        run: node test/browser/navigation_history_smoke.mjs

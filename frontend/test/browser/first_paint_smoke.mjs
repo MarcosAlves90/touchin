@@ -819,7 +819,14 @@ async function smoke() {
   }
 }
 
-smoke().catch((error) => {
-  console.error(`FAIL first_paint_smoke: ${error.stack ?? error}`);
-  process.exitCode = 1;
-});
+// Reuse the exact production-build server and Chrome transport in the
+// authenticated browser navigation regression without external npm packages.
+export { findChromeExecutable, waitFor, readCsp, serveBuild, startChrome, DevTools,
+  getButton, hasVisibleText, clickButton };
+
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  smoke().catch((error) => {
+    console.error(`FAIL first_paint_smoke: ${error.stack ?? error}`);
+    process.exitCode = 1;
+  });
+}

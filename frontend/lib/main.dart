@@ -195,10 +195,7 @@ class _SessionGateState extends State<_SessionGate> {
                   widget.routeName != '/must-change-password')) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted) {
-                Router.neglect(
-                  context,
-                  () => widget.router.authenticate(session),
-                );
+                widget.router.authenticate(session);
               }
             });
           }

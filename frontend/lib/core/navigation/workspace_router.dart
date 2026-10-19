@@ -21,15 +21,21 @@ class WorkspaceRouteParser extends RouteInformationParser<String> {
 class WorkspaceRouter extends RouterDelegate<String>
     with ChangeNotifier, PopNavigatorRouterDelegateMixin<String> {
   WorkspaceRouter({required this.buildRoute, String initialPath = '/'})
-      : _path = _normalize(initialPath);
+      : _history = <String>[_normalize(initialPath)],
+        _entrySessions = <AuthSession?>[null];
 
   final Widget Function(BuildContext, String, AuthSession?) buildRoute;
 
   @override
   final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
-  String _path;
-  AuthSession? _newSession;
+  final List<String> _history;
+  // An already-mounted history page keeps its session bootstrap identity when
+  // a new route becomes active; otherwise navigating triggers redundant auth.
+  final List<AuthSession?> _entrySessions;
+  int _currentIndex = 0;
+
+  String get _path => _history[_currentIndex];
 
   @override
   String get currentConfiguration => _path;
@@ -37,9 +43,18 @@ class WorkspaceRouter extends RouterDelegate<String>
   @override
   Future<void> setNewRoutePath(String configuration) async {
     final normalized = _normalize(configuration);
-    if (_path == normalized && _newSession == null) return;
-    _path = normalized;
-    _newSession = null;
+    if (_path == normalized) return;
+    // Browser history moves between existing entries. Keep the forward branch
+    // until a new navigation is explicitly requested by the user.
+    final previous = _history.lastIndexOf(normalized, _currentIndex - 1);
+    final following = _history.indexOf(normalized, _currentIndex + 1);
+    if (previous >= 0) {
+      _currentIndex = previous;
+    } else if (following >= 0) {
+      _currentIndex = following;
+    } else {
+      _push(normalized);
+    }
     notifyListeners();
   }
 
@@ -49,21 +64,47 @@ class WorkspaceRouter extends RouterDelegate<String>
   void navigate(String route) {
     final next = _normalize(route);
     if (_path == next) return;
-    _path = next;
-    _newSession = null;
+    _push(next);
     notifyListeners();
+  }
+
+  void _push(String path) {
+    _history.removeRange(_currentIndex + 1, _history.length);
+    _entrySessions.removeRange(_currentIndex + 1, _entrySessions.length);
+    _history.add(path);
+    _entrySessions.add(null);
+    _currentIndex++;
+  }
+
+  void _replaceHistory(String path, [AuthSession? session]) {
+    _history
+      ..clear()
+      ..add(path);
+    _entrySessions
+      ..clear()
+      ..add(session);
+    _currentIndex = 0;
   }
 
   void authenticate(AuthSession session) {
     final route = buildAuthenticatedWorkspaceRoute(session).settings.name!;
-    _newSession = session;
-    _path = route;
+    _replaceHistory(route, session);
     notifyListeners();
   }
 
   void signedOut() {
-    _newSession = null;
-    _path = '/';
+    _replaceHistory('/');
+    notifyListeners();
+  }
+
+  void _didRemovePage(Page<Object?> page) {
+    // A native Back pop removes the active page. Pages discarded when the
+    // browser changes its history position must not pop a second entry.
+    if (page.key != ValueKey<String>('$_currentIndex:$_path') ||
+        _currentIndex == 0) {
+      return;
+    }
+    _currentIndex--;
     notifyListeners();
   }
 
@@ -72,13 +113,18 @@ class WorkspaceRouter extends RouterDelegate<String>
     return Navigator(
       key: navigatorKey,
       pages: <Page<void>>[
-        MaterialPage<void>(
-          key: ValueKey<String>(_path),
-          name: _path,
-          child: buildRoute(context, _path, _newSession),
-        ),
+        for (var index = 0; index <= _currentIndex; index++)
+          MaterialPage<void>(
+            key: ValueKey<String>('$index:${_history[index]}'),
+            name: _history[index],
+            child: buildRoute(
+              context,
+              _history[index],
+              _entrySessions[index],
+            ),
+          ),
       ],
-      onDidRemovePage: (page) {},
+      onDidRemovePage: _didRemovePage,
     );
   }
 }
@@ -102,7 +148,7 @@ class WorkspaceRouterScope extends InheritedWidget {
       BuildContext context, AuthSession session) {
     final router = maybeOf(context);
     if (router != null) {
-      Router.neglect(context, () => router.authenticate(session));
+      router.authenticate(session);
     } else {
       Navigator.of(context).pushReplacement(
         buildAuthenticatedWorkspaceRoute(session),
