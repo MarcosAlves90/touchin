@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:touchin_flutter/features/admin/presentation/admin_audit_page.dart';
 import 'package:touchin_flutter/contracts/audit.dart';
@@ -57,52 +58,85 @@ class FakeTouchInApi extends TouchInApi {
 }
 
 void main() {
-  testWidgets('load-more control retains keyboard focus while fetching',
-      (tester) async {
-    final mockApi = FakeTouchInApi()
-      ..secondPageResponse = Completer<List<AuditEventResponse>>()
-      ..mockEvents = List.generate(
-        51,
-        (index) => AuditEventResponse(
-          id: 'evt_$index',
-          timestamp: DateTime.utc(2026, 9, 25),
-          companyId: 'company_1',
-          actorUserId: 'user_1',
-          projectId: null,
-          action: 'task.action_$index',
-          entityType: 'task',
-          entityId: 'task_1',
-          result: 'success',
-          metadataPayload: null,
-        ),
+  for (final additionalEvents in [50, 1]) {
+    testWidgets('keyboard focus survives page of $additionalEvents events',
+        (tester) async {
+      final mockApi = FakeTouchInApi()
+        ..secondPageResponse = Completer<List<AuditEventResponse>>()
+        ..mockEvents = List.generate(
+          50 + additionalEvents,
+          (index) => AuditEventResponse(
+            id: 'evt_$index',
+            timestamp: DateTime.utc(2026, 9, 25),
+            companyId: 'company_1',
+            actorUserId: 'user_1',
+            projectId: null,
+            action: 'task.action_$index',
+            entityType: 'task',
+            entityId: 'task_1',
+            result: 'success',
+            metadataPayload: null,
+          ),
+        );
+
+      await tester.binding.setSurfaceSize(const Size(1200, 760));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(MaterialApp(home: AdminAuditPage(api: mockApi)));
+      await tester.pumpAndSettle();
+
+      final loadMoreFinder =
+          find.widgetWithText(OutlinedButton, 'Carregar mais eventos');
+      final loadMoreFocus =
+          tester.widget<OutlinedButton>(loadMoreFinder).focusNode!;
+      loadMoreFocus.requestFocus();
+      await tester.pump();
+      expect(loadMoreFocus.hasFocus, isTrue);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      expect(mockApi.requestedPages, [1, 2]);
+      expect(loadMoreFocus.hasFocus, isTrue);
+      expect(find.text('Carregando mais eventos'), findsOneWidget);
+
+      mockApi.secondPageResponse!.complete(
+        mockApi.mockEvents.skip(50).toList(),
       );
+      await tester.pumpAndSettle();
+      expect(mockApi.requestedPages, [1, 2]);
+      expect(tester.widget<ListView>(find.byType(ListView)).childrenDelegate,
+          isA<SliverChildBuilderDelegate>());
 
-    await tester.binding.setSurfaceSize(const Size(1200, 760));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-    await tester.pumpWidget(MaterialApp(home: AdminAuditPage(api: mockApi)));
-    await tester.pumpAndSettle();
-    await tester.dragUntilVisible(
-      find.text('Carregar mais eventos'),
-      find.byType(ListView),
-      const Offset(0, -300),
-      maxIteration: 60,
-    );
-    await tester.pump();
-    expect(mockApi.requestedPages, [1, 2]);
+      if (additionalEvents == 50) {
+        expect(loadMoreFinder, findsOneWidget);
+        expect(loadMoreFocus.hasFocus, isTrue);
+        expect(find.text('Todos os eventos de auditoria foram carregados.'),
+            findsNothing);
+      } else {
+        expect(loadMoreFinder, findsNothing);
+        final endLabel =
+            find.text('Todos os eventos de auditoria foram carregados.');
+        expect(endLabel, findsOneWidget);
+        expect(Focus.of(tester.element(endLabel)).hasFocus, isTrue);
+        final focusedDecoration = tester
+            .widget<Container>(
+              find
+                  .ancestor(of: endLabel, matching: find.byType(Container))
+                  .first,
+            )
+            .decoration! as BoxDecoration;
+        expect((focusedDecoration.border! as Border).top.color,
+            Theme.of(tester.element(endLabel)).colorScheme.primary);
+      }
 
-    final button = tester.widget<OutlinedButton>(
-      find.widgetWithText(OutlinedButton, 'Carregar mais eventos'),
-    );
-    button.focusNode!.requestFocus();
-    await tester.pump();
-    expect(button.focusNode!.hasFocus, isTrue);
-    expect(find.text('Carregando mais eventos'), findsOneWidget);
-
-    mockApi.secondPageResponse!.complete([mockApi.mockEvents.last]);
-    await tester.pumpAndSettle();
-    expect(find.text('task.action_50 - success'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
+      final focusedAtCompletion = FocusManager.instance.primaryFocus;
+      expect(focusedAtCompletion, isNotNull);
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      expect(FocusManager.instance.primaryFocus, isNotNull);
+      expect(FocusManager.instance.primaryFocus, isNot(focusedAtCompletion));
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   testWidgets('AdminAuditPage keeps filters usable in a narrow viewport',
       (WidgetTester tester) async {

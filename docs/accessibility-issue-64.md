@@ -42,8 +42,9 @@ Foram conferidos, na árvore de acessibilidade do Chrome:
 
 A trilha de auditoria retornou HTTP 404 da API publicada, impedindo a
 validação autenticada da paginação no navegador contra esse backend.
-A regressão de foco durante carregamento foi testada com uma API falsa e
-resposta assíncrona controlada no Flutter.
+A regressão de foco durante e após a paginação foi testada com uma API falsa
+e resposta assíncrona controlada no Flutter, incluindo página completa e
+última página curta.
 
 Esta auditoria de implementação não certifica conformidade integral às
 WCAG 2.2 AA. O smoke automatizado cobre telas públicas sem autenticação;
@@ -64,7 +65,7 @@ representativos.
 | Navegação compartilhada | O botão de menu na versão compacta não tinha `tooltip` | Nome acessível `Abrir menu` e cabeçalhos identificados semanticamente | 2.4.6, 4.1.2 |
 | Auditoria administrativa | Seis campos de filtro em uma única `Row` ficavam comprimidos em viewport estreito; a página isolada não tinha menu de navegação | Campos refluem por largura, filtros têm rolagem própria e a página utiliza o contêiner de navegação compartilhado | 1.4.10, 2.4.6 |
 | Auditoria administrativa | A paginação dependia de arrastar/rolar a lista | Controle explícito `Carregar mais eventos`, mantendo carregamento por rolagem | 2.1.1 |
-| Auditoria administrativa | A substituição do botão por spinner durante paginação destruía o alvo do foco | O botão continua montado e focável enquanto a busca executa; estado de carregamento tem anúncio semântico e teste com futuro controlado | 2.4.3, 4.1.3 |
+| Auditoria administrativa | A substituição do botão por spinner durante paginação destruía o alvo do foco; o controle indexado na lista podia perder foco após a resposta | O botão permanece em rodapé estável e focável durante a busca e depois de páginas completas; na última página, o foco passa ao aviso de conclusão com indicação visual e anúncio semântico. Testes cobrem ambas as transições e Tab após a resposta | 2.4.3, 2.4.7, 4.1.3 |
 | Administração de equipe | O botão para limpar a busca não tinha nome acessível e a seleção de funcionário era indicada apenas por cor | Tooltip `Limpar busca` e estado semântico `selected` no item de funcionário | 1.4.1, 4.1.2 |
 | Autenticação | Botões de revelar senha com nomes ambíguos e falhas de formulário sem aviso semântico | Ações nomeadas por campo, títulos identificados, mensagens `liveRegion` e disposição adaptada à ampliação de texto | 1.3.1, 1.4.10, 4.1.2 |
 | Kanban | Arrastar era a única interação disponível para mover cartões | Menu acionável pelo teclado para mover verticalmente ou entre colunas, com as mesmas permissões do fluxo existente | 2.1.1, 2.5.7 |
@@ -80,7 +81,8 @@ representativos.
 - `frontend/test/admin_employees_page_test.dart`: nome acessível para limpar
   a busca e estado selecionado da ficha de funcionário.
 - `frontend/test/admin_audit_page_test.dart`: refluxo dos filtros em
-  viewport de 360 pixels e manutenção dos testes de filtros/paginação.
+  viewport de 360 pixels, filtros/paginação e foco após página completa ou
+  última página curta, com continuidade da navegação por Tab.
 - Testes das áreas de autenticação, configurações e Kanban complementam
   os casos da auditoria.
 - `frontend/test/features/time_tracking/presentation/time_clock_accessibility_test.dart`:

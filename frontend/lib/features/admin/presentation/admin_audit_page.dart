@@ -24,6 +24,7 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
 
   final ScrollController _scrollController = ScrollController();
   final FocusNode _loadMoreFocusNode = FocusNode();
+  final FocusNode _endOfResultsFocusNode = FocusNode();
 
   DateTime? _startDate;
   DateTime? _endDate;
@@ -45,6 +46,7 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
   void dispose() {
     _scrollController.dispose();
     _loadMoreFocusNode.dispose();
+    _endOfResultsFocusNode.dispose();
     _actorUserIdController.dispose();
     _actionController.dispose();
     _entityTypeController.dispose();
@@ -113,6 +115,9 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
         result: result,
       );
 
+      if (!mounted) return;
+      final moveFocusToEnd =
+          !refresh && _loadMoreFocusNode.hasFocus && newEvents.length < _limit;
       setState(() {
         if (newEvents.length < _limit) {
           _hasMore = false;
@@ -122,7 +127,13 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
         _isLoading = false;
         _isLoadingMore = false;
       });
+      if (moveFocusToEnd) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && !_hasMore) _endOfResultsFocusNode.requestFocus();
+        });
+      }
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _error = e.toString();
         _isLoading = false;
@@ -323,55 +334,87 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
                         ? const Center(
                             child:
                                 Text('Nenhum evento de auditoria encontrado.'))
-                        : ListView.builder(
-                            controller: _scrollController,
-                            itemCount: _events.length + (_hasMore ? 1 : 0),
-                            itemBuilder: (context, index) {
-                              if (index >= _events.length) {
-                                return Padding(
-                                  padding: const EdgeInsets.all(16),
-                                  child: Center(
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        OutlinedButton(
-                                          focusNode: _loadMoreFocusNode,
-                                          onPressed: () {
-                                            if (!_isLoadingMore) _loadEvents();
-                                          },
-                                          child: const Text(
-                                              'Carregar mais eventos'),
-                                        ),
-                                        if (_isLoadingMore) ...[
-                                          const SizedBox(height: 8),
-                                          Semantics(
-                                            liveRegion: true,
-                                            child:
-                                                const Text('Carregando mais eventos'),
-                                          ),
-                                        ],
-                                      ],
-                                    ),
-                                  ),
-                                );
-                              }
-                              final event = _events[index];
-                              return ListTile(
-                                title:
-                                    Text('${event.action} - ${event.result}'),
-                                subtitle: Text(
-                                  'Ator: ${event.actorUserId ?? 'N/A'}\n'
-                                  'Recurso: ${event.entityType} (${event.entityId})\n'
-                                  'Projeto: ${event.projectId ?? 'N/A'}',
+                        : Column(
+                            children: [
+                              Expanded(
+                                child: ListView.builder(
+                                  controller: _scrollController,
+                                  itemCount: _events.length,
+                                  itemBuilder: (context, index) {
+                                    final event = _events[index];
+                                    return ListTile(
+                                      title: Text(
+                                          '${event.action} - ${event.result}'),
+                                      subtitle: Text(
+                                        'Ator: ${event.actorUserId ?? 'N/A'}\n'
+                                        'Recurso: ${event.entityType} (${event.entityId})\n'
+                                        'Projeto: ${event.projectId ?? 'N/A'}',
+                                      ),
+                                      isThreeLine: true,
+                                      trailing: Text(event.timestamp
+                                          .toLocal()
+                                          .toString()
+                                          .split('.')
+                                          .first),
+                                    );
+                                  },
                                 ),
-                                isThreeLine: true,
-                                trailing: Text(event.timestamp
-                                    .toLocal()
-                                    .toString()
-                                    .split('.')
-                                    .first),
-                              );
-                            },
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: _hasMore
+                                    ? Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          OutlinedButton(
+                                            focusNode: _loadMoreFocusNode,
+                                            onPressed: () {
+                                              if (!_isLoadingMore)
+                                                _loadEvents();
+                                            },
+                                            child: const Text(
+                                                'Carregar mais eventos'),
+                                          ),
+                                          if (_isLoadingMore) ...[
+                                            const SizedBox(height: 8),
+                                            Semantics(
+                                              liveRegion: true,
+                                              child: Text(
+                                                  'Carregando mais eventos'),
+                                            ),
+                                          ],
+                                        ],
+                                      )
+                                    : Semantics(
+                                        liveRegion: true,
+                                        focusable: true,
+                                        child: Focus(
+                                          focusNode: _endOfResultsFocusNode,
+                                          child: Builder(
+                                            builder: (context) => Container(
+                                              padding: const EdgeInsets.all(8),
+                                              decoration: BoxDecoration(
+                                                border: Border.all(
+                                                  color:
+                                                      Focus.of(context).hasFocus
+                                                          ? Theme.of(context)
+                                                              .colorScheme
+                                                              .primary
+                                                          : Colors.transparent,
+                                                  width: 2,
+                                                ),
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                              ),
+                                              child: const Text(
+                                                'Todos os eventos de auditoria foram carregados.',
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                              ),
+                            ],
                           ),
           ),
         ],
