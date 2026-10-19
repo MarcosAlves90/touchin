@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:touchin_flutter/contracts/audit.dart';
+import 'package:touchin_flutter/core/network/api_client.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
 
 class AdminAuditPage extends StatefulWidget {
@@ -15,8 +16,10 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
   bool _isLoading = false;
   bool _isLoadingMore = false;
   String? _error;
-  List<AuditEventResponse> _events = [];
+  final List<AuditEventResponse> _events = [];
   bool _hasMore = true;
+  int _requestGeneration = 0;
+  late final TouchInApi _api;
 
   int _page = 1;
   final int _limit = 50;
@@ -35,6 +38,7 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
   @override
   void initState() {
     super.initState();
+    _api = widget.api ?? TouchInApi();
     _scrollController.addListener(_onScroll);
     _loadEvents(refresh: true);
   }
@@ -53,13 +57,21 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
 
   void _onScroll() {
     if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
-      if (!_isLoading && !_isLoadingMore && _hasMore) {
+      if (!_isLoading && !_isLoadingMore && _hasMore && _error == null) {
         _loadEvents();
       }
     }
   }
 
-  Future<void> _loadEvents({bool refresh = false}) async {
+  Future<void> _loadEvents({bool refresh = false, bool retry = false}) async {
+    if (!refresh &&
+        (_isLoading || _isLoadingMore || !_hasMore ||
+            (_error != null && !retry))) {
+      return;
+    }
+    if (refresh) _requestGeneration++;
+    final generation = _requestGeneration;
+    final requestedPage = refresh ? 1 : _page;
     try {
       if (refresh) {
         setState(() {
@@ -76,7 +88,6 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
         });
       }
 
-      final api = widget.api ?? TouchInApi();
       final actorUserId = _actorUserIdController.text.trim().isEmpty ? null : _actorUserIdController.text.trim();
       final action = _actionController.text.trim().isEmpty ? null : _actionController.text.trim();
       final entityType = _entityTypeController.text.trim().isEmpty ? null : _entityTypeController.text.trim();
@@ -84,8 +95,8 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
       final projectId = _projectIdController.text.trim().isEmpty ? null : _projectIdController.text.trim();
       final result = _resultController.text.trim().isEmpty ? null : _resultController.text.trim();
 
-      final newEvents = await api.listAuditEvents(
-        page: _page,
+      final newEvents = await _api.listAuditEvents(
+        page: requestedPage,
         limit: _limit,
         startDate: _startDate,
         endDate: _endDate,
@@ -97,22 +108,43 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
         result: result,
       );
 
+      if (!mounted || generation != _requestGeneration) return;
       setState(() {
         if (newEvents.length < _limit) {
           _hasMore = false;
         }
         _events.addAll(newEvents);
-        _page++;
+        _page = requestedPage + 1;
         _isLoading = false;
         _isLoadingMore = false;
       });
     } catch (e) {
+      if (!mounted || generation != _requestGeneration) return;
       setState(() {
-        _error = e.toString();
+        _error = _errorMessage(e);
         _isLoading = false;
         _isLoadingMore = false;
       });
     }
+  }
+
+  String _errorMessage(Object error) {
+    if (error is ApiException) {
+      if (error.statusCode == 403) {
+        return 'Você não tem permissão para consultar a auditoria.';
+      }
+      if (error.statusCode == 404) {
+        return 'O serviço de auditoria não foi encontrado.';
+      }
+      if (error.statusCode != null && error.statusCode! >= 500) {
+        return 'Serviço temporariamente indisponível. Tente novamente.';
+      }
+      if (error.message.startsWith('Contrato invalido')) {
+        return 'O serviço de auditoria retornou uma resposta inválida.';
+      }
+      return error.message;
+    }
+    return 'Não foi possível carregar os eventos de auditoria. Tente novamente.';
   }
 
   Future<void> _pickDate(bool isStart) async {
@@ -243,25 +275,38 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text('Error: $_error', style: const TextStyle(color: Colors.red)),
+                          Text(_error!, style: const TextStyle(color: Colors.red)),
                           const SizedBox(height: 16),
                           ElevatedButton(
                             onPressed: () => _loadEvents(refresh: true),
-                            child: const Text('Retry'),
+                            child: const Text('Tentar novamente'),
                           ),
                         ],
                       ),
                     )
                   : _events.isEmpty
-                      ? const Center(child: Text('No audit events found.'))
+                      ? const Center(child: Text('Nenhum evento de auditoria encontrado.'))
                       : ListView.builder(
                           controller: _scrollController,
                           itemCount: _events.length + (_hasMore ? 1 : 0),
                           itemBuilder: (context, index) {
                             if (index >= _events.length) {
-                              return const Padding(
+                              return Padding(
                                 padding: EdgeInsets.all(16.0),
-                                child: Center(child: CircularProgressIndicator()),
+                                child: Center(
+                                  child: _error != null
+                                      ? Column(
+                                          children: [
+                                            Text(_error!,
+                                                style: const TextStyle(color: Colors.red)),
+                                            TextButton(
+                                              onPressed: () => _loadEvents(retry: true),
+                                              child: const Text('Tentar novamente'),
+                                            ),
+                                          ],
+                                        )
+                                      : const CircularProgressIndicator(),
+                                ),
                               );
                             }
                             final event = _events[index];

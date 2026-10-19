@@ -3,9 +3,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:touchin_flutter/features/admin/presentation/admin_audit_page.dart';
 import 'package:touchin_flutter/contracts/audit.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
+import 'package:touchin_flutter/core/network/api_client.dart';
 
 class FakeTouchInApi extends TouchInApi {
   List<AuditEventResponse> mockEvents = [];
+  Object? firstError;
   Map<String, dynamic> lastParams = {};
   List<int> requestedPages = [];
 
@@ -23,6 +25,10 @@ class FakeTouchInApi extends TouchInApi {
     int limit = 50,
   }) async {
     requestedPages.add(page);
+    if (firstError case final error?) {
+      firstError = null;
+      throw error;
+    }
     lastParams = {
       'page': page,
       'limit': limit,
@@ -50,6 +56,28 @@ class FakeTouchInApi extends TouchInApi {
 }
 
 void main() {
+  testWidgets('invalid audit response does not show parser details', (tester) async {
+    final api = FakeTouchInApi()
+      ..firstError = ApiException('Contrato invalido na resposta de audit events: expected list');
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: AdminAuditPage(api: api))));
+    await tester.pumpAndSettle();
+    expect(find.text('O serviço de auditoria retornou uma resposta inválida.'), findsOneWidget);
+    expect(find.textContaining('expected list'), findsNothing);
+  });
+
+  testWidgets('audit error keeps status understandable and retry recovers', (tester) async {
+    final api = FakeTouchInApi()..firstError = ApiException('Proxy error', statusCode: 404);
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: AdminAuditPage(api: api))));
+    await tester.pumpAndSettle();
+    expect(find.text('O serviço de auditoria não foi encontrado.'), findsOneWidget);
+    expect(find.textContaining('ApiException'), findsNothing);
+    expect(find.text('Tentar novamente'), findsOneWidget);
+    await tester.tap(find.text('Tentar novamente'));
+    await tester.pumpAndSettle();
+    expect(api.requestedPages, [1, 1]);
+    expect(find.text('Nenhum evento de auditoria encontrado.'), findsOneWidget);
+  });
+
   testWidgets('AdminAuditPage loads events and shows filters', (WidgetTester tester) async {
     final mockApi = FakeTouchInApi();
 
