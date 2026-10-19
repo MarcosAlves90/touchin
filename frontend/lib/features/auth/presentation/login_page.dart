@@ -1,11 +1,11 @@
 import 'package:touchin_flutter/contracts/auth.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
-import 'package:touchin_flutter/features/auth/presentation/auth_session_navigation.dart';
 import 'package:touchin_flutter/features/auth/presentation/auth_submission_mixin.dart';
 import 'package:touchin_flutter/features/auth/presentation/forgot_password_page.dart';
 import 'package:touchin_flutter/features/auth/presentation/register_page.dart';
 import 'package:touchin_flutter/features/auth/presentation/widgets/auth_shell.dart';
 import 'package:flutter/material.dart';
+import 'package:touchin_flutter/core/navigation/workspace_router.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -50,9 +50,7 @@ class _LoginPageState extends State<LoginPage>
       },
       onSuccess: (session) {
         final authSession = session!;
-        Navigator.of(context).pushReplacement(
-          buildAuthenticatedWorkspaceRoute(authSession),
-        );
+        WorkspaceRouterScope.replaceWithAuthenticated(context, authSession);
       },
       genericErrorMessage: 'Não foi possível concluir o login.',
     );

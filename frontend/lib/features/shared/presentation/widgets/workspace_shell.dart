@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:touchin_flutter/features/auth/presentation/logout_navigation.dart';
 import 'package:touchin_flutter/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:touchin_flutter/core/navigation/workspace_router.dart';
 
 typedef WorkspaceLogoutHandler = Future<void> Function(BuildContext context);
 
@@ -161,10 +162,16 @@ class WorkspaceNavigationDrawer extends StatelessWidget {
 
   void _navigateTo(BuildContext context, String routeName) {
     final navigator = Navigator.of(context);
-    final currentRoute = ModalRoute.of(context)?.settings.name;
+    final router = WorkspaceRouterScope.maybeOf(context);
+    final currentRoute =
+        router?.currentConfiguration ?? ModalRoute.of(context)?.settings.name;
     navigator.pop(); // Close the drawer while preserving the current page.
     if (currentRoute != routeName) {
-      navigator.pushNamed(routeName);
+      if (router != null) {
+        router.navigate(routeName);
+      } else {
+        navigator.pushNamed(routeName);
+      }
     }
   }
 
@@ -218,57 +225,57 @@ class WorkspaceNavigationDrawer extends StatelessWidget {
               ],
             ),
           ),
-          Expanded(child: ListView(padding: EdgeInsets.zero, children: [
-          const SizedBox(height: 16),
-          _buildDrawerItem(
-            context,
-            icon: Icons.timer_outlined,
-            label: 'Bater Ponto',
-            onTap: () {
-              _navigateTo(context, '/time-clock');
-            },
-          ),
-          _buildDrawerItem(
-            context,
-            icon: Icons.groups_2_rounded,
-            label: 'Administrar Equipe',
-            onTap: () {
-              _navigateTo(context, '/admin/employees');
-            },
-          ),
-
-          _buildDrawerItem(
-            context,
-            icon: Icons.history_edu,
-            label: 'Trilha de Auditoria',
-            onTap: () {
-              _navigateTo(context, '/admin/audit');
-            },
-          ),
-          _buildDrawerItem(
-            context,
-            icon: Icons.account_tree_outlined,
-            label: 'Projetos e tarefas',
-            onTap: () {
-              _navigateTo(context, '/projects');
-            },
-          ),
-          _buildDrawerItem(
-            context,
-            icon: Icons.view_kanban_outlined,
-            label: 'Kanban',
-            onTap: () {
-              _navigateTo(context, '/kanban');
-            },
-          ),
-          _buildDrawerItem(
-            context,
-            icon: Icons.tune_rounded,
-            label: 'Configurações',
-            onTap: () {
-              _navigateTo(context, '/settings');
-            },
-          ),
+          Expanded(
+              child: ListView(padding: EdgeInsets.zero, children: [
+            const SizedBox(height: 16),
+            _buildDrawerItem(
+              context,
+              icon: Icons.timer_outlined,
+              label: 'Bater Ponto',
+              onTap: () {
+                _navigateTo(context, '/time-clock');
+              },
+            ),
+            _buildDrawerItem(
+              context,
+              icon: Icons.groups_2_rounded,
+              label: 'Administrar Equipe',
+              onTap: () {
+                _navigateTo(context, '/admin/employees');
+              },
+            ),
+            _buildDrawerItem(
+              context,
+              icon: Icons.history_edu,
+              label: 'Trilha de Auditoria',
+              onTap: () {
+                _navigateTo(context, '/admin/audit');
+              },
+            ),
+            _buildDrawerItem(
+              context,
+              icon: Icons.account_tree_outlined,
+              label: 'Projetos e tarefas',
+              onTap: () {
+                _navigateTo(context, '/projects');
+              },
+            ),
+            _buildDrawerItem(
+              context,
+              icon: Icons.view_kanban_outlined,
+              label: 'Kanban',
+              onTap: () {
+                _navigateTo(context, '/kanban');
+              },
+            ),
+            _buildDrawerItem(
+              context,
+              icon: Icons.tune_rounded,
+              label: 'Configurações',
+              onTap: () {
+                _navigateTo(context, '/settings');
+              },
+            ),
           ])),
           const SizedBox(height: 16),
           Padding(

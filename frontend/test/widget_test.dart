@@ -5,7 +5,8 @@ import 'package:touchin_flutter/contracts/auth.dart';
 import 'package:touchin_flutter/core/network/api_client.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
 import 'package:touchin_flutter/core/storage/token_storage.dart';
-import 'package:touchin_flutter/features/auth/presentation/auth_session_navigation.dart';
+import 'package:touchin_flutter/core/navigation/workspace_router.dart';
+import 'package:touchin_flutter/features/auth/presentation/login_page.dart';
 import 'package:touchin_flutter/features/admin/presentation/admin_audit_page.dart';
 import 'package:touchin_flutter/features/admin/presentation/admin_employees_page.dart';
 import 'package:touchin_flutter/features/projects/presentation/project_kanban_page.dart';
@@ -69,11 +70,8 @@ void main() {
       company: company,
       user: user,
     );
-    unawaited(
-      tester.state<NavigatorState>(find.byType(Navigator).first).pushReplacement(
-            buildAuthenticatedWorkspaceRoute(session),
-          ),
-    );
+    WorkspaceRouterScope.replaceWithAuthenticated(
+        tester.element(find.byType(LoginPage)), session);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
@@ -420,6 +418,7 @@ void main() {
     );
     await tester.pump();
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.text('Administrar equipe'), findsOneWidget);
     tester.state<ScaffoldState>(find.byType(Scaffold).first).openDrawer();
@@ -489,13 +488,8 @@ void main() {
     expect(find.text('Entrar'), findsWidgets);
 
     await tokenStorage.saveAuthSession(session);
-    unawaited(
-      tester
-          .state<NavigatorState>(find.byType(Navigator).first)
-          .pushReplacement(
-            buildAuthenticatedWorkspaceRoute(session),
-          ),
-    );
+    WorkspaceRouterScope.replaceWithAuthenticated(
+        tester.element(find.byType(LoginPage)), session);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.text('Administrar equipe'), findsOneWidget);
