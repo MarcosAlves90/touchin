@@ -80,7 +80,8 @@ jobs:
 
       - name: Analyze full Flutter source and tests with POLIS
         working-directory: .
-        run: "$(go env GOPATH)/bin/polis" gates --repo . --gate lint
+        run: |
+          "$(go env GOPATH)/bin/polis" gates --repo . --gate lint
 
       - name: Set up Chrome for browser smoke
         id: chrome
@@ -93,4 +94,5 @@ jobs:
           # Ubuntu Actions restricts Chrome's user-namespace sandbox; limit the
           # opt-out to this isolated, headless CI browser smoke process.
           TOUCHIN_CHROME_NO_SANDBOX: '1'
-        run: "$(go env GOPATH)/bin/polis" gates --repo . --gate build --gate smoke
+        run: |
+          "$(go env GOPATH)/bin/polis" gates --repo . --gate build --gate smoke
