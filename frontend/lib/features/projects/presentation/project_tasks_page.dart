@@ -1002,7 +1002,9 @@ class _ProjectListTile extends StatelessWidget {
 
     return Material(
       color: Colors.transparent,
-      child: InkWell(
+      child: Semantics(
+        selected: selected,
+        child: InkWell(
         onTap: onTap,
         child: Container(
           width: double.infinity,
@@ -1110,6 +1112,7 @@ class _ProjectListTile extends StatelessWidget {
             },
           ),
         ),
+      ),
       ),
     );
   }
@@ -1388,7 +1391,9 @@ class _TaskTile extends StatelessWidget {
       color: selected
           ? colorScheme.primaryContainer.withValues(alpha: 0.5)
           : colorScheme.surface.withValues(alpha: 0.72),
-      child: InkWell(
+      child: Semantics(
+        selected: selected,
+        child: InkWell(
         onTap: onSelected,
         child: Container(
           width: double.infinity,
@@ -1456,6 +1461,7 @@ class _TaskTile extends StatelessWidget {
             ],
           ),
         ),
+      ),
       ),
     );
   }
@@ -1880,7 +1886,12 @@ class _InlineError extends StatelessWidget {
       children: <Widget>[
         const Icon(Icons.error_outline_rounded),
         const SizedBox(width: 10),
-        Expanded(child: Text(message)),
+        Expanded(
+          child: Semantics(
+            liveRegion: true,
+            child: Text(message),
+          ),
+        ),
         TextButton(onPressed: onRetry, child: const Text('Tentar novamente')),
       ],
     );

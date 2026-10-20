@@ -190,10 +190,13 @@ class _TimeClockPageState extends State<TimeClockPage> {
   }
 
   Color _statusColor() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return switch (_status) {
-      ShiftStatus.checkedOut => const Color(0xFF6B6254),
-      ShiftStatus.working => const Color(0xFF2F8F46),
-      ShiftStatus.onBreak => const Color(0xFF8C5D00),
+      ShiftStatus.checkedOut => Theme.of(context).colorScheme.onSurfaceVariant,
+      ShiftStatus.working =>
+        isDark ? const Color(0xFF7ED898) : const Color(0xFF1D6A36),
+      ShiftStatus.onBreak =>
+        isDark ? const Color(0xFFFFC95B) : const Color(0xFF805600),
     };
   }
 
@@ -224,14 +227,20 @@ class _TimeClockPageState extends State<TimeClockPage> {
   }
 
   Color _locationStatusColor() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return switch (_locationState.status) {
-      PunchLocationStatus.checking => const Color(0xFF6B6254),
-      PunchLocationStatus.ready => const Color(0xFF2F8F46),
-      PunchLocationStatus.serviceDisabled => const Color(0xFF8C5D00),
-      PunchLocationStatus.permissionDenied => const Color(0xFF8C5D00),
-      PunchLocationStatus.permissionDeniedForever => const Color(0xFF8B1E1E),
-      PunchLocationStatus.unsupported => const Color(0xFF6B6254),
-      PunchLocationStatus.error => const Color(0xFF8B1E1E),
+      PunchLocationStatus.checking =>
+        Theme.of(context).colorScheme.onSurfaceVariant,
+      PunchLocationStatus.ready =>
+        isDark ? const Color(0xFF7ED898) : const Color(0xFF1D6A36),
+      PunchLocationStatus.serviceDisabled ||
+      PunchLocationStatus.permissionDenied =>
+        isDark ? const Color(0xFFFFC95B) : const Color(0xFF805600),
+      PunchLocationStatus.permissionDeniedForever ||
+      PunchLocationStatus.error =>
+        isDark ? const Color(0xFFFFB4AB) : const Color(0xFFA62525),
+      PunchLocationStatus.unsupported =>
+        Theme.of(context).colorScheme.onSurfaceVariant,
     };
   }
 

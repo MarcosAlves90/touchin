@@ -604,29 +604,32 @@ class _EmployeeListTile extends StatelessWidget {
 
     return Material(
       color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          decoration: BoxDecoration(
-            color: selected
-                ? AppTheme.accent.withValues(alpha: 0.08)
-                : colorScheme.surface.withValues(alpha: 0.8),
-            border: Border.all(
-              color: selected ? AppTheme.accent : colorScheme.outlineVariant,
+      child: Semantics(
+        selected: selected,
+        child: InkWell(
+          onTap: onTap,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: selected
+                  ? AppTheme.accent.withValues(alpha: 0.08)
+                  : colorScheme.surface.withValues(alpha: 0.8),
+              border: Border.all(
+                color: selected ? AppTheme.accent : colorScheme.outlineVariant,
+              ),
             ),
-          ),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final isCompact = constraints.maxWidth < 560;
-              return _buildContent(
-                context,
-                theme,
-                colorScheme,
-                isCompact: isCompact,
-              );
-            },
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final isCompact = constraints.maxWidth < 560;
+                return _buildContent(
+                  context,
+                  theme,
+                  colorScheme,
+                  isCompact: isCompact,
+                );
+              },
+            ),
           ),
         ),
       ),
@@ -747,7 +750,6 @@ class _EmployeeListTile extends StatelessWidget {
     ];
     return labels.join(' • ');
   }
-
 }
 
 class _AdminMetricItem extends StatelessWidget {
