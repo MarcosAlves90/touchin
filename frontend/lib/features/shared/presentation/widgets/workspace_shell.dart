@@ -163,8 +163,8 @@ class WorkspaceNavigationDrawer extends StatelessWidget {
   void _navigateTo(BuildContext context, String routeName) {
     final navigator = Navigator.of(context);
     final router = WorkspaceRouterScope.maybeOf(context);
-    final currentRoute =
-        router?.currentConfiguration ?? ModalRoute.of(context)?.settings.name;
+    final currentRoute = router?.currentConfiguration.path ??
+        ModalRoute.of(context)?.settings.name;
     navigator.pop(); // Close the drawer while preserving the current page.
     if (currentRoute != routeName) {
       if (router != null) {

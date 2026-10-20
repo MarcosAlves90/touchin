@@ -4,24 +4,49 @@ import 'package:touchin_flutter/features/auth/presentation/auth_session_navigati
 
 /// Route information is owned by Router, so the browser retains its forward
 /// entry when the user goes back to a previously visited workspace.
-class WorkspaceRouteParser extends RouteInformationParser<String> {
+class WorkspaceLocation {
+  const WorkspaceLocation(this.path, [this.entryId]);
+
+  final String path;
+  final String? entryId;
+
   @override
-  Future<String> parseRouteInformation(
+  bool operator ==(Object other) =>
+      other is WorkspaceLocation &&
+      other.path == path &&
+      other.entryId == entryId;
+
+  @override
+  int get hashCode => Object.hash(path, entryId);
+}
+
+class WorkspaceRouteParser extends RouteInformationParser<WorkspaceLocation> {
+  @override
+  Future<WorkspaceLocation> parseRouteInformation(
       RouteInformation routeInformation) async {
     final path = routeInformation.uri.path;
-    return path.startsWith('/') && path.isNotEmpty ? path : '/';
+    return WorkspaceLocation(
+      path.startsWith('/') && path.isNotEmpty ? path : '/',
+      routeInformation.state is String
+          ? routeInformation.state! as String
+          : null,
+    );
   }
 
   @override
-  RouteInformation restoreRouteInformation(String configuration) {
-    return RouteInformation(uri: Uri(path: configuration));
+  RouteInformation restoreRouteInformation(WorkspaceLocation configuration) {
+    return RouteInformation(
+      uri: Uri(path: configuration.path),
+      state: configuration.entryId,
+    );
   }
 }
 
-class WorkspaceRouter extends RouterDelegate<String>
-    with ChangeNotifier, PopNavigatorRouterDelegateMixin<String> {
+class WorkspaceRouter extends RouterDelegate<WorkspaceLocation>
+    with ChangeNotifier, PopNavigatorRouterDelegateMixin<WorkspaceLocation> {
   WorkspaceRouter({required this.buildRoute, String initialPath = '/'})
       : _history = <String>[_normalize(initialPath)],
+        _entryIds = <String>['entry-0'],
         _entrySessions = <AuthSession?>[null];
 
   final Widget Function(BuildContext, String, AuthSession?) buildRoute;
@@ -30,6 +55,8 @@ class WorkspaceRouter extends RouterDelegate<String>
   final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
   final List<String> _history;
+  final List<String> _entryIds;
+  int _nextEntryId = 1;
   // An already-mounted history page keeps its session bootstrap identity when
   // a new route becomes active; otherwise navigating triggers redundant auth.
   final List<AuthSession?> _entrySessions;
@@ -38,17 +65,30 @@ class WorkspaceRouter extends RouterDelegate<String>
   String get _path => _history[_currentIndex];
 
   @override
-  String get currentConfiguration => _path;
+  WorkspaceLocation get currentConfiguration =>
+      WorkspaceLocation(_path, _entryIds[_currentIndex]);
 
   @override
-  Future<void> setNewRoutePath(String configuration) async {
-    final normalized = _normalize(configuration);
-    if (_path == normalized) return;
+  Future<void> setNewRoutePath(WorkspaceLocation configuration) async {
+    final normalized = _normalize(configuration.path);
+    final id = configuration.entryId;
+    if (id != null) {
+      final match = _entryIds.indexOf(id);
+      if (match >= 0) {
+        if (match == _currentIndex) return;
+        _currentIndex = match;
+        notifyListeners();
+        return;
+      }
+    }
+    if (_path == normalized && id == null) return;
     // Browser history moves between existing entries. Keep the forward branch
     // until a new navigation is explicitly requested by the user.
     final previous = _history.lastIndexOf(normalized, _currentIndex - 1);
     final following = _history.indexOf(normalized, _currentIndex + 1);
-    if (previous >= 0) {
+    if (id != null) {
+      _push(normalized, entryId: id);
+    } else if (previous >= 0) {
       _currentIndex = previous;
     } else if (following >= 0) {
       _currentIndex = following;
@@ -68,10 +108,12 @@ class WorkspaceRouter extends RouterDelegate<String>
     notifyListeners();
   }
 
-  void _push(String path) {
+  void _push(String path, {String? entryId}) {
     _history.removeRange(_currentIndex + 1, _history.length);
+    _entryIds.removeRange(_currentIndex + 1, _entryIds.length);
     _entrySessions.removeRange(_currentIndex + 1, _entrySessions.length);
     _history.add(path);
+    _entryIds.add(entryId ?? 'entry-${_nextEntryId++}');
     _entrySessions.add(null);
     _currentIndex++;
   }
@@ -80,6 +122,9 @@ class WorkspaceRouter extends RouterDelegate<String>
     _history
       ..clear()
       ..add(path);
+    _entryIds
+      ..clear()
+      ..add('entry-${_nextEntryId++}');
     _entrySessions
       ..clear()
       ..add(session);
@@ -148,7 +193,7 @@ class WorkspaceRouterScope extends InheritedWidget {
       BuildContext context, AuthSession session) {
     final router = maybeOf(context);
     if (router != null) {
-      router.authenticate(session);
+      Router.neglect(context, () => router.authenticate(session));
     } else {
       Navigator.of(context).pushReplacement(
         buildAuthenticatedWorkspaceRoute(session),

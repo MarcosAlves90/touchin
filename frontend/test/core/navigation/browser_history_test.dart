@@ -11,6 +11,36 @@ import 'package:touchin_flutter/features/settings/presentation/settings_page.dar
 import 'package:touchin_flutter/main.dart';
 
 void main() {
+  test('repeated URLs retain their distinct browser history entry IDs',
+      () async {
+    final router = WorkspaceRouter(
+      initialPath: '/projects',
+      buildRoute: (_, __, ___) => const SizedBox.shrink(),
+    );
+    addTearDown(router.dispose);
+    final first = router.currentConfiguration;
+    router.navigate('/settings');
+    final middle = router.currentConfiguration;
+    router.navigate('/projects');
+    final last = router.currentConfiguration;
+
+    expect(first.entryId, isNot(last.entryId));
+    await router.setNewRoutePath(middle);
+    expect(router.currentConfiguration.entryId, middle.entryId);
+    await router.setNewRoutePath(last);
+    expect(router.currentConfiguration.entryId, last.entryId);
+    await router.setNewRoutePath(middle);
+    await router.setNewRoutePath(first);
+    expect(router.currentConfiguration.entryId, first.entryId);
+
+    final parser = WorkspaceRouteParser();
+    final recovered = await parser.parseRouteInformation(
+      parser.restoreRouteInformation(last),
+    );
+    expect(recovered.path, last.path);
+    expect(recovered.entryId, last.entryId);
+  });
+
   testWidgets('production Router handles native Back after closing a modal',
       (tester) async {
     tester.binding.platformDispatcher.defaultRouteNameTestValue =
@@ -47,12 +77,12 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.text('Diálogo de teste'), findsNothing);
-    expect(router.currentConfiguration, '/projects');
+    expect(router.currentConfiguration.path, '/projects');
 
     expect(await tester.binding.handlePopRoute(), isTrue);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
-    expect(router.currentConfiguration, '/admin/employees');
+    expect(router.currentConfiguration.path, '/admin/employees');
     expect(find.byType(AdminEmployeesPage), findsOneWidget);
     expect(find.byType(ProjectTasksPage), findsNothing);
   });
@@ -86,14 +116,14 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
     await tester.pump(const Duration(milliseconds: 500));
-    expect(router.currentConfiguration, '/projects');
+    expect(router.currentConfiguration.path, '/projects');
     expect(find.byType(ProjectTasksPage), findsOneWidget);
 
     router.navigate('/settings');
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
     await tester.pump(const Duration(milliseconds: 500));
-    expect(router.currentConfiguration, '/settings');
+    expect(router.currentConfiguration.path, '/settings');
     expect(find.byType(ThemeSettingsPage), findsOneWidget);
 
     // Popstate-style updates must move through A-B-C-Back-Back-Forward-Forward
@@ -114,7 +144,7 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
       await tester.pump(const Duration(milliseconds: 500));
-      expect(router.currentConfiguration, path);
+      expect(router.currentConfiguration.path, path);
       expect(find.byType(screen), findsOneWidget);
     }
   });

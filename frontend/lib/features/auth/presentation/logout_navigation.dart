@@ -28,7 +28,7 @@ Future<void> logoutFromWorkspace(
 
   final router = WorkspaceRouterScope.maybeOf(context);
   if (router != null) {
-    router.signedOut();
+    Router.neglect(context, router.signedOut);
     return;
   }
 

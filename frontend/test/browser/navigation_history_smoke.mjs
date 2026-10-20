@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { rm } from 'node:fs/promises';
 import {
   findChromeExecutable, waitFor, readCsp, serveBuild, startChrome, DevTools,
-  getButton, hasVisibleText, clickButton,
+  getButton, clickButton,
 } from './first_paint_smoke.mjs';
 
 const session = {
@@ -86,15 +86,22 @@ const routes = {
 
 async function expectRoute(cdp, route) {
   const browserRoute = 'location.hash.startsWith("#/") ? location.hash.slice(1) : location.pathname';
+  const hasRouteText = async () => cdp.evaluate(`(() => [...document.querySelectorAll('flt-semantics')]
+    .some((element) => {
+      if (!(element.textContent || '').includes(${JSON.stringify(routes[route])})) return false;
+      const rect = element.getBoundingClientRect();
+      return rect.width > 3 && rect.height > 3 && rect.bottom > 0 && rect.top < innerHeight;
+    }))()`);
   try {
     await waitFor(async () => {
       const pathname = await cdp.evaluate(browserRoute);
-      return pathname === route && await hasVisibleText(cdp, routes[route]);
+      return pathname === route && await hasRouteText();
     }, `URL and visible content for ${route}`, 20000);
   } catch (error) {
     const state = await cdp.evaluate(`({
       url:location.href,
-      labels:[...document.querySelectorAll('flt-semantics')].map(e => e.textContent?.trim()).filter(Boolean).slice(0,35),
+      historyState:history.state,
+      labels:[...document.querySelectorAll('flt-semantics')].map(e => e.textContent?.trim()).filter(Boolean).slice(0,8),
       placeholders:document.querySelectorAll('flt-semantics-placeholder').length,
       storageKeys:Object.keys(localStorage).filter(k=>k.startsWith('FlutterSecureStorage')).sort(),
     })`);
@@ -103,7 +110,7 @@ async function expectRoute(cdp, route) {
   }
   const actual = await cdp.evaluate(browserRoute);
   assert.equal(actual, route);
-  assert.ok(await hasVisibleText(cdp, routes[route]), `${route}: content mismatch`);
+  assert.ok(await hasRouteText(), `${route}: content mismatch`);
 }
 
 async function navigateViaDrawer(cdp, label, path) {
@@ -130,6 +137,7 @@ async function smoke() {
       await waitFor(() => cdp.evaluate('document.readyState === "complete"'),
         'initial document load', 30000);
       await seedSession(cdp);
+      const historyLengthBeforeAuthenticatedReload = await cdp.evaluate('history.length');
       await cdp.send('Page.reload', { ignoreCache: true });
       await waitFor(() => cdp.evaluate(`(() => {
         const placeholder = document.querySelector('flt-semantics-placeholder');
@@ -137,6 +145,9 @@ async function smoke() {
         return !!placeholder || document.querySelectorAll('flt-semantics').length > 0;
       })()`), 'Flutter semantics', 30000);
       await expectRoute(cdp, '/admin/employees');
+      assert.equal(await cdp.evaluate('history.length'),
+        historyLengthBeforeAuthenticatedReload,
+        'Authenticated canonical redirect must replace its browser entry');
       await navigateViaDrawer(cdp, 'Projetos e tarefas', '/projects');
       await navigateViaDrawer(cdp, 'Configurações', '/settings');
 
@@ -158,7 +169,17 @@ async function smoke() {
       await expectRoute(cdp, '/kanban');
       await cdp.evaluate('history.back()');
       await expectRoute(cdp, '/projects');
-      console.log('PASS navigation_history_smoke: URL and content, Back/Forward, deduplication, branch replacement');
+      // A and A2 have the same URL but different browser entry identities.
+      await navigateViaDrawer(cdp, 'Administrar Equipe', '/admin/employees');
+      await navigateViaDrawer(cdp, 'Configurações', '/settings');
+      await navigateViaDrawer(cdp, 'Administrar Equipe', '/admin/employees');
+      await cdp.evaluate('history.back()');
+      await expectRoute(cdp, '/settings');
+      await cdp.evaluate('history.forward()');
+      await expectRoute(cdp, '/admin/employees');
+      await cdp.evaluate('history.back()');
+      await expectRoute(cdp, '/settings');
+      console.log('PASS navigation_history_smoke: URL and content, Back/Forward, repeated URLs, deduplication, branch replacement');
     } finally {
       await stopMock();
     }
@@ -169,8 +190,13 @@ async function smoke() {
       await waitFor(() => chrome.processHandle.exitCode !== null ||
         chrome.processHandle.signalCode !== null, 'Chrome exit', 4000)
         .catch(() => chrome.processHandle.kill('SIGKILL'));
-      await rm(chrome.directory, { recursive: true, force: true, maxRetries: 4 });
+      await rm(chrome.directory, { recursive: true, force: true, maxRetries: 8,
+        retryDelay: 300 }).catch((error) => {
+        console.warn(`Chrome temporary profile cleanup: ${error.message}`);
+      });
+      chrome.processHandle.stderr?.destroy();
     }
+    server.closeAllConnections();
     await new Promise((resolve) => server.close(resolve));
   }
 }
