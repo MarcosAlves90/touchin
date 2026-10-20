@@ -234,6 +234,9 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
                 ),
                 const Spacer(),
                 ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: const Size(0, 52),
+                  ),
                   onPressed: () => _loadEvents(refresh: true),
                   child: const Text('Apply Filters'),
                 ),
@@ -310,15 +313,18 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
                               );
                             }
                             final event = _events[index];
-                            return ListTile(
-                              title: Text('${event.action} - ${event.result}'),
-                              subtitle: Text(
-                                'Ator: ${event.actorUserId ?? 'N/A'}\n'
-                                'Recurso: ${event.entityType} (${event.entityId})\n'
-                                'Projeto: ${event.projectId ?? 'N/A'}',
+                            return Material(
+                              type: MaterialType.transparency,
+                              child: ListTile(
+                                title: Text('${event.action} - ${event.result}'),
+                                subtitle: Text(
+                                  'Ator: ${event.actorUserId ?? 'N/A'}\n'
+                                  'Recurso: ${event.entityType} (${event.entityId})\n'
+                                  'Projeto: ${event.projectId ?? 'N/A'}',
+                                ),
+                                isThreeLine: true,
+                                trailing: Text(event.timestamp.toLocal().toString().split('.').first),
                               ),
-                              isThreeLine: true,
-                              trailing: Text(event.timestamp.toLocal().toString().split('.').first),
                             );
                           },
                         ),

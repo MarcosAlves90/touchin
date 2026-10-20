@@ -1,6 +1,7 @@
 """Run the existing backend and Flutter test suites without a shell command string."""
 
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 
@@ -21,7 +22,7 @@ for name, command, directory in (
         ROOT,
     ),
     ("backend", [backend_python, "-m", "pytest"], BACKEND),
-    ("frontend", ["flutter", "test"], FRONTEND),
+    ("frontend", [shutil.which("flutter.bat") or shutil.which("flutter") or "flutter", "test"], FRONTEND),
 ):
     print(f"POLIS tests: {name}", flush=True)
     result = subprocess.run(command, cwd=directory, check=False)

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import re
+import subprocess
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -30,13 +31,13 @@ FLAGGED_TEST_VALUE = "Touch" + "In@123"
 
 
 def _repository_paths() -> list[Path]:
-    paths: list[Path] = []
-    for path in ROOT.rglob("*"):
-        relative = path.relative_to(ROOT)
-        if any(part in IGNORED_DIRS for part in relative.parts):
-            continue
-        paths.append(path)
-    return paths
+    # Git determines repository content. Generated Flutter files and private
+    # .env files are ignored and must not change the result of this gate.
+    tracked_and_new = subprocess.check_output(
+        ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z"],
+        cwd=ROOT,
+    )
+    return [ROOT / entry.decode("utf-8") for entry in tracked_and_new.split(b"\0") if entry]
 
 
 def _find_branding_offenders() -> list[str]:
@@ -138,6 +139,13 @@ def _find_offenders() -> list[str]:
 def test_repository_uses_touchin_identity_only() -> None:
     offenders = _find_branding_offenders()
     assert not offenders, "old product identity remains: " + ", ".join(offenders)
+
+
+def test_branding_gate_only_inspects_repository_content() -> None:
+    paths = {path.relative_to(ROOT).as_posix() for path in _repository_paths()}
+    assert "backend/app/db.py" in paths
+    assert "backend/.env" not in paths
+    assert "frontend/ios/Flutter/Generated.xcconfig" not in paths
 
 
 def test_repository_satisfies_quality_contract() -> None:
