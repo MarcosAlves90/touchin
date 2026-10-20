@@ -46,11 +46,14 @@ class _WorkspaceInstantSelectFieldState<T>
       enabled: _enabled,
       expanded: _menuOpen,
       label: widget.semanticLabel ?? widget.decoration.labelText,
+      value: selected?.label ?? 'Nenhuma opção selecionada',
+      onTap: _enabled ? _openMenu : null,
       child: MouseRegion(
         cursor: _enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
         child: InkWell(
           key: _anchorKey,
           onTap: _enabled ? _openMenu : null,
+          excludeFromSemantics: true,
           child: InputDecorator(
             isEmpty: selected == null,
             isFocused: _menuOpen,

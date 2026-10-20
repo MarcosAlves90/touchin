@@ -1,6 +1,5 @@
 import 'dart:ui';
 
-import 'package:touchin_flutter/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 
 part 'auth_form_widgets.dart';
@@ -155,7 +154,7 @@ class AuthCompactBrandBadge extends StatelessWidget {
       ),
       child: _AuthBrandMark(
         compact: true,
-        foregroundColor: colorScheme.primary,
+        foregroundColor: colorScheme.onSurface,
       ),
     );
   }
@@ -214,58 +213,75 @@ class _AuthBrandPanel extends StatelessWidget {
     final primary = colorScheme.primary;
     final secondary = colorScheme.secondary;
 
-    return Container(
-      padding: const EdgeInsets.fromLTRB(40, 48, 40, 40),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            primary.withValues(alpha: 0.96),
-            secondary.withValues(alpha: 0.92),
-          ],
+    return LayoutBuilder(
+      builder: (context, constraints) => Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              primary.withValues(alpha: 0.96),
+              secondary.withValues(alpha: 0.92),
+            ],
+          ),
         ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            decoration: BoxDecoration(
-              color: colorScheme.surface.withValues(alpha: 0.12),
-              border: Border.all(
-                color: colorScheme.onPrimary.withValues(alpha: 0.22),
+        child: SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(40, 48, 40, 40),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: colorScheme.surface.withValues(alpha: 0.12),
+                      border: Border.all(
+                        color: colorScheme.onPrimary.withValues(alpha: 0.22),
+                      ),
+                    ),
+                    child: _AuthBrandMark(
+                      compact: false,
+                      foregroundColor: colorScheme.onPrimary,
+                    ),
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        headline,
+                        style: theme.textTheme.displaySmall?.copyWith(
+                          color: colorScheme.onPrimary,
+                          fontWeight: FontWeight.w700,
+                          height: 1.2,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        description,
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          color: colorScheme.onPrimary.withValues(alpha: 0.92),
+                          height: 1.55,
+                        ),
+                      ),
+                      const SizedBox(height: 28),
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 12,
+                        children: [
+                          for (final tag in tags) _AuthHighlightTag(label: tag),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
-            child: _AuthBrandMark(
-              compact: false,
-              foregroundColor: colorScheme.onPrimary,
-            ),
           ),
-          const Spacer(),
-          Text(
-            headline,
-            style: theme.textTheme.displaySmall?.copyWith(
-              color: colorScheme.onPrimary,
-              fontWeight: FontWeight.w700,
-              height: 1.05,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            description,
-            style: theme.textTheme.bodyLarge?.copyWith(
-              color: colorScheme.onPrimary.withValues(alpha: 0.92),
-              height: 1.55,
-            ),
-          ),
-          const SizedBox(height: 28),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: [for (final tag in tags) _AuthHighlightTag(label: tag)],
-          ),
-        ],
+        ),
       ),
     );
   }

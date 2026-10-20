@@ -22,6 +22,7 @@ class _MustChangePasswordPageState extends State<MustChangePasswordPage>
   bool _obscureCurrent = true;
   bool _obscureNew = true;
   bool _obscureConfirm = true;
+  bool _hasValidationErrors = false;
 
   @override
   void dispose() {
@@ -34,7 +35,9 @@ class _MustChangePasswordPageState extends State<MustChangePasswordPage>
   Future<void> _submit() async {
     FocusScope.of(context).unfocus();
 
-    if (!_formKey.currentState!.validate()) {
+    final valid = _formKey.currentState!.validate();
+    setState(() => _hasValidationErrors = !valid);
+    if (!valid) {
       return;
     }
 
@@ -78,7 +81,7 @@ class _MustChangePasswordPageState extends State<MustChangePasswordPage>
       return 'Confirme a nova senha.';
     }
     if (value != _newPasswordController.text) {
-      return 'As senhas nao conferem.';
+      return 'As senhas não conferem.';
     }
     return null;
   }
@@ -103,11 +106,10 @@ class _MustChangePasswordPageState extends State<MustChangePasswordPage>
         labelText: label,
         hintText: hint,
         prefixIcon: const Icon(Icons.lock_outline_rounded),
-        suffixIcon: IconButton(
+        suffixIcon: AuthPasswordVisibilityButton(
+          fieldName: label.toLowerCase(),
+          isObscured: obscure,
           onPressed: () => onToggleObscure(!obscure),
-          icon: Icon(
-            obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-          ),
         ),
       ),
       validator: validator,
@@ -122,7 +124,7 @@ class _MustChangePasswordPageState extends State<MustChangePasswordPage>
           'Você está usando uma senha temporária. Crie uma nova senha para continuar.',
       brandTags: const [
         'E2E Encryption',
-        'Seguranca',
+        'Segurança',
         'Cloud Native',
       ],
       formPanel: _buildFormPanel(context),
@@ -150,11 +152,12 @@ class _MustChangePasswordPageState extends State<MustChangePasswordPage>
               ),
             ),
             const SizedBox(height: 24),
+            if (_hasValidationErrors) const AuthFormValidationMessage(),
             _buildPasswordField(
               controller: _currentPasswordController,
               obscure: _obscureCurrent,
               onToggleObscure: (v) => setState(() => _obscureCurrent = v),
-              label: 'Senha atual (temporaria)',
+              label: 'Senha atual (temporária)',
               hint: 'Digite a senha recebida por e-mail',
               validator: _validatePassword,
             ),
@@ -164,7 +167,7 @@ class _MustChangePasswordPageState extends State<MustChangePasswordPage>
               obscure: _obscureNew,
               onToggleObscure: (v) => setState(() => _obscureNew = v),
               label: 'Nova senha',
-              hint: 'Minimo de 8 caracteres',
+              hint: 'Mínimo de 8 caracteres',
               validator: _validatePassword,
             ),
             const SizedBox(height: 16),
@@ -188,11 +191,7 @@ class _MustChangePasswordPageState extends State<MustChangePasswordPage>
                         _submit();
                       },
                 child: isSubmitting
-                    ? const SizedBox(
-                        height: 18,
-                        width: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
+                    ? const AuthSubmissionIndicator(label: 'Redefinindo senha')
                     : const Text('Redefinir senha'),
               ),
             ),

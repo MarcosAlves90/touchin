@@ -403,13 +403,16 @@ class WorkspaceSidebar extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 48),
-          Text(
-            title,
-            style: theme.textTheme.displaySmall?.copyWith(
-              color: colorScheme.onPrimary,
-              fontWeight: FontWeight.w900,
-              height: 1.1,
-              letterSpacing: -0.8,
+          Semantics(
+            header: true,
+            child: Text(
+              title,
+              style: theme.textTheme.displaySmall?.copyWith(
+                color: colorScheme.onPrimary,
+                fontWeight: FontWeight.w900,
+                height: 1.1,
+                letterSpacing: -0.8,
+              ),
             ),
           ),
           const SizedBox(height: 16),
@@ -435,7 +438,7 @@ class WorkspaceSidebar extends StatelessWidget {
             Text(
               'RESUMO',
               style: theme.textTheme.labelSmall?.copyWith(
-                color: colorScheme.onPrimary.withValues(alpha: 0.5),
+                color: colorScheme.onPrimary.withValues(alpha: 0.85),
                 letterSpacing: 1.5,
                 fontWeight: FontWeight.w800,
               ),
@@ -493,6 +496,7 @@ class WorkspaceSidebar extends StatelessWidget {
             IconButton(
               onPressed: () => Scaffold.of(context).openDrawer(),
               icon: Icon(Icons.menu_rounded, color: colorScheme.onPrimary),
+              tooltip: 'Abrir menu',
               visualDensity: VisualDensity.compact,
             ),
             const SizedBox(width: 8),
@@ -566,10 +570,13 @@ class WorkspaceHeader extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Text(
-                title,
-                style: theme.textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
+              Semantics(
+                header: true,
+                child: Text(
+                  title,
+                  style: theme.textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
               const SizedBox(height: 8),

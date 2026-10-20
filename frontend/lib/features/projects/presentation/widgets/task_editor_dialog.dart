@@ -119,10 +119,13 @@ class _ProjectTaskEditorDialogState extends State<ProjectTaskEditorDialog> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
             if (_saveError != null) ...[
-              Text(
-                _saveError!,
-                key: const ValueKey('task-editor-save-error'),
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              Semantics(
+                liveRegion: true,
+                child: Text(
+                  _saveError!,
+                  key: const ValueKey('task-editor-save-error'),
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
               ),
               if (_editConflict)
                 TextButton.icon(

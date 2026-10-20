@@ -29,6 +29,7 @@ class _RegisterPageState extends State<RegisterPage>
   bool _acceptTerms = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+  bool _hasValidationErrors = false;
 
   @override
   void dispose() {
@@ -45,7 +46,9 @@ class _RegisterPageState extends State<RegisterPage>
   Future<void> _submit() async {
     FocusScope.of(context).unfocus();
 
-    if (!_formKey.currentState!.validate()) {
+    final valid = _formKey.currentState!.validate();
+    setState(() => _hasValidationErrors = !valid);
+    if (!valid) {
       return;
     }
 
@@ -163,6 +166,7 @@ class _RegisterPageState extends State<RegisterPage>
               ),
             ),
             const SizedBox(height: 24),
+            if (_hasValidationErrors) const AuthFormValidationMessage(),
             TextFormField(
               controller: _companyNameController,
               textInputAction: TextInputAction.next,
@@ -281,17 +285,14 @@ class _RegisterPageState extends State<RegisterPage>
                 labelText: 'Senha',
                 hintText: 'Crie uma senha de acesso',
                 prefixIcon: const Icon(Icons.lock_outline_rounded),
-                suffixIcon: IconButton(
+                suffixIcon: AuthPasswordVisibilityButton(
+                  fieldName: 'senha',
+                  isObscured: _obscurePassword,
                   onPressed: () {
                     setState(() {
                       _obscurePassword = !_obscurePassword;
                     });
                   },
-                  icon: Icon(
-                    _obscurePassword
-                        ? Icons.visibility_outlined
-                        : Icons.visibility_off_outlined,
-                  ),
                 ),
               ),
               validator: (value) {
@@ -316,17 +317,14 @@ class _RegisterPageState extends State<RegisterPage>
                 labelText: 'Confirmar senha',
                 hintText: 'Repita a senha criada',
                 prefixIcon: const Icon(Icons.lock_person_outlined),
-                suffixIcon: IconButton(
+                suffixIcon: AuthPasswordVisibilityButton(
+                  fieldName: 'confirmação de senha',
+                  isObscured: _obscureConfirmPassword,
                   onPressed: () {
                     setState(() {
                       _obscureConfirmPassword = !_obscureConfirmPassword;
                     });
                   },
-                  icon: Icon(
-                    _obscureConfirmPassword
-                        ? Icons.visibility_outlined
-                        : Icons.visibility_off_outlined,
-                  ),
                 ),
               ),
               validator: (value) {
@@ -364,11 +362,7 @@ class _RegisterPageState extends State<RegisterPage>
             ElevatedButton(
               onPressed: isSubmitting ? null : _submit,
               child: isSubmitting
-                  ? const SizedBox(
-                      height: 18,
-                      width: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
+                  ? const AuthSubmissionIndicator(label: 'Cadastrando empresa')
                   : const Text('Cadastrar empresa'),
             ),
             const SizedBox(height: 12),

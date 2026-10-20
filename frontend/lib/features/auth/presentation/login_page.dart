@@ -23,6 +23,7 @@ class _LoginPageState extends State<LoginPage>
 
   bool _keepConnected = true;
   bool _obscurePassword = true;
+  bool _hasValidationErrors = false;
 
   @override
   void dispose() {
@@ -34,7 +35,9 @@ class _LoginPageState extends State<LoginPage>
   Future<void> _submit() async {
     FocusScope.of(context).unfocus();
 
-    if (!_formKey.currentState!.validate()) {
+    final valid = _formKey.currentState!.validate();
+    setState(() => _hasValidationErrors = !valid);
+    if (!valid) {
       return;
     }
 
@@ -99,6 +102,7 @@ class _LoginPageState extends State<LoginPage>
               ),
             ),
             const SizedBox(height: 28),
+            if (_hasValidationErrors) const AuthFormValidationMessage(),
             TextFormField(
               controller: _emailController,
               keyboardType: TextInputType.emailAddress,
@@ -132,17 +136,14 @@ class _LoginPageState extends State<LoginPage>
                 labelText: 'Senha',
                 hintText: 'Digite sua senha',
                 prefixIcon: const Icon(Icons.lock_outline_rounded),
-                suffixIcon: IconButton(
+                suffixIcon: AuthPasswordVisibilityButton(
+                  fieldName: 'senha',
+                  isObscured: _obscurePassword,
                   onPressed: () {
                     setState(() {
                       _obscurePassword = !_obscurePassword;
                     });
                   },
-                  icon: Icon(
-                    _obscurePassword
-                        ? Icons.visibility_outlined
-                        : Icons.visibility_off_outlined,
-                  ),
                 ),
               ),
               validator: (value) {
@@ -158,29 +159,27 @@ class _LoginPageState extends State<LoginPage>
               },
             ),
             const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: CheckboxListTile(
-                    value: _keepConnected,
-                    onChanged: (value) {
-                      setState(() {
-                        _keepConnected = value ?? false;
-                      });
-                    },
-                    dense: true,
-                    controlAffinity: ListTileControlAffinity.leading,
-                    contentPadding: EdgeInsets.zero,
-                    checkboxShape: const RoundedRectangleBorder(
-                      borderRadius: BorderRadius.zero,
-                    ),
-                    title: Text(
-                      'Manter conectado',
-                      style: theme.textTheme.bodyMedium,
-                    ),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final keepConnected = CheckboxListTile(
+                  value: _keepConnected,
+                  onChanged: (value) {
+                    setState(() {
+                      _keepConnected = value ?? false;
+                    });
+                  },
+                  dense: true,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  contentPadding: EdgeInsets.zero,
+                  checkboxShape: const RoundedRectangleBorder(
+                    borderRadius: BorderRadius.zero,
                   ),
-                ),
-                TextButton(
+                  title: Text(
+                    'Manter conectado',
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                );
+                final forgotPassword = TextButton(
                   onPressed: () {
                     Navigator.of(context).push(
                       MaterialPageRoute<void>(
@@ -189,8 +188,21 @@ class _LoginPageState extends State<LoginPage>
                     );
                   },
                   child: const Text('Esqueci a senha'),
-                ),
-              ],
+                );
+                if (constraints.maxWidth < 420 ||
+                    MediaQuery.textScalerOf(context).scale(14) > 22) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [keepConnected, forgotPassword],
+                  );
+                }
+                return Row(
+                  children: [
+                    Expanded(child: keepConnected),
+                    forgotPassword,
+                  ],
+                );
+              },
             ),
             const SizedBox(height: 12),
             ElevatedButton(
@@ -200,11 +212,7 @@ class _LoginPageState extends State<LoginPage>
                       _submit();
                     },
               child: isSubmitting
-                  ? const SizedBox(
-                      height: 18,
-                      width: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
+                  ? const AuthSubmissionIndicator(label: 'Entrando')
                   : const Text('Entrar'),
             ),
             const SizedBox(height: 20),

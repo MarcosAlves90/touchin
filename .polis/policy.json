@@ -41,9 +41,8 @@
         "argv": [
           "dart",
           "analyze",
-          "lib/core/theme",
-          "test/core/theme/theme_mode_controller_test.dart",
-          "test/widget_test.dart"
+          "lib",
+          "test"
         ],
         "cwd": "frontend",
         "timeout_seconds": 600,
@@ -74,6 +73,7 @@
     {
       "id": "smoke",
       "mode": "command",
+      "depends_on": ["build"],
       "command": {
         "argv": ["node", "test/browser/first_paint_smoke.mjs"],
         "cwd": "frontend",
