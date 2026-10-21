@@ -2,6 +2,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:touchin_flutter/contracts/auth.dart';
+import 'package:touchin_flutter/core/network/api_client.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
 import 'package:touchin_flutter/core/storage/token_storage.dart';
 import 'package:touchin_flutter/core/navigation/workspace_router.dart';
@@ -11,6 +12,49 @@ import 'package:touchin_flutter/features/settings/presentation/settings_page.dar
 import 'package:touchin_flutter/main.dart';
 
 void main() {
+  testWidgets(
+      'revoked session cannot restore a cached page via Back or Forward',
+      (tester) async {
+    tester.binding.platformDispatcher.defaultRouteNameTestValue =
+        '/admin/employees';
+    addTearDown(() {
+      tester.binding.platformDispatcher.defaultRouteNameTestValue = '/';
+    });
+    final storage = _MemoryStorage()..session = _session;
+    final api = _RevokingSessionApi(tokenStorage: storage);
+    await tester.pumpWidget(MyApp(api: api, tokenStorage: storage));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byType(AdminEmployeesPage), findsOneWidget);
+
+    final router = WorkspaceRouterScope.maybeOf(
+      tester.element(find.byType(AdminEmployeesPage)),
+    )!;
+    final first = router.currentConfiguration;
+    router.navigate('/projects');
+    final second = router.currentConfiguration;
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(api.authContextRequests, 2);
+    expect(storage.session, isNull);
+    expect(find.byType(ProjectTasksPage), findsNothing);
+    expect(find.text('Entrar'), findsWidgets);
+
+    await router.setNewRoutePath(first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byType(AdminEmployeesPage), findsNothing,
+        reason: 'Back must not expose the cached authenticated screen');
+    expect(find.text('Entrar'), findsWidgets);
+
+    await router.setNewRoutePath(second);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byType(ProjectTasksPage), findsNothing);
+    expect(find.text('Entrar'), findsWidgets);
+  });
+
   testWidgets('reload restores one page and avoids reused history IDs',
       (tester) async {
     final router = WorkspaceRouter(
@@ -210,6 +254,21 @@ class _SessionApi extends TouchInApi {
   @override
   Future<AuthContext> getAuthContext() async =>
       const AuthContext(company: _company, user: _user);
+}
+
+class _RevokingSessionApi extends TouchInApi {
+  _RevokingSessionApi({required super.tokenStorage});
+
+  int authContextRequests = 0;
+
+  @override
+  Future<AuthContext> getAuthContext() async {
+    authContextRequests++;
+    if (authContextRequests == 1) {
+      return const AuthContext(company: _company, user: _user);
+    }
+    throw ApiException('Sessão revogada', statusCode: 401);
+  }
 }
 
 class _MemoryStorage extends TokenStorage {

@@ -67,6 +67,10 @@ class WorkspaceRouter extends RouterDelegate<WorkspaceLocation>
   // a new route becomes active; otherwise navigating triggers redundant auth.
   final List<AuthSession?> _entrySessions;
   int _currentIndex = 0;
+  int _sessionGeneration = 0;
+  bool _sessionRevoked = false;
+  int get sessionGeneration => _sessionGeneration;
+  bool get sessionRevoked => _sessionRevoked;
 
   String get _path => _history[_currentIndex];
 
@@ -165,14 +169,23 @@ class WorkspaceRouter extends RouterDelegate<WorkspaceLocation>
   }
 
   void authenticate(AuthSession session) {
+    _sessionRevoked = false;
+    _sessionGeneration++;
     final route = buildAuthenticatedWorkspaceRoute(session).settings.name!;
     _replaceHistory(route, session);
     notifyListeners();
   }
 
   void signedOut() {
+    _sessionGeneration++;
+    _sessionRevoked = true;
     _replaceHistory('/');
     notifyListeners();
+  }
+
+  void revokeSession() {
+    if (_sessionRevoked) return;
+    signedOut();
   }
 
   void _didRemovePage(Page<Object?> page) {

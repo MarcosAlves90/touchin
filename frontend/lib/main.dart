@@ -45,6 +45,7 @@ class _MyAppState extends State<MyApp> {
   TokenStorage get _tokenStorage => widget.tokenStorage ?? TokenStorage();
 
   Future<_SessionBootstrapResult> _bootstrapSession() async {
+    final generation = _router.sessionGeneration;
     AuthSession? persistedSession;
     try {
       persistedSession = await _tokenStorage.readAuthSession();
@@ -53,6 +54,9 @@ class _MyAppState extends State<MyApp> {
     }
 
     if (persistedSession == null) {
+      return const _SessionBootstrapResult.unauthenticated();
+    }
+    if (generation != _router.sessionGeneration || _router.sessionRevoked) {
       return const _SessionBootstrapResult.unauthenticated();
     }
 
@@ -68,6 +72,9 @@ class _MyAppState extends State<MyApp> {
 
     try {
       final authContext = await _api.getAuthContext();
+      if (generation != _router.sessionGeneration) {
+        return const _SessionBootstrapResult.unauthenticated();
+      }
       return _SessionBootstrapResult.authenticated(
         persistedSession.copyWith(
           company: authContext.company,
@@ -76,6 +83,7 @@ class _MyAppState extends State<MyApp> {
       );
     } on ApiException catch (error) {
       if (error.statusCode == 401 || error.statusCode == 403) {
+        _router.revokeSession();
         try {
           await _tokenStorage.clearAccessToken();
         } catch (_) {
@@ -162,7 +170,7 @@ class _SessionGateState extends State<_SessionGate> {
   }
 
   Future<_SessionBootstrapResult> _resolveSession() =>
-      widget.initialSession == null
+      widget.initialSession == null || widget.router.sessionRevoked
           ? widget.bootstrap()
           : Future.value(_SessionBootstrapResult.authenticated(
               widget.initialSession!,
@@ -193,8 +201,11 @@ class _SessionGateState extends State<_SessionGate> {
           if (widget.routeName == '/' ||
               (session.mustChangePassword &&
                   widget.routeName != '/must-change-password')) {
+            final generation = widget.router.sessionGeneration;
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) {
+              if (mounted &&
+                  generation == widget.router.sessionGeneration &&
+                  !widget.router.sessionRevoked) {
                 Router.neglect(
                     context, () => widget.router.authenticate(session));
               }
