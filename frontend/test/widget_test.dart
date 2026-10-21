@@ -657,4 +657,11 @@ class _InMemoryTokenStorage extends TokenStorage {
   Future<void> clearAccessToken() async {
     savedSession = null;
   }
+
+  @override
+  Future<void> clearSessionIfTokenMatches(String expectedToken) async {
+    if (savedSession?.accessToken == expectedToken) {
+      savedSession = null;
+    }
+  }
 }

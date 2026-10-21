@@ -63,7 +63,11 @@ class _MyAppState extends State<MyApp> {
     final now = DateTime.now().toUtc();
     if (!persistedSession.expiresAt.isAfter(now)) {
       try {
-        await _tokenStorage.clearAccessToken();
+        if (generation == _router.sessionGeneration) {
+          await _tokenStorage.clearSessionIfTokenMatches(
+            persistedSession.accessToken,
+          );
+        }
       } catch (_) {
         // Continue to login when browser storage cannot be cleared.
       }
@@ -83,9 +87,14 @@ class _MyAppState extends State<MyApp> {
       );
     } on ApiException catch (error) {
       if (error.statusCode == 401 || error.statusCode == 403) {
+        if (generation != _router.sessionGeneration) {
+          return const _SessionBootstrapResult.unauthenticated();
+        }
         _router.revokeSession();
         try {
-          await _tokenStorage.clearAccessToken();
+          await _tokenStorage.clearSessionIfTokenMatches(
+            persistedSession.accessToken,
+          );
         } catch (_) {
           // The rejected session still must not reach protected content.
         }

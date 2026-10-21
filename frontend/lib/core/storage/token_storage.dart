@@ -6,22 +6,35 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class TokenStorage {
   TokenStorage({FlutterSecureStorage? secureStorage})
-    : _secureStorage = secureStorage ?? const FlutterSecureStorage();
+      : _secureStorage = secureStorage ?? const FlutterSecureStorage();
 
   static const String _tokenKey = 'access_token';
   static const String _sessionKey = 'auth_session';
+  // All instances access the same browser storage, including login's API
+  // instance and the bootstrap API instance.
+  static Future<void> _pendingMutation = Future<void>.value();
   final FlutterSecureStorage _secureStorage;
 
+  Future<T> _withMutation<T>(Future<T> Function() operation) {
+    final result = _pendingMutation.then((_) => operation());
+    _pendingMutation = result.then<void>((_) {}, onError: (Object _) {});
+    return result;
+  }
+
   Future<void> saveAccessToken(String token) {
-    return _secureStorage.write(key: _tokenKey, value: token);
+    return _withMutation(
+      () => _secureStorage.write(key: _tokenKey, value: token),
+    );
   }
 
   Future<void> saveAuthSession(AuthSession session) async {
-    await _secureStorage.write(key: _tokenKey, value: session.accessToken);
-    await _secureStorage.write(
-      key: _sessionKey,
-      value: jsonEncode(_encodeSession(session)),
-    );
+    await _withMutation(() async {
+      await _secureStorage.write(key: _tokenKey, value: session.accessToken);
+      await _secureStorage.write(
+        key: _sessionKey,
+        value: jsonEncode(_encodeSession(session)),
+      );
+    });
   }
 
   Future<String?> readAccessToken() {
@@ -50,10 +63,23 @@ class TokenStorage {
   }
 
   Future<void> clearAccessToken() {
-    return Future.wait([
+    return _withMutation(_clearStoredSession);
+  }
+
+  Future<void> clearSessionIfTokenMatches(String expectedToken) {
+    return _withMutation(() async {
+      if (await _secureStorage.read(key: _tokenKey) != expectedToken) {
+        return;
+      }
+      await _clearStoredSession();
+    });
+  }
+
+  Future<void> _clearStoredSession() async {
+    await Future.wait([
       _secureStorage.delete(key: _tokenKey),
       _secureStorage.delete(key: _sessionKey),
-    ]).then((_) {});
+    ]);
   }
 
   Map<String, dynamic> _encodeSession(AuthSession session) {

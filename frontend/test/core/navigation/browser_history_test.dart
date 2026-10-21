@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -12,6 +14,79 @@ import 'package:touchin_flutter/features/settings/presentation/settings_page.dar
 import 'package:touchin_flutter/main.dart';
 
 void main() {
+  testWidgets('obsolete auth check cannot revoke a newer login',
+      (tester) async {
+    tester.binding.platformDispatcher.defaultRouteNameTestValue =
+        '/admin/employees';
+    addTearDown(() {
+      tester.binding.platformDispatcher.defaultRouteNameTestValue = '/';
+    });
+    final storage = _MemoryStorage()..session = _session;
+    final api = _DelayedSessionApi(tokenStorage: storage);
+    await tester.pumpWidget(MyApp(api: api, tokenStorage: storage));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    final router = WorkspaceRouterScope.maybeOf(
+      tester.element(find.byType(AdminEmployeesPage)),
+    )!;
+    router.navigate('/projects');
+    await tester.pump();
+    expect(api.authContextRequests, 2);
+
+    router.signedOut();
+    await storage.clearAccessToken();
+    final newerSession = _session.copyWith(accessToken: 'new-session-token');
+    await storage.saveAuthSession(newerSession);
+    router.authenticate(newerSession);
+    await tester.pump();
+
+    api.pendingCheck.completeError(
+      ApiException('Old session revoked', statusCode: 401),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(router.sessionRevoked, isFalse);
+    expect(storage.session?.accessToken, 'new-session-token');
+    expect(find.byType(AdminEmployeesPage), findsOneWidget);
+  });
+
+  testWidgets('delayed revocation cleanup cannot clear a newer login',
+      (tester) async {
+    tester.binding.platformDispatcher.defaultRouteNameTestValue = '/projects';
+    addTearDown(() {
+      tester.binding.platformDispatcher.defaultRouteNameTestValue = '/';
+    });
+    final storage = _MemoryStorage()..session = _session;
+    final api = _DelayedSessionApi(tokenStorage: storage, rejectFirst: true);
+    final cleanupBarrier = Completer<void>();
+    storage.clearBarrier = cleanupBarrier;
+    await tester.pumpWidget(MyApp(api: api, tokenStorage: storage));
+    await tester.pump();
+    expect(api.authContextRequests, 1);
+    final router = WorkspaceRouterScope.maybeOf(
+      tester.element(find.byType(CircularProgressIndicator)),
+    )!;
+
+    api.pendingCheck.completeError(
+      ApiException('Session revoked', statusCode: 403),
+    );
+    await tester.pump();
+    expect(router.sessionRevoked, isTrue);
+
+    final newerSession = _session.copyWith(accessToken: 'new-session-token');
+    await storage.saveAuthSession(newerSession);
+    router.authenticate(newerSession);
+    cleanupBarrier.complete();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(router.sessionRevoked, isFalse);
+    expect(storage.session?.accessToken, 'new-session-token');
+    expect(find.byType(AdminEmployeesPage), findsOneWidget);
+  });
+
   testWidgets(
       'revoked session cannot restore a cached page via Back or Forward',
       (tester) async {
@@ -271,12 +346,48 @@ class _RevokingSessionApi extends TouchInApi {
   }
 }
 
+class _DelayedSessionApi extends TouchInApi {
+  _DelayedSessionApi({required super.tokenStorage, this.rejectFirst = false});
+
+  final bool rejectFirst;
+  final Completer<AuthContext> pendingCheck = Completer<AuthContext>();
+  int authContextRequests = 0;
+
+  @override
+  Future<AuthContext> getAuthContext() {
+    authContextRequests++;
+    if (rejectFirst || authContextRequests > 1) {
+      return pendingCheck.future;
+    }
+    return Future.value(const AuthContext(company: _company, user: _user));
+  }
+}
+
 class _MemoryStorage extends TokenStorage {
   AuthSession? session;
+  Completer<void>? clearBarrier;
+
+  @override
+  Future<void> saveAuthSession(AuthSession next) async => session = next;
 
   @override
   Future<AuthSession?> readAuthSession() async => session;
 
   @override
-  Future<void> clearAccessToken() async => session = null;
+  Future<void> clearAccessToken() async {
+    if (clearBarrier case final barrier?) {
+      await barrier.future;
+    }
+    session = null;
+  }
+
+  @override
+  Future<void> clearSessionIfTokenMatches(String expectedToken) async {
+    if (clearBarrier case final barrier?) {
+      await barrier.future;
+    }
+    if (session?.accessToken == expectedToken) {
+      session = null;
+    }
+  }
 }
