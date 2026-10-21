@@ -11,6 +11,38 @@ import 'package:touchin_flutter/features/settings/presentation/settings_page.dar
 import 'package:touchin_flutter/main.dart';
 
 void main() {
+  testWidgets('reload restores one page and avoids reused history IDs',
+      (tester) async {
+    final router = WorkspaceRouter(
+      initialPath: '/admin/employees',
+      buildRoute: (_, path, __) => Text(path),
+    );
+    addTearDown(router.dispose);
+    final restored = await WorkspaceRouteParser().parseRouteInformation(
+      RouteInformation(
+        uri: Uri(path: '/admin/employees'),
+        state: 'entry-1',
+      ),
+    );
+    await router.setNewRoutePath(restored);
+    await tester.pumpWidget(MaterialApp(
+        home: Builder(
+      builder: (context) => router.build(context),
+    )));
+
+    expect(router.currentConfiguration, restored);
+    expect(tester.widget<Navigator>(find.byKey(router.navigatorKey)).pages,
+        hasLength(1));
+
+    router.navigate('/projects');
+    final next = router.currentConfiguration;
+    expect(next.entryId, isNot(restored.entryId));
+    await router.setNewRoutePath(restored);
+    expect(router.currentConfiguration, restored);
+    await router.setNewRoutePath(next);
+    expect(router.currentConfiguration, next);
+  });
+
   test('repeated URLs retain their distinct browser history entry IDs',
       () async {
     final router = WorkspaceRouter(

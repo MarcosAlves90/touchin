@@ -149,6 +149,25 @@ async function smoke() {
         historyLengthBeforeAuthenticatedReload,
         'Authenticated canonical redirect must replace its browser entry');
       await navigateViaDrawer(cdp, 'Projetos e tarefas', '/projects');
+      await cdp.send('Page.reload', { ignoreCache: true });
+      await waitFor(() => cdp.evaluate(`(() => {
+        const placeholder = document.querySelector('flt-semantics-placeholder');
+        if (placeholder) placeholder.click();
+        return !!placeholder || document.querySelectorAll('flt-semantics').length > 0;
+      })()`), 'Flutter semantics after route reload', 30000);
+      await expectRoute(cdp, '/projects');
+      const visitedEntry = await cdp.evaluate('history.state?.state');
+      assert.ok(visitedEntry, 'Reloaded route needs a browser entry identity');
+      await navigateViaDrawer(cdp, 'Configurações', '/settings');
+      assert.notEqual(await cdp.evaluate('history.state?.state'), visitedEntry,
+        'Navigation after reload must create a distinct entry identity');
+      await cdp.evaluate('history.back()');
+      await expectRoute(cdp, '/projects');
+      assert.equal(await cdp.evaluate('history.state?.state'), visitedEntry);
+      await cdp.evaluate('history.forward()');
+      await expectRoute(cdp, '/settings');
+      await cdp.evaluate('history.back()');
+      await expectRoute(cdp, '/projects');
       await navigateViaDrawer(cdp, 'Configurações', '/settings');
 
       for (const path of ['/projects', '/admin/employees']) {
