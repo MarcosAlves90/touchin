@@ -183,7 +183,7 @@ class _TimeClockPageState extends State<TimeClockPage> {
     return switch (_status) {
       ShiftStatus.checkedOut =>
         'Nenhuma jornada ativa. O próximo registro deve ser a entrada.',
-      ShiftStatus.working => 'Jornada em andamento com dispositivo validado.',
+      ShiftStatus.working => 'Jornada em andamento.',
       ShiftStatus.onBreak =>
         'Pausa aberta. O próximo registro recomendado é o retorno.',
     };
@@ -201,6 +201,10 @@ class _TimeClockPageState extends State<TimeClockPage> {
   }
 
   String _locationStatusLabel() {
+    if (!_controller.requiresLocationOnPunch &&
+        _locationState.status == PunchLocationStatus.checking) {
+      return 'Localização opcional';
+    }
     return switch (_locationState.status) {
       PunchLocationStatus.checking => 'Validando localização',
       PunchLocationStatus.ready => _lastRegisteredLocation == null
@@ -215,6 +219,10 @@ class _TimeClockPageState extends State<TimeClockPage> {
   }
 
   String _locationActionLabel() {
+    if (!_controller.requiresLocationOnPunch &&
+        _locationState.status == PunchLocationStatus.checking) {
+      return 'Ativar localização';
+    }
     return switch (_locationState.status) {
       PunchLocationStatus.checking => 'Atualizando',
       PunchLocationStatus.ready => 'Atualizar permissão',
@@ -600,7 +608,10 @@ class _TimeClockPageState extends State<TimeClockPage> {
           ),
           const SizedBox(height: 10),
           Text(
-            _locationState.message,
+            !_controller.requiresLocationOnPunch &&
+                    _locationState.status == PunchLocationStatus.checking
+                ? 'Localização opcional. Ative o acesso se quiser anexar coordenadas às batidas.'
+                : _locationState.message,
             style: theme.textTheme.bodyMedium?.copyWith(height: 1.45),
           ),
           if (lastLocation != null) ...[

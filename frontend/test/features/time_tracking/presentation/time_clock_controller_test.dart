@@ -5,6 +5,7 @@ import 'package:touchin_flutter/contracts/punch.dart';
 import 'package:touchin_flutter/contracts/project.dart';
 import 'package:touchin_flutter/contracts/task.dart';
 import 'package:touchin_flutter/contracts/time_clock.dart';
+import 'package:touchin_flutter/core/network/api_client.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
 import 'package:touchin_flutter/features/time_tracking/application/punch_location_service.dart';
 import 'package:touchin_flutter/features/time_tracking/presentation/time_clock_controller.dart';
@@ -17,6 +18,8 @@ class _FakeTouchInApi extends TouchInApi {
     this.projects = const <ProjectSummary>[],
     this.tasksByProject = const <String, List<TaskRecord>>{},
     this.taskListCompleter,
+    this.punchError,
+    this.eligibleProjects,
   });
 
   final TimeClockState state;
@@ -24,6 +27,10 @@ class _FakeTouchInApi extends TouchInApi {
   final List<ProjectSummary> projects;
   final Map<String, List<TaskRecord>> tasksByProject;
   final Completer<List<TaskRecord>>? taskListCompleter;
+  final ApiException? punchError;
+  final List<ProjectSummary>? eligibleProjects;
+  final List<int> requestedPages = [];
+  String? requestedEmployeeId;
   int getStateCalls = 0;
   CreatePunchRequest? lastPunchRequest;
 
@@ -33,6 +40,7 @@ class _FakeTouchInApi extends TouchInApi {
     int limit = 4,
   }) async {
     getStateCalls += 1;
+    requestedPages.add(page);
     if (getStateCalls > 1 && refreshStateCompleter != null) {
       return refreshStateCompleter!.future;
     }
@@ -43,6 +51,7 @@ class _FakeTouchInApi extends TouchInApi {
   Future<PunchRecord> createPunch({
     required CreatePunchRequest request,
   }) async {
+    if (punchError != null) throw punchError!;
     lastPunchRequest = request;
     return PunchRecord(
       type: request.type,
@@ -55,6 +64,11 @@ class _FakeTouchInApi extends TouchInApi {
   @override
   Future<List<ProjectSummary>> listProjects({ProjectStatus? status}) async {
     return projects;
+  }
+
+  Future<List<ProjectSummary>> listEmployeeProjects(String employeeId) async {
+    requestedEmployeeId = employeeId;
+    return eligibleProjects ?? projects;
   }
 
   @override
@@ -99,15 +113,15 @@ class _FailingPunchLocationService extends PunchLocationService {
   }
 }
 
-TimeClockState _timeClockState() {
+TimeClockState _timeClockState({bool requiresLocation = true}) {
   return TimeClockState(
-    employee: const TimeClockEmployeeSummary(
+    employee: TimeClockEmployeeSummary(
       id: 'emp-01',
       name: 'Marina Silva',
       unit: 'Operações',
       status: EmployeeStatus.active,
       workMode: EmployeeWorkMode.onsite,
-      requiresLocationOnPunch: true,
+      requiresLocationOnPunch: requiresLocation,
       trustedDeviceRequired: false,
     ),
     currentStatus: ShiftStatus.working,
@@ -153,6 +167,73 @@ TaskRecord _task(String id, String projectId, String name) {
 }
 
 void main() {
+  test('optional GPS allows punch without a location snapshot', () async {
+    final api = _FakeTouchInApi(_timeClockState(requiresLocation: false));
+    final controller = TimeClockController(
+      api: api,
+      punchLocationService: const _FailingPunchLocationService(),
+    );
+    await controller.loadTimeClockState();
+
+    expect(await controller.handlePunch(PunchType.checkIn),
+        'Entrada registrado com sucesso.');
+    expect(api.lastPunchRequest?.location, isNull);
+    controller.dispose();
+  });
+
+  test('a successful punch reloads the most recent page', () async {
+    final api = _FakeTouchInApi(_timeClockState());
+    final ready = _ReadyPunchLocationService(PunchLocationResult.ready(
+      snapshot: PunchLocationSnapshot(
+        latitude: -23.55, longitude: -46.63, accuracyMeters: 8,
+        capturedAt: DateTime.parse('2026-05-24T13:29:00Z'),
+      ),
+    ));
+    final working = TimeClockController(api: api, punchLocationService: ready);
+    working.recordsPage = 3;
+    await working.handlePunch(PunchType.checkIn);
+    await Future<void>.delayed(Duration.zero);
+    expect(api.requestedPages, contains(1));
+    expect(api.requestedPages, isNot(contains(3)));
+    working.dispose();
+  });
+
+  test('HTTP 409 refreshes the canonical state', () async {
+    final api = _FakeTouchInApi(
+      _timeClockState(),
+      punchError: ApiException('Conflito de estado', statusCode: 409),
+    );
+    final controller = TimeClockController(
+      api: api,
+      punchLocationService: _ReadyPunchLocationService(PunchLocationResult.ready(
+        snapshot: PunchLocationSnapshot(
+          latitude: -23.55, longitude: -46.63, accuracyMeters: 8,
+          capturedAt: DateTime.parse('2026-05-24T13:29:00Z'),
+        ),
+      )),
+    );
+    controller.recordsPage = 3;
+    expect(await controller.handlePunch(PunchType.checkIn), 'Conflito de estado');
+    await Future<void>.delayed(Duration.zero);
+    expect(api.requestedPages, <int>[1]);
+    controller.dispose();
+  });
+
+  test('work log lists only projects assigned to the current employee', () async {
+    final assigned = _project('assigned', 'Associado');
+    final api = _FakeTouchInApi(
+      _timeClockState(),
+      projects: [_project('unassigned', 'Não associado'), assigned],
+      eligibleProjects: [assigned],
+    );
+    final controller = TimeClockController(api: api);
+    await controller.loadTimeClockState();
+    expect(await controller.loadWorkLogProjects(), isNull);
+    expect(api.requestedEmployeeId, 'emp-01');
+    expect(controller.workLogProjects.map((p) => p.id), ['assigned']);
+    controller.dispose();
+  });
+
   test('start loads time clock state without waiting for location permission',
       () async {
     final permission = Completer<PunchLocationResult>();
