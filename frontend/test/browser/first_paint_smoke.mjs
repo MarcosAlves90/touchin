@@ -744,16 +744,23 @@ async function scenarioKeyboardAccessibility(ctx) {
       });
       await waitFor(async () => await cdp.evaluate('innerWidth') === width,
         `${width}px responsive viewport`, 5000);
-      const geometry = await cdp.evaluate(`(() => {
-        const labels = ['Entrar', 'Mostrar senha', 'Cadastrar empresa'];
-        const buttons = [...document.querySelectorAll('flt-semantics[role="button"]')]
-          .filter((node) => labels.includes((node.textContent || '').trim()));
-        return {overflow:document.documentElement.scrollWidth > innerWidth + 1,
-          buttons: buttons.map((button) => {
-            const r = button.getBoundingClientRect();
-            return {label:button.textContent.trim(), left:r.left, right:r.right, width:r.width};
-          })};
-      })()`);
+      // Chrome updates innerWidth before Flutter finishes laying out the
+      // accessibility nodes. Wait for the new geometry, not just the viewport.
+      const geometry = await waitFor(async () => {
+        const measured = await cdp.evaluate(`(() => {
+          const labels = ['Entrar', 'Mostrar senha', 'Cadastrar empresa'];
+          const buttons = [...document.querySelectorAll('flt-semantics[role="button"]')]
+            .filter((node) => labels.includes((node.textContent || '').trim()));
+          return {overflow:document.documentElement.scrollWidth > innerWidth + 1,
+            buttons: buttons.map((button) => {
+              const r = button.getBoundingClientRect();
+              return {label:button.textContent.trim(), left:r.left, right:r.right, width:r.width};
+            })};
+        })()`);
+        return measured.buttons.some((button) => button.label === 'Entrar' &&
+          button.width > 0 && button.left >= 0 && button.right <= width + 1)
+          ? measured : false;
+      }, `${width}px Flutter responsive layout`, 5000);
       assert.ok(!geometry.overflow, `${width}px: horizontal document overflow`);
       for (const label of ['Entrar', 'Mostrar senha', 'Cadastrar empresa']) {
         assert.ok(geometry.buttons.some((b) => b.label === label &&

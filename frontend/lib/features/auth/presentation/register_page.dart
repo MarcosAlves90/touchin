@@ -94,7 +94,9 @@ class _RegisterPageState extends State<RegisterPage>
   @override
   Widget build(BuildContext context) {
     return AuthShell(
+      brandStep: '02',
       brandHeadline: 'Sua operação começa aqui.',
+      brandImageUrl: AuthBrandImages.register,
       brandDescription:
           'Ative sua empresa com um onboarding moderno, automatizado e desenvolvido para negócios que valorizam velocidade, controle e crescimento.',
       brandTags: const [

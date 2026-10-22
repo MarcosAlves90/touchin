@@ -52,7 +52,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
   @override
   Widget build(BuildContext context) {
     return AuthShell(
+      brandStep: '03',
       brandHeadline: 'Recupere acesso com rapidez.',
+      brandImageUrl: AuthBrandImages.forgotPassword,
       brandDescription:
           'Envie um link seguro para redefinir sua senha e retomar o controle da operação.',
       brandTags: const [
