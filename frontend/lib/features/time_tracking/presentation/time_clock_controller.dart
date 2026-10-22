@@ -285,25 +285,30 @@ class TimeClockController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final locationResult =
-          await _punchLocationService.captureForPunch().timeout(
-                _punchLocationTimeout,
-                onTimeout: () => const PunchLocationResult.error(
-                  message:
-                      'Não foi possível validar a localização a tempo. Tente novamente.',
-                ),
-              );
+      // Optional capture is exclusively user-initiated via prepareLocationAccess.
+      // A punch must never start a permission prompt or wait for GPS in this mode.
+      var punchLocation = locationState.snapshot;
+      if (requiresLocationOnPunch) {
+        final locationResult =
+            await _punchLocationService.captureForPunch().timeout(
+                  _punchLocationTimeout,
+                  onTimeout: () => const PunchLocationResult.error(
+                    message:
+                        'Não foi possível validar a localização a tempo. Tente novamente.',
+                  ),
+                );
 
-      if (_isDisposed) {
-        return null;
-      }
+        if (_isDisposed) {
+          return null;
+        }
 
-      locationState = locationResult;
-      notifyListeners();
+        locationState = locationResult;
+        notifyListeners();
 
-      final punchLocation = locationResult.snapshot;
-      if (punchLocation == null && requiresLocationOnPunch) {
-        return locationResult.message;
+        punchLocation = locationResult.snapshot;
+        if (punchLocation == null) {
+          return locationResult.message;
+        }
       }
 
       final punch = await _api.createPunch(

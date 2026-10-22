@@ -113,6 +113,17 @@ class _FailingPunchLocationService extends PunchLocationService {
   }
 }
 
+class _PendingPunchLocationService extends PunchLocationService {
+  final Completer<PunchLocationResult> pending = Completer<PunchLocationResult>();
+  int captureCalls = 0;
+
+  @override
+  Future<PunchLocationResult> captureForPunch() {
+    captureCalls++;
+    return pending.future;
+  }
+}
+
 TimeClockState _timeClockState({bool requiresLocation = true}) {
   return TimeClockState(
     employee: TimeClockEmployeeSummary(
@@ -167,6 +178,46 @@ TaskRecord _task(String id, String projectId, String name) {
 }
 
 void main() {
+  test('optional GPS never invokes or waits for a pending location capture',
+      () async {
+    final service = _PendingPunchLocationService();
+    final api = _FakeTouchInApi(_timeClockState(requiresLocation: false));
+    final controller = TimeClockController(
+      api: api,
+      punchLocationService: service,
+    );
+    await controller.loadTimeClockState();
+
+    final message = await controller.handlePunch(PunchType.checkIn).timeout(
+      const Duration(milliseconds: 300),
+    );
+    expect(message, 'Entrada registrado com sucesso.');
+    expect(service.captureCalls, 0);
+    expect(api.lastPunchRequest?.location, isNull);
+    controller.dispose();
+  });
+
+  test('optional GPS can attach a previously volunteered location', () async {
+    final location = PunchLocationSnapshot(
+      latitude: -23.55,
+      longitude: -46.63,
+      accuracyMeters: 8,
+      capturedAt: DateTime.parse('2026-05-24T13:29:00Z'),
+    );
+    final api = _FakeTouchInApi(_timeClockState(requiresLocation: false));
+    final service = _ReadyPunchLocationService(
+      PunchLocationResult.ready(snapshot: location),
+    );
+    final controller = TimeClockController(api: api, punchLocationService: service);
+    await controller.loadTimeClockState();
+    await controller.prepareLocationAccess();
+
+    expect(await controller.handlePunch(PunchType.checkIn),
+        'Entrada registrado com sucesso.');
+    expect(api.lastPunchRequest?.location, location);
+    controller.dispose();
+  });
+
   test('optional GPS allows punch without a location snapshot', () async {
     final api = _FakeTouchInApi(_timeClockState(requiresLocation: false));
     final controller = TimeClockController(

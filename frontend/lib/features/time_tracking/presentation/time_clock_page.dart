@@ -265,6 +265,10 @@ class _TimeClockPageState extends State<TimeClockPage> {
   }
 
   String _locationChipLabel() {
+    if (!_controller.requiresLocationOnPunch &&
+        _locationState.status == PunchLocationStatus.checking) {
+      return 'Localização opcional';
+    }
     return switch (_locationState.status) {
       PunchLocationStatus.ready => 'Geolocalização pronta',
       PunchLocationStatus.checking => 'Validando permissão',
@@ -295,8 +299,9 @@ class _TimeClockPageState extends State<TimeClockPage> {
 
     return WorkspaceSidebar(
       title: 'Ponto digital em tempo real.',
-      description:
-          'Uma tela operacional para registrar entrada, pausa e saída com localização vinculada a cada batida.',
+      description: _controller.requiresLocationOnPunch
+          ? 'Uma tela operacional para registrar entrada, pausa e saída com localização exigida em cada batida.'
+          : 'Uma tela operacional para registrar entrada, pausa e saída com localização opcional.',
       summaryChildren: <Widget>[
         WorkspaceSummaryStripe(
           label: 'Status',
@@ -350,7 +355,6 @@ class _TimeClockPageState extends State<TimeClockPage> {
                   ? 'Dados indisponíveis'
                   : _locationChipLabel(),
         ),
-        const WorkspaceHighlightChip(label: 'Dispositivo confiável'),
         const WorkspaceHighlightChip(label: 'Jornada auditável'),
       ],
     );
@@ -365,7 +369,7 @@ class _TimeClockPageState extends State<TimeClockPage> {
           WorkspaceHeader(
             title: 'Bater ponto',
             description:
-                'Registre sua jornada com um fluxo direto, auditável e com coordenadas anexadas para validação operacional.',
+                'Registre sua jornada com um fluxo direto, auditável e com localização quando exigida ou ativada.',
             maxContentWidth: 520,
           ),
           const SizedBox(height: 28),
