@@ -910,11 +910,27 @@ async function smoke() {
   } finally {
     await cdp?.close();
     if (chrome) {
-      chrome.processHandle.kill('SIGTERM');
+      if (process.platform === 'win32') {
+        // Windows does not reliably terminate Chromium's Crashpad child when
+        // kill() targets only the browser parent process.
+        const child = spawn('taskkill', ['/PID', String(chrome.processHandle.pid), '/T', '/F'],
+          { stdio: 'ignore', windowsHide: true });
+        await new Promise((done) => { child.once('error', done); child.once('close', done); });
+      } else {
+        chrome.processHandle.kill('SIGTERM');
+      }
       await waitFor(() => chrome.processHandle.exitCode !== null || chrome.processHandle.signalCode !== null,
         'Chrome exit', 4000).catch(() => chrome.processHandle.kill('SIGKILL'));
-      await rm(chrome.directory, { recursive: true, force: true, maxRetries: 4, retryDelay: 100 });
+      // On Windows Chrome's Crashpad may briefly retain a handle after exit.
+      // An isolated temporary profile failing to unlink must not fail the
+      // completed browser assertions or prevent the HTTP server from closing.
+      await rm(chrome.directory, { recursive: true, force: true, maxRetries: 8,
+        retryDelay: 300 }).catch((error) => {
+        console.warn(`Chrome temporary profile cleanup: ${error.message}`);
+      });
+      chrome.processHandle.stderr?.destroy();
     }
+    server.closeAllConnections();
     await new Promise((done) => server.close(done));
   }
 }

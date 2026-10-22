@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import re
+import subprocess
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -9,18 +10,6 @@ OLD_NAME = ("bun" + "chin").encode()
 OLD_NAME_TEXT = OLD_NAME.decode()
 RED_TOKEN = "TOUCHIN_DELIVERY_RED_V1"
 GREEN_TOKEN = "TOUCHIN_DELIVERY_GREEN_V1"
-IGNORED_DIRS = {
-    ".git",
-    ".dart_tool",
-    ".pytest_cache",
-    ".ruff_cache",
-    ".mypy_cache",
-    ".venv",
-    "venv",
-    "__pycache__",
-    "node_modules",
-    "build",
-}
 ANDROID_NS = "{http://schemas.android.com/apk/res/android}"
 FRONTEND_API_TEST = "frontend/test/core/network/touchin_api_test.dart"
 INLINE_PASSWORD_LITERAL_PATTERN = re.compile(
@@ -30,13 +19,15 @@ FLAGGED_TEST_VALUE = "Touch" + "In@123"
 
 
 def _repository_paths() -> list[Path]:
-    paths: list[Path] = []
-    for path in ROOT.rglob("*"):
-        relative = path.relative_to(ROOT)
-        if any(part in IGNORED_DIRS for part in relative.parts):
-            continue
-        paths.append(path)
-    return paths
+    # Repository identity applies to committed source, not local credentials
+    # or platform-generated Flutter files that may contain the checkout path.
+    tracked = subprocess.run(
+        ["git", "ls-files", "-z"], cwd=ROOT, capture_output=True, check=True,
+    ).stdout
+    return [
+        ROOT / name.decode("utf-8", "surrogateescape")
+        for name in tracked.split(b"\0") if name
+    ]
 
 
 def _find_branding_offenders() -> list[str]:
