@@ -52,6 +52,40 @@ void main() {
     expect(result.selection, old.selection);
   });
 
+  test('rejects paste overflow for near-full CNPJ without losing digits', () {
+    const old = TextEditingValue(
+      text: '12.345.678/9012-3',
+      selection: TextSelection.collapsed(offset: 3),
+    );
+    final result = BrInputMasks.cnpjFormatter.formatEditUpdate(
+      old,
+      const TextEditingValue(
+        text: '12.99345.678/9012-3',
+        selection: TextSelection.collapsed(offset: 5),
+      ),
+    );
+
+    expect(result.text, old.text);
+    expect(result.selection, old.selection);
+  });
+
+  test('rejects paste overflow for near-full phone without losing digits', () {
+    const old = TextEditingValue(
+      text: '(11) 9876-5432',
+      selection: TextSelection.collapsed(offset: 5),
+    );
+    final result = BrInputMasks.phoneFormatter.formatEditUpdate(
+      old,
+      const TextEditingValue(
+        text: '(11) 889876-5432',
+        selection: TextSelection.collapsed(offset: 7),
+      ),
+    );
+
+    expect(result.text, old.text);
+    expect(result.selection, old.selection);
+  });
+
   test('allows replacing selected digits in a full phone', () {
     final old = const TextEditingValue(
       text: '(11) 98765-4321',

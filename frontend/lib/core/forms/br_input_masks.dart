@@ -93,8 +93,9 @@ class _MaskedDigitsFormatter extends TextInputFormatter {
   ) {
     final oldDigits = BrInputMasks.digitsOnly(oldValue.text);
     final nextDigits = BrInputMasks.digitsOnly(newValue.text);
-    if (oldDigits.length == maxDigits && nextDigits.length > maxDigits) {
-      // Keep the entire existing value when editing an already full field.
+    if (oldDigits.isNotEmpty && nextDigits.length > maxDigits) {
+      // Reject overflow edits to preserve all existing digits and the cursor.
+      // Initial pastes into an empty field retain the existing limit behavior.
       return oldValue;
     }
 
