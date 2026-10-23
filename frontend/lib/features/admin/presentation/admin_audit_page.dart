@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:touchin_flutter/contracts/audit.dart';
+import 'package:touchin_flutter/core/network/api_client.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
 
@@ -18,6 +19,8 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
   String? _error;
   final List<AuditEventResponse> _events = [];
   bool _hasMore = true;
+  int _requestGeneration = 0;
+  late final TouchInApi _api;
 
   int _page = 1;
   final int _limit = 50;
@@ -38,6 +41,7 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
   @override
   void initState() {
     super.initState();
+    _api = widget.api ?? TouchInApi();
     _scrollController.addListener(_onScroll);
     _loadEvents(refresh: true);
   }
@@ -59,13 +63,17 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
   void _onScroll() {
     if (_scrollController.position.pixels >=
         _scrollController.position.maxScrollExtent - 200) {
-      if (!_isLoading && !_isLoadingMore && _hasMore) {
+      if (!_isLoading && !_isLoadingMore && _hasMore && _error == null) {
         _loadEvents();
       }
     }
   }
 
   Future<void> _loadEvents({bool refresh = false}) async {
+    if (!refresh && (_isLoading || _isLoadingMore || !_hasMore)) return;
+    if (refresh) _requestGeneration++;
+    final generation = _requestGeneration;
+    final requestedPage = refresh ? 1 : _page;
     try {
       if (refresh) {
         setState(() {
@@ -82,7 +90,6 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
         });
       }
 
-      final api = widget.api ?? TouchInApi();
       final actorUserId = _actorUserIdController.text.trim().isEmpty
           ? null
           : _actorUserIdController.text.trim();
@@ -102,8 +109,8 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
           ? null
           : _resultController.text.trim();
 
-      final newEvents = await api.listAuditEvents(
-        page: _page,
+      final newEvents = await _api.listAuditEvents(
+        page: requestedPage,
         limit: _limit,
         startDate: _startDate,
         endDate: _endDate,
@@ -115,7 +122,7 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
         result: result,
       );
 
-      if (!mounted) return;
+      if (!mounted || generation != _requestGeneration) return;
       final moveFocusToEnd =
           !refresh && _loadMoreFocusNode.hasFocus && newEvents.length < _limit;
       setState(() {
@@ -123,7 +130,7 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
           _hasMore = false;
         }
         _events.addAll(newEvents);
-        _page++;
+        _page = requestedPage + 1;
         _isLoading = false;
         _isLoadingMore = false;
       });
@@ -133,13 +140,32 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
         });
       }
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || generation != _requestGeneration) return;
       setState(() {
-        _error = e.toString();
+        _error = _errorMessage(e);
         _isLoading = false;
         _isLoadingMore = false;
       });
     }
+  }
+
+  String _errorMessage(Object error) {
+    if (error is ApiException) {
+      if (error.statusCode == 403) {
+        return 'Você não tem permissão para consultar a auditoria.';
+      }
+      if (error.statusCode == 404) {
+        return 'O serviço de auditoria não foi encontrado.';
+      }
+      if (error.statusCode != null && error.statusCode! >= 500) {
+        return 'Serviço temporariamente indisponível. Tente novamente.';
+      }
+      if (error.message.startsWith('Contrato invalido')) {
+        return 'O serviço de auditoria retornou uma resposta inválida.';
+      }
+      return error.message;
+    }
+    return 'Não foi possível carregar os eventos de auditoria. Tente novamente.';
   }
 
   Future<void> _pickDate(bool isStart) async {
@@ -262,6 +288,9 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
                               : 'Data Final'),
                         ),
                         ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            minimumSize: const Size(0, 52),
+                          ),
                           onPressed: () => _loadEvents(refresh: true),
                           child: const Text('Apply Filters'),
                         ),
@@ -342,20 +371,23 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
                                   itemCount: _events.length,
                                   itemBuilder: (context, index) {
                                     final event = _events[index];
-                                    return ListTile(
-                                      title: Text(
-                                          '${event.action} - ${event.result}'),
-                                      subtitle: Text(
-                                        'Ator: ${event.actorUserId ?? 'N/A'}\n'
-                                        'Recurso: ${event.entityType} (${event.entityId})\n'
-                                        'Projeto: ${event.projectId ?? 'N/A'}',
+                                    return Material(
+                                      type: MaterialType.transparency,
+                                      child: ListTile(
+                                        title: Text(
+                                            '${event.action} - ${event.result}'),
+                                        subtitle: Text(
+                                          'Ator: ${event.actorUserId ?? 'N/A'}\n'
+                                          'Recurso: ${event.entityType} (${event.entityId})\n'
+                                          'Projeto: ${event.projectId ?? 'N/A'}',
+                                        ),
+                                        isThreeLine: true,
+                                        trailing: Text(event.timestamp
+                                            .toLocal()
+                                            .toString()
+                                            .split('.')
+                                            .first),
                                       ),
-                                      isThreeLine: true,
-                                      trailing: Text(event.timestamp
-                                          .toLocal()
-                                          .toString()
-                                          .split('.')
-                                          .first),
                                     );
                                   },
                                 ),
@@ -369,8 +401,9 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
                                           OutlinedButton(
                                             focusNode: _loadMoreFocusNode,
                                             onPressed: () {
-                                              if (!_isLoadingMore)
+                                              if (!_isLoadingMore) {
                                                 _loadEvents();
+                                              }
                                             },
                                             child: const Text(
                                                 'Carregar mais eventos'),

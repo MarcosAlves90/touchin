@@ -81,6 +81,10 @@ py -3 -m pytest -q
 Variáveis mais importantes:
 
 - `TOUCHIN_DATABASE_URL`: URL SQLAlchemy. Exemplo: `sqlite:///./touchin.db`
+
+Para PostgreSQL, configure `TOUCHIN_DATABASE_URL` com `postgresql+psycopg2://` (ou `postgresql://`, normalizado internamente para psycopg2). O backend declara `psycopg2-binary`; `postgresql+psycopg://` seleciona outro driver e é rejeitado na inicialização. O import da aplicação não exige conexão ao banco, mas o startup completo depende de um PostgreSQL acessível se bootstrap ou seed estiverem ativados.
+
+O CI executa o backend com Python 3.12. Configure a versão de Python do serviço Render para 3.12 e recrie o ambiente após ajustar as dependências, ou atualize explicitamente a matriz do CI para cobrir a versão escolhida para produção. A seleção de versão feita no painel do Render não é determinada por este repositório. Verifique os logs de inicialização e a resposta de `GET /api/v1/health` após o redeploy.
 - `TOUCHIN_TOKEN_SECRET`: segredo para tokens opacos
 - `TOUCHIN_ENCRYPTION_SECRET`: segredo para criptografia de PII
 - `TOUCHIN_ALLOWED_ORIGINS`: CSV de origens liberadas no CORS

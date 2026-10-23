@@ -231,6 +231,8 @@ O frontend pode ser publicado como site estático no Vercel usando o diretório 
 
 O build script baixa o Flutter SDK quando necessário, gera o web build e falha com mensagem clara se o `API_BASE_URL` não estiver definido no ambiente do Vercel.
 
+Para investigar um erro de auditoria no Web, confirme que `API_BASE_URL` no ambiente de produção do Vercel é a URL **pública** do backend com o prefixo `/api/v1`, sem o caminho `/audit-events`. Essa variável é incorporada ao JavaScript no build: alterações no painel exigem um novo deployment do frontend. Confirme também que o backend está em execução, consultando `GET <URL_PUBLICA_DA_API>/api/v1/health` (esperado: HTTP 200 e `{"status":"ok"}`). No navegador, inspecione a URL, o status HTTP e o tipo de resposta da requisição autenticada a `/api/v1/audit-events`; páginas HTML de hospedagem e erros de autorização têm causas distintas.
+
 ## Configuração
 
 As variáveis mais importantes são:

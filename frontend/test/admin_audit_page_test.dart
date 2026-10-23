@@ -5,10 +5,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:touchin_flutter/features/admin/presentation/admin_audit_page.dart';
 import 'package:touchin_flutter/contracts/audit.dart';
+import 'package:touchin_flutter/core/network/api_client.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
 
 class FakeTouchInApi extends TouchInApi {
   List<AuditEventResponse> mockEvents = [];
+  Object? firstError;
   Map<String, dynamic> lastParams = {};
   List<int> requestedPages = [];
   Completer<List<AuditEventResponse>>? secondPageResponse;
@@ -27,6 +29,10 @@ class FakeTouchInApi extends TouchInApi {
     int limit = 50,
   }) async {
     requestedPages.add(page);
+    if (firstError case final error?) {
+      firstError = null;
+      throw error;
+    }
     lastParams = {
       'page': page,
       'limit': limit,
@@ -58,6 +64,79 @@ class FakeTouchInApi extends TouchInApi {
 }
 
 void main() {
+  testWidgets('audit events have Material and remain visible in direct route',
+      (tester) async {
+    final api = FakeTouchInApi()
+      ..mockEvents = [
+        AuditEventResponse(
+          id: 'evt_material',
+          timestamp: DateTime.utc(2026, 10, 20),
+          companyId: 'company_1',
+          actorUserId: 'user_1',
+          projectId: 'project_1',
+          action: 'task.created',
+          entityType: 'task',
+          entityId: 'task_1',
+          result: 'success',
+          metadataPayload: null,
+        ),
+      ];
+    await tester.pumpWidget(MaterialApp(home: AdminAuditPage(api: api)));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('task.created - success'), findsOneWidget);
+    expect(find.byType(ListTile), findsWidgets);
+  });
+
+  testWidgets('filter button keeps finite width with production button style',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final api = FakeTouchInApi();
+    await tester.pumpWidget(MaterialApp(
+      theme: ThemeData(
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            minimumSize: const Size.fromHeight(52),
+          ),
+        ),
+      ),
+      home: AdminAuditPage(api: api),
+    ));
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    final button = find.widgetWithText(ElevatedButton, 'Apply Filters');
+    expect(button, findsOneWidget);
+    expect(tester.getSize(button).width, lessThan(1280));
+    await tester.ensureVisible(button);
+    await tester.tap(button);
+    await tester.pump();
+    expect(api.requestedPages, [1, 1]);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('invalid audit response hides parsing details', (tester) async {
+    final api = FakeTouchInApi()
+      ..firstError = ApiException('Contrato invalido na resposta de audit events: expected list');
+    await tester.pumpWidget(MaterialApp(home: AdminAuditPage(api: api)));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('O serviço de auditoria retornou uma resposta inválida.'), findsOneWidget);
+    expect(find.textContaining('expected list'), findsNothing);
+  });
+
+  testWidgets('404 error permits retry without exposing exception', (tester) async {
+    final api = FakeTouchInApi()
+      ..firstError = ApiException('Proxy error', statusCode: 404);
+    await tester.pumpWidget(MaterialApp(home: AdminAuditPage(api: api)));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('O serviço de auditoria não foi encontrado.'), findsOneWidget);
+    expect(find.textContaining('ApiException'), findsNothing);
+    await tester.tap(find.text('Tentar novamente'));
+    await tester.pumpAndSettle();
+    expect(api.requestedPages, [1, 1]);
+    expect(find.text('Nenhum evento de auditoria encontrado.'), findsOneWidget);
+  });
+
   for (final additionalEvents in [50, 1]) {
     testWidgets('keyboard focus survives page of $additionalEvents events',
         (tester) async {
