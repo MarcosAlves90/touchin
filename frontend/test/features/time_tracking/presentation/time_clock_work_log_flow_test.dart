@@ -73,6 +73,13 @@ class _WorkLogApi extends TouchInApi {
   }
 
   @override
+  Future<List<ProjectSummary>> listEmployeeProjects(String employeeId) async {
+    expect(employeeId, 'emp-01');
+    // Both fixture projects are associated with the current employee.
+    return listProjects(status: ProjectStatus.active);
+  }
+
+  @override
   Future<List<TaskRecord>> listTasks(String projectId) async {
     return tasks[projectId] ?? const <TaskRecord>[];
   }
