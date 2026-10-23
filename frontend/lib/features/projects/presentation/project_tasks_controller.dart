@@ -24,6 +24,7 @@ class ProjectTasksController extends ChangeNotifier {
   bool isLoadingProjectMembers = false;
   bool isLoadingMembers = false;
   bool isMutating = false;
+  int _pendingMutations = 0;
   String? loadError;
   String? tasksError;
   String? projectMembersError;
@@ -431,8 +432,7 @@ class ProjectTasksController extends ChangeNotifier {
       TaskRecord updated;
       try {
         updated = await _api.updateTask(task.projectId, task.id, draft,
-            expectedUpdatedAt: task.updatedAt,
-            expectedRevision: task.revision);
+            expectedUpdatedAt: task.updatedAt, expectedRevision: task.revision);
       } on ApiException catch (error) {
         if (error.code == 'task_version_conflict' &&
             selectedProjectId == task.projectId) {
@@ -496,12 +496,14 @@ class ProjectTasksController extends ChangeNotifier {
   }
 
   Future<T> _mutate<T>(Future<T> Function() action) async {
+    _pendingMutations += 1;
     isMutating = true;
     notifyListeners();
     try {
       return await action();
     } finally {
-      isMutating = false;
+      _pendingMutations -= 1;
+      isMutating = _pendingMutations > 0;
       notifyListeners();
     }
   }

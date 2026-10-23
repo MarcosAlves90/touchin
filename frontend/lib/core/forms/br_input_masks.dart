@@ -91,7 +91,47 @@ class _MaskedDigitsFormatter extends TextInputFormatter {
     TextEditingValue oldValue,
     TextEditingValue newValue,
   ) {
+    final oldDigits = BrInputMasks.digitsOnly(oldValue.text);
     final nextDigits = BrInputMasks.digitsOnly(newValue.text);
+    if (oldDigits.length == maxDigits && nextDigits.length > maxDigits) {
+      // Keep the entire existing value when editing an already full field.
+      return oldValue;
+    }
+
+    // The platform can delete a mask separator without deleting a digit.
+    // Map Backspace/Delete to the adjacent digit instead of restoring the
+    // separator at exactly the same cursor position forever.
+    if (oldValue.selection.isCollapsed &&
+        newValue.selection.isCollapsed &&
+        nextDigits == oldDigits &&
+        newValue.text.length == oldValue.text.length - 1) {
+      final removedOffset = newValue.selection.baseOffset;
+      if (removedOffset >= 0 &&
+          removedOffset < oldValue.text.length &&
+          !_isDigit(oldValue.text[removedOffset]) &&
+          oldValue.text.substring(0, removedOffset) +
+                  oldValue.text.substring(removedOffset + 1) ==
+              newValue.text) {
+        final before = BrInputMasks.digitsOnly(
+          oldValue.text.substring(0, removedOffset),
+        ).length;
+        final isBackspace =
+            newValue.selection.baseOffset < oldValue.selection.baseOffset;
+        final removeDigit = isBackspace ? before - 1 : before;
+        if (removeDigit >= 0 && removeDigit < oldDigits.length) {
+          final digits = oldDigits.substring(0, removeDigit) +
+              oldDigits.substring(removeDigit + 1);
+          final formatted = format(digits);
+          return TextEditingValue(
+            text: formatted,
+            selection: TextSelection.collapsed(
+              offset: _selectionOffset(formatted, removeDigit),
+            ),
+            composing: TextRange.empty,
+          );
+        }
+      }
+    }
     final truncatedDigits = nextDigits.length <= maxDigits
         ? nextDigits
         : nextDigits.substring(0, maxDigits);

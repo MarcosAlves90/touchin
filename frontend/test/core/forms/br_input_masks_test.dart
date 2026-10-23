@@ -35,4 +35,65 @@ void main() {
     expect(result, '(11) 3333-4444');
     expect(BrInputMasks.hasValidPhoneDigits(result), isTrue);
   });
+
+  test('rejects inserting into a full CNPJ without losing trailing digits', () {
+    const old = TextEditingValue(
+      text: '12.345.678/9012-34',
+      selection: TextSelection.collapsed(offset: 3),
+    );
+    final result = BrInputMasks.cnpjFormatter.formatEditUpdate(
+      old,
+      const TextEditingValue(
+        text: '12.9345.678/9012-34',
+        selection: TextSelection.collapsed(offset: 4),
+      ),
+    );
+    expect(result.text, old.text);
+    expect(result.selection, old.selection);
+  });
+
+  test('allows replacing selected digits in a full phone', () {
+    final old = const TextEditingValue(
+      text: '(11) 98765-4321',
+      selection: TextSelection(baseOffset: 5, extentOffset: 10),
+    );
+    final result = BrInputMasks.phoneFormatter.formatEditUpdate(
+      old,
+      const TextEditingValue(
+        text: '(11) 12345-4321',
+        selection: TextSelection.collapsed(offset: 10),
+      ),
+    );
+    expect(result.text, '(11) 12345-4321');
+  });
+
+  test('Delete on a CNPJ separator removes the following digit', () {
+    const old = TextEditingValue(
+      text: '12.345.678/9012-34',
+      selection: TextSelection.collapsed(offset: 2),
+    );
+    final result = BrInputMasks.cnpjFormatter.formatEditUpdate(
+      old,
+      const TextEditingValue(
+        text: '12345.678/9012-34',
+        selection: TextSelection.collapsed(offset: 2),
+      ),
+    );
+    expect(result.text, '12.456.789/0123-4');
+  });
+
+  test('Backspace on a CNPJ separator removes preceding digit', () {
+    const old = TextEditingValue(
+      text: '12.345.678/9012-34',
+      selection: TextSelection.collapsed(offset: 3),
+    );
+    final result = BrInputMasks.cnpjFormatter.formatEditUpdate(
+      old,
+      const TextEditingValue(
+        text: '12345.678/9012-34',
+        selection: TextSelection.collapsed(offset: 2),
+      ),
+    );
+    expect(result.text, '13.456.789/0123-4');
+  });
 }

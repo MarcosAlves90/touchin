@@ -71,13 +71,16 @@ class Settings:
             default=True,
         )
 
+        required_secrets = {
+            "TOUCHIN_TOKEN_SECRET": self.token_secret,
+            "TOUCHIN_ENCRYPTION_SECRET": self.encryption_secret,
+        }
+        if self.seed_on_startup:
+            required_secrets["TOUCHIN_SEED_ADMIN_PASSWORD"] = self.seed_admin_password
+
         missing = [
             name
-            for name, value in {
-                "TOUCHIN_TOKEN_SECRET": self.token_secret,
-                "TOUCHIN_ENCRYPTION_SECRET": self.encryption_secret,
-                "TOUCHIN_SEED_ADMIN_PASSWORD": self.seed_admin_password,
-            }.items()
+            for name, value in required_secrets.items()
             if not value
         ]
         if missing:
