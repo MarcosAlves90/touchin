@@ -64,7 +64,9 @@ class _LoginPageState extends State<LoginPage>
   @override
   Widget build(BuildContext context) {
     return AuthShell(
+      brandStep: '01',
       brandHeadline: 'O núcleo operacional da sua empresa.',
+      brandImageUrl: AuthBrandImages.login,
       brandDescription:
           'Gerencie equipes, processos e operações em uma única plataforma inteligente, desenvolvida para empresas modernas que precisam de velocidade, controle e escala.',
       brandTags: const [
