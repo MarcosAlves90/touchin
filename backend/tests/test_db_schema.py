@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, inspect, text
+from sqlalchemy import create_engine, event, inspect, text
 
 from app.database_schema import upgrade_database_schema
 from app.db import Base
@@ -134,5 +134,60 @@ def test_upgrade_adds_creation_request_ledger_to_existing_project_database(tmp_p
         assert inspector.get_pk_constraint("task_creation_requests")["constrained_columns"] == [
             "project_id", "actor_user_id", "request_key",
         ]
+    finally:
+        engine.dispose()
+
+
+def test_upgrade_audit_events_preserves_history_and_expected_foreign_keys(tmp_path):
+    engine = create_engine(f"sqlite:///{tmp_path / 'audit-legacy.db'}")
+
+    @event.listens_for(engine, "connect")
+    def enable_foreign_keys(dbapi_connection, _record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
+    try:
+        with engine.begin() as connection:
+            connection.execute(text("CREATE TABLE companies (id VARCHAR(64) PRIMARY KEY)"))
+            connection.execute(text("CREATE TABLE user_accounts (id VARCHAR(64) PRIMARY KEY)"))
+            connection.execute(text("CREATE TABLE projects (id VARCHAR(64) PRIMARY KEY)"))
+            connection.execute(text(
+                "CREATE TABLE audit_events (id VARCHAR(64) PRIMARY KEY, timestamp DATETIME, "
+                "company_id VARCHAR(64) REFERENCES companies(id) ON DELETE CASCADE, "
+                "actor_user_id VARCHAR(64) REFERENCES user_accounts(id) ON DELETE SET NULL, "
+                "project_id VARCHAR(64) REFERENCES projects(id) ON DELETE CASCADE, "
+                "action VARCHAR(128) NOT NULL, entity_type VARCHAR(64) NOT NULL, "
+                "entity_id VARCHAR(64) NOT NULL, result VARCHAR(32) NOT NULL, "
+                "metadata_payload TEXT, correlation_id VARCHAR(64))"
+            ))
+            connection.execute(text("INSERT INTO companies VALUES ('company')"))
+            connection.execute(text("INSERT INTO user_accounts VALUES ('actor')"))
+            connection.execute(text("INSERT INTO projects VALUES ('project')"))
+            connection.execute(text(
+                "INSERT INTO audit_events (id, company_id, actor_user_id, project_id, "
+                "action, entity_type, entity_id, result) "
+                "VALUES ('event', 'company', 'actor', 'project', 'created', 'project', 'project', 'ok')"
+            ))
+
+        upgrade_database_schema(engine)
+        upgrade_database_schema(engine)
+        schema = inspect(engine)
+        keys = {key["constrained_columns"][0]: key for key in schema.get_foreign_keys("audit_events")}
+        assert "actor_user_id" not in keys
+        assert keys["project_id"]["options"]["ondelete"].upper() == "SET NULL"
+        indexes = {index["name"] for index in schema.get_indexes("audit_events")}
+        assert {"ix_audit_events_timestamp", "ix_audit_events_company_id",
+                "ix_audit_events_actor_user_id", "ix_audit_events_project_id",
+                "ix_audit_events_action", "ix_audit_events_entity_id",
+                "ix_audit_events_correlation_id"} <= indexes
+        with engine.begin() as connection:
+            assert connection.execute(text("PRAGMA foreign_keys")).scalar_one() == 1
+            assert connection.execute(text("PRAGMA foreign_key_check")).all() == []
+            connection.execute(text("DELETE FROM projects WHERE id='project'"))
+            connection.execute(text("DELETE FROM user_accounts WHERE id='actor'"))
+            assert connection.execute(text(
+                "SELECT actor_user_id, project_id FROM audit_events WHERE id='event'"
+            )).one() == ("actor", None)
     finally:
         engine.dispose()

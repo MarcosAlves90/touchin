@@ -179,6 +179,39 @@ void main() {
     expect(controller.selectedTaskId, isNot('project-a-task-late'));
   });
 
+  test('isMutating stays true until overlapping requests complete out of order', () async {
+    final api = _ControlledProjectApi()..controlCreateTasks = true;
+    final controller = ProjectTasksController(api: api);
+    await controller.start();
+    final creating = controller.createTask(
+      const TaskDraft(
+        name: 'Pending task',
+        description: 'Waiting for network',
+        type: TaskType.feature,
+      ),
+    );
+    expect(controller.isMutating, isTrue);
+
+    final selected = controller.selectedProject!;
+    await controller.updateProject(
+      selected,
+      ProjectDraft(
+        name: selected.name,
+        description: selected.description ?? '',
+        taskEmployeeLimit: selected.taskEmployeeLimit,
+        status: selected.status,
+      ),
+    );
+    expect(controller.isMutating, isTrue,
+        reason: 'an earlier createTask request is still pending');
+
+    api.createTaskCompleters['project-a']!.complete(
+      _task('project-a', 'new-task'),
+    );
+    await creating;
+    expect(controller.isMutating, isFalse);
+  });
+
 
 }
 
