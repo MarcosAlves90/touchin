@@ -5,6 +5,7 @@ import 'package:touchin_flutter/features/auth/presentation/auth_session_navigati
 import 'package:touchin_flutter/features/auth/presentation/auth_submission_mixin.dart';
 import 'package:touchin_flutter/features/auth/presentation/widgets/auth_shell.dart';
 import 'package:flutter/material.dart';
+import 'package:touchin_flutter/core/navigation/workspace_router.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -82,10 +83,15 @@ class _RegisterPageState extends State<RegisterPage>
           ),
         );
 
-        Navigator.of(context).pushAndRemoveUntil(
-          buildAuthenticatedWorkspaceRoute(authSession),
-          (route) => false,
-        );
+        final router = WorkspaceRouterScope.maybeOf(context);
+        if (router != null) {
+          WorkspaceRouterScope.replaceWithAuthenticated(context, authSession);
+        } else {
+          Navigator.of(context).pushAndRemoveUntil(
+            buildAuthenticatedWorkspaceRoute(authSession),
+            (route) => false,
+          );
+        }
       },
       genericErrorMessage: 'Não foi possível concluir o cadastro da empresa.',
     );

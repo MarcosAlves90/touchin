@@ -96,3 +96,10 @@ jobs:
           TOUCHIN_CHROME_NO_SANDBOX: '1'
         run: |
           "$(go env GOPATH)/bin/polis" gates --repo . --gate build --gate smoke
+
+      - name: Verify authenticated browser navigation history in Chrome
+        working-directory: frontend
+        env:
+          TOUCHIN_CHROME: ${{ steps.chrome.outputs.chrome-path }}
+          TOUCHIN_CHROME_NO_SANDBOX: '1'
+        run: node test/browser/navigation_history_smoke.mjs

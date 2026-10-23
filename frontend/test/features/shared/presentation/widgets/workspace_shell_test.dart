@@ -9,6 +9,85 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('browser Back restores the previous workspace screen',
+      (tester) async {
+    Route<void> workspaceRoute(RouteSettings settings) =>
+        MaterialPageRoute<void>(
+          settings: settings,
+          builder: (_) => WorkspaceScaffold(
+            sidebar: const SizedBox(height: 32),
+            contentBuilder: (context, _) =>
+                Center(child: Text('Active ${settings.name}')),
+          ),
+        );
+
+    await tester.pumpWidget(MaterialApp(
+      initialRoute: '/projects',
+      onGenerateInitialRoutes: (name) =>
+          <Route<void>>[workspaceRoute(RouteSettings(name: name))],
+      onGenerateRoute: workspaceRoute,
+    ));
+    await tester.pumpAndSettle();
+
+    Future<void> navigateTo(String label) async {
+      tester.state<ScaffoldState>(find.byType(Scaffold)).openDrawer();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(label));
+      await tester.pumpAndSettle();
+    }
+
+    expect(find.text('Active /projects'), findsOneWidget);
+    await navigateTo('Bater Ponto');
+    expect(find.text('Active /time-clock'), findsOneWidget);
+    await navigateTo('Administrar Equipe');
+    expect(find.text('Active /admin/employees'), findsOneWidget);
+
+    expect(await tester.binding.handlePopRoute(), isTrue);
+    await tester.pumpAndSettle();
+    expect(find.text('Active /time-clock'), findsOneWidget);
+
+    expect(await tester.binding.handlePopRoute(), isTrue);
+    await tester.pumpAndSettle();
+    expect(find.text('Active /projects'), findsOneWidget);
+  });
+
+  testWidgets('selecting the current named workspace route avoids duplicates',
+      (tester) async {
+    Route<void> workspaceRoute(RouteSettings settings) =>
+        MaterialPageRoute<void>(
+          settings: settings,
+          builder: (_) => WorkspaceScaffold(
+            sidebar: const SizedBox(height: 32),
+            contentBuilder: (context, _) =>
+                Center(child: Text('Active ${settings.name}')),
+          ),
+        );
+
+    await tester.pumpWidget(MaterialApp(
+      initialRoute: '/time-clock',
+      onGenerateInitialRoutes: (name) =>
+          <Route<void>>[workspaceRoute(RouteSettings(name: name))],
+      onGenerateRoute: workspaceRoute,
+    ));
+    await tester.pumpAndSettle();
+
+    Future<void> navigateTo(String label) async {
+      tester.state<ScaffoldState>(find.byType(Scaffold)).openDrawer();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(label));
+      await tester.pumpAndSettle();
+    }
+
+    await navigateTo('Administrar Equipe');
+    expect(find.text('Active /admin/employees'), findsOneWidget);
+    await navigateTo('Administrar Equipe');
+    expect(find.text('Active /admin/employees'), findsOneWidget);
+
+    expect(await tester.binding.handlePopRoute(), isTrue);
+    await tester.pumpAndSettle();
+    expect(find.text('Active /time-clock'), findsOneWidget);
+  });
+
   testWidgets(
     'non-scrollable workspace content bypasses the shell vertical scroll',
     (tester) async {
@@ -93,6 +172,9 @@ void main() {
       expect(client.lastWithAuth, isTrue);
       expect(tokenStorage.clearCalled, isTrue);
       expect(tokenStorage.savedToken, isNull);
+      expect(await tester.binding.handlePopRoute(), isFalse);
+      await tester.pumpAndSettle();
+      expect(find.byType(LoginPage), findsOneWidget);
     },
   );
 }

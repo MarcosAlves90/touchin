@@ -2,6 +2,7 @@ import 'package:touchin_flutter/core/network/touchin_api.dart';
 import 'package:touchin_flutter/features/auth/presentation/auth_submission_mixin.dart';
 import 'package:touchin_flutter/features/auth/presentation/widgets/auth_shell.dart';
 import 'package:flutter/material.dart';
+import 'package:touchin_flutter/core/navigation/workspace_router.dart';
 
 class MustChangePasswordPage extends StatefulWidget {
   const MustChangePasswordPage({super.key});
@@ -54,7 +55,12 @@ class _MustChangePasswordPageState extends State<MustChangePasswordPage>
           ),
         );
 
-        Navigator.of(context).pushReplacementNamed('/');
+        final router = WorkspaceRouterScope.maybeOf(context);
+        if (router != null) {
+          Router.neglect(context, () => router.navigate('/'));
+        } else {
+          Navigator.of(context).pushReplacementNamed('/');
+        }
       },
       genericErrorMessage: 'Não foi possível redefinir sua senha.',
     );

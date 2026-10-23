@@ -1,0 +1,226 @@
+{
+  "schema_version": 6,
+  "kind": "defect",
+  "commit": {
+    "message": "fix(web): restore full browser Back and Forward history (#65)"
+  },
+  "scope": {
+    "allowed_paths": [
+      "frontend/lib/main.dart",
+      "frontend/lib/core/navigation/workspace_router.dart",
+      "frontend/lib/features/shared/presentation/widgets/workspace_shell.dart",
+      "frontend/lib/features/auth/presentation/login_page.dart",
+      "frontend/lib/features/auth/presentation/register_page.dart",
+      "frontend/lib/features/auth/presentation/logout_navigation.dart",
+      "frontend/lib/features/auth/presentation/must_change_password_page.dart",
+      "frontend/test/widget_test.dart",
+      "frontend/test/core/navigation/browser_history_test.dart",
+      "frontend/test/features/shared/presentation/widgets/workspace_shell_test.dart",
+      "frontend/test/browser/navigation_history_smoke.mjs",
+      "docs/contracts/browser-navigation-history-issue-65-v2.polis.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/core/navigation/browser_history_test.dart",
+      "frontend/test/widget_test.dart",
+      "frontend/test/features/shared/presentation/widgets/workspace_shell_test.dart",
+      "frontend/test/browser/navigation_history_smoke.mjs"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Complete issue 65 web browser history so Back and Forward restore canonical URL and corresponding screen, while preserving all locked v1 navigation and authentication invariants.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "When navigating through workspace routes A to B to C, Back restores B then A, and Forward restores B then C in a real browser, with URL and content synchronized."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "Navigating to the active named route does not add entries, and new navigation after Back truncates only the browser forward branch naturally."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "The six existing named workspace URLs and direct deep links work; reload and navigation transitions retain session bootstrap, error/retry, forced password change and unauthenticated guards."
+      },
+      {
+        "id": "REQ-004",
+        "statement": "Login/registration install a canonical route; logout clears the session and browser Back/Forward cannot re-expose protected content; dialog navigation remains functional."
+      },
+      {
+        "id": "REQ-005",
+        "statement": "The 19 versioned POLIS contracts at commit 9d61bfe, including locked browser-navigation-history-issue-65-v1, remain unchanged; archive a new locked v6 contract for this follow-up."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "Widget and Chrome tests exercise A-B-C-Back-Back-Forward-Forward and compare route URL with rendered content.",
+        "requirements": [
+          "REQ-001"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "Tests verify repeated active destination does not add entries and replacing a forward branch preserves normal browser semantics.",
+        "requirements": [
+          "REQ-002"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-003",
+        "statement": "All six authenticated deep links, startup session errors/retry, revoked/expired session, mandatory password change and anonymous login remain guarded.",
+        "requirements": [
+          "REQ-003"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-004",
+        "statement": "Authenticated login/registration URLs are canonical and logout does not expose earlier protected content through Back/Forward.",
+        "requirements": [
+          "REQ-004"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-005",
+        "statement": "POLIS strict development evidence passes with the new locked contract and all 19 prior contract bytes remain identical to HEAD baseline.",
+        "requirements": [
+          "REQ-005"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "Retain existing authentication and role selection rules, route names, visible screens, theme and backend interfaces."
+      },
+      {
+        "id": "INV-002",
+        "statement": "Preserve previous v1 locked POLIS contract bytes and all other committed POLIS contracts."
+      },
+      {
+        "id": "INV-003",
+        "statement": "Use Flutter Router/Navigator APIs for bidirectional browser history without manually inserting JavaScript history records or adding dependencies."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "Forward returns null or stays on A after A-B-Back."
+      },
+      {
+        "id": "FORB-002",
+        "statement": "URL changes but screen does not, or screen changes without the matching URL."
+      },
+      {
+        "id": "FORB-003",
+        "statement": "Logout or revoked session can be bypassed through browser Back/Forward."
+      },
+      {
+        "id": "FORB-004",
+        "statement": "Duplicate menu selections create phantom history entries."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "Browser Back and Forward, primary drawer navigation, deep links, login/registration/logout."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "Synchronized canonical route and view in browser navigation history."
+      },
+      {
+        "id": "OUT-002",
+        "statement": "Versioned follow-up POLIS locked contract and regression tests."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "Without a declarative Router, the new regression test fails and prints browser_forward_history_missing."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "9d61bfefc47d573480c14ae3e3b8d3a0c95e87cc",
+    "base_tree": "4f2c938fb4a94e4c7e9b5ecae82fb0cf0a9080f6",
+    "policy_sha256": "76f07e3704cbf9fc47beadcbcf6d4493c1650abe3d11033115b6b16d82b14b3c",
+    "specification_sha256": "1c6bc9063bf70f772f720aa3a4ff1cab3a800a25e73a7099568ed97f101fbe02"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/core/navigation/browser_history_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 300,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/core/navigation/browser_history_test.dart",
+      "test/widget_test.dart",
+      "test/features/shared/presentation/widgets/workspace_shell_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 360,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "python3",
+        "-c",
+        "import subprocess,sys; p=subprocess.run(['flutter','test','test/core/navigation/browser_history_test.dart','--plain-name','browser router supports bidirectional history'],cwd='frontend'); print('browser_forward_history_missing' if p.returncode else 'browser_forward_history_present'); sys.exit(p.returncode)"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 360,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "browser_forward_history_missing"
+    ]
+  }
+}
