@@ -31,6 +31,8 @@ class TimeClockController extends ChangeNotifier {
   bool isLoadingState = true;
   String? loadError;
   String employeeName = 'Funcionario';
+  String? employeeId;
+  bool requiresLocationOnPunch = true;
   String employeeUnit = '-';
   int todayWorkedMinutes = 0;
   int todayBreakMinutes = 0;
@@ -54,6 +56,7 @@ class TimeClockController extends ChangeNotifier {
   Timer? _clockTimer;
   bool _isDisposed = false;
   int _workLogTaskRequestVersion = 0;
+  int _stateRequestVersion = 0;
 
   Future<void> start() async {
     now = DateTime.now();
@@ -66,8 +69,10 @@ class TimeClockController extends ChangeNotifier {
       notifyListeners();
     });
 
-    unawaited(prepareLocationAccess());
     await loadTimeClockState(page: recordsPage, limit: recordsPageSize);
+    if (requiresLocationOnPunch) {
+      unawaited(prepareLocationAccess());
+    }
   }
 
   @override
@@ -85,6 +90,7 @@ class TimeClockController extends ChangeNotifier {
     if (_isDisposed) {
       return;
     }
+    final requestVersion = ++_stateRequestVersion;
 
     if (showLoading) {
       isLoadingState = true;
@@ -94,10 +100,12 @@ class TimeClockController extends ChangeNotifier {
 
     try {
       final state = await _api.getMyTimeClockState(page: page, limit: limit);
-      if (_isDisposed) {
+      if (_isDisposed || requestVersion != _stateRequestVersion) {
         return;
       }
 
+      employeeId = state.employee.id;
+      requiresLocationOnPunch = state.employee.requiresLocationOnPunch;
       employeeName = state.employee.name;
       employeeUnit = state.employee.unit;
       status = state.currentStatus;
@@ -115,14 +123,14 @@ class TimeClockController extends ChangeNotifier {
       isLoadingState = false;
       notifyListeners();
     } on ApiException catch (error) {
-      if (_isDisposed) {
+      if (_isDisposed || requestVersion != _stateRequestVersion) {
         return;
       }
       isLoadingState = false;
       loadError = error.message;
       notifyListeners();
     } catch (_) {
-      if (_isDisposed) {
+      if (_isDisposed || requestVersion != _stateRequestVersion) {
         return;
       }
       isLoadingState = false;
@@ -183,7 +191,19 @@ class TimeClockController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      workLogProjects = await _api.listProjects(status: ProjectStatus.active);
+      // Management listProjects includes unrelated projects for managers.
+      if (employeeId == null) {
+        await loadTimeClockState(
+            page: 1, limit: recordsPageSize, showLoading: false);
+      }
+      final currentEmployeeId = employeeId;
+      if (currentEmployeeId == null) {
+        throw StateError('O funcionário atual ainda não foi carregado.');
+      }
+      final assigned = await _api.listEmployeeProjects(currentEmployeeId);
+      workLogProjects = List<ProjectSummary>.unmodifiable(
+        assigned.where((project) => project.status == ProjectStatus.active),
+      );
       if (_isDisposed) {
         return null;
       }
@@ -265,25 +285,30 @@ class TimeClockController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final locationResult =
-          await _punchLocationService.captureForPunch().timeout(
-                _punchLocationTimeout,
-                onTimeout: () => const PunchLocationResult.error(
-                  message:
-                      'Não foi possível validar a localização a tempo. Tente novamente.',
-                ),
-              );
+      // Optional capture is exclusively user-initiated via prepareLocationAccess.
+      // A punch must never start a permission prompt or wait for GPS in this mode.
+      var punchLocation = locationState.snapshot;
+      if (requiresLocationOnPunch) {
+        final locationResult =
+            await _punchLocationService.captureForPunch().timeout(
+                  _punchLocationTimeout,
+                  onTimeout: () => const PunchLocationResult.error(
+                    message:
+                        'Não foi possível validar a localização a tempo. Tente novamente.',
+                  ),
+                );
 
-      if (_isDisposed) {
-        return null;
-      }
+        if (_isDisposed) {
+          return null;
+        }
 
-      locationState = locationResult;
-      notifyListeners();
+        locationState = locationResult;
+        notifyListeners();
 
-      final punchLocation = locationResult.snapshot;
-      if (punchLocation == null) {
-        return locationResult.message;
+        punchLocation = locationResult.snapshot;
+        if (punchLocation == null) {
+          return locationResult.message;
+        }
       }
 
       final punch = await _api.createPunch(
@@ -296,13 +321,20 @@ class TimeClockController extends ChangeNotifier {
       );
       unawaited(
         loadTimeClockState(
-          page: recordsPage,
+          page: 1,
           limit: recordsPageSize,
           showLoading: false,
         ),
       );
       return '${punch.title} registrado com sucesso.';
     } on ApiException catch (error) {
+      if (error.statusCode == 409 && !_isDisposed) {
+        unawaited(loadTimeClockState(
+          page: 1,
+          limit: recordsPageSize,
+          showLoading: false,
+        ));
+      }
       return error.message;
     } catch (_) {
       return 'Não foi possível registrar o ponto.';

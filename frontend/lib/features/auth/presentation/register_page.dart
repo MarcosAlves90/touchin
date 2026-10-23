@@ -5,6 +5,7 @@ import 'package:touchin_flutter/features/auth/presentation/auth_session_navigati
 import 'package:touchin_flutter/features/auth/presentation/auth_submission_mixin.dart';
 import 'package:touchin_flutter/features/auth/presentation/widgets/auth_shell.dart';
 import 'package:flutter/material.dart';
+import 'package:touchin_flutter/core/navigation/workspace_router.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -28,6 +29,7 @@ class _RegisterPageState extends State<RegisterPage>
   bool _acceptTerms = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+  bool _hasValidationErrors = false;
 
   @override
   void dispose() {
@@ -44,7 +46,9 @@ class _RegisterPageState extends State<RegisterPage>
   Future<void> _submit() async {
     FocusScope.of(context).unfocus();
 
-    if (!_formKey.currentState!.validate()) {
+    final valid = _formKey.currentState!.validate();
+    setState(() => _hasValidationErrors = !valid);
+    if (!valid) {
       return;
     }
 
@@ -79,10 +83,15 @@ class _RegisterPageState extends State<RegisterPage>
           ),
         );
 
-        Navigator.of(context).pushAndRemoveUntil(
-          buildAuthenticatedWorkspaceRoute(authSession),
-          (route) => false,
-        );
+        final router = WorkspaceRouterScope.maybeOf(context);
+        if (router != null) {
+          WorkspaceRouterScope.replaceWithAuthenticated(context, authSession);
+        } else {
+          Navigator.of(context).pushAndRemoveUntil(
+            buildAuthenticatedWorkspaceRoute(authSession),
+            (route) => false,
+          );
+        }
       },
       genericErrorMessage: 'Não foi possível concluir o cadastro da empresa.',
     );
@@ -91,7 +100,9 @@ class _RegisterPageState extends State<RegisterPage>
   @override
   Widget build(BuildContext context) {
     return AuthShell(
+      brandStep: '02',
       brandHeadline: 'Sua operação começa aqui.',
+      brandImageUrl: AuthBrandImages.register,
       brandDescription:
           'Ative sua empresa com um onboarding moderno, automatizado e desenvolvido para negócios que valorizam velocidade, controle e crescimento.',
       brandTags: const [
@@ -157,6 +168,7 @@ class _RegisterPageState extends State<RegisterPage>
               ),
             ),
             const SizedBox(height: 24),
+            if (_hasValidationErrors) const AuthFormValidationMessage(),
             TextFormField(
               controller: _companyNameController,
               textInputAction: TextInputAction.next,
@@ -275,17 +287,14 @@ class _RegisterPageState extends State<RegisterPage>
                 labelText: 'Senha',
                 hintText: 'Crie uma senha de acesso',
                 prefixIcon: const Icon(Icons.lock_outline_rounded),
-                suffixIcon: IconButton(
+                suffixIcon: AuthPasswordVisibilityButton(
+                  fieldName: 'senha',
+                  isObscured: _obscurePassword,
                   onPressed: () {
                     setState(() {
                       _obscurePassword = !_obscurePassword;
                     });
                   },
-                  icon: Icon(
-                    _obscurePassword
-                        ? Icons.visibility_outlined
-                        : Icons.visibility_off_outlined,
-                  ),
                 ),
               ),
               validator: (value) {
@@ -310,17 +319,14 @@ class _RegisterPageState extends State<RegisterPage>
                 labelText: 'Confirmar senha',
                 hintText: 'Repita a senha criada',
                 prefixIcon: const Icon(Icons.lock_person_outlined),
-                suffixIcon: IconButton(
+                suffixIcon: AuthPasswordVisibilityButton(
+                  fieldName: 'confirmação de senha',
+                  isObscured: _obscureConfirmPassword,
                   onPressed: () {
                     setState(() {
                       _obscureConfirmPassword = !_obscureConfirmPassword;
                     });
                   },
-                  icon: Icon(
-                    _obscureConfirmPassword
-                        ? Icons.visibility_outlined
-                        : Icons.visibility_off_outlined,
-                  ),
                 ),
               ),
               validator: (value) {
@@ -358,11 +364,7 @@ class _RegisterPageState extends State<RegisterPage>
             ElevatedButton(
               onPressed: isSubmitting ? null : _submit,
               child: isSubmitting
-                  ? const SizedBox(
-                      height: 18,
-                      width: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
+                  ? const AuthSubmissionIndicator(label: 'Cadastrando empresa')
                   : const Text('Cadastrar empresa'),
             ),
             const SizedBox(height: 12),

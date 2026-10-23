@@ -183,21 +183,28 @@ class _TimeClockPageState extends State<TimeClockPage> {
     return switch (_status) {
       ShiftStatus.checkedOut =>
         'Nenhuma jornada ativa. O próximo registro deve ser a entrada.',
-      ShiftStatus.working => 'Jornada em andamento com dispositivo validado.',
+      ShiftStatus.working => 'Jornada em andamento.',
       ShiftStatus.onBreak =>
         'Pausa aberta. O próximo registro recomendado é o retorno.',
     };
   }
 
   Color _statusColor() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return switch (_status) {
-      ShiftStatus.checkedOut => const Color(0xFF6B6254),
-      ShiftStatus.working => const Color(0xFF2F8F46),
-      ShiftStatus.onBreak => const Color(0xFF8C5D00),
+      ShiftStatus.checkedOut => Theme.of(context).colorScheme.onSurfaceVariant,
+      ShiftStatus.working =>
+        isDark ? const Color(0xFF7ED898) : const Color(0xFF1D6A36),
+      ShiftStatus.onBreak =>
+        isDark ? const Color(0xFFFFC95B) : const Color(0xFF805600),
     };
   }
 
   String _locationStatusLabel() {
+    if (!_controller.requiresLocationOnPunch &&
+        _locationState.status == PunchLocationStatus.checking) {
+      return 'Localização opcional';
+    }
     return switch (_locationState.status) {
       PunchLocationStatus.checking => 'Validando localização',
       PunchLocationStatus.ready => _lastRegisteredLocation == null
@@ -212,6 +219,10 @@ class _TimeClockPageState extends State<TimeClockPage> {
   }
 
   String _locationActionLabel() {
+    if (!_controller.requiresLocationOnPunch &&
+        _locationState.status == PunchLocationStatus.checking) {
+      return 'Ativar localização';
+    }
     return switch (_locationState.status) {
       PunchLocationStatus.checking => 'Atualizando',
       PunchLocationStatus.ready => 'Atualizar permissão',
@@ -224,14 +235,20 @@ class _TimeClockPageState extends State<TimeClockPage> {
   }
 
   Color _locationStatusColor() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return switch (_locationState.status) {
-      PunchLocationStatus.checking => const Color(0xFF6B6254),
-      PunchLocationStatus.ready => const Color(0xFF2F8F46),
-      PunchLocationStatus.serviceDisabled => const Color(0xFF8C5D00),
-      PunchLocationStatus.permissionDenied => const Color(0xFF8C5D00),
-      PunchLocationStatus.permissionDeniedForever => const Color(0xFF8B1E1E),
-      PunchLocationStatus.unsupported => const Color(0xFF6B6254),
-      PunchLocationStatus.error => const Color(0xFF8B1E1E),
+      PunchLocationStatus.checking =>
+        Theme.of(context).colorScheme.onSurfaceVariant,
+      PunchLocationStatus.ready =>
+        isDark ? const Color(0xFF7ED898) : const Color(0xFF1D6A36),
+      PunchLocationStatus.serviceDisabled ||
+      PunchLocationStatus.permissionDenied =>
+        isDark ? const Color(0xFFFFC95B) : const Color(0xFF805600),
+      PunchLocationStatus.permissionDeniedForever ||
+      PunchLocationStatus.error =>
+        isDark ? const Color(0xFFFFB4AB) : const Color(0xFFA62525),
+      PunchLocationStatus.unsupported =>
+        Theme.of(context).colorScheme.onSurfaceVariant,
     };
   }
 
@@ -248,6 +265,10 @@ class _TimeClockPageState extends State<TimeClockPage> {
   }
 
   String _locationChipLabel() {
+    if (!_controller.requiresLocationOnPunch &&
+        _locationState.status == PunchLocationStatus.checking) {
+      return 'Localização opcional';
+    }
     return switch (_locationState.status) {
       PunchLocationStatus.ready => 'Geolocalização pronta',
       PunchLocationStatus.checking => 'Validando permissão',
@@ -278,8 +299,9 @@ class _TimeClockPageState extends State<TimeClockPage> {
 
     return WorkspaceSidebar(
       title: 'Ponto digital em tempo real.',
-      description:
-          'Uma tela operacional para registrar entrada, pausa e saída com localização vinculada a cada batida.',
+      description: _controller.requiresLocationOnPunch
+          ? 'Uma tela operacional para registrar entrada, pausa e saída com localização exigida em cada batida.'
+          : 'Uma tela operacional para registrar entrada, pausa e saída com localização opcional.',
       summaryChildren: <Widget>[
         WorkspaceSummaryStripe(
           label: 'Status',
@@ -333,7 +355,6 @@ class _TimeClockPageState extends State<TimeClockPage> {
                   ? 'Dados indisponíveis'
                   : _locationChipLabel(),
         ),
-        const WorkspaceHighlightChip(label: 'Dispositivo confiável'),
         const WorkspaceHighlightChip(label: 'Jornada auditável'),
       ],
     );
@@ -348,7 +369,7 @@ class _TimeClockPageState extends State<TimeClockPage> {
           WorkspaceHeader(
             title: 'Bater ponto',
             description:
-                'Registre sua jornada com um fluxo direto, auditável e com coordenadas anexadas para validação operacional.',
+                'Registre sua jornada com um fluxo direto, auditável e com localização quando exigida ou ativada.',
             maxContentWidth: 520,
           ),
           const SizedBox(height: 28),
@@ -591,7 +612,10 @@ class _TimeClockPageState extends State<TimeClockPage> {
           ),
           const SizedBox(height: 10),
           Text(
-            _locationState.message,
+            !_controller.requiresLocationOnPunch &&
+                    _locationState.status == PunchLocationStatus.checking
+                ? 'Localização opcional. Ative o acesso se quiser anexar coordenadas às batidas.'
+                : _locationState.message,
             style: theme.textTheme.bodyMedium?.copyWith(height: 1.45),
           ),
           if (lastLocation != null) ...[

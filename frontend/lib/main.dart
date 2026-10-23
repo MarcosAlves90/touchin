@@ -4,6 +4,7 @@ import 'package:touchin_flutter/contracts/auth.dart';
 import 'package:touchin_flutter/core/network/api_client.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
 import 'package:touchin_flutter/core/storage/token_storage.dart';
+import 'package:touchin_flutter/core/navigation/workspace_router.dart';
 import 'package:touchin_flutter/core/theme/theme_mode_controller.dart';
 import 'package:touchin_flutter/features/auth/presentation/auth_session_navigation.dart';
 import 'package:touchin_flutter/features/auth/presentation/login_page.dart';
@@ -28,11 +29,23 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
+  late final WorkspaceRouter _router = WorkspaceRouter(
+    initialPath: WidgetsBinding.instance.platformDispatcher.defaultRouteName,
+    buildRoute: (context, path, session) => _SessionGate(
+      key: ValueKey<String>(path),
+      routeName: path,
+      initialSession: session,
+      bootstrap: _bootstrapSession,
+      router: _router,
+    ),
+  );
+  final WorkspaceRouteParser _routeParser = WorkspaceRouteParser();
   TouchInApi get _api => widget.api ?? TouchInApi();
 
   TokenStorage get _tokenStorage => widget.tokenStorage ?? TokenStorage();
 
   Future<_SessionBootstrapResult> _bootstrapSession() async {
+    final generation = _router.sessionGeneration;
     AuthSession? persistedSession;
     try {
       persistedSession = await _tokenStorage.readAuthSession();
@@ -43,11 +56,18 @@ class _MyAppState extends State<MyApp> {
     if (persistedSession == null) {
       return const _SessionBootstrapResult.unauthenticated();
     }
+    if (generation != _router.sessionGeneration || _router.sessionRevoked) {
+      return const _SessionBootstrapResult.unauthenticated();
+    }
 
     final now = DateTime.now().toUtc();
     if (!persistedSession.expiresAt.isAfter(now)) {
       try {
-        await _tokenStorage.clearAccessToken();
+        if (generation == _router.sessionGeneration) {
+          await _tokenStorage.clearSessionIfTokenMatches(
+            persistedSession.accessToken,
+          );
+        }
       } catch (_) {
         // Continue to login when browser storage cannot be cleared.
       }
@@ -56,6 +76,9 @@ class _MyAppState extends State<MyApp> {
 
     try {
       final authContext = await _api.getAuthContext();
+      if (generation != _router.sessionGeneration) {
+        return const _SessionBootstrapResult.unauthenticated();
+      }
       return _SessionBootstrapResult.authenticated(
         persistedSession.copyWith(
           company: authContext.company,
@@ -64,8 +87,14 @@ class _MyAppState extends State<MyApp> {
       );
     } on ApiException catch (error) {
       if (error.statusCode == 401 || error.statusCode == 403) {
+        if (generation != _router.sessionGeneration) {
+          return const _SessionBootstrapResult.unauthenticated();
+        }
+        _router.revokeSession();
         try {
-          await _tokenStorage.clearAccessToken();
+          await _tokenStorage.clearSessionIfTokenMatches(
+            persistedSession.accessToken,
+          );
         } catch (_) {
           // The rejected session still must not reach protected content.
         }
@@ -82,7 +111,7 @@ class _MyAppState extends State<MyApp> {
     return AnimatedBuilder(
       animation: ThemeModeController.instance,
       builder: (context, _) {
-        return MaterialApp(
+        return MaterialApp.router(
           title: 'TouchIn',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.lightTheme,
@@ -95,48 +124,109 @@ class _MyAppState extends State<MyApp> {
           ],
           supportedLocales: const [Locale('pt', 'BR')],
           locale: const Locale('pt', 'BR'),
-          onGenerateRoute: _buildRoute,
-          onGenerateInitialRoutes: (initialRoute) => <Route<void>>[
-            _buildRoute(RouteSettings(name: initialRoute)),
-          ],
+          routerDelegate: _router,
+          routeInformationParser: _routeParser,
+          backButtonDispatcher: RootBackButtonDispatcher(),
+          builder: (context, child) => WorkspaceRouterScope(
+            router: _router,
+            child: child!,
+          ),
         );
       },
     );
   }
 
-  Route<void> _buildRoute(RouteSettings settings) {
-    final sessionFuture = _bootstrapSession();
-    return MaterialPageRoute<void>(
-      settings: settings,
-      builder: (context) => FutureBuilder<_SessionBootstrapResult>(
-        future: sessionFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const _StartupSplash();
-          }
+  @override
+  void dispose() {
+    _router.dispose();
+    super.dispose();
+  }
+}
 
-          final result = snapshot.data;
-          if (snapshot.hasError ||
-              result == null ||
-              result.status == _SessionBootstrapStatus.unavailable) {
-            return _SessionVerificationError(
-              onRetry: () {
-                Navigator.of(context).pushReplacement(_buildRoute(settings));
-              },
-            );
-          }
+class _SessionGate extends StatefulWidget {
+  const _SessionGate({
+    super.key,
+    required this.routeName,
+    required this.initialSession,
+    required this.bootstrap,
+    required this.router,
+  });
 
-          final session = result.session;
-          if (session != null) {
-            return _BootstrapSessionView(
-              session: session,
-              routeName: settings.name,
-            );
-          }
+  final String routeName;
+  final AuthSession? initialSession;
+  final Future<_SessionBootstrapResult> Function() bootstrap;
+  final WorkspaceRouter router;
 
-          return const LoginPage();
-        },
-      ),
+  @override
+  State<_SessionGate> createState() => _SessionGateState();
+}
+
+class _SessionGateState extends State<_SessionGate> {
+  late Future<_SessionBootstrapResult> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _resolveSession();
+  }
+
+  @override
+  void didUpdateWidget(_SessionGate oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialSession != oldWidget.initialSession) {
+      _future = _resolveSession();
+    }
+  }
+
+  Future<_SessionBootstrapResult> _resolveSession() =>
+      widget.initialSession == null || widget.router.sessionRevoked
+          ? widget.bootstrap()
+          : Future.value(_SessionBootstrapResult.authenticated(
+              widget.initialSession!,
+            ));
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<_SessionBootstrapResult>(
+      future: _future,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const _StartupSplash();
+        }
+        final result = snapshot.data;
+        if (snapshot.hasError ||
+            result == null ||
+            result.status == _SessionBootstrapStatus.unavailable) {
+          return _SessionVerificationError(
+            onRetry: () {
+              setState(() {
+                _future = widget.bootstrap();
+              });
+            },
+          );
+        }
+        final session = result.session;
+        if (session != null) {
+          if (widget.routeName == '/' ||
+              (session.mustChangePassword &&
+                  widget.routeName != '/must-change-password')) {
+            final generation = widget.router.sessionGeneration;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted &&
+                  generation == widget.router.sessionGeneration &&
+                  !widget.router.sessionRevoked) {
+                Router.neglect(
+                    context, () => widget.router.authenticate(session));
+              }
+            });
+          }
+          return _BootstrapSessionView(
+            session: session,
+            routeName: widget.routeName,
+          );
+        }
+        return const LoginPage();
+      },
     );
   }
 }

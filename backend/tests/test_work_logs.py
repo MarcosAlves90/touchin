@@ -4,6 +4,48 @@ from app.seed import JOAO_EMAIL, MARINA_EMAIL
 from tests.test_api import login_headers, login_headers_for, TEST_SEED_SECRET, _clear_employee_punches
 from datetime import datetime, timedelta, timezone
 
+
+def test_optional_location_punch_detail_matches_persisted_evidence(client: TestClient):
+    from sqlalchemy import select
+    from app.config import get_settings
+    from app.crypto import FieldCipher
+    from app.db import SessionLocal
+    from app.models import Punch
+
+    headers = login_headers_for(client, email=JOAO_EMAIL, password=TEST_SEED_SECRET)
+    cipher = FieldCipher(get_settings().encryption_secret or "")
+    path = "/api/v1/time-clock/me/punches"
+    location = {
+        "latitude": -23.5632,
+        "longitude": -46.6545,
+        "accuracyMeters": 12,
+        "capturedAt": "2026-04-25T16:30:00-03:00",
+    }
+
+    for provided_location in (None, location):
+        _clear_employee_punches("emp-04")
+        payload = {"type": "checkIn"}
+        if provided_location is not None:
+            payload["location"] = provided_location
+        response = client.post(path, headers=headers, json=payload)
+        assert response.status_code == 200, response.text
+        result = response.json()
+        if provided_location is None:
+            assert result["location"] is None
+        else:
+            assert result["location"] is not None
+        assert "validada" not in result["detail"].lower()
+        assert "capturada" not in result["detail"].lower()
+        assert ("localização informada" in result["detail"].lower()) == (provided_location is not None)
+
+        state = client.get("/api/v1/time-clock/me?page=1&limit=4", headers=headers)
+        assert state.status_code == 200
+        assert state.json()["records"][0]["detail"] == result["detail"]
+        with SessionLocal() as db:
+            record = db.scalar(select(Punch).where(Punch.employee_id == "emp-04"))
+            assert record is not None
+            assert cipher.decrypt(record.detail_ciphertext) == result["detail"]
+
 def _create_project(client, headers, *, name: str = "Project") -> dict:
     response = client.post(
         "/api/v1/projects",

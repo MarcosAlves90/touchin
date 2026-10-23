@@ -78,8 +78,27 @@ class _ProjectTaskEditorDialogState extends State<ProjectTaskEditorDialog> {
   Widget build(BuildContext context) {
     final viewport = MediaQuery.sizeOf(context);
     final compact = viewport.width < 600;
+    final excluded = <String>{};
+    if (widget.task != null) {
+      excluded.add(widget.task!.id);
+      // Mark descendants through a parent->children index. Visited avoids
+      // looping indefinitely if legacy data contains an invalid cycle.
+      final children = <String, List<String>>{};
+      for (final candidate in widget.tasks) {
+        if (candidate.parentTaskId case final parentId?) {
+          children.putIfAbsent(parentId, () => <String>[]).add(candidate.id);
+        }
+      }
+      final pending = <String>[widget.task!.id];
+      while (pending.isNotEmpty) {
+        final current = pending.removeLast();
+        for (final childId in children[current] ?? const <String>[]) {
+          if (excluded.add(childId)) pending.add(childId);
+        }
+      }
+    }
     final possibleParents = widget.tasks
-        .where((candidate) => candidate.id != widget.task?.id)
+        .where((candidate) => !excluded.contains(candidate.id))
         .toList();
 
     final dialog = WorkspaceEditorDialog(
@@ -119,10 +138,13 @@ class _ProjectTaskEditorDialogState extends State<ProjectTaskEditorDialog> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
             if (_saveError != null) ...[
-              Text(
-                _saveError!,
-                key: const ValueKey('task-editor-save-error'),
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              Semantics(
+                liveRegion: true,
+                child: Text(
+                  _saveError!,
+                  key: const ValueKey('task-editor-save-error'),
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
               ),
               if (_editConflict)
                 TextButton.icon(

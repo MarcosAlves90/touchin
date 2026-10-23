@@ -276,6 +276,22 @@ class TouchInApi {
     });
   }
 
+  /// Only project associations of this employee; intended for punch work logs.
+  Future<List<ProjectSummary>> listEmployeeProjects(String employeeId) async {
+    final response = await _client.get(
+      '/employees/${Uri.encodeComponent(employeeId)}/projects',
+      withAuth: true,
+    );
+    return _parseContract('employee projects', () {
+      final payload = requireJsonList(response, 'employee projects response');
+      return payload
+          .map((item) => ProjectSummary.fromJson(
+                requireJsonMap(item, 'employee projects[]'),
+              ))
+          .toList();
+    });
+  }
+
   Future<ProjectSummary> createProject(ProjectDraft draft) async {
     final response = await _client.post(
       '/projects',

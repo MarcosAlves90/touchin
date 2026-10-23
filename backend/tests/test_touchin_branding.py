@@ -10,18 +10,6 @@ OLD_NAME = ("bun" + "chin").encode()
 OLD_NAME_TEXT = OLD_NAME.decode()
 RED_TOKEN = "TOUCHIN_DELIVERY_RED_V1"
 GREEN_TOKEN = "TOUCHIN_DELIVERY_GREEN_V1"
-IGNORED_DIRS = {
-    ".git",
-    ".dart_tool",
-    ".pytest_cache",
-    ".ruff_cache",
-    ".mypy_cache",
-    ".venv",
-    "venv",
-    "__pycache__",
-    "node_modules",
-    "build",
-}
 ANDROID_NS = "{http://schemas.android.com/apk/res/android}"
 FRONTEND_API_TEST = "frontend/test/core/network/touchin_api_test.dart"
 INLINE_PASSWORD_LITERAL_PATTERN = re.compile(
@@ -31,13 +19,15 @@ FLAGGED_TEST_VALUE = "Touch" + "In@123"
 
 
 def _repository_paths() -> list[Path]:
-    # Git determines repository content. Generated Flutter files and private
-    # .env files are ignored and must not change the result of this gate.
-    tracked_and_new = subprocess.check_output(
-        ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z"],
-        cwd=ROOT,
-    )
-    return [ROOT / entry.decode("utf-8") for entry in tracked_and_new.split(b"\0") if entry]
+    # Repository identity applies to committed source, not local credentials
+    # or platform-generated Flutter files that may contain the checkout path.
+    tracked = subprocess.run(
+        ["git", "ls-files", "-z"], cwd=ROOT, capture_output=True, check=True,
+    ).stdout
+    return [
+        ROOT / name.decode("utf-8", "surrogateescape")
+        for name in tracked.split(b"\0") if name
+    ]
 
 
 def _find_branding_offenders() -> list[str]:

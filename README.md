@@ -271,6 +271,45 @@ Rotas principais:
 
 ## Validação
 
+### POLIS CLI
+
+O fluxo de CI utiliza o **POLIS CLI v6.12.0**, fixado em
+`.github/workflows/ci.yml`. A Project Policy mantida em
+`.polis/policy.json` continua no esquema v3, compatível com essa versão.
+O gate `lint` analisa agora todo o código e os testes Dart.
+
+```bash
+go install github.com/MarcosAlves90/polis/v6/cmd/polis@v6.12.0
+polis doctor --repo .
+polis plan --repo .
+polis gates --repo . --gate lint
+polis gates --repo . --gate test.complete
+```
+
+Os comandos acima consultam a política **commitada**. Durante a edição da
+própria política, valide os novos bytes por uma cópia fora do repositório:
+
+```bash
+POLIS_POLICY="$(mktemp "${TMPDIR:-/tmp}/touchin-policy.XXXXXXXX")"
+cp .polis/policy.json "$POLIS_POLICY"
+polis doctor --repo . --policy "$POLIS_POLICY"
+polis plan --repo . --policy "$POLIS_POLICY"
+polis gates --repo . --policy "$POLIS_POLICY" --gate lint
+```
+
+O gate `smoke` depende de `build`, de modo que sua execução isolada pelo
+POLIS também produza o artefato web necessário. `polis gates` produz validação local dos gates;
+um Change Contract estrito e o respectivo fluxo de prova são necessários
+para declarar uma validação `polis workspace validate`.
+
+### Acessibilidade
+
+A auditoria e as verificações relacionadas à issue
+[#64](https://github.com/MarcosAlves90/touchin/issues/64) estão registradas em
+[docs/accessibility-issue-64.md](docs/accessibility-issue-64.md).
+
+### Testes gerais
+
 O CI do repositório executa:
 
 - `pytest` em `backend/`
@@ -279,9 +318,9 @@ O CI do repositório executa:
 Comandos úteis localmente:
 
 ```bash
-cd backend && pytest
-cd frontend && flutter test
-cd frontend && dart format lib test
+(cd backend && pytest)
+(cd frontend && flutter test)
+(cd frontend && dart format lib test)
 ```
 
 ## Documentação

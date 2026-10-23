@@ -134,11 +134,12 @@ def create_punch(
             )
 
     detail = {
-        PunchType.check_in: "Entrada registrada com localização validada.",
-        PunchType.break_start: "Pausa iniciada com localização capturada.",
-        PunchType.break_end: "Jornada retomada com localização capturada.",
-        PunchType.check_out: "Saída registrada com localização validada.",
+        PunchType.check_in: "Entrada registrada",
+        PunchType.break_start: "Pausa iniciada",
+        PunchType.break_end: "Jornada retomada",
+        PunchType.check_out: "Saída registrada",
     }[punch_type]
+    detail += " com localização informada." if payload.location is not None else "."
     record = Punch(
         company_id=employee.company_id,
         employee_id=employee.id,

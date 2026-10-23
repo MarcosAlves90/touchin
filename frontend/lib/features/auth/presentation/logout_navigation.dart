@@ -2,6 +2,7 @@ import 'package:touchin_flutter/core/network/api_client.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
 import 'package:touchin_flutter/features/auth/presentation/login_page.dart';
 import 'package:flutter/material.dart';
+import 'package:touchin_flutter/core/navigation/workspace_router.dart';
 
 Route<void> buildLoggedOutRoute() {
   return MaterialPageRoute<void>(
@@ -22,6 +23,12 @@ Future<void> logoutFromWorkspace(
   }
 
   if (!context.mounted) {
+    return;
+  }
+
+  final router = WorkspaceRouterScope.maybeOf(context);
+  if (router != null) {
+    Router.neglect(context, router.signedOut);
     return;
   }
 
