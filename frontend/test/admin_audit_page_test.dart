@@ -11,6 +11,7 @@ import 'package:touchin_flutter/core/network/touchin_api.dart';
 class FakeTouchInApi extends TouchInApi {
   List<AuditEventResponse> mockEvents = [];
   Object? firstError;
+  Object? secondPageError;
   Map<String, dynamic> lastParams = {};
   List<int> requestedPages = [];
   Completer<List<AuditEventResponse>>? secondPageResponse;
@@ -49,6 +50,11 @@ class FakeTouchInApi extends TouchInApi {
     if (page == 2 && secondPageResponse != null) {
       return secondPageResponse!.future;
     }
+    if (page == 2 && secondPageError != null) {
+      final error = secondPageError!;
+      secondPageError = null;
+      throw error;
+    }
 
     // Simulate pagination
     int start = (page - 1) * limit;
@@ -64,6 +70,74 @@ class FakeTouchInApi extends TouchInApi {
 }
 
 void main() {
+  AuditEventResponse pageEvent(int index) => AuditEventResponse(
+        id: 'evt_$index',
+        timestamp: DateTime.utc(2026, 10, 20),
+        companyId: 'company_1',
+        actorUserId: 'user_1',
+        projectId: null,
+        action: 'task.action_$index',
+        entityType: 'task',
+        entityId: 'task_$index',
+        result: 'success',
+        metadataPayload: null,
+      );
+
+  testWidgets('page 2 HTTP 503 shows accessible error and retries page 2',
+      (tester) async {
+    final api = FakeTouchInApi()
+      ..mockEvents = List.generate(51, pageEvent)
+      ..secondPageError = ApiException('Upstream error', statusCode: 503);
+    await tester.pumpWidget(MaterialApp(home: AdminAuditPage(api: api)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Carregar mais eventos'));
+    await tester.pumpAndSettle();
+    expect(api.requestedPages, [1, 2]);
+    final failure = find.textContaining('Serviço temporariamente indisponível');
+    expect(failure, findsOneWidget);
+    final liveRegion = find.ancestor(
+      of: failure,
+      matching: find.byWidgetPredicate(
+        (widget) => widget is Semantics && widget.properties.liveRegion == true,
+      ),
+    );
+    expect(liveRegion, findsWidgets);
+    expect(find.text('task.action_0 - success'), findsOneWidget);
+    await tester.tap(find.text('Tentar novamente'));
+    await tester.pumpAndSettle();
+    expect(api.requestedPages, [1, 2, 2]);
+    expect(failure, findsNothing);
+    final list = tester.widget<ListView>(find.byType(ListView));
+    final delegate = list.childrenDelegate as SliverChildBuilderDelegate;
+    expect(delegate.estimatedChildCount, 51);
+    expect(find.text('Todos os eventos de auditoria foram carregados.'),
+        findsOneWidget);
+  });
+
+  testWidgets('refresh discards pending page 2 failure and resets loading',
+      (tester) async {
+    final pending = Completer<List<AuditEventResponse>>();
+    final api = FakeTouchInApi()
+      ..mockEvents = List.generate(100, pageEvent)
+      ..secondPageResponse = pending;
+    await tester.pumpWidget(MaterialApp(home: AdminAuditPage(api: api)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Carregar mais eventos'));
+    await tester.pump();
+    expect(find.text('Carregando mais eventos'), findsOneWidget);
+    api.mockEvents = [pageEvent(999)];
+    await tester.tap(find.text('Apply Filters'));
+    await tester.pumpAndSettle();
+    expect(find.text('task.action_999 - success'), findsOneWidget);
+    expect(find.text('Carregando mais eventos'), findsNothing);
+    pending.completeError(ApiException('Stale upstream error', statusCode: 503));
+    await tester.pumpAndSettle();
+    expect(api.requestedPages, [1, 2, 1]);
+    expect(find.text('task.action_999 - success'), findsOneWidget);
+    expect(find.textContaining('Stale upstream error'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('audit events have Material and remain visible in direct route',
       (tester) async {
     final api = FakeTouchInApi()

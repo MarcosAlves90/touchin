@@ -125,13 +125,13 @@ class ApiClient {
     final detail = _extractMessage(parsedBody);
     final message = response.statusCode >= 500
         ? 'Serviço temporariamente indisponível. Tente novamente.'
-        : response.statusCode == 403
-            ? 'Você não tem permissão para acessar este recurso.'
-            : response.statusCode == 404
-                ? 'Recurso não encontrado.'
-                : _translateErrorCode(code) ??
-                    (detail == null ? null : _translateMessage(detail) ?? detail) ??
-                    'Não foi possível concluir a solicitação.';
+        : _translateErrorCode(code) ??
+            (detail == null ? null : _translateMessage(detail) ?? detail) ??
+            (response.statusCode == 403
+                ? 'Você não tem permissão para acessar este recurso.'
+                : response.statusCode == 404
+                    ? 'Recurso não encontrado.'
+                    : 'Não foi possível concluir a solicitação.');
     throw ApiException(message, statusCode: response.statusCode, code: code);
   }
 
@@ -171,6 +171,9 @@ class ApiClient {
         'A sessão autenticada não está mais disponível.',
       'The company account is inactive.' => 'A conta da empresa está inativa.',
       'This account is inactive.' => 'Esta conta está inativa.',
+      'Permission denied.' => 'Você não tem permissão para acessar este recurso.',
+      'Admin privileges are required for this operation.' =>
+        'Privilégios de administrador são necessários para esta operação.',
       'Project task employee limit is below current task membership.' =>
         'O limite por tarefa não pode ser menor que a quantidade de funcionários já associados a uma tarefa. Remova participantes antes de reduzir o limite.',
       _ => null,

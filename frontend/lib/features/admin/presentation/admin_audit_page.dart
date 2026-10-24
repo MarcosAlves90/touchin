@@ -69,8 +69,12 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
     }
   }
 
-  Future<void> _loadEvents({bool refresh = false}) async {
-    if (!refresh && (_isLoading || _isLoadingMore || !_hasMore)) return;
+  Future<void> _loadEvents({bool refresh = false, bool retry = false}) async {
+    if (!refresh &&
+        (_isLoading || _isLoadingMore || !_hasMore ||
+            (_error != null && !retry))) {
+      return;
+    }
     if (refresh) _requestGeneration++;
     final generation = _requestGeneration;
     final requestedPage = refresh ? 1 : _page;
@@ -78,6 +82,7 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
       if (refresh) {
         setState(() {
           _isLoading = true;
+          _isLoadingMore = false;
           _error = null;
           _page = 1;
           _events.clear();
@@ -401,13 +406,24 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
                                           OutlinedButton(
                                             focusNode: _loadMoreFocusNode,
                                             onPressed: () {
-                                              if (!_isLoadingMore) {
+                                              if (!_isLoadingMore && _error == null) {
                                                 _loadEvents();
                                               }
                                             },
                                             child: const Text(
                                                 'Carregar mais eventos'),
                                           ),
+                                          if (_error != null) ...[
+                                            const SizedBox(height: 8),
+                                            Semantics(
+                                              liveRegion: true,
+                                              child: Text('Erro: $_error'),
+                                            ),
+                                            TextButton(
+                                              onPressed: () => _loadEvents(retry: true),
+                                              child: const Text('Tentar novamente'),
+                                            ),
+                                          ],
                                           if (_isLoadingMore) ...[
                                             const SizedBox(height: 8),
                                             Semantics(

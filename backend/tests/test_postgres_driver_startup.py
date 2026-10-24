@@ -39,6 +39,7 @@ def _import_with_database_url(database_url: str) -> subprocess.CompletedProcess[
 @pytest.mark.parametrize(
     "database_url",
     [
+        "postgres://unused:unused@localhost/unused",
         "postgresql://unused:unused@localhost/unused",
         "postgresql+psycopg2://unused:unused@localhost/unused",
     ],
@@ -53,4 +54,13 @@ def test_explicit_psycopg3_url_reports_configuration_error():
     result = _import_with_database_url("postgresql+psycopg://unused:unused@localhost/unused")
     assert result.returncode != 0
     assert "TOUCHIN_DATABASE_URL selects psycopg 3" in result.stderr
+    assert "ModuleNotFoundError" not in result.stderr
+
+
+@pytest.mark.parametrize("driver", ["postgresql+asyncpg", "postgresql+pg8000"])
+def test_unsupported_driver_fails_safely(driver):
+    result = _import_with_database_url(f"{driver}://secret_user:secret_password@localhost/unused")
+    assert result.returncode != 0
+    assert "TOUCHIN_DATABASE_URL" in result.stderr
+    assert "secret_password" not in result.stderr
     assert "ModuleNotFoundError" not in result.stderr
