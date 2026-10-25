@@ -170,6 +170,7 @@ class _EmployeeEditorDialogState extends State<_EmployeeEditorDialog> {
                     hintText: 'Ex.: Analista Financeira',
                     icon: Icons.badge_outlined,
                     validatorMessage: 'Informe o cargo principal.',
+                    minLength: 2,
                   ),
                   const SizedBox(height: 16),
                   _buildTextField(
@@ -178,6 +179,7 @@ class _EmployeeEditorDialogState extends State<_EmployeeEditorDialog> {
                     hintText: 'Ex.: Financeiro',
                     icon: Icons.apartment_rounded,
                     validatorMessage: 'Informe o departamento.',
+                    minLength: 2,
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
@@ -225,6 +227,7 @@ class _EmployeeEditorDialogState extends State<_EmployeeEditorDialog> {
                     hintText: 'Ex.: Matriz Paulista',
                     icon: Icons.location_city_outlined,
                     validatorMessage: 'Informe a unidade de referência.',
+                    minLength: 2,
                   ),
                   const SizedBox(height: 16),
                   Row(
@@ -360,6 +363,7 @@ class _EmployeeEditorDialogState extends State<_EmployeeEditorDialog> {
     String? hintText,
     required IconData icon,
     required String validatorMessage,
+    int minLength = 3,
     TextInputType? keyboardType,
     List<TextInputFormatter>? inputFormatters,
     String? Function(String? value)? validator,
@@ -376,7 +380,7 @@ class _EmployeeEditorDialogState extends State<_EmployeeEditorDialog> {
       validator:
           validator ??
           (value) {
-            if (value == null || value.trim().length < 3) {
+            if (value == null || value.trim().length < minLength) {
               return validatorMessage;
             }
             return null;

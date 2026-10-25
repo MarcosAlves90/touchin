@@ -8,6 +8,48 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets(
+    'employee editor accepts two characters for role, department and unit',
+    (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1440, 1800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        MaterialApp(home: AdminEmployeesPage(api: _FakeAdminApi())),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Novo funcionário'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Nome'),
+        'Ana Silva',
+      );
+      await tester.enterText(find.widgetWithText(TextFormField, 'Cargo'), 'QA');
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Departamento'),
+        'IT',
+      );
+      await tester.enterText(
+          find.widgetWithText(TextFormField, 'Unidade'), 'HQ');
+      final submit = find.text('Criar funcionário');
+      await tester.ensureVisible(submit);
+      await tester.tap(submit);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Informe o cargo principal.'), findsNothing);
+      expect(find.text('Informe o departamento.'), findsNothing);
+      expect(find.text('Informe a unidade de referência.'), findsNothing);
+      expect(find.text('Informe o nome.'), findsNothing);
+
+      await tester.enterText(find.widgetWithText(TextFormField, 'Nome'), 'Al');
+      await tester.tap(submit);
+      await tester.pumpAndSettle();
+      expect(find.text('Informe o nome.'), findsOneWidget);
+    },
+  );
+
   testWidgets('renders desktop admin header with create action on the right', (
     WidgetTester tester,
   ) async {

@@ -194,6 +194,27 @@ void main() {
     expect(find.text('Responsáveis'), findsNothing);
   });
 
+  testWidgets('project creation accepts a missing optional description',
+      (tester) async {
+    final api = _ProjectDescriptionApi();
+    await tester.pumpWidget(
+      MaterialApp(home: ProjectTasksPage(api: api)),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Novo projeto'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+        find.widgetWithText(TextFormField, 'Nome'), 'Projeto sem descrição');
+    final submit = find.text('Criar projeto');
+    await tester.ensureVisible(submit);
+    await tester.tap(submit);
+    await tester.pumpAndSettle();
+
+    expect(api.createdDraft?.name, 'Projeto sem descrição');
+    expect(api.createdDraft?.description, '');
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('project and task editors mirror backend text limits',
       (tester) async {
     await tester.pumpWidget(
@@ -485,6 +506,26 @@ class _FakeProjectTasksApi extends TouchInApi {
       taskId: taskId,
       employeeName: 'João Lima',
       createdAt: DateTime(2026, 9, 9),
+    );
+  }
+}
+
+class _ProjectDescriptionApi extends _FakeProjectTasksApi {
+  _ProjectDescriptionApi() : super(role: 'manager', employeeId: 'emp-02');
+
+  ProjectDraft? createdDraft;
+
+  @override
+  Future<ProjectSummary> createProject(ProjectDraft draft) async {
+    createdDraft = draft;
+    return ProjectSummary(
+      id: 'project-created',
+      name: draft.name,
+      description: draft.description,
+      taskEmployeeLimit: draft.taskEmployeeLimit,
+      status: draft.status,
+      createdAt: DateTime(2026, 10, 24),
+      updatedAt: DateTime(2026, 10, 24),
     );
   }
 }

@@ -1535,10 +1535,6 @@ class _ProjectEditorDialogState extends State<_ProjectEditorDialog> {
                   maxLength: projectDescriptionMaxLength,
                   maxLengthEnforcement: MaxLengthEnforcement.enforced,
                   decoration: const InputDecoration(labelText: 'Descrição'),
-                  validator: (value) => _requiredTextWithinLimit(
-                    value,
-                    maxLength: projectDescriptionMaxLength,
-                  ),
                 ),
                 const SizedBox(height: 14),
                 TextFormField(
