@@ -5,6 +5,34 @@ from tests.test_api import login_headers, login_headers_for, TEST_SEED_SECRET, _
 from datetime import datetime, timedelta, timezone
 
 
+def test_postgres_profiling_scripts_pass_company_timezone_to_monthly_report():
+    import ast
+    from pathlib import Path
+
+    repository_root = Path(__file__).resolve().parents[2]
+    profiling_scripts = (
+        "docs/performance/pg_semantics_check.py",
+        "docs/performance/pg_index_benchmark.py",
+    )
+
+    for relative_path in profiling_scripts:
+        tree = ast.parse((repository_root / relative_path).read_text())
+        report_calls = [
+            node for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "generate_monthly_work_logs_report"
+        ]
+
+        assert len(report_calls) == 1, relative_path
+        timezone_arguments = {
+            keyword.arg: keyword.value
+            for keyword in report_calls[0].keywords
+        }
+        assert isinstance(timezone_arguments.get("timezone_name"), ast.Constant), relative_path
+        assert timezone_arguments["timezone_name"].value == "America/Sao_Paulo", relative_path
+
+
 def test_optional_location_punch_detail_matches_persisted_evidence(client: TestClient):
     from sqlalchemy import select
     from app.config import get_settings
@@ -133,7 +161,6 @@ def test_monthly_work_logs_report(client: TestClient):
 
 
 def test_monthly_report_utc_boundaries_order_and_authorization(client: TestClient):
-    from sqlalchemy import extract, select
     from app.config import get_settings
     from app.crypto import FieldCipher
     from app.db import SessionLocal, ensure_utc
@@ -153,7 +180,7 @@ def test_monthly_report_utc_boundaries_order_and_authorization(client: TestClien
     assert membership.status_code in (200, 201)
 
     field_cipher = FieldCipher(get_settings().encryption_secret or "")
-    # São Paulo 2025-12-31 21:00 corresponds to January 1st UTC.
+    # São Paulo 2025-12-31 21:00 is still in the company's December report.
     local_zone = timezone(timedelta(hours=-3))
     fixtures = [
         ("dec-last", datetime(2025, 12, 31, 23, 59, 59, 999999, tzinfo=timezone.utc), "emp-04", project_id),
@@ -182,46 +209,34 @@ def test_monthly_report_utc_boundaries_order_and_authorization(client: TestClien
             ))
         db.commit()
 
-        original = db.scalars(
-            select(WorkLog).where(
-                WorkLog.company_id == "company-touchin",
-                WorkLog.project_id == project_id,
-                extract("year", WorkLog.start_time) == 2026,
-                extract("month", WorkLog.start_time) == 1,
-                # Older SQLite versions may round 23:59:59.999999 into the
-                # next calendar day during strftime/EXTRACT. Compare legacy
-                # behavior only for unambiguous timestamps, and assert the
-                # last microsecond of December separately below.
-                WorkLog.id != "boundary-log-dec-last",
-            ).order_by(WorkLog.start_time)
-        ).all()
-        expected = [field_cipher.decrypt(log.description_ciphertext) for log in original]
+        expected = ["jan-middle", "other-employee", "feb-start"]
         report = generate_monthly_work_logs_report(
-            db, company_id="company-touchin", project_id=project_id, year=2026, month=1
+            db, company_id="company-touchin", project_id=project_id, year=2026, month=1,
+            timezone_name="America/Sao_Paulo",
         )
         assert [row.description for row in report.records] == expected == [
-            "jan-start", "jan-middle", "other-employee",
+            "jan-middle", "other-employee", "feb-start",
         ]
 
-        for month, expected_description in [(12, "dec-last"), (2, "feb-start")]:
+        for month, expected_descriptions in [(12, ["dec-last", "jan-start"]), (2, [])]:
             year = 2025 if month == 12 else 2026
             response = generate_monthly_work_logs_report(
                 db, company_id="company-touchin", project_id=project_id,
-                year=year, month=month,
+                year=year, month=month, timezone_name="America/Sao_Paulo",
             )
-            assert [row.description for row in response.records] == [expected_description]
+            assert [row.description for row in response.records] == expected_descriptions
 
         restricted = generate_monthly_work_logs_report(
             db, company_id="company-touchin", project_id=project_id,
-            year=2026, month=1, employee_id="emp-04",
+            year=2026, month=1, employee_id="emp-04", timezone_name="America/Sao_Paulo",
         )
         assert [row.description for row in restricted.records] == [
-            "jan-start", "jan-middle",
+            "jan-middle", "feb-start",
         ]
         try:
             generate_monthly_work_logs_report(
                 db, company_id="nonexistent-company", project_id=project_id,
-                year=2026, month=1,
+                year=2026, month=1, timezone_name="America/Sao_Paulo",
             )
             assert False, "cross-company request must be denied"
         except DomainError as exc:
@@ -235,14 +250,14 @@ def test_monthly_report_utc_boundaries_order_and_authorization(client: TestClien
     employee_result = client.get(path, headers=joao_headers)
     assert employee_result.status_code == 200
     assert [item["description"] for item in employee_result.json()["records"]] == [
-        "jan-start", "jan-middle",
+        "jan-middle", "feb-start",
     ]
     denied = client.get(
         f"/api/v1/projects/{other_project['id']}/reports/work-logs?year=2026&month=1",
         headers=joao_headers,
     )
     assert denied.status_code == 404
-    # EXTRACT returned no records for out-of-range calendar values.
+    # Out-of-range calendar values return no records.
     for year, month in [(2026, 0), (2026, 13), (0, 1), (10000, 1), (9999, 12)]:
         response = client.get(
             f"/api/v1/projects/{project_id}/reports/work-logs?year={year}&month={month}",
@@ -250,6 +265,90 @@ def test_monthly_report_utc_boundaries_order_and_authorization(client: TestClien
         )
         assert response.status_code == 200
         assert response.json()["records"] == []
+
+
+def test_monthly_report_uses_company_timezone_and_serializes_iso_offsets(client: TestClient):
+    from app.config import get_settings
+    from app.crypto import FieldCipher
+    from app.db import SessionLocal, ensure_utc
+    from app.domain.project_read import generate_monthly_work_logs_report
+    from app.models import Punch, WorkLog
+
+    admin_headers = login_headers(client)
+    project = _create_project(client, admin_headers, name="Company timezone report")
+    project_id = project["id"]
+    cipher = FieldCipher(get_settings().encryption_secret or "")
+    fixtures = [
+        ("local-december", datetime(2026, 1, 1, 2, 59, tzinfo=timezone.utc)),
+        ("local-january-start", datetime(2026, 1, 1, 3, 0, tzinfo=timezone.utc)),
+        ("local-january-end", datetime(2026, 2, 1, 2, 59, tzinfo=timezone.utc)),
+        ("local-february-start", datetime(2026, 2, 1, 3, 0, tzinfo=timezone.utc)),
+    ]
+    with SessionLocal() as db:
+        for marker, start_time in fixtures:
+            punch_id = f"company-timezone-{marker}"
+            start_time = ensure_utc(start_time)
+            db.add(Punch(
+                id=punch_id,
+                company_id="company-touchin",
+                employee_id="emp-04",
+                project_id=project_id,
+                type="checkIn",
+                timestamp=start_time,
+                detail_ciphertext=cipher.encrypt("") or "",
+            ))
+            db.add(WorkLog(
+                id=f"company-timezone-log-{marker}",
+                company_id="company-touchin",
+                employee_id="emp-04",
+                project_id=project_id,
+                punch_id=punch_id,
+                start_time=start_time,
+                end_time=start_time + timedelta(minutes=15),
+                duration_seconds=900,
+                description_ciphertext=cipher.encrypt(marker) or "",
+                task_snapshots_ciphertext=cipher.encrypt("{") if marker == "local-january-start" else cipher.encrypt("[]") or "",
+            ))
+        db.commit()
+
+        report = generate_monthly_work_logs_report(
+            db,
+            company_id="company-touchin",
+            project_id=project_id,
+            year=2026,
+            month=1,
+            timezone_name="America/Sao_Paulo",
+        )
+
+    assert [record.description for record in report.records] == [
+        "local-january-start",
+        "local-january-end",
+    ]
+    assert report.records[0].date == "2026-01-01"
+    assert report.records[0].start_at == "2026-01-01T00:00:00-03:00"
+    assert report.records[0].end_at == "2026-01-01T00:15:00-03:00"
+
+    from app.errors import DomainError, ErrorKind
+    with SessionLocal() as db:
+        try:
+            generate_monthly_work_logs_report(
+                db,
+                company_id="company-touchin",
+                project_id=project_id,
+                year=2026,
+                month=1,
+                timezone_name="Invalid/CompanyZone",
+            )
+            assert False, "invalid company timezone must be rejected"
+        except DomainError as exc:
+            assert exc.kind == ErrorKind.bad_request
+
+    response = client.get(
+        f"/api/v1/projects/{project_id}/reports/work-logs?year=2026&month=1",
+        headers=admin_headers,
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["records"][0]["startAt"] == "2026-01-01T00:00:00-03:00"
 
 
 def test_mandatory_work_log_no_project_id(client: TestClient):

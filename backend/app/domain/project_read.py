@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+import json
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.config import get_settings
 from app.crypto import FieldCipher
+from app.db import ensure_utc
 from app.errors import DomainError, ErrorKind
 from app.models import Employee, EmployeeProject, Project
 from app.schemas.project import ProjectMemberSummary, ProjectResponse, ProjectStatus
@@ -154,12 +159,11 @@ def generate_monthly_work_logs_report(
     project_id: str,
     year: int,
     month: int,
+    timezone_name: str,
     employee_id: str | None = None,
 ):
     from app.models import WorkLog
     from app.schemas.project import MonthlyWorkLogReport, MonthlyWorkLogRecord
-    import datetime
-
     field_cipher = cipher()
     project_or_404(
         db,
@@ -168,25 +172,28 @@ def generate_monthly_work_logs_report(
         employee_id=employee_id,
     )
     
-    if not 1 <= month <= 12 or not 1 <= year <= 9999:
+    if not 1 <= month <= 12 or not 1 <= year < 9999:
         return MonthlyWorkLogReport(project_id=project_id, year=year, month=month, records=[])
 
-    # A naive bound is interpreted in the PostgreSQL session timezone when
-    # compared with TIMESTAMPTZ, preserving the previous EXTRACT semantics.
-    # SQLite uses the same wall-clock boundaries as its previous EXTRACT filter.
-    month_start = datetime.datetime(year, month, 1)
+    try:
+        company_zone = ZoneInfo(timezone_name)
+    except ZoneInfoNotFoundError as exc:
+        raise DomainError(ErrorKind.bad_request, "Company timezone is invalid.") from exc
+
+    month_start_local = datetime(year, month, 1, tzinfo=company_zone)
     if month == 12:
-        next_month_start = datetime.datetime(year + 1, 1, 1) if year < 9999 else None
+        next_month_start_local = datetime(year + 1, 1, 1, tzinfo=company_zone)
     else:
-        next_month_start = datetime.datetime(year, month + 1, 1)
+        next_month_start_local = datetime(year, month + 1, 1, tzinfo=company_zone)
+    month_start = month_start_local.astimezone(timezone.utc)
+    next_month_start = next_month_start_local.astimezone(timezone.utc)
 
     query = select(WorkLog).where(
         WorkLog.project_id == project_id,
         WorkLog.company_id == company_id,
         WorkLog.start_time >= month_start,
+        WorkLog.start_time < next_month_start,
     )
-    if next_month_start is not None:
-        query = query.where(WorkLog.start_time < next_month_start)
     
     if employee_id is not None:
         query = query.where(WorkLog.employee_id == employee_id)
@@ -197,11 +204,14 @@ def generate_monthly_work_logs_report(
     ).yield_per(200)
 
     for log in logs_result:
-        import json
+        decrypted_snapshots = field_cipher.decrypt(log.task_snapshots_ciphertext)
         try:
-            tasks = json.loads(field_cipher.decrypt(log.task_snapshots_ciphertext) or "[]")
-        except:
+            tasks = json.loads(decrypted_snapshots or "[]")
+        except json.JSONDecodeError:
             tasks = [field_cipher.decrypt(t.name_ciphertext) or "" for t in log.tasks]
+
+        local_start_time = ensure_utc(log.start_time).astimezone(company_zone)
+        local_end_time = ensure_utc(log.end_time).astimezone(company_zone)
         
         # calculate hours and mins
         duration_hours = log.duration_seconds // 3600
@@ -209,9 +219,11 @@ def generate_monthly_work_logs_report(
         
         records.append(
             MonthlyWorkLogRecord(
-                date=log.start_time.strftime("%d/%m/%Y"),
-                start_time=log.start_time.strftime("%H:%M"),
-                end_time=log.end_time.strftime("%H:%M"),
+                date=local_start_time.date().isoformat(),
+                start_time=local_start_time.strftime("%H:%M"),
+                end_time=local_end_time.strftime("%H:%M"),
+                start_at=local_start_time.isoformat(timespec="seconds"),
+                end_at=local_end_time.isoformat(timespec="seconds"),
                 duration=f"{duration_hours}h {duration_minutes:02d}min",
                 tasks=tasks,
                 description=field_cipher.decrypt(log.description_ciphertext) or ""
