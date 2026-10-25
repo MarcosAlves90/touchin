@@ -72,6 +72,69 @@ class PolicyGateRunnerTests(unittest.TestCase):
             ))
         self.assertEqual(caught.exception.code, 124)
 
+    def test_windows_gate_environment_keeps_required_system_variables_and_utf8(self):
+        """Clean gates still need Windows process-launch variables and UTF-8."""
+        captured = {}
+
+        class Process:
+            def wait(self, timeout=None):
+                return 0
+
+        def popen(argv, **kwargs):
+            captured.update(argv=argv, **kwargs)
+            return Process()
+
+        required = {
+            "SystemRoot": "C:\\Windows",
+            "COMSPEC": "C:\\Windows\\System32\\cmd.exe",
+            "PATHEXT": ".COM;.EXE;.BAT;.CMD",
+        }
+        with patch.dict(os.environ, required, clear=False), patch.dict(
+            os.environ, {"PYTHONUTF8": "0", "PYTHONIOENCODING": "latin-1"}, clear=False
+        ), patch.object(runner.subprocess, "Popen", side_effect=popen):
+            self.run_gate(self.gate([sys.executable, "-c", "pass"]))
+
+        for key, value in required.items():
+            with self.subTest(variable=key):
+                self.assertEqual(captured["env"].get(key), value)
+        self.assertEqual(captured["env"].get("PYTHONUTF8"), "1")
+        self.assertEqual(captured["env"].get("PYTHONIOENCODING"), "utf-8")
+
+    def test_batch_gate_command_is_dispatched_through_comspec_on_windows(self):
+        captured = {}
+
+        class Process:
+            def wait(self, timeout=None):
+                return 0
+
+        def popen(argv, **kwargs):
+            captured.update(argv=argv, **kwargs)
+            return Process()
+
+        batch_directory = self.root / "path with spaces"
+        batch_directory.mkdir()
+        batch_file = batch_directory / "flutter.BAT"
+        batch_file.write_text("@echo off\r\n")
+        gate = self.gate(
+            ["flutter", "test"], passed=["PATH", "PATHEXT", "COMSPEC"]
+        )
+        with patch.object(runner.os, "name", "nt"), patch.object(
+            runner.subprocess, "CREATE_NEW_PROCESS_GROUP", 512, create=True
+        ), patch.object(
+            runner, "_resolve_executable", return_value=str(batch_file)
+        ), patch.dict(os.environ, {
+            "PATH": str(self.root),
+            "PATHEXT": ".COM;.EXE;.BAT;.CMD",
+            "COMSPEC": "C:\\Windows\\cmd.exe",
+        }), patch.object(runner.subprocess, "Popen", side_effect=popen):
+            self.run_gate(gate)
+
+        self.assertEqual(
+            captured["argv"],
+            f'C:\\Windows\\cmd.exe /d /s /c ""{batch_file}" test"',
+        )
+
+
     @unittest.skipUnless(os.name == "posix", "requires POSIX process groups")
     def test_timeout_kills_descendant_processes(self):
         child_ran = self.root / "child-ran.txt"
@@ -95,6 +158,20 @@ class PolicyGateRunnerTests(unittest.TestCase):
         self.assertTrue(child_started.is_file(), "test must actually launch a descendant")
         time.sleep(0.8)
         self.assertFalse(child_ran.exists(), "timed-out gate left a child running")
+
+
+class WindowsPolicyTests(unittest.TestCase):
+    def test_every_command_gate_passes_windows_launch_variables(self):
+        policy_path = Path(runner.ROOT) / ".polis" / "policy.json"
+        policy = json.loads(policy_path.read_text())
+        required = {"SystemRoot", "COMSPEC", "PATHEXT"}
+
+        for gate in policy["gates"]:
+            if gate["mode"] != "command":
+                continue
+            with self.subTest(gate=gate["id"]):
+                passed = set(gate["command"]["environment"]["pass"])
+                self.assertTrue(required <= passed, f"missing {sorted(required - passed)}")
 
 
 if __name__ == "__main__":

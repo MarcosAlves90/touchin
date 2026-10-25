@@ -1,0 +1,192 @@
+{
+  "schema_version": 6,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      ".polis/policy.json",
+      ".github/workflows/ci.yml",
+      "scripts/run_polis_gates.py",
+      "scripts/polis_tests.py",
+      "scripts/tests/test_run_polis_gates.py",
+      "docs/contracts/polis-windows-gate-portability-issue-80-v1.polis.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "scripts/tests/test_run_polis_gates.py"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Make the configured POLIS command gates and their test adapter launch consistently on Windows while retaining Linux behavior and gate semantics.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "The gate runner resolves configured Python, Dart, Flutter, and Node executables from PATH, honoring Windows PATHEXT for executable suffixes."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "Windows .bat and .cmd gates are launched through COMSPEC with arguments preserved; required Windows system variables survive the clean gate environment."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "Python test subprocesses receive explicit UTF-8 settings, while working directory, timeout, and exit status behavior remain intact."
+      },
+      {
+        "id": "REQ-004",
+        "statement": "Regression coverage exercises Windows environment and batch dispatch, and CI runs configured gates on Windows and Linux."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "A configured command resolving to a .BAT/.CMD executable through PATHEXT launches through COMSPEC and preserves its arguments; regular executables launch directly.",
+        "requirements": [
+          "REQ-001",
+          "REQ-002"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "SystemRoot, COMSPEC, PATHEXT, PYTHONUTF8=1, and PYTHONIOENCODING=utf-8 are present in the clean Windows gate environment.",
+        "requirements": [
+          "REQ-002",
+          "REQ-003"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-003",
+        "statement": "Configured working directories, timeout handling and nonzero child exit propagation remain covered by runner tests; UTF-8 is inherited by test subprocesses.",
+        "requirements": [
+          "REQ-003"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-004",
+        "statement": "GitHub Actions executes policy validation and the enabled test, lint, build and smoke gates on both Windows and Linux.",
+        "requirements": [
+          "REQ-004"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "The policy remains the single source of gate commands; no gate is skipped or weakened."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "Windows batch files are passed directly to CreateProcess or command gates silently fall back to shell-specific duplicated policy."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "Configured policy argv/cwd/timeout/environment and host PATH/PATHEXT/COMSPEC."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "The same policy gates execute with equivalent launch, environment and failure behavior on Windows and Linux."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "Missing executable, invalid timeout and nonzero gate exit remain failures; a timeout terminates the spawned process tree and returns 124."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "14c33dd4e70f2283cdc528f7b8bfd156a0a02427",
+    "base_tree": "ede6f6768c44ad71a6eabaf53e222bc0c7404428",
+    "policy_sha256": "14cc707c5ec1808040456d7e177738126dc3a1c5fb3c3e5cbf8f3992d6e63a51",
+    "specification_sha256": "779d943166e9cafb70b1afe897146a2b0de13cd417fddc7d1509f4bc7b78c79c"
+  },
+  "behavior": {
+    "argv": [
+      "python3",
+      "-B",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "scripts/tests",
+      "-v"
+    ],
+    "cwd": ".",
+    "timeout_seconds": 300,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "python3",
+      "-B",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "scripts/tests",
+      "-v"
+    ],
+    "cwd": ".",
+    "timeout_seconds": 300,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "python3",
+        "-B",
+        "-m",
+        "unittest",
+        "scripts.tests.test_run_polis_gates.PolicyGateRunnerTests.test_windows_gate_environment_keeps_required_system_variables_and_utf8",
+        "scripts.tests.test_run_polis_gates.PolicyGateRunnerTests.test_batch_gate_command_is_dispatched_through_comspec_on_windows",
+        "scripts.tests.test_run_polis_gates.WindowsPolicyTests.test_every_command_gate_passes_windows_launch_variables"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 120,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "FAILED"
+    ]
+  }
+}

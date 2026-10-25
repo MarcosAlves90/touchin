@@ -24,7 +24,9 @@
             "COMSPEC",
             "PATHEXT",
             "USERPROFILE",
-            "LOCALAPPDATA"
+            "LOCALAPPDATA",
+            "PYTHONUTF8",
+            "PYTHONIOENCODING"
           ]
         }
       }
@@ -48,7 +50,7 @@
         "timeout_seconds": 600,
         "environment": {
           "mode": "clean",
-          "pass": ["PATH", "HOME", "TMPDIR", "TMP", "TEMP"]
+          "pass": ["PATH", "HOME", "TMPDIR", "TMP", "TEMP", "SystemRoot", "COMSPEC", "PATHEXT", "PYTHONUTF8", "PYTHONIOENCODING"]
         }
       }
     },
@@ -66,7 +68,7 @@
         "timeout_seconds": 1200,
         "environment": {
           "mode": "clean",
-          "pass": ["PATH", "HOME", "TMPDIR", "TMP", "TEMP"]
+          "pass": ["PATH", "HOME", "TMPDIR", "TMP", "TEMP", "SystemRoot", "COMSPEC", "PATHEXT", "PYTHONUTF8", "PYTHONIOENCODING"]
         }
       }
     },
@@ -80,7 +82,7 @@
         "timeout_seconds": 300,
         "environment": {
           "mode": "clean",
-          "pass": ["PATH", "HOME", "TMPDIR", "TMP", "TEMP", "TOUCHIN_CHROME", "TOUCHIN_CHROME_NO_SANDBOX"]
+          "pass": ["PATH", "HOME", "TMPDIR", "TMP", "TEMP", "SystemRoot", "COMSPEC", "PATHEXT", "PYTHONUTF8", "PYTHONIOENCODING", "TOUCHIN_CHROME", "TOUCHIN_CHROME_NO_SANDBOX"]
         }
       }
     },
