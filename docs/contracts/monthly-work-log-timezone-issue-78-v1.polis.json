@@ -7,6 +7,8 @@
       "backend/app/domain/project_read.py",
       "backend/app/schemas/project.py",
       "backend/tests/test_work_logs.py",
+      "docs/performance/pg_semantics_check.py",
+      "docs/performance/pg_index_benchmark.py",
       "docs/contracts/monthly-work-log-timezone-issue-78-v1.polis.json"
     ]
   },

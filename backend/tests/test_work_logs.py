@@ -5,6 +5,34 @@ from tests.test_api import login_headers, login_headers_for, TEST_SEED_SECRET, _
 from datetime import datetime, timedelta, timezone
 
 
+def test_postgres_profiling_scripts_pass_company_timezone_to_monthly_report():
+    import ast
+    from pathlib import Path
+
+    repository_root = Path(__file__).resolve().parents[2]
+    profiling_scripts = (
+        "docs/performance/pg_semantics_check.py",
+        "docs/performance/pg_index_benchmark.py",
+    )
+
+    for relative_path in profiling_scripts:
+        tree = ast.parse((repository_root / relative_path).read_text())
+        report_calls = [
+            node for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "generate_monthly_work_logs_report"
+        ]
+
+        assert len(report_calls) == 1, relative_path
+        timezone_arguments = {
+            keyword.arg: keyword.value
+            for keyword in report_calls[0].keywords
+        }
+        assert isinstance(timezone_arguments.get("timezone_name"), ast.Constant), relative_path
+        assert timezone_arguments["timezone_name"].value == "America/Sao_Paulo", relative_path
+
+
 def test_optional_location_punch_detail_matches_persisted_evidence(client: TestClient):
     from sqlalchemy import select
     from app.config import get_settings
