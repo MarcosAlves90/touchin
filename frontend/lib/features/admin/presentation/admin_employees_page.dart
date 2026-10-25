@@ -309,7 +309,14 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
   }
 
   Color _statusColor(EmployeeStatus status) {
-    return _controller.statusColor(status);
+    final colors = AppTheme.adminColors(Theme.of(context));
+    return switch (status) {
+      EmployeeStatus.active => colors.success.foreground,
+      EmployeeStatus.onboarding ||
+      EmployeeStatus.onLeave =>
+        colors.warning.foreground,
+      EmployeeStatus.inactive => colors.danger.foreground,
+    };
   }
 
   String _statusLabel(EmployeeStatus status) {
@@ -338,14 +345,18 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, _) {
-        return WorkspaceScaffold(
-          sidebar: _buildSummaryPanel(),
-          contentBuilder: (context, isWide) => _buildWorkspace(isWide: isWide),
-        );
-      },
+    return Theme(
+      data: AppTheme.adminContrastTheme(Theme.of(context)),
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, _) {
+          return WorkspaceScaffold(
+            sidebar: _buildSummaryPanel(),
+            contentBuilder: (context, isWide) =>
+                _buildWorkspace(isWide: isWide),
+          );
+        },
+      ),
     );
   }
 
@@ -545,6 +556,7 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
   Widget _buildEmployeesListCard({required bool isWide}) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final adminColors = AppTheme.adminColors(theme);
     final visibleEmployees = _visibleEmployees;
     final pagedEmployees = _pagedEmployees;
 
@@ -594,7 +606,7 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
               return ChoiceChip(
                 label: Text(_filterLabel(filter)),
                 selected: _filter == filter,
-                checkmarkColor: AppTheme.accent,
+                checkmarkColor: adminColors.selectedForeground,
                 onSelected: (_) {
                   _controller.setFilter(filter);
                 },
@@ -612,8 +624,8 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
               width: double.infinity,
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: colorScheme.surface.withValues(alpha: 0.8),
-                border: Border.all(color: colorScheme.outlineVariant),
+                color: colorScheme.surface,
+                border: Border.all(color: colorScheme.outline),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -638,8 +650,8 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
               width: double.infinity,
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: colorScheme.surface.withValues(alpha: 0.8),
-                border: Border.all(color: colorScheme.outlineVariant),
+                color: colorScheme.surface,
+                border: Border.all(color: colorScheme.outline),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -821,8 +833,8 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
                   Container(
                     width: double.infinity,
                     decoration: BoxDecoration(
-                      color: colorScheme.surface.withValues(alpha: 0.82),
-                      border: Border.all(color: colorScheme.outlineVariant),
+                      color: colorScheme.surface,
+                      border: Border.all(color: colorScheme.outline),
                     ),
                     child: Column(
                       children: <Widget>[
@@ -831,7 +843,7 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
                           label: 'E-mail',
                           value: employee.email,
                         ),
-                        Divider(color: colorScheme.outlineVariant, height: 1),
+                        Divider(color: colorScheme.outline, height: 1),
                         _EmployeeDetailRow(
                           icon: Icons.phone_outlined,
                           label: 'Telefone',
@@ -850,8 +862,10 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
                             ? 'Obrigatória nas batidas'
                             : 'Flexível para a operação',
                         tone: employee.requiresLocationOnPunch
-                            ? const Color(0xFF1F4E79)
-                            : const Color(0xFF6B6254),
+                            ? AppTheme.adminColors(Theme.of(context))
+                                .info
+                                .foreground
+                            : Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                       const SizedBox(height: 10),
                       _EmployeePolicyRow(
@@ -861,8 +875,10 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
                             ? 'Exigido para registrar ponto'
                             : 'Sem restrição ativa',
                         tone: employee.trustedDeviceRequired
-                            ? const Color(0xFF2F8F46)
-                            : const Color(0xFF6B6254),
+                            ? AppTheme.adminColors(Theme.of(context))
+                                .success
+                                .foreground
+                            : Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                       const SizedBox(height: 10),
                       _EmployeePolicyRow(
@@ -874,8 +890,12 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
                             ? '${employee.pendingAdjustments} aguardando revisão'
                             : 'Nenhum ajuste em aberto',
                         tone: employee.pendingAdjustments > 0
-                            ? const Color(0xFF8C5D00)
-                            : const Color(0xFF2F8F46),
+                            ? AppTheme.adminColors(Theme.of(context))
+                                .warning
+                                .foreground
+                            : AppTheme.adminColors(Theme.of(context))
+                                .success
+                                .foreground,
                       ),
                     ],
                   )
@@ -916,8 +936,8 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
           width: double.infinity,
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
-            color: colorScheme.surface.withValues(alpha: 0.82),
-            border: Border.all(color: colorScheme.outlineVariant),
+            color: colorScheme.surface,
+            border: Border.all(color: colorScheme.outline),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1009,8 +1029,8 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
             width: double.infinity,
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: colorScheme.surface.withValues(alpha: 0.8),
-              border: Border.all(color: colorScheme.outlineVariant),
+              color: colorScheme.surface,
+              border: Border.all(color: colorScheme.outline),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1036,8 +1056,8 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
             width: double.infinity,
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: colorScheme.surface.withValues(alpha: 0.8),
-              border: Border.all(color: colorScheme.outlineVariant),
+              color: colorScheme.surface,
+              border: Border.all(color: colorScheme.outline),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1145,16 +1165,14 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
       ),
     ];
     final colorScheme = Theme.of(context).colorScheme;
+    final adminColors = AppTheme.adminColors(Theme.of(context));
     final visibleItems = tabItems
         .where((item) => hasNotes || item.value != _EmployeeDetailTab.notes)
         .toList();
     final selectedTab = visibleItems.any((item) => item.value == activeTab)
         ? activeTab
         : visibleItems.first.value;
-    final selectedTabForeground =
-        ThemeData.estimateBrightnessForColor(AppTheme.accent) == Brightness.dark
-            ? Colors.white
-            : Colors.black87;
+    final selectedTabForeground = adminColors.selectedForeground;
 
     Widget buildTabButton({
       required _EmployeeDetailTab value,
@@ -1175,13 +1193,18 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
           animationDuration: Duration.zero,
           minimumSize: MaterialStateProperty.all(const Size.fromHeight(48)),
           backgroundColor: MaterialStateProperty.resolveWith((_) {
-            return selected ? AppTheme.accent : Colors.transparent;
+            return selected
+                ? adminColors.selectedContainer
+                : Colors.transparent;
           }),
           foregroundColor: MaterialStateProperty.resolveWith((_) {
             return selected ? selectedTabForeground : colorScheme.onSurface;
           }),
           side: MaterialStateProperty.all(
-            const BorderSide(color: AppTheme.accent),
+            BorderSide(
+                color: selected
+                    ? adminColors.selectedIndicator
+                    : colorScheme.outline),
           ),
           shape: MaterialStateProperty.all(
             const RoundedRectangleBorder(borderRadius: BorderRadius.zero),

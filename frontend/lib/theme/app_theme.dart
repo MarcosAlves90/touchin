@@ -17,6 +17,38 @@ class AppTheme {
   static const Color _darkSurfaceVariant = Color(0xFF2A2A2A);
   static const Color _darkText = Color(0xFFF5F1E8);
 
+  static const AdminSemanticColors _lightAdminColors = AdminSemanticColors(
+    selectedForeground: Color(0xFF704600),
+    selectedContainer: Color(0xFFFFF1D6),
+    selectedIndicator: Color(0xFF704600),
+    success: AdminToneColors(
+        foreground: Color(0xFF1B5E20), container: Color(0xFFE8F5E9)),
+    warning: AdminToneColors(
+        foreground: Color(0xFF704600), container: Color(0xFFFFF1D6)),
+    info: AdminToneColors(
+        foreground: Color(0xFF075985), container: Color(0xFFE0F2FE)),
+    danger: AdminToneColors(
+        foreground: Color(0xFF8B1E1E), container: Color(0xFFFCE8E6)),
+    neutral: AdminToneColors(
+        foreground: Color(0xFF4E4739), container: Color(0xFFF1EFE8)),
+  );
+
+  static const AdminSemanticColors _darkAdminColors = AdminSemanticColors(
+    selectedForeground: Color(0xFFFFE6A6),
+    selectedContainer: Color(0xFF4A3200),
+    selectedIndicator: Color(0xFFFFD180),
+    success: AdminToneColors(
+        foreground: Color(0xFFA5D6A7), container: Color(0xFF1B3A20)),
+    warning: AdminToneColors(
+        foreground: Color(0xFFFFCC80), container: Color(0xFF4B3300)),
+    info: AdminToneColors(
+        foreground: Color(0xFF81D4FA), container: Color(0xFF123746)),
+    danger: AdminToneColors(
+        foreground: Color(0xFFFFB4AB), container: Color(0xFF4B1E1B)),
+    neutral: AdminToneColors(
+        foreground: Color(0xFFD1C6B4), container: Color(0xFF303030)),
+  );
+
   static ThemeData get lightTheme => _buildTheme(
         colorScheme: _lightColorScheme,
         backgroundColor: _lightBackground,
@@ -26,6 +58,53 @@ class AppTheme {
         colorScheme: _darkColorScheme,
         backgroundColor: _darkBackground,
       );
+
+  static AdminSemanticColors adminColors(ThemeData theme) =>
+      theme.extension<AdminSemanticColors>() ??
+      (theme.brightness == Brightness.dark
+          ? _darkAdminColors
+          : _lightAdminColors);
+
+  static ThemeData adminContrastTheme(ThemeData theme) {
+    final scheme = theme.colorScheme;
+    final colors = adminColors(theme);
+    final extensions = Map<Object, ThemeExtension<dynamic>>.from(
+      theme.extensions,
+    )..[AdminSemanticColors] = colors;
+    return theme.copyWith(
+      extensions: extensions.values,
+      inputDecorationTheme: theme.inputDecorationTheme.copyWith(
+        filled: true,
+        fillColor: scheme.surfaceContainerHighest,
+        border: OutlineInputBorder(
+          borderRadius: _radius,
+          borderSide: BorderSide(color: scheme.outline),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: _radius,
+          borderSide: BorderSide(color: scheme.outline),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: _radius,
+          borderSide: BorderSide(color: scheme.outline, width: 2),
+        ),
+        disabledBorder: OutlineInputBorder(
+          borderRadius: _radius,
+          borderSide: BorderSide(color: scheme.outlineVariant),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style:
+            (theme.outlinedButtonTheme.style ?? const ButtonStyle()).copyWith(
+          side: WidgetStatePropertyAll(BorderSide(color: scheme.outline)),
+        ),
+      ),
+      chipTheme: theme.chipTheme.copyWith(
+        selectedColor: colors.selectedContainer,
+        side: BorderSide(color: scheme.outline),
+      ),
+    );
+  }
 
   static const ColorScheme _lightColorScheme = ColorScheme(
     brightness: Brightness.light,
@@ -199,6 +278,87 @@ class AppTheme {
         modalBackgroundColor: colorScheme.surface,
         shape: const RoundedRectangleBorder(borderRadius: _radius),
       ),
+    );
+  }
+}
+
+@immutable
+class AdminToneColors {
+  const AdminToneColors({required this.foreground, required this.container});
+
+  final Color foreground;
+  final Color container;
+
+  AdminToneColors lerp(AdminToneColors other, double t) => AdminToneColors(
+        foreground: Color.lerp(foreground, other.foreground, t)!,
+        container: Color.lerp(container, other.container, t)!,
+      );
+}
+
+@immutable
+class AdminSemanticColors extends ThemeExtension<AdminSemanticColors> {
+  const AdminSemanticColors({
+    required this.selectedForeground,
+    required this.selectedContainer,
+    required this.selectedIndicator,
+    required this.success,
+    required this.warning,
+    required this.info,
+    required this.danger,
+    required this.neutral,
+  });
+
+  final Color selectedForeground;
+  final Color selectedContainer;
+  final Color selectedIndicator;
+  final AdminToneColors success;
+  final AdminToneColors warning;
+  final AdminToneColors info;
+  final AdminToneColors danger;
+  final AdminToneColors neutral;
+
+  @override
+  AdminSemanticColors copyWith({
+    Color? selectedForeground,
+    Color? selectedContainer,
+    Color? selectedIndicator,
+    AdminToneColors? success,
+    AdminToneColors? warning,
+    AdminToneColors? info,
+    AdminToneColors? danger,
+    AdminToneColors? neutral,
+  }) =>
+      AdminSemanticColors(
+        selectedForeground: selectedForeground ?? this.selectedForeground,
+        selectedContainer: selectedContainer ?? this.selectedContainer,
+        selectedIndicator: selectedIndicator ?? this.selectedIndicator,
+        success: success ?? this.success,
+        warning: warning ?? this.warning,
+        info: info ?? this.info,
+        danger: danger ?? this.danger,
+        neutral: neutral ?? this.neutral,
+      );
+
+  @override
+  AdminSemanticColors lerp(
+    covariant ThemeExtension<AdminSemanticColors>? other,
+    double t,
+  ) {
+    if (other is! AdminSemanticColors) {
+      return this;
+    }
+    return AdminSemanticColors(
+      selectedForeground:
+          Color.lerp(selectedForeground, other.selectedForeground, t)!,
+      selectedContainer:
+          Color.lerp(selectedContainer, other.selectedContainer, t)!,
+      selectedIndicator:
+          Color.lerp(selectedIndicator, other.selectedIndicator, t)!,
+      success: success.lerp(other.success, t),
+      warning: warning.lerp(other.warning, t),
+      info: info.lerp(other.info, t),
+      danger: danger.lerp(other.danger, t),
+      neutral: neutral.lerp(other.neutral, t),
     );
   }
 }

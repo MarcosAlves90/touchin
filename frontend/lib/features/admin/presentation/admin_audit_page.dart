@@ -3,6 +3,7 @@ import 'package:touchin_flutter/contracts/audit.dart';
 import 'package:touchin_flutter/core/network/api_client.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
+import 'package:touchin_flutter/theme/app_theme.dart';
 
 class AdminAuditPage extends StatefulWidget {
   const AdminAuditPage({super.key, this.api});
@@ -329,6 +330,13 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
 
   @override
   Widget build(BuildContext context) {
+    return Theme(
+      data: AppTheme.adminContrastTheme(Theme.of(context)),
+      child: _buildScaffold(),
+    );
+  }
+
+  Widget _buildScaffold() {
     return WorkspaceScaffold(
       sidebar: const WorkspaceSidebar(
         title: 'Trilha de auditoria',
@@ -446,9 +454,9 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
                                                 border: Border.all(
                                                   color:
                                                       Focus.of(context).hasFocus
-                                                          ? Theme.of(context)
-                                                              .colorScheme
-                                                              .primary
+                                                          ? AppTheme.adminColors(
+                                                              Theme.of(context),
+                                                            ).selectedIndicator
                                                           : Colors.transparent,
                                                   width: 2,
                                                 ),
