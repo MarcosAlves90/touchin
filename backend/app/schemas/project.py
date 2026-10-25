@@ -63,6 +63,8 @@ class MonthlyWorkLogRecord(CamelModel):
     date: str
     start_time: str
     end_time: str
+    start_at: str
+    end_at: str
     duration: str
     tasks: list[str]
     description: str
