@@ -11,6 +11,7 @@ class _Company:
 @dataclass
 class _User:
     role: str
+    must_change_password: bool = False
 
 
 @dataclass

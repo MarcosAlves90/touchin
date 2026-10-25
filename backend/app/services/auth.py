@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from sqlalchemy import or_, select
+from sqlalchemy import or_, select, update
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
@@ -196,6 +196,7 @@ def reset_password(
     temp_password = generate_temp_password()
     user.password_hash = hash_password(temp_password)
     user.must_change_password = True
+    _revoke_active_sessions(db, user_id=user.id)
     db.commit()
 
     recipient_email = cipher.decrypt(user.email_ciphertext) or normalized_email
@@ -217,6 +218,7 @@ def change_password(
 
     user.password_hash = hash_password(new_password)
     user.must_change_password = False
+    _revoke_active_sessions(db, user_id=user.id)
     db.commit()
 
     recipient_email = cipher.decrypt(user.email_ciphertext) or ""
@@ -241,3 +243,14 @@ def get_auth_context(context: AuthenticatedContext) -> AuthContextResponse:
 def logout(db: Session, context: AuthenticatedContext) -> None:
     context.session.revoked_at = utcnow()
     db.commit()
+
+
+def _revoke_active_sessions(db: Session, *, user_id: str) -> None:
+    db.execute(
+        update(AuthSession)
+        .where(
+            AuthSession.user_id == user_id,
+            AuthSession.revoked_at.is_(None),
+        )
+        .values(revoked_at=utcnow())
+    )
