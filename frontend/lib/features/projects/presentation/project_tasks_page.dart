@@ -5,6 +5,7 @@ import 'package:touchin_flutter/core/network/api_client.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
 import 'package:touchin_flutter/features/projects/presentation/project_tasks_controller.dart';
 import 'package:touchin_flutter/features/projects/presentation/widgets/task_editor_dialog.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_editor_dialog.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
 import 'package:touchin_flutter/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -741,30 +742,37 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
   }
 
   Future<void> _openCreateProject() async {
-    final draft = await showDialog<ProjectDraft>(
+    final saved = await showDialog<bool>(
       context: context,
-      builder: (_) => const _ProjectEditorDialog(),
+      builder: (_) => _ProjectEditorDialog(
+        onSave: (draft) async {
+          await _controller.createProject(draft);
+        },
+      ),
     );
-    if (draft == null) {
+    if (saved != true || !mounted) {
       return;
     }
-    await _runAction(
-      () => _controller.createProject(draft),
-      successMessage: 'Projeto criado.',
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Projeto criado.')),
     );
   }
 
   Future<void> _openEditProject(ProjectSummary project) async {
-    final draft = await showDialog<ProjectDraft>(
+    final saved = await showDialog<bool>(
       context: context,
-      builder: (_) => _ProjectEditorDialog(project: project),
+      builder: (_) => _ProjectEditorDialog(
+        project: project,
+        onSave: (draft) async {
+          await _controller.updateProject(project, draft);
+        },
+      ),
     );
-    if (draft == null) {
+    if (saved != true || !mounted) {
       return;
     }
-    await _runAction(
-      () => _controller.updateProject(project, draft),
-      successMessage: 'Projeto atualizado.',
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Projeto atualizado.')),
     );
   }
 
@@ -1468,9 +1476,10 @@ class _TaskTile extends StatelessWidget {
 }
 
 class _ProjectEditorDialog extends StatefulWidget {
-  const _ProjectEditorDialog({this.project});
+  const _ProjectEditorDialog({required this.onSave, this.project});
 
   final ProjectSummary? project;
+  final Future<void> Function(ProjectDraft draft) onSave;
 
   @override
   State<_ProjectEditorDialog> createState() => _ProjectEditorDialogState();
@@ -1482,6 +1491,8 @@ class _ProjectEditorDialogState extends State<_ProjectEditorDialog> {
   late final TextEditingController _descriptionController;
   late final TextEditingController _limitController;
   late ProjectStatus _status;
+  bool _isSaving = false;
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -1506,113 +1517,158 @@ class _ProjectEditorDialogState extends State<_ProjectEditorDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(widget.project == null ? 'Novo projeto' : 'Editar projeto'),
-      content: SizedBox(
-        width: 520,
+    return PopScope(
+      canPop: !_isSaving,
+      child: WorkspaceEditorDialog(
+        title: widget.project == null ? 'Novo projeto' : 'Editar projeto',
+        subtitle: widget.project == null
+            ? 'Defina os dados e a capacidade das tarefas.'
+            : 'Atualize os dados e a capacidade das tarefas.',
+        icon: Icons.folder_open_rounded,
+        primaryLabel: widget.project == null ? 'Criar projeto' : 'Salvar',
+        busyLabel: 'Salvando projeto…',
+        isBusy: _isSaving,
+        errorMessage: _errorMessage,
+        onPrimary: _save,
         child: Form(
           key: _formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                TextFormField(
-                  controller: _nameController,
-                  autofocus: true,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              TextFormField(
+                controller: _nameController,
+                autofocus: true,
+                enabled: !_isSaving,
+                maxLength: projectNameMaxLength,
+                maxLengthEnforcement: MaxLengthEnforcement.enforced,
+                decoration: const InputDecoration(labelText: 'Nome'),
+                validator: (value) => _requiredTextWithinLimit(
+                  value,
                   maxLength: projectNameMaxLength,
-                  maxLengthEnforcement: MaxLengthEnforcement.enforced,
-                  decoration: const InputDecoration(labelText: 'Nome'),
-                  validator: (value) => _requiredTextWithinLimit(
-                    value,
-                    maxLength: projectNameMaxLength,
-                  ),
                 ),
-                const SizedBox(height: 14),
-                TextFormField(
-                  controller: _descriptionController,
-                  minLines: 3,
-                  maxLines: 5,
+              ),
+              const SizedBox(height: 14),
+              TextFormField(
+                controller: _descriptionController,
+                enabled: !_isSaving,
+                minLines: 3,
+                maxLines: 5,
+                maxLength: projectDescriptionMaxLength,
+                maxLengthEnforcement: MaxLengthEnforcement.enforced,
+                decoration: const InputDecoration(labelText: 'Descrição'),
+                validator: (value) => _requiredTextWithinLimit(
+                  value,
                   maxLength: projectDescriptionMaxLength,
-                  maxLengthEnforcement: MaxLengthEnforcement.enforced,
-                  decoration: const InputDecoration(labelText: 'Descrição'),
-                  validator: (value) => _requiredTextWithinLimit(
-                    value,
-                    maxLength: projectDescriptionMaxLength,
+                ),
+              ),
+              const SizedBox(height: 14),
+              TextFormField(
+                controller: _limitController,
+                enabled: !_isSaving,
+                keyboardType: TextInputType.number,
+                inputFormatters: <TextInputFormatter>[
+                  FilteringTextInputFormatter.digitsOnly,
+                ],
+                decoration: InputDecoration(
+                  labelText: 'Máximo de funcionários por tarefa',
+                  helperText: widget.project == null
+                      ? 'Define a capacidade máxima de participantes em cada tarefa.'
+                      : 'Ao reduzir, o limite não pode ficar abaixo da quantidade de funcionários já associada a nenhuma tarefa existente.',
+                  helperMaxLines: 3,
+                ),
+                validator: (value) {
+                  final parsed = int.tryParse(value?.trim() ?? '');
+                  if (parsed == null || parsed < 1) {
+                    return 'Informe um número maior ou igual a 1.';
+                  }
+                  if (parsed > 2147483647) {
+                    return 'Informe um número menor ou igual a 2147483647.';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 14),
+              DropdownButtonFormField<ProjectStatus>(
+                initialValue: _status,
+                decoration: const InputDecoration(labelText: 'Status'),
+                items: const <DropdownMenuItem<ProjectStatus>>[
+                  DropdownMenuItem(
+                    value: ProjectStatus.active,
+                    child: Text('Ativo'),
                   ),
-                ),
-                const SizedBox(height: 14),
-                TextFormField(
-                  controller: _limitController,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: <TextInputFormatter>[
-                    FilteringTextInputFormatter.digitsOnly,
-                  ],
-                  decoration: InputDecoration(
-                    labelText: 'Máximo de funcionários por tarefa',
-                    helperText: widget.project == null
-                        ? 'Define a capacidade máxima de participantes em cada tarefa.'
-                        : 'Ao reduzir, o limite não pode ficar abaixo da quantidade de funcionários já associada a nenhuma tarefa existente.',
-                    helperMaxLines: 3,
+                  DropdownMenuItem(
+                    value: ProjectStatus.inactive,
+                    child: Text('Inativo'),
                   ),
-                  validator: (value) {
-                    final parsed = int.tryParse(value?.trim() ?? '');
-                    if (parsed == null || parsed < 1) {
-                      return 'Informe um número maior ou igual a 1.';
-                    }
-                    if (parsed > 2147483647) {
-                      return 'Informe um número menor ou igual a 2147483647.';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 14),
-                DropdownButtonFormField<ProjectStatus>(
-                  initialValue: _status,
-                  decoration: const InputDecoration(labelText: 'Status'),
-                  items: const <DropdownMenuItem<ProjectStatus>>[
-                    DropdownMenuItem(
-                      value: ProjectStatus.active,
-                      child: Text('Ativo'),
-                    ),
-                    DropdownMenuItem(
-                      value: ProjectStatus.inactive,
-                      child: Text('Inativo'),
-                    ),
-                  ],
-                  onChanged: (value) {
-                    if (value != null) {
-                      setState(() => _status = value);
-                    }
-                  },
-                ),
-              ],
-            ),
+                ],
+                onChanged: _isSaving
+                    ? null
+                    : (value) {
+                        if (value != null) {
+                          setState(() => _status = value);
+                        }
+                      },
+              ),
+            ],
           ),
         ),
       ),
-      actions: <Widget>[
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancelar'),
-        ),
-        FilledButton(
-          onPressed: () {
-            if (!_formKey.currentState!.validate()) {
-              return;
-            }
-            Navigator.of(context).pop(
-              ProjectDraft(
-                name: _nameController.text,
-                description: _descriptionController.text,
-                taskEmployeeLimit: int.parse(_limitController.text.trim()),
-                status: _status,
-              ),
-            );
-          },
-          child: Text(widget.project == null ? 'Criar projeto' : 'Salvar'),
-        ),
-      ],
     );
+  }
+
+  Future<void> _save() async {
+    if (_isSaving || !_formKey.currentState!.validate()) {
+      return;
+    }
+    final draft = ProjectDraft(
+      name: _nameController.text,
+      description: _descriptionController.text,
+      taskEmployeeLimit: int.parse(_limitController.text.trim()),
+      status: _status,
+    );
+    setState(() {
+      _isSaving = true;
+      _errorMessage = null;
+    });
+
+    try {
+      await widget.onSave(draft);
+      if (!mounted) {
+        return;
+      }
+      setState(() => _isSaving = false);
+      Navigator.of(context).pop(true);
+    } on ApiException catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isSaving = false;
+        _errorMessage = _projectSaveErrorMessage(error);
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isSaving = false;
+        _errorMessage = 'Não foi possível concluir a operação.';
+      });
+    }
+  }
+
+  String _projectSaveErrorMessage(ApiException error) {
+    return switch (error.statusCode) {
+      401 => 'Sua sessão expirou. Entre novamente para salvar o projeto.',
+      403 => 'Você não tem permissão para salvar este projeto.',
+      404 => 'Este projeto não está mais disponível.',
+      409 =>
+        'O projeto mudou desde que foi aberto. Recarregue e tente novamente.',
+      422 => 'Revise os dados informados e tente novamente.',
+      final statusCode? when statusCode >= 500 =>
+        'Serviço temporariamente indisponível. Tente novamente.',
+      _ => 'Não foi possível concluir a operação.',
+    };
   }
 }
 
