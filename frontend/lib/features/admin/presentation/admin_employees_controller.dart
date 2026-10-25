@@ -507,15 +507,6 @@ class AdminEmployeesController extends ChangeNotifier {
     };
   }
 
-  Color statusColor(EmployeeStatus status) {
-    return switch (status) {
-      EmployeeStatus.active => const Color(0xFF2F8F46),
-      EmployeeStatus.onboarding => const Color(0xFF8C5D00),
-      EmployeeStatus.onLeave => const Color(0xFF8C5D00),
-      EmployeeStatus.inactive => const Color(0xFF8B1E1E),
-    };
-  }
-
   IconData statusIcon(EmployeeStatus status) {
     return switch (status) {
       EmployeeStatus.active => Icons.check_circle_rounded,

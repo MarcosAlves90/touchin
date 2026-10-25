@@ -127,7 +127,9 @@ class _EmployeeEditorDialogState extends State<_EmployeeEditorDialog> {
       insetPadding: const EdgeInsets.all(24),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.zero,
-        side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+        side: BorderSide(
+          color: Theme.of(context).colorScheme.outline,
+        ),
       ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 760),
@@ -168,6 +170,7 @@ class _EmployeeEditorDialogState extends State<_EmployeeEditorDialog> {
                     hintText: 'Ex.: Analista Financeira',
                     icon: Icons.badge_outlined,
                     validatorMessage: 'Informe o cargo principal.',
+                    minLength: 2,
                   ),
                   const SizedBox(height: 16),
                   _buildTextField(
@@ -176,6 +179,7 @@ class _EmployeeEditorDialogState extends State<_EmployeeEditorDialog> {
                     hintText: 'Ex.: Financeiro',
                     icon: Icons.apartment_rounded,
                     validatorMessage: 'Informe o departamento.',
+                    minLength: 2,
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
@@ -223,6 +227,7 @@ class _EmployeeEditorDialogState extends State<_EmployeeEditorDialog> {
                     hintText: 'Ex.: Matriz Paulista',
                     icon: Icons.location_city_outlined,
                     validatorMessage: 'Informe a unidade de referência.',
+                    minLength: 2,
                   ),
                   const SizedBox(height: 16),
                   Row(
@@ -358,6 +363,7 @@ class _EmployeeEditorDialogState extends State<_EmployeeEditorDialog> {
     String? hintText,
     required IconData icon,
     required String validatorMessage,
+    int minLength = 3,
     TextInputType? keyboardType,
     List<TextInputFormatter>? inputFormatters,
     String? Function(String? value)? validator,
@@ -374,7 +380,7 @@ class _EmployeeEditorDialogState extends State<_EmployeeEditorDialog> {
       validator:
           validator ??
           (value) {
-            if (value == null || value.trim().length < 3) {
+            if (value == null || value.trim().length < minLength) {
               return validatorMessage;
             }
             return null;
@@ -639,6 +645,7 @@ class _EmployeeListTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final adminColors = AppTheme.adminColors(theme);
 
     return Material(
       color: Colors.transparent,
@@ -651,10 +658,12 @@ class _EmployeeListTile extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             decoration: BoxDecoration(
               color: selected
-                  ? AppTheme.accent.withValues(alpha: 0.08)
-                  : colorScheme.surface.withValues(alpha: 0.8),
+                  ? adminColors.selectedContainer
+                  : colorScheme.surface,
               border: Border.all(
-                color: selected ? AppTheme.accent : colorScheme.outlineVariant,
+                color: selected
+                    ? adminColors.selectedIndicator
+                    : colorScheme.outline,
               ),
             ),
             child: LayoutBuilder(
@@ -683,6 +692,7 @@ class _EmployeeListTile extends StatelessWidget {
     final hasSignals =
         employee.status != EmployeeStatus.active || needsAttention;
     final showLeadingIcon = !isCompact;
+    final adminColors = AppTheme.adminColors(theme);
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -693,18 +703,20 @@ class _EmployeeListTile extends StatelessWidget {
             height: 40,
             decoration: BoxDecoration(
               color: selected
-                  ? AppTheme.accent.withValues(alpha: 0.16)
-                  : colorScheme.surfaceContainerHighest.withValues(alpha: 0.72),
+                  ? adminColors.selectedContainer
+                  : colorScheme.surfaceContainerHighest,
               border: Border.all(
                 color: selected
-                    ? AppTheme.accent.withValues(alpha: 0.36)
-                    : colorScheme.outlineVariant,
+                    ? adminColors.selectedIndicator
+                    : colorScheme.outline,
               ),
             ),
             child: Icon(
               Icons.badge_rounded,
               size: 20,
-              color: selected ? AppTheme.accent : colorScheme.onSurface,
+              color: selected
+                  ? adminColors.selectedForeground
+                  : colorScheme.onSurface,
             ),
           ),
           const SizedBox(width: 10),
@@ -809,8 +821,8 @@ class _AdminMetricItem extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: colorScheme.surface.withValues(alpha: 0.58),
-        border: Border.all(color: colorScheme.outlineVariant),
+        color: colorScheme.surface,
+        border: Border.all(color: colorScheme.outline),
       ),
       child: Row(
         children: <Widget>[
@@ -854,8 +866,8 @@ class _InlinePill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: tone.withValues(alpha: 0.12),
-        border: Border.all(color: tone.withValues(alpha: 0.22)),
+        color: theme.colorScheme.surfaceContainerHighest,
+        border: Border.all(color: theme.colorScheme.outline),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -867,7 +879,7 @@ class _InlinePill extends StatelessWidget {
           Text(
             label,
             style: theme.textTheme.labelMedium?.copyWith(
-              color: tone,
+              color: theme.colorScheme.onSurface,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -908,8 +920,8 @@ class _EmployeeDetailHero extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: colorScheme.surface.withValues(alpha: 0.82),
-        border: Border.all(color: colorScheme.outlineVariant),
+        color: colorScheme.surface,
+        border: Border.all(color: colorScheme.outline),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -922,10 +934,8 @@ class _EmployeeDetailHero extends StatelessWidget {
                   width: 56,
                   height: 56,
                   decoration: BoxDecoration(
-                    color: statusColor.withValues(alpha: 0.12),
-                    border: Border.all(
-                      color: statusColor.withValues(alpha: 0.28),
-                    ),
+                    color: colorScheme.surfaceContainerHighest,
+                    border: Border.all(color: colorScheme.outline),
                   ),
                   child: Icon(
                     Icons.manage_accounts_rounded,
@@ -963,9 +973,10 @@ class _EmployeeDetailHero extends StatelessWidget {
                           icon: workModeIcon,
                         ),
                         if (needsAttention)
-                          const _InlinePill(
+                          _InlinePill(
                             label: 'Atenção operacional',
-                            tone: Color(0xFF8C5D00),
+                            tone:
+                                AppTheme.adminColors(theme).warning.foreground,
                             icon: Icons.priority_high_rounded,
                           ),
                       ],
@@ -1069,8 +1080,8 @@ class _EmployeeNarrativeCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.54),
-        border: Border.all(color: colorScheme.outlineVariant),
+        color: colorScheme.surfaceContainerHighest,
+        border: Border.all(color: colorScheme.outline),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1124,8 +1135,8 @@ class _EmployeeOverviewCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: colorScheme.surface.withValues(alpha: 0.82),
-        border: Border.all(color: colorScheme.outlineVariant),
+        color: colorScheme.surface,
+        border: Border.all(color: colorScheme.outline),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1134,10 +1145,8 @@ class _EmployeeOverviewCard extends StatelessWidget {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: colorScheme.surfaceContainerHighest.withValues(
-                alpha: 0.88,
-              ),
-              border: Border.all(color: colorScheme.outlineVariant),
+              color: colorScheme.surfaceContainerHighest,
+              border: Border.all(color: colorScheme.outline),
             ),
             child: Icon(icon, size: 18, color: colorScheme.onSurfaceVariant),
           ),
@@ -1240,8 +1249,8 @@ class _EmployeePolicyRow extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: colorScheme.surface.withValues(alpha: 0.82),
-        border: Border.all(color: colorScheme.outlineVariant),
+        color: colorScheme.surface,
+        border: Border.all(color: colorScheme.outline),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1250,8 +1259,8 @@ class _EmployeePolicyRow extends StatelessWidget {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: tone.withValues(alpha: 0.12),
-              border: Border.all(color: tone.withValues(alpha: 0.22)),
+              color: colorScheme.surfaceContainerHighest,
+              border: Border.all(color: colorScheme.outline),
             ),
             child: Icon(icon, size: 18, color: tone),
           ),
@@ -1403,7 +1412,7 @@ class _ManagedPunchEditorDialogState extends State<_ManagedPunchEditorDialog> {
       insetPadding: const EdgeInsets.all(16),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.zero,
-        side: BorderSide(color: colorScheme.outlineVariant),
+        side: BorderSide(color: colorScheme.outline),
       ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 720),
@@ -1575,14 +1584,14 @@ class _ManagedPunchTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final tone = _punchTypeTone(punch.type);
+    final tone = _punchTypeTone(punch.type, theme);
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: colorScheme.surface.withValues(alpha: 0.82),
-        border: Border.all(color: colorScheme.outlineVariant),
+        color: colorScheme.surface,
+        border: Border.all(color: colorScheme.outline),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1591,8 +1600,8 @@ class _ManagedPunchTile extends StatelessWidget {
             width: 34,
             height: 34,
             decoration: BoxDecoration(
-              color: tone.withValues(alpha: 0.12),
-              border: Border.all(color: tone.withValues(alpha: 0.24)),
+              color: colorScheme.surfaceContainerHighest,
+              border: Border.all(color: colorScheme.outline),
             ),
             child: Icon(_punchTypeIcon(punch.type), size: 17, color: tone),
           ),
@@ -1702,11 +1711,12 @@ IconData _punchTypeIcon(PunchType type) {
   };
 }
 
-Color _punchTypeTone(PunchType type) {
+Color _punchTypeTone(PunchType type, ThemeData theme) {
+  final colors = AppTheme.adminColors(theme);
   return switch (type) {
-    PunchType.checkIn => const Color(0xFF2F8F46),
-    PunchType.breakStart => const Color(0xFFB26A00),
-    PunchType.breakEnd => const Color(0xFF1F6F8B),
-    PunchType.checkOut => const Color(0xFFB3261E),
+    PunchType.checkIn => colors.success.foreground,
+    PunchType.breakStart => colors.warning.foreground,
+    PunchType.breakEnd => colors.info.foreground,
+    PunchType.checkOut => colors.danger.foreground,
   };
 }

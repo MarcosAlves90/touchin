@@ -11,6 +11,7 @@ from app.models import AuthSession, UserAccount
 from app.services.auth import change_password, login, reset_password
 from app.services.auth import _resolve_user, _ensure_accounts_active, resolve_context
 from app.schemas.auth import LoginRequest
+from app.errors import DomainError
 
 
 def test_resolve_user_returns_user_and_email_hash(client):
@@ -128,6 +129,87 @@ def test_login_response_includes_must_change_password(client):
         ),
     )
     assert auth_response.must_change_password is False
+
+
+def test_password_reset_revokes_all_parallel_sessions(client):
+    db = SessionLocal()
+    check_db = SessionLocal()
+    try:
+        first = login(
+            db=db,
+            payload=LoginRequest(
+                email="marina.costa@touchin.com",
+                password=get_settings().seed_admin_password,
+                keep_connected=True,
+            ),
+        )
+        second = login(
+            db=db,
+            payload=LoginRequest(
+                email="marina.costa@touchin.com",
+                password=get_settings().seed_admin_password,
+                keep_connected=True,
+            ),
+        )
+
+        _, _, temporary_password = reset_password(
+            db=db,
+            email="marina.costa@touchin.com",
+        )
+
+        for token in (first.access_token, second.access_token):
+            with pytest.raises(DomainError):
+                resolve_context(db=check_db, token=token)
+
+        changed_session = login(
+            db=db,
+            payload=LoginRequest(
+                email="marina.costa@touchin.com",
+                password=temporary_password,
+                keep_connected=True,
+            ),
+        )
+        assert changed_session.must_change_password is True
+    finally:
+        check_db.close()
+        db.close()
+
+
+def test_password_change_revokes_all_parallel_sessions(client):
+    db = SessionLocal()
+    check_db = SessionLocal()
+    try:
+        first = login(
+            db=db,
+            payload=LoginRequest(
+                email="marina.costa@touchin.com",
+                password=get_settings().seed_admin_password,
+                keep_connected=True,
+            ),
+        )
+        second = login(
+            db=db,
+            payload=LoginRequest(
+                email="marina.costa@touchin.com",
+                password=get_settings().seed_admin_password,
+                keep_connected=True,
+            ),
+        )
+        context = resolve_context(db=db, token=first.access_token)
+
+        change_password(
+            db=db,
+            context=context,
+            current_password=get_settings().seed_admin_password,
+            new_password="NewSecurePass@123",
+        )
+
+        for token in (first.access_token, second.access_token):
+            with pytest.raises(DomainError):
+                resolve_context(db=check_db, token=token)
+    finally:
+        check_db.close()
+        db.close()
 
 
 def test_resolve_context_throttles_last_used_touch(client, monkeypatch):

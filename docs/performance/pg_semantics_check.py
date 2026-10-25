@@ -36,26 +36,26 @@ for zone in ("UTC", "America/Sao_Paulo"):
             WITH old_ids AS (
                 SELECT id FROM work_logs
                 WHERE project_id='bench-project' AND company_id='bench-company'
-                  AND EXTRACT(YEAR FROM start_time)=2026
-                  AND EXTRACT(MONTH FROM start_time)=1
+                  AND EXTRACT(YEAR FROM start_time AT TIME ZONE 'America/Sao_Paulo')=2026
+                  AND EXTRACT(MONTH FROM start_time AT TIME ZONE 'America/Sao_Paulo')=1
             ), new_ids AS (
                 SELECT id FROM work_logs
                 WHERE project_id='bench-project' AND company_id='bench-company'
-                  AND start_time >= TIMESTAMP '2026-01-01 00:00:00'
-                  AND start_time < TIMESTAMP '2026-02-01 00:00:00'
+                  AND start_time >= (TIMESTAMP '2026-01-01 00:00:00' AT TIME ZONE 'America/Sao_Paulo')
+                  AND start_time < (TIMESTAMP '2026-02-01 00:00:00' AT TIME ZONE 'America/Sao_Paulo')
             )
             SELECT
                 (SELECT count(*) FROM (SELECT id FROM old_ids EXCEPT SELECT id FROM new_ids) s)
                 + (SELECT count(*) FROM (SELECT id FROM new_ids EXCEPT SELECT id FROM old_ids) s)
         """)).scalar_one()
         old_boundary = db.execute(text("""
-            SELECT EXTRACT(YEAR FROM start_time) = 2026
-                   AND EXTRACT(MONTH FROM start_time) = 1
+            SELECT EXTRACT(YEAR FROM start_time AT TIME ZONE 'America/Sao_Paulo') = 2026
+                   AND EXTRACT(MONTH FROM start_time AT TIME ZONE 'America/Sao_Paulo') = 1
             FROM work_logs WHERE id='boundary-log'
         """)).scalar_one()
         actual = generate_monthly_work_logs_report(
             db, company_id="bench-company", project_id="bench-project",
-            year=2026, month=1,
+            year=2026, month=1, timezone_name="America/Sao_Paulo",
         )
         new_rows = len(actual.records)
         new_boundary = any(row.description == "boundary" for row in actual.records)

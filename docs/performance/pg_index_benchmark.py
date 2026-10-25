@@ -102,14 +102,15 @@ with engine.begin() as conn:
 old_sql = """
 SELECT id, start_time FROM work_logs
 WHERE company_id='bench-company' AND project_id='bench-project'
-  AND EXTRACT(year FROM start_time)=2026 AND EXTRACT(month FROM start_time)=1
+  AND EXTRACT(year FROM start_time AT TIME ZONE 'America/Sao_Paulo')=2026
+  AND EXTRACT(month FROM start_time AT TIME ZONE 'America/Sao_Paulo')=1
 ORDER BY start_time
 """
 new_sql = """
 SELECT id, start_time FROM work_logs
 WHERE company_id='bench-company' AND project_id='bench-project'
-  AND start_time >= TIMESTAMPTZ '2026-01-01 00:00:00+00'
-  AND start_time < TIMESTAMPTZ '2026-02-01 00:00:00+00'
+  AND start_time >= (TIMESTAMP '2026-01-01 00:00:00' AT TIME ZONE 'America/Sao_Paulo')
+  AND start_time < (TIMESTAMP '2026-02-01 00:00:00' AT TIME ZONE 'America/Sao_Paulo')
 ORDER BY start_time
 """
 
@@ -183,7 +184,8 @@ event.listen(engine, "before_cursor_execute", record_sql)
 with SessionLocal() as db:
     start = time.perf_counter()
     report = generate_monthly_work_logs_report(
-        db, company_id="bench-company", project_id="bench-project", year=2026, month=1
+        db, company_id="bench-company", project_id="bench-project", year=2026, month=1,
+        timezone_name="America/Sao_Paulo",
     )
     say("APPLICATION_REPORT_ROWS", len(report.records),
         "DURATION_SECONDS", round(time.perf_counter()-start,3))

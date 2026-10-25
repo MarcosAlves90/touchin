@@ -1018,114 +1018,116 @@ class _ProjectListTile extends StatelessWidget {
       child: Semantics(
         selected: selected,
         child: InkWell(
-        onTap: onTap,
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          decoration: BoxDecoration(
-            color: selected
-                ? AppTheme.accent.withValues(alpha: 0.08)
-                : colorScheme.surface.withValues(alpha: 0.8),
-            border: Border.all(
-              color: selected ? AppTheme.accent : colorScheme.outlineVariant,
+          onTap: onTap,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: selected
+                  ? AppTheme.accent.withValues(alpha: 0.08)
+                  : colorScheme.surface.withValues(alpha: 0.8),
+              border: Border.all(
+                color: selected ? AppTheme.accent : colorScheme.outlineVariant,
+              ),
             ),
-          ),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final isCompact = constraints.maxWidth < 560;
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  if (!isCompact) ...<Widget>[
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: selected
-                            ? AppTheme.accent.withValues(alpha: 0.16)
-                            : colorScheme.surfaceContainerHighest
-                                .withValues(alpha: 0.72),
-                        border: Border.all(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final isCompact = constraints.maxWidth < 560;
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    if (!isCompact) ...<Widget>[
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
                           color: selected
-                              ? AppTheme.accent.withValues(alpha: 0.36)
-                              : colorScheme.outlineVariant,
-                        ),
-                      ),
-                      child: Icon(
-                        Icons.folder_open_rounded,
-                        size: 20,
-                        color:
-                            selected ? AppTheme.accent : colorScheme.onSurface,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                  ],
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Row(
-                          children: <Widget>[
-                            Expanded(
-                              child: Text(
-                                project.name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                            if (canManage) ...<Widget>[
-                              const SizedBox(width: 6),
-                              IconButton(
-                                onPressed: onEdit,
-                                icon: const Icon(Icons.edit_outlined, size: 18),
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints.tightFor(
-                                  width: 32,
-                                  height: 32,
-                                ),
-                                visualDensity: VisualDensity.compact,
-                                tooltip: 'Editar projeto',
-                              ),
-                              const SizedBox(width: 4),
-                              IconButton(
-                                onPressed: onDelete,
-                                icon: const Icon(
-                                  Icons.delete_outline_rounded,
-                                  size: 18,
-                                ),
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints.tightFor(
-                                  width: 32,
-                                  height: 32,
-                                ),
-                                visualDensity: VisualDensity.compact,
-                                tooltip: 'Excluir projeto',
-                              ),
-                            ],
-                          ],
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          'Limite ${project.taskEmployeeLimit} por tarefa • ${project.status == ProjectStatus.active ? 'Ativo' : 'Inativo'}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                            height: 1.2,
+                              ? AppTheme.accent.withValues(alpha: 0.16)
+                              : colorScheme.surfaceContainerHighest
+                                  .withValues(alpha: 0.72),
+                          border: Border.all(
+                            color: selected
+                                ? AppTheme.accent.withValues(alpha: 0.36)
+                                : colorScheme.outlineVariant,
                           ),
                         ),
-                      ],
+                        child: Icon(
+                          Icons.folder_open_rounded,
+                          size: 20,
+                          color: selected
+                              ? AppTheme.accent
+                              : colorScheme.onSurface,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                    ],
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Row(
+                            children: <Widget>[
+                              Expanded(
+                                child: Text(
+                                  project.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                              if (canManage) ...<Widget>[
+                                const SizedBox(width: 6),
+                                IconButton(
+                                  onPressed: onEdit,
+                                  icon:
+                                      const Icon(Icons.edit_outlined, size: 18),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints.tightFor(
+                                    width: 32,
+                                    height: 32,
+                                  ),
+                                  visualDensity: VisualDensity.compact,
+                                  tooltip: 'Editar projeto',
+                                ),
+                                const SizedBox(width: 4),
+                                IconButton(
+                                  onPressed: onDelete,
+                                  icon: const Icon(
+                                    Icons.delete_outline_rounded,
+                                    size: 18,
+                                  ),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints.tightFor(
+                                    width: 32,
+                                    height: 32,
+                                  ),
+                                  visualDensity: VisualDensity.compact,
+                                  tooltip: 'Excluir projeto',
+                                ),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            'Limite ${project.taskEmployeeLimit} por tarefa • ${project.status == ProjectStatus.active ? 'Ativo' : 'Inativo'}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                              height: 1.2,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
-              );
-            },
+                  ],
+                );
+              },
+            ),
           ),
         ),
-      ),
       ),
     );
   }
@@ -1407,74 +1409,76 @@ class _TaskTile extends StatelessWidget {
       child: Semantics(
         selected: selected,
         child: InkWell(
-        onTap: onSelected,
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            border: Border.all(
-              color:
-                  selected ? colorScheme.primary : colorScheme.outlineVariant,
+          onTap: onSelected,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              border: Border.all(
+                color:
+                    selected ? colorScheme.primary : colorScheme.outlineVariant,
+              ),
             ),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Icon(_taskTypeIcon(task.type), size: 24),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: <Widget>[
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Icon(_taskTypeIcon(task.type), size: 24),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: <Widget>[
+                          Text(
+                            task.name,
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                ),
+                          ),
+                          Chip(
+                            visualDensity: VisualDensity.compact,
+                            label: Text(_taskTypeLabel(task.type)),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        task.description,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                      ),
+                      if (parentName != null) ...<Widget>[
+                        const SizedBox(height: 8),
                         Text(
-                          task.name,
+                          'Subtarefa de: $parentName',
                           style:
-                              Theme.of(context).textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.w800,
+                              Theme.of(context).textTheme.labelMedium?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                    fontWeight: FontWeight.w600,
                                   ),
                         ),
-                        Chip(
-                          visualDensity: VisualDensity.compact,
-                          label: Text(_taskTypeLabel(task.type)),
-                        ),
                       ],
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      task.description,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                    ),
-                    if (parentName != null) ...<Widget>[
-                      const SizedBox(height: 8),
-                      Text(
-                        'Subtarefa de: $parentName',
-                        style:
-                            Theme.of(context).textTheme.labelMedium?.copyWith(
-                                  color: colorScheme.onSurfaceVariant,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                      ),
                     ],
-                  ],
+                  ),
                 ),
-              ),
-              if (canEdit)
-                IconButton(
-                  tooltip: 'Editar tarefa',
-                  onPressed: onEdit,
-                  icon: const Icon(Icons.edit_outlined),
-                ),
-            ],
+                if (canEdit)
+                  IconButton(
+                    tooltip: 'Editar tarefa',
+                    onPressed: onEdit,
+                    icon: const Icon(Icons.edit_outlined),
+                  ),
+              ],
+            ),
           ),
         ),
-      ),
       ),
     );
   }
@@ -1561,10 +1565,6 @@ class _ProjectEditorDialogState extends State<_ProjectEditorDialog> {
                 maxLength: projectDescriptionMaxLength,
                 maxLengthEnforcement: MaxLengthEnforcement.enforced,
                 decoration: const InputDecoration(labelText: 'Descrição'),
-                validator: (value) => _requiredTextWithinLimit(
-                  value,
-                  maxLength: projectDescriptionMaxLength,
-                ),
               ),
               const SizedBox(height: 14),
               TextFormField(

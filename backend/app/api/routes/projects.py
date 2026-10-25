@@ -160,4 +160,5 @@ def get_monthly_work_logs_report_route(
         year=year,
         month=month,
         employee_id=_project_read_employee_id(context),
+        timezone_name=context.company.timezone,
     )

@@ -3,7 +3,7 @@ from __future__ import annotations
 from sqlalchemy import select, text
 
 from app.db import SessionLocal
-from app.models import Punch, TaskEmployee
+from app.models import Punch, TaskEmployee, UserAccount
 
 from test_api import TEST_SEED_SECRET, login_headers, login_headers_for
 
@@ -526,3 +526,44 @@ def test_employee_project_read_is_scoped_to_authenticated_employee(client):
         headers=employee_headers,
     )
     assert foreign_response.status_code == 404
+
+
+def test_employee_and_manager_cannot_read_projects_before_required_password_change(client):
+    admin_headers = login_headers(client)
+    employee_headers = login_headers_for(
+        client,
+        email="joao.lima@touchin.com",
+        password=TEST_SEED_SECRET,
+    )
+    manager_headers = login_headers_for(
+        client,
+        email="caio.martins@touchin.com",
+        password=TEST_SEED_SECRET,
+    )
+    project = _create_project(client, admin_headers, name="Projeto restrito")
+    assignment = client.post(
+        f"/api/v1/projects/{project['id']}/members",
+        headers=admin_headers,
+        json={"employeeId": "emp-04"},
+    )
+    assert assignment.status_code == 201
+
+    with SessionLocal() as db:
+        users = db.scalars(
+            select(UserAccount).where(UserAccount.employee_id.in_(("emp-04", "emp-02"))),
+        ).all()
+        assert {user.employee_id for user in users} == {"emp-04", "emp-02"}
+        for user in users:
+            user.must_change_password = True
+        db.commit()
+
+    for headers in (employee_headers, manager_headers):
+        context_response = client.get("/api/v1/auth/me", headers=headers)
+        assert context_response.status_code == 200
+        assert context_response.json()["mustChangePassword"] is True
+
+        projects_response = client.get(
+            "/api/v1/employees/emp-04/projects",
+            headers=headers,
+        )
+        assert projects_response.status_code == 403
