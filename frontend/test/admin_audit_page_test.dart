@@ -585,21 +585,33 @@ void main() {
 
     expect(mockApi.requestedPages, [1]);
 
-    // Scroll through the list to force loading page 2
+    // Scroll through the list to force loading page 2.
     int drags = 0;
-    while (find.text('Ação desconhecida (task.action_50) - Sucesso')
-            .evaluate()
-            .isEmpty &&
-        drags < 40) {
+    while (mockApi.requestedPages.length < 2 && drags < 40) {
       await tester.drag(find.byType(ListView), const Offset(0, -500));
       await tester.pumpAndSettle();
       drags++;
     }
 
-    // Must have requested exactly page 1 and page 2
     expect(mockApi.requestedPages, [1, 2]);
-    expect(find.text('Ação desconhecida (task.action_50) - Sucesso'),
-        findsOneWidget);
+
+    // Rewind and scan in small steps: localized event rows can be taller.
+    await tester.drag(find.byType(ListView), const Offset(0, 10000));
+    await tester.pumpAndSettle();
+    while (
+        find.text('Ação desconhecida (task.action_50) - Sucesso')
+                .evaluate()
+                .isEmpty &&
+            drags < 100) {
+      await tester.drag(find.byType(ListView), const Offset(0, -100));
+      await tester.pumpAndSettle();
+      drags++;
+    }
+    expect(
+      find.text('Ação desconhecida (task.action_50) - Sucesso'),
+      findsOneWidget,
+    );
+    drags = 0;
 
     // Continue scrolling to 59
     while (find.text('Ação desconhecida (task.action_59) - Sucesso')
