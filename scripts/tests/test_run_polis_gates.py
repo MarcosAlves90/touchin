@@ -111,13 +111,17 @@ class PolicyGateRunnerTests(unittest.TestCase):
             captured.update(argv=argv, **kwargs)
             return Process()
 
-        batch_file = self.root / "flutter.BAT"
+        batch_directory = self.root / "path with spaces"
+        batch_directory.mkdir()
+        batch_file = batch_directory / "flutter.BAT"
         batch_file.write_text("@echo off\r\n")
         gate = self.gate(
             ["flutter", "test"], passed=["PATH", "PATHEXT", "COMSPEC"]
         )
         with patch.object(runner.os, "name", "nt"), patch.object(
             runner.subprocess, "CREATE_NEW_PROCESS_GROUP", 512, create=True
+        ), patch.object(
+            runner, "_resolve_executable", return_value=str(batch_file)
         ), patch.dict(os.environ, {
             "PATH": str(self.root),
             "PATHEXT": ".COM;.EXE;.BAT;.CMD",
@@ -126,10 +130,8 @@ class PolicyGateRunnerTests(unittest.TestCase):
             self.run_gate(gate)
 
         self.assertEqual(
-            captured["argv"], [
-                "C:\\Windows\\cmd.exe", "/d", "/s", "/c",
-                f'"{batch_file} test"',
-            ]
+            captured["argv"],
+            f'C:\\Windows\\cmd.exe /d /s /c ""{batch_file}" test"',
         )
 
 

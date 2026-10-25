@@ -46,7 +46,7 @@ def _resolve_executable(executable: str, env: dict[str, str]) -> str:
     return executable
 
 
-def prepare_command(argv: list[str], env: dict[str, str]) -> list[str]:
+def prepare_command(argv: list[str], env: dict[str, str]) -> list[str] | str:
     """Resolve a policy command and dispatch Windows batch files through cmd."""
     if not argv or os.name != "nt":
         return list(argv)
@@ -58,12 +58,10 @@ def prepare_command(argv: list[str], env: dict[str, str]) -> list[str]:
 
     command_shell = env.get("COMSPEC") or os.environ.get("COMSPEC") or "cmd.exe"
     command_line = subprocess.list2cmdline([executable, *argv[1:]])
-    if any(character.isspace() for character in executable):
-        command_line = f'"{command_line}"'
-    else:
-        arguments = subprocess.list2cmdline(argv[1:])
-        command_line = f'"{executable}{(" " + arguments) if arguments else ""}"'
-    return [command_shell, "/d", "/s", "/c", command_line]
+    # Pass cmd.exe a raw command line. Passing this as an argv list makes
+    # Python escape the quotes for the CRT, but cmd.exe parses /c's remainder
+    # itself and then treats those backslashes as literal characters.
+    return f'{subprocess.list2cmdline([command_shell])} /d /s /c "{command_line}"'
 
 
 def _stop_process_tree(process: subprocess.Popen) -> None:

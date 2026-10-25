@@ -88,7 +88,10 @@ async function readCsp() {
   const csp = config.headers?.flatMap((rule) => rule.headers ?? [])
     .find((header) => header.key.toLowerCase() === 'content-security-policy')?.value;
   assert.ok(csp, 'Missing production Content-Security-Policy in frontend/vercel.json');
-  const html = await readFile(join(buildDir, 'index.html'), 'utf8');
+  // HTML parsing normalizes CRLF and CR source newlines to LF before inline
+  // script text is hashed for CSP. Flutter's Windows build emits CRLF, so
+  // normalize the file first to match the browser's script input.
+  const html = (await readFile(join(buildDir, 'index.html'), 'utf8')).replace(/\r\n?/g, '\n');
   const inlineScripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((match) => match[1]);
   assert.equal(inlineScripts.length, 1, 'Expected exactly one synchronous inline theme bootstrap script');
   assert.ok(html.indexOf('<script>') < html.indexOf('</head>'), 'Theme bootstrap must run synchronously in <head>');

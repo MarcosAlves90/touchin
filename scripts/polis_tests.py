@@ -6,6 +6,10 @@ import shutil
 import subprocess
 import sys
 
+# POLIS hashes source before gates execute. Prevent imports here and in the
+# subprocesses below from writing .pyc files during the validation window.
+sys.dont_write_bytecode = True
+
 from run_polis_gates import prepare_command
 
 
@@ -25,7 +29,7 @@ for name, command, directory in (
         [sys.executable, "-B", "-m", "unittest", "discover", "-s", "scripts/tests", "-v"],
         ROOT,
     ),
-    ("backend", [backend_python, "-m", "pytest"], BACKEND),
+    ("backend", [backend_python, "-B", "-m", "pytest"], BACKEND),
     ("frontend", [flutter_executable, "test"], FRONTEND),
 ):
     print(f"POLIS tests: {name}", flush=True)
