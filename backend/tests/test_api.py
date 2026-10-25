@@ -90,6 +90,32 @@ def test_login_and_get_employees(client):
     assert employees[-1]["requiresLocationOnPunch"] is True
 
 
+def test_must_change_password_is_enforced_and_reported(client):
+    headers = login_headers(client)
+    with SessionLocal() as db:
+        user = db.query(UserAccount).filter(UserAccount.role == "admin").first()
+        assert user is not None
+        user.must_change_password = True
+        db.commit()
+
+    me_response = client.get("/api/v1/auth/me", headers=headers)
+    assert me_response.status_code == 200
+    assert me_response.json()["mustChangePassword"] is True
+
+    projects_response = client.get("/api/v1/projects", headers=headers)
+    assert projects_response.status_code == 403
+
+    change_response = client.post(
+        "/api/v1/auth/change-password",
+        headers=headers,
+        json={
+            "currentPassword": TEST_SEED_SECRET,
+            "newPassword": "NewSecurePass@123",
+        },
+    )
+    assert change_response.status_code == 200
+
+
 def test_employee_cannot_list_employees(client):
     headers = login_headers_for(
         client,

@@ -144,4 +144,5 @@ def auth_context_response(user: UserAccount, company: Company) -> AuthContextRes
     return AuthContextResponse(
         company=summarize_company(company, field_cipher),
         user=user_summary(user, field_cipher),
+        must_change_password=user.must_change_password,
     )

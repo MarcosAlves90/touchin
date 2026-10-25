@@ -83,3 +83,4 @@ class AuthSessionResponse(CamelModel):
 class AuthContextResponse(CamelModel):
     company: CompanySummary
     user: UserSummary
+    must_change_password: bool = False

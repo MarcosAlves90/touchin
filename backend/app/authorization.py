@@ -141,6 +141,7 @@ class AuthorizationCompany(Protocol):
 
 class AuthorizationUser(Protocol):
     role: str
+    must_change_password: bool
 
 
 class AuthorizationEmployee(Protocol):
@@ -219,6 +220,11 @@ def require_permission(permission: str, *, scope: str = "company"):
     def dependency(
         context: AuthorizationContext = Depends(get_current_context),
     ) -> AuthorizationContext:
+        if context.user.must_change_password and permission != AUTH_READ_CONTEXT:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Password change is required before accessing this resource.",
+            )
         allowed = can(context, permission, company_id=context.company.id, scope=scope)
         if not allowed:
             raise HTTPException(
