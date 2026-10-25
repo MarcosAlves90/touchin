@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:touchin_flutter/contracts/auth.dart';
 import 'package:touchin_flutter/contracts/employee.dart';
 import 'package:touchin_flutter/contracts/time_clock.dart';
@@ -29,6 +31,7 @@ class AdminEmployeesController extends ChangeNotifier {
   String? employeePunchesError;
   bool isLoading = true;
   String? loadError;
+  int _employeePunchesRequestGeneration = 0;
 
   Future<void> start() async {
     await loadEmployees();
@@ -48,14 +51,10 @@ class AdminEmployeesController extends ChangeNotifier {
       employees = loadedEmployees;
       authContext = loadedAuthContext;
       employeesPage = 1;
-      if (selectedEmployeeId == null && employees.isNotEmpty) {
-        selectedEmployeeId = employees.first.id;
-      }
+      final punchLoad = _reconcileEmployeeSelection(forceReloadPunches: true);
       isLoading = false;
       notifyListeners();
-      if (selectedEmployeeId != null) {
-        await loadEmployeePunches(selectedEmployeeId!, page: 1);
-      }
+      await punchLoad;
     } on ApiException catch (error) {
       isLoading = false;
       loadError = error.message;
@@ -170,7 +169,7 @@ class AdminEmployeesController extends ChangeNotifier {
   }
 
   EmployeeProfile? get selectedEmployee {
-    final visible = visibleEmployees;
+    final visible = pagedEmployees;
     if (visible.isEmpty) {
       return null;
     }
@@ -216,6 +215,7 @@ class AdminEmployeesController extends ChangeNotifier {
   void setSearchQuery(String value) {
     searchQuery = value;
     employeesPage = 1;
+    unawaited(_reconcileEmployeeSelection());
     notifyListeners();
   }
 
@@ -223,18 +223,24 @@ class AdminEmployeesController extends ChangeNotifier {
     searchController.clear();
     searchQuery = '';
     employeesPage = 1;
+    unawaited(_reconcileEmployeeSelection());
     notifyListeners();
   }
 
   void setFilter(EmployeeFilter value) {
     filter = value;
     employeesPage = 1;
+    unawaited(_reconcileEmployeeSelection());
     notifyListeners();
   }
 
   void selectEmployee(String employeeId) {
+    if (!pagedEmployees.any((employee) => employee.id == employeeId)) {
+      return;
+    }
     selectedEmployeeId = employeeId;
     employeePunchesPage = 1;
+    _resetEmployeePunches();
     notifyListeners();
   }
 
@@ -243,6 +249,7 @@ class AdminEmployeesController extends ChangeNotifier {
       return;
     }
     employeesPage -= 1;
+    unawaited(_reconcileEmployeeSelection());
     notifyListeners();
   }
 
@@ -251,7 +258,51 @@ class AdminEmployeesController extends ChangeNotifier {
       return;
     }
     employeesPage += 1;
+    unawaited(_reconcileEmployeeSelection());
     notifyListeners();
+  }
+
+  Future<void> _reconcileEmployeeSelection({
+    bool forceReloadPunches = false,
+  }) {
+    _clampEmployeesPage();
+    final pageEmployees = pagedEmployees;
+    final selectionIsVisible = pageEmployees.any(
+      (employee) => employee.id == selectedEmployeeId,
+    );
+    final nextSelection = selectionIsVisible
+        ? selectedEmployeeId
+        : pageEmployees.isEmpty
+            ? null
+            : pageEmployees.first.id;
+    final selectionChanged = nextSelection != selectedEmployeeId;
+    if (!selectionChanged && !forceReloadPunches) {
+      return Future<void>.value();
+    }
+
+    selectedEmployeeId = nextSelection;
+    employeePunchesPage = 1;
+    if (nextSelection == null) {
+      _resetEmployeePunches();
+      return Future<void>.value();
+    }
+
+    if (selectionChanged) {
+      _resetEmployeePunches();
+    }
+    return loadEmployeePunches(nextSelection, page: 1);
+  }
+
+  void _resetEmployeePunches() {
+    _employeePunchesRequestGeneration++;
+    employeePunches = <ManagedPunchRecord>[];
+    employeePunchesError = null;
+    isLoadingEmployeePunches = false;
+    employeePunchesPage = 1;
+    employeePunchesTotal = 0;
+    employeePunchesTotalPages = 1;
+    employeePunchesHasPrevious = false;
+    employeePunchesHasNext = false;
   }
 
   void _clampEmployeesPage() {
@@ -271,8 +322,10 @@ class AdminEmployeesController extends ChangeNotifier {
       final employee = await _api.createEmployee(draft);
       employees = <EmployeeProfile>[employee, ...employees];
       selectedEmployeeId = employee.id;
+      employeesPage = 1;
+      final punchLoad = _reconcileEmployeeSelection(forceReloadPunches: true);
       notifyListeners();
-      await loadEmployeePunches(employee.id, page: 1);
+      await punchLoad;
       return '${employee.name} foi adicionado à empresa.';
     } on ApiException catch (error) {
       return error.message;
@@ -293,8 +346,9 @@ class AdminEmployeesController extends ChangeNotifier {
         return updated;
       }).toList();
       selectedEmployeeId = employee.id;
+      final punchLoad = _reconcileEmployeeSelection(forceReloadPunches: true);
       notifyListeners();
-      await loadEmployeePunches(employee.id, page: 1);
+      await punchLoad;
       return '${draft.name} foi atualizado com sucesso.';
     } on ApiException catch (error) {
       return error.message;
@@ -311,30 +365,21 @@ class AdminEmployeesController extends ChangeNotifier {
       final fallbackSelection =
           visibleEmployees.isEmpty ? null : visibleEmployees.first.id;
       selectedEmployeeId = fallbackSelection;
+      final punchLoad = _reconcileEmployeeSelection();
       notifyListeners();
-      if (fallbackSelection == null) {
-        employeePunches = <ManagedPunchRecord>[];
-        employeePunchesError = null;
-        isLoadingEmployeePunches = false;
-        employeePunchesPage = 1;
-        employeePunchesTotal = 0;
-        employeePunchesTotalPages = 1;
-        employeePunchesHasPrevious = false;
-        employeePunchesHasNext = false;
-        notifyListeners();
-      } else {
-        await loadEmployeePunches(fallbackSelection, page: 1);
-      }
+      await punchLoad;
       return '${employee.name} foi removido da empresa.';
     } on ApiException catch (error) {
       return error.message;
     }
   }
 
-  Future<void> loadEmployeePunches(
-    String employeeId, {
-    int page = 1,
-  }) async {
+  Future<void> loadEmployeePunches(String employeeId, {int page = 1}) async {
+    if (selectedEmployeeId != employeeId ||
+        !pagedEmployees.any((employee) => employee.id == employeeId)) {
+      return;
+    }
+    final requestGeneration = ++_employeePunchesRequestGeneration;
     isLoadingEmployeePunches = true;
     employeePunchesError = null;
     notifyListeners();
@@ -345,7 +390,8 @@ class AdminEmployeesController extends ChangeNotifier {
         page: page,
         limit: employeePunchesPageSize,
       );
-      if (selectedEmployeeId != employeeId) {
+      if (requestGeneration != _employeePunchesRequestGeneration ||
+          selectedEmployeeId != employeeId) {
         return;
       }
 
@@ -359,7 +405,8 @@ class AdminEmployeesController extends ChangeNotifier {
       isLoadingEmployeePunches = false;
       notifyListeners();
     } on ApiException catch (error) {
-      if (selectedEmployeeId != employeeId) {
+      if (requestGeneration != _employeePunchesRequestGeneration ||
+          selectedEmployeeId != employeeId) {
         return;
       }
 
@@ -373,7 +420,8 @@ class AdminEmployeesController extends ChangeNotifier {
       employeePunchesError = error.message;
       notifyListeners();
     } catch (_) {
-      if (selectedEmployeeId != employeeId) {
+      if (requestGeneration != _employeePunchesRequestGeneration ||
+          selectedEmployeeId != employeeId) {
         return;
       }
 
@@ -425,10 +473,7 @@ class AdminEmployeesController extends ChangeNotifier {
     required ManagedPunchRecord punch,
   }) async {
     try {
-      await _api.deleteManagedPunch(
-        employeeId: employee.id,
-        punchId: punch.id,
-      );
+      await _api.deleteManagedPunch(employeeId: employee.id, punchId: punch.id);
       await loadEmployeePunches(employee.id, page: employeePunchesPage);
       return 'Ponto manual removido.';
     } on ApiException catch (error) {
