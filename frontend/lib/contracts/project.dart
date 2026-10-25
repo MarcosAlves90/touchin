@@ -101,9 +101,10 @@ class ProjectDraft {
   }
 
   JsonMap toApiJson() {
+    final trimmedDescription = description.trim();
     return <String, dynamic>{
       'name': name.trim(),
-      'description': description.trim(),
+      'description': trimmedDescription.isEmpty ? null : trimmedDescription,
       'taskEmployeeLimit': taskEmployeeLimit,
       'status': projectStatusToApi(status),
     };

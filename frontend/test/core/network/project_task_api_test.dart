@@ -5,6 +5,21 @@ import 'package:touchin_flutter/core/network/touchin_api.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('project draft serializes a removed optional description as null', () {
+    const draft = ProjectDraft(
+      name: 'Projeto atualizado',
+      description: '   ',
+      taskEmployeeLimit: 2,
+    );
+
+    expect(draft.toApiJson(), <String, dynamic>{
+      'name': 'Projeto atualizado',
+      'description': null,
+      'taskEmployeeLimit': 2,
+      'status': 'active',
+    });
+  });
+
   test('project API uses backend contracts and authenticated endpoints',
       () async {
     final client = _ProjectTaskApiClient(
