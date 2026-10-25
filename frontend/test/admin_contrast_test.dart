@@ -233,7 +233,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final eventText = find.text('employee.updated - success').first;
+      final eventText = find.text('Funcionário atualizado - Sucesso').first;
       final auditTheme = Theme.of(tester.element(eventText));
       expect(
         _contrast(
@@ -257,9 +257,9 @@ void main() {
         greaterThanOrEqualTo(4.5),
       );
       final applyButton = tester.widget<ElevatedButton>(
-        find.widgetWithText(ElevatedButton, 'Apply Filters'),
+        find.widgetWithText(ElevatedButton, 'Aplicar filtros'),
       );
-      final applyText = find.text('Apply Filters');
+      final applyText = find.text('Aplicar filtros');
       expect(
         _contrast(
           _renderedTextColor(tester, applyText),
