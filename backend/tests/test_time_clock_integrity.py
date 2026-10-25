@@ -5,10 +5,10 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from os import getenv
-from threading import Barrier
+from threading import Barrier, Event
 
 import pytest
-from sqlalchemy import create_engine, event, inspect, select, text
+from sqlalchemy import create_engine, event, inspect, insert, select, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -314,6 +314,10 @@ def pg_read_committed():
 
 def test_postgres_parallel_checkins_are_serialized(pg_read_committed):
     factory, _ = pg_read_committed
+    with factory() as db:
+        initial_ids = set(db.scalars(select(Punch.id).where(
+            Punch.employee_id == "emp-04", Punch.type == "checkIn",
+        )).all())
     barrier = Barrier(2)
 
     def attempt():
@@ -331,7 +335,10 @@ def test_postgres_parallel_checkins_are_serialized(pg_read_committed):
         results = list(pool.map(lambda _: attempt(), range(2)))
     assert sorted(results) == ["conflict", "ok"]
     with factory() as db:
-        assert len(db.scalars(select(Punch).where(Punch.employee_id == "emp-04", Punch.type == "checkIn")).all()) == 1
+        final_ids = set(db.scalars(select(Punch.id).where(
+            Punch.employee_id == "emp-04", Punch.type == "checkIn",
+        )).all())
+        assert len(final_ids - initial_ids) == 1
 
 
 def test_postgres_work_logs_survive_employee_and_punch_deletions(pg_read_committed):
@@ -350,3 +357,202 @@ def test_postgres_work_logs_survive_employee_and_punch_deletions(pg_read_committ
             assert log.employee_id is None and log.punch_id is None
             assert log.employee_id_snapshot == "emp-04"
         assert db.get(Employee, "emp-04") is None
+
+
+def test_postgres_legacy_work_log_schema_migrates_without_losing_history(pg_read_committed):
+    factory, engine = pg_read_committed
+    with factory() as db:
+        _, punch_id, log_id = _punch_with_log(db)
+
+    # Reproduce the original mandatory live references on a dedicated PG DB.
+    legacy_fks = inspect(engine).get_foreign_keys("work_logs")
+    quote = engine.dialect.identifier_preparer.quote
+    with engine.begin() as conn:
+        for fk in legacy_fks:
+            if "employee_id" in fk["constrained_columns"] or "punch_id" in fk["constrained_columns"]:
+                conn.execute(text(f"ALTER TABLE work_logs DROP CONSTRAINT {quote(fk['name'])}"))
+        conn.execute(text("ALTER TABLE work_logs ALTER COLUMN employee_id SET NOT NULL"))
+        conn.execute(text("ALTER TABLE work_logs ALTER COLUMN punch_id SET NOT NULL"))
+        conn.execute(text("ALTER TABLE work_logs DROP COLUMN employee_id_snapshot"))
+        conn.execute(text("ALTER TABLE work_logs ADD CONSTRAINT legacy_worklog_employee "
+                          "FOREIGN KEY (employee_id) REFERENCES employees(id)"))
+        conn.execute(text("ALTER TABLE work_logs ADD CONSTRAINT legacy_worklog_punch "
+                          "FOREIGN KEY (punch_id) REFERENCES punches(id)"))
+
+    upgrade_database_schema(engine)
+    upgrade_database_schema(engine)
+    columns = {item["name"]: item for item in inspect(engine).get_columns("work_logs")}
+    assert columns["employee_id"]["nullable"]
+    assert columns["punch_id"]["nullable"]
+    assert "employee_id_snapshot" in columns
+    actions = {
+        column: (fk.get("options") or {}).get("ondelete", "").upper()
+        for fk in inspect(engine).get_foreign_keys("work_logs")
+        for column in fk["constrained_columns"]
+    }
+    assert actions["employee_id"] == actions["punch_id"] == "SET NULL"
+    with factory() as db:
+        log = db.get(WorkLog, log_id)
+        assert log.employee_id_snapshot == "emp-04"
+        delete_managed_punch(db, company_id="company-touchin", employee_id="emp-04", punch_id=punch_id)
+        db.expire_all()
+        assert db.get(WorkLog, log_id).punch_id is None
+
+
+def test_postgres_parallel_password_reset_confirmation_is_single_use(pg_read_committed):
+    from app.crypto import lookup_digest
+    from app.models import PasswordResetToken, UserAccount
+    from app.security import verify_password
+    from app.services.password_reset import request_password_reset, confirm_password_reset
+
+    factory, _ = pg_read_committed
+    email = "marina.costa@touchin.com"
+    with factory() as db:
+        issued = request_password_reset(db, email=email, client_ip="192.0.2.201")
+        assert issued is not None
+        token = issued[2]
+
+    barrier = Barrier(2)
+
+    def attempt(password):
+        with factory() as db:
+            barrier.wait(timeout=10)
+            try:
+                confirm_password_reset(db, token=token, new_password=password,
+                                       client_ip="192.0.2.201")
+                return "accepted", password
+            except DomainError:
+                db.rollback()
+                return "rejected", password
+
+    passwords = ("PostgresConcurrentA!123", "PostgresConcurrentB!123")
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(attempt, passwords))
+    assert sorted(status for status, _ in results) == ["accepted", "rejected"]
+    accepted_password = next(password for status, password in results if status == "accepted")
+    with factory() as db:
+        email_hash = lookup_digest(email, get_settings().encryption_secret or "")
+        user = db.scalar(select(UserAccount).where(UserAccount.email_hash == email_hash))
+        assert user is not None and verify_password(accepted_password, user.password_hash)
+        assert db.scalar(select(PasswordResetToken)).consumed_at is not None
+
+
+def test_postgres_admin_punch_write_waits_for_employee_lock(pg_read_committed):
+    from app.services.time_clock import create_managed_punch
+
+    factory, engine = pg_read_committed
+    about_to_lock = Event()
+
+    def observe(conn, cursor, statement, parameters, context, many):
+        if "FROM employees" in statement and "FOR UPDATE" in statement:
+            about_to_lock.set()
+
+    def administrative_write():
+        with factory() as db:
+            return create_managed_punch(
+                db, company_id="company-touchin", employee_id="emp-04",
+                payload=ManagePunchRequest(
+                    type=PunchType.check_in,
+                    timestamp=datetime(2025, 2, 1, 8, tzinfo=timezone.utc),
+                ),
+            )
+
+    with factory() as blocker:
+        blocker.scalar(select(Employee).where(Employee.id == "emp-04").with_for_update())
+        event.listen(engine, "before_cursor_execute", observe)
+        try:
+            with ThreadPoolExecutor(max_workers=1) as pool:
+                pending = pool.submit(administrative_write)
+                assert about_to_lock.wait(timeout=10), "admin never reached employee row lock"
+                assert not pending.done(), "admin write bypassed the employee lock"
+                blocker.commit()
+                result = pending.result(timeout=10)
+                assert result.employee_id == "emp-04"
+        finally:
+            event.remove(engine, "before_cursor_execute", observe)
+
+
+def test_postgres_latest_punch_query_uses_bounded_index_access(pg_read_committed):
+    factory, engine = pg_read_committed
+    with engine.begin() as conn:
+        history = [
+            {
+                "company_id": "company-touchin", "employee_id": "emp-04",
+                "type": "checkOut", "detail_ciphertext": "historic",
+                "timestamp": datetime(2022, 1, 1, tzinfo=timezone.utc) + timedelta(minutes=n),
+            }
+            for n in range(5000)
+        ]
+        conn.execute(insert(Punch), history)
+        conn.execute(text("ANALYZE punches"))
+        plan = conn.execute(text(
+            "EXPLAIN (ANALYZE, FORMAT JSON) SELECT id FROM punches "
+            "WHERE employee_id = 'emp-04' "
+            "ORDER BY timestamp DESC, id DESC LIMIT 1"
+        )).scalar()
+    root = plan[0]["Plan"]
+    assert root["Node Type"] == "Limit"
+    index_step = root["Plans"][0]
+    assert index_step["Node Type"] in {"Index Scan", "Index Only Scan"}, root
+    assert index_step["Index Name"] == "ix_punches_employee_timestamp_id"
+    assert index_step["Actual Rows"] == 1
+
+    captured = []
+
+    def observe(conn, cursor, statement, parameters, context, many):
+        if "FROM punches" in statement and "WHERE punches.employee_id" in statement:
+            captured.append(statement.upper())
+
+    event.listen(engine, "before_cursor_execute", observe)
+    try:
+        with factory() as db:
+            employee = db.get(Employee, "emp-04")
+            create_punch(db, employee=employee,
+                         payload=CreatePunchRequest(type=PunchType.check_in),
+                         timezone_name="America/Sao_Paulo")
+    finally:
+        event.remove(engine, "before_cursor_execute", observe)
+    assert captured and all("LIMIT" in sql for sql in captured), captured
+
+
+def test_postgres_invalid_manual_edit_rolls_back_work_log(pg_read_committed):
+    factory, _ = pg_read_committed
+    with factory() as db:
+        first_id, _, log_id = _punch_with_log(db)
+        with pytest.raises(DomainError):
+            update_managed_punch(
+                db, company_id="company-touchin", employee_id="emp-04",
+                punch_id=first_id,
+                payload=UpdateManagedPunchRequest(type=PunchType.break_start),
+            )
+        db.rollback()
+        db.expire_all()
+        assert db.get(Punch, first_id).type == "checkIn"
+        assert db.get(WorkLog, log_id).duration_seconds == 7200
+
+
+def test_postgres_concurrent_reset_requests_leave_only_newest_token_valid(pg_read_committed):
+    from app.models import PasswordResetToken, UserAccount
+    from app.services.password_reset import request_password_reset
+
+    factory, _ = pg_read_committed
+    barrier = Barrier(2)
+
+    def request():
+        with factory() as db:
+            barrier.wait(timeout=10)
+            return request_password_reset(
+                db, email="marina.costa@touchin.com", client_ip="198.51.100.80"
+            )
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(lambda _: request(), range(2)))
+    assert all(item is not None for item in results)
+    with factory() as db:
+        user = db.scalar(select(UserAccount).where(UserAccount.role == "admin"))
+        assert user is not None
+        issued = db.scalars(select(PasswordResetToken).where(
+            PasswordResetToken.user_id == user.id,
+        )).all()
+        assert len(issued) == 2
+        assert sum(item.consumed_at is None for item in issued) == 1
