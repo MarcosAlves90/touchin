@@ -15,6 +15,37 @@ class AdminAuditPage extends StatefulWidget {
 }
 
 class _AdminAuditPageState extends State<AdminAuditPage> {
+  static const _actionLabels = {
+    'project.created': 'Projeto criado',
+    'project.updated': 'Projeto atualizado',
+    'project.deleted': 'Projeto excluído',
+    'project.member_added': 'Membro adicionado ao projeto',
+    'project.member_removed': 'Membro removido do projeto',
+    'card.created': 'Tarefa criada',
+    'card.updated': 'Tarefa atualizada',
+    'card.deleted': 'Tarefa excluída',
+    'card.assignee_added': 'Responsável adicionado à tarefa',
+    'card.assignee_removed': 'Responsável removido da tarefa',
+    'card.reordered': 'Tarefa reordenada',
+    'card.moved': 'Tarefa movida',
+    'employee.created': 'Funcionário criado',
+    'employee.updated': 'Funcionário atualizado',
+    'employee.deleted': 'Funcionário excluído',
+    'task.created': 'Tarefa criada',
+    'task.updated': 'Tarefa atualizada',
+    'task.deleted': 'Tarefa excluída',
+    'task.assignee_added': 'Responsável adicionado à tarefa',
+    'task.assignee_removed': 'Responsável removido da tarefa',
+    'task.reordered': 'Tarefa reordenada',
+    'kanban.column_created': 'Coluna criada',
+    'kanban.column_updated': 'Coluna atualizada',
+    'kanban.column_reordered': 'Coluna reordenada',
+    'kanban.column_deleted': 'Coluna excluída',
+  };
+  static const _resultLabels = {
+    'success': 'Sucesso',
+    'failed': 'Falha',
+  };
   bool _isLoading = false;
   bool _isLoadingMore = false;
   String? _error;
@@ -174,6 +205,12 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
     return 'Não foi possível carregar os eventos de auditoria. Tente novamente.';
   }
 
+  String _eventActionLabel(String value) =>
+      _actionLabels[value] ?? 'Ação desconhecida ($value)';
+
+  String _eventResultLabel(String value) =>
+      _resultLabels[value] ?? 'Resultado desconhecido ($value)';
+
   Future<void> _pickDate(bool isStart) async {
     final initialDate =
         isStart ? _startDate ?? DateTime.now() : _endDate ?? DateTime.now();
@@ -234,42 +271,43 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
                             child: TextField(
                               controller: _actorUserIdController,
                               decoration: const InputDecoration(
-                                  labelText: 'Actor User ID', isDense: true),
+                                  labelText: 'ID do usuário responsável',
+                                  isDense: true),
                             )),
                         SizedBox(
                             width: fieldWidth,
                             child: TextField(
                               controller: _actionController,
                               decoration: const InputDecoration(
-                                  labelText: 'Action', isDense: true),
+                                  labelText: 'Ação', isDense: true),
                             )),
                         SizedBox(
                             width: fieldWidth,
                             child: TextField(
                               controller: _entityTypeController,
                               decoration: const InputDecoration(
-                                  labelText: 'Entity Type', isDense: true),
+                                  labelText: 'Tipo de entidade', isDense: true),
                             )),
                         SizedBox(
                             width: fieldWidth,
                             child: TextField(
                               controller: _entityIdController,
                               decoration: const InputDecoration(
-                                  labelText: 'Entity ID', isDense: true),
+                                  labelText: 'ID da entidade', isDense: true),
                             )),
                         SizedBox(
                             width: fieldWidth,
                             child: TextField(
                               controller: _projectIdController,
                               decoration: const InputDecoration(
-                                  labelText: 'Project ID', isDense: true),
+                                  labelText: 'ID do projeto', isDense: true),
                             )),
                         SizedBox(
                             width: fieldWidth,
                             child: TextField(
                               controller: _resultController,
                               decoration: const InputDecoration(
-                                  labelText: 'Result', isDense: true),
+                                  labelText: 'Resultado', isDense: true),
                             )),
                       ],
                     ),
@@ -298,7 +336,7 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
                             minimumSize: const Size(0, 52),
                           ),
                           onPressed: () => _loadEvents(refresh: true),
-                          child: const Text('Apply Filters'),
+                          child: const Text('Aplicar filtros'),
                         ),
                         TextButton(
                           onPressed: () {
@@ -314,7 +352,7 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
                             });
                             _loadEvents(refresh: true);
                           },
-                          child: const Text('Clear'),
+                          child: const Text('Limpar filtros'),
                         ),
                       ],
                     ),
@@ -388,7 +426,7 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
                                       type: MaterialType.transparency,
                                       child: ListTile(
                                         title: Text(
-                                            '${event.action} - ${event.result}'),
+                                            '${_eventActionLabel(event.action)} - ${_eventResultLabel(event.result)}'),
                                         subtitle: Text(
                                           'Ator: ${event.actorUserId ?? 'N/A'}\n'
                                           'Recurso: ${event.entityType} (${event.entityId})\n'
@@ -454,10 +492,10 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
                                                 border: Border.all(
                                                   color:
                                                       Focus.of(context).hasFocus
-                                                          ? AppTheme.adminColors(
-                                                              Theme.of(context),
-                                                            ).selectedIndicator
-                                                          : Colors.transparent,
+                                                      ? AppTheme.adminColors(
+                                                          Theme.of(context),
+                                                        ).selectedIndicator
+                                                      : Colors.transparent,
                                                   width: 2,
                                                 ),
                                                 borderRadius:

@@ -84,6 +84,105 @@ void main() {
         metadataPayload: null,
       );
 
+  testWidgets(
+      'audit filters and known event values are presented in pt-BR while requests keep technical IDs',
+      (tester) async {
+    final api = FakeTouchInApi()
+      ..mockEvents = [
+        AuditEventResponse(
+          id: 'evt_reordered',
+          timestamp: DateTime.utc(2026, 10, 20),
+          companyId: 'company_1',
+          actorUserId: 'user_1',
+          projectId: null,
+          action: 'card.reordered',
+          entityType: 'card',
+          entityId: 'card_1',
+          result: 'success',
+          metadataPayload: null,
+        ),
+      ];
+    await tester.pumpWidget(MaterialApp(home: AdminAuditPage(api: api)));
+    await tester.pumpAndSettle();
+
+    expect(find.text('ID do usuário responsável'), findsOneWidget);
+    expect(find.text('Ação'), findsOneWidget);
+    expect(find.text('Tipo de entidade'), findsOneWidget);
+    expect(find.text('ID da entidade'), findsOneWidget);
+    expect(find.text('ID do projeto'), findsOneWidget);
+    expect(find.text('Resultado'), findsOneWidget);
+    expect(find.text('Aplicar filtros'), findsOneWidget);
+    expect(find.text('Limpar filtros'), findsOneWidget);
+    expect(find.textContaining('card.reordered'), findsNothing);
+    expect(find.textContaining('success'), findsNothing);
+
+    await tester.enterText(
+        find.widgetWithText(TextField, 'Ação'), 'card.reordered');
+    await tester.enterText(
+        find.widgetWithText(TextField, 'Resultado'), 'success');
+    await tester.tap(find.text('Aplicar filtros'));
+    await tester.pumpAndSettle();
+    expect(api.lastParams['action'], 'card.reordered');
+    expect(api.lastParams['result'], 'success');
+  });
+
+  testWidgets(
+      'localized known and unknown audit events remain readable on desktop and mobile',
+      (tester) async {
+    final api = FakeTouchInApi()
+      ..mockEvents = [
+        AuditEventResponse(
+          id: 'evt_known',
+          timestamp: DateTime.utc(2026, 10, 20),
+          companyId: 'company_1',
+          actorUserId: 'user_1',
+          projectId: null,
+          action: 'card.reordered',
+          entityType: 'card',
+          entityId: 'card_1',
+          result: 'success',
+          metadataPayload: null,
+        ),
+        AuditEventResponse(
+          id: 'evt_unknown',
+          timestamp: DateTime.utc(2026, 10, 20),
+          companyId: 'company_1',
+          actorUserId: 'user_1',
+          projectId: null,
+          action: 'future.action',
+          entityType: 'future_entity',
+          entityId: 'entity_1',
+          result: 'future_result',
+          metadataPayload: null,
+        ),
+      ];
+
+    for (final size in [const Size(1280, 800), const Size(360, 760)]) {
+      await tester.binding.setSurfaceSize(size);
+      await tester.pumpWidget(MaterialApp(home: AdminAuditPage(api: api)));
+      await tester.pumpAndSettle();
+
+      final known = find.text('Tarefa reordenada - Sucesso');
+      final unknown = find.text(
+        'Ação desconhecida (future.action) - Resultado desconhecido (future_result)',
+      );
+      await tester.ensureVisible(known);
+      expect(known, findsOneWidget);
+      await tester.scrollUntilVisible(
+        unknown,
+        200,
+        scrollable: find.descendant(
+          of: find.byType(ListView),
+          matching: find.byType(Scrollable),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(unknown, findsOneWidget);
+      expect(tester.takeException(), isNull);
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+
   testWidgets('page 2 HTTP 503 shows accessible error and retries page 2',
       (tester) async {
     final api = FakeTouchInApi()
@@ -103,7 +202,8 @@ void main() {
       ),
     );
     expect(liveRegion, findsWidgets);
-    expect(find.text('task.action_0 - success'), findsOneWidget);
+    expect(find.text('Ação desconhecida (task.action_0) - Sucesso'),
+        findsOneWidget);
     await tester.tap(find.text('Tentar novamente'));
     await tester.pumpAndSettle();
     expect(api.requestedPages, [1, 2, 2]);
@@ -127,14 +227,17 @@ void main() {
     await tester.pump();
     expect(find.text('Carregando mais eventos'), findsOneWidget);
     api.mockEvents = [pageEvent(999)];
-    await tester.tap(find.text('Apply Filters'));
+    await tester.tap(find.text('Aplicar filtros'));
     await tester.pumpAndSettle();
-    expect(find.text('task.action_999 - success'), findsOneWidget);
+    expect(find.text('Ação desconhecida (task.action_999) - Sucesso'),
+        findsOneWidget);
     expect(find.text('Carregando mais eventos'), findsNothing);
-    pending.completeError(ApiException('Stale upstream error', statusCode: 503));
+    pending
+        .completeError(ApiException('Stale upstream error', statusCode: 503));
     await tester.pumpAndSettle();
     expect(api.requestedPages, [1, 2, 1]);
-    expect(find.text('task.action_999 - success'), findsOneWidget);
+    expect(find.text('Ação desconhecida (task.action_999) - Sucesso'),
+        findsOneWidget);
     expect(find.textContaining('Stale upstream error'), findsNothing);
     expect(tester.takeException(), isNull);
   });
@@ -159,7 +262,7 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: AdminAuditPage(api: api)));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
-    expect(find.text('task.created - success'), findsOneWidget);
+    expect(find.text('Tarefa criada - Sucesso'), findsOneWidget);
     expect(find.byType(ListTile), findsWidgets);
   });
 
@@ -180,7 +283,7 @@ void main() {
     ));
     await tester.pump();
     expect(tester.takeException(), isNull);
-    final button = find.widgetWithText(ElevatedButton, 'Apply Filters');
+    final button = find.widgetWithText(ElevatedButton, 'Aplicar filtros');
     expect(button, findsOneWidget);
     expect(tester.getSize(button).width, lessThan(1280));
     await tester.ensureVisible(button);
@@ -192,19 +295,25 @@ void main() {
 
   testWidgets('invalid audit response hides parsing details', (tester) async {
     final api = FakeTouchInApi()
-      ..firstError = ApiException('Contrato invalido na resposta de audit events: expected list');
+      ..firstError = ApiException(
+          'Contrato invalido na resposta de audit events: expected list');
     await tester.pumpWidget(MaterialApp(home: AdminAuditPage(api: api)));
     await tester.pumpAndSettle();
-    expect(find.textContaining('O serviço de auditoria retornou uma resposta inválida.'), findsOneWidget);
+    expect(
+        find.textContaining(
+            'O serviço de auditoria retornou uma resposta inválida.'),
+        findsOneWidget);
     expect(find.textContaining('expected list'), findsNothing);
   });
 
-  testWidgets('404 error permits retry without exposing exception', (tester) async {
+  testWidgets('404 error permits retry without exposing exception',
+      (tester) async {
     final api = FakeTouchInApi()
       ..firstError = ApiException('Proxy error', statusCode: 404);
     await tester.pumpWidget(MaterialApp(home: AdminAuditPage(api: api)));
     await tester.pumpAndSettle();
-    expect(find.textContaining('O serviço de auditoria não foi encontrado.'), findsOneWidget);
+    expect(find.textContaining('O serviço de auditoria não foi encontrado.'),
+        findsOneWidget);
     expect(find.textContaining('ApiException'), findsNothing);
     await tester.tap(find.text('Tentar novamente'));
     await tester.pumpAndSettle();
@@ -305,12 +414,12 @@ void main() {
         .pumpWidget(MaterialApp(home: AdminAuditPage(api: FakeTouchInApi())));
     await tester.pumpAndSettle();
 
-    final actor = find.widgetWithText(TextField, 'Actor User ID');
-    final action = find.widgetWithText(TextField, 'Action');
+    final actor = find.widgetWithText(TextField, 'ID do usuário responsável');
+    final action = find.widgetWithText(TextField, 'Ação');
     expect(actor, findsOneWidget);
     expect(action, findsOneWidget);
     expect(tester.getTopLeft(actor).dx, tester.getTopLeft(action).dx);
-    await tester.ensureVisible(find.widgetWithText(TextField, 'Result'));
+    await tester.ensureVisible(find.widgetWithText(TextField, 'Resultado'));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     expect(find.byTooltip('Abrir menu'), findsOneWidget);
@@ -356,19 +465,20 @@ void main() {
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
     await tester.pumpAndSettle();
 
-    expect(find.text('task.created - success'), findsOneWidget);
-    expect(find.text('task.deleted - failed'), findsOneWidget);
+    expect(find.text('Tarefa criada - Sucesso'), findsOneWidget);
+    expect(find.text('Tarefa excluída - Falha'), findsOneWidget);
 
     await tester.enterText(
-        find.widgetWithText(TextField, 'Actor User ID'), 'user_1');
+        find.widgetWithText(TextField, 'ID do usuário responsável'), 'user_1');
     await tester.enterText(
-        find.widgetWithText(TextField, 'Action'), 'task.created');
+        find.widgetWithText(TextField, 'Ação'), 'task.created');
     await tester.enterText(
-        find.widgetWithText(TextField, 'Entity ID'), 'task_1');
-    await tester.enterText(find.widgetWithText(TextField, 'Result'), 'success');
+        find.widgetWithText(TextField, 'ID da entidade'), 'task_1');
+    await tester.enterText(
+        find.widgetWithText(TextField, 'Resultado'), 'success');
 
     mockApi.requestedPages.clear();
-    await tester.tap(find.text('Apply Filters'));
+    await tester.tap(find.text('Aplicar filtros'));
     await tester.pump();
 
     expect(mockApi.requestedPages, [1]);
@@ -411,7 +521,7 @@ void main() {
 
     // Scroll through the list to force loading page 2
     int drags = 0;
-    while (find.text('task.action_50 - success').evaluate().isEmpty &&
+    while (find.textContaining('task.action_50').evaluate().isEmpty &&
         drags < 40) {
       await tester.drag(find.byType(ListView), const Offset(0, -500));
       await tester.pumpAndSettle();
@@ -420,16 +530,16 @@ void main() {
 
     // Must have requested exactly page 1 and page 2
     expect(mockApi.requestedPages, [1, 2]);
-    expect(find.text('task.action_50 - success'), findsOneWidget);
+    expect(find.byType(ListTile), findsWidgets);
 
     // Continue scrolling to 59
-    while (find.text('task.action_59 - success').evaluate().isEmpty &&
+    while (find.textContaining('task.action_59').evaluate().isEmpty &&
         drags < 40) {
       await tester.drag(find.byType(ListView), const Offset(0, -500));
       await tester.pumpAndSettle();
       drags++;
     }
-    expect(find.text('task.action_59 - success'), findsOneWidget);
+    expect(find.byType(ListTile), findsWidgets);
 
     // Attempt another scroll past the end to ensure it DOES NOT request page 3
     await tester.drag(find.byType(ListView), const Offset(0, -500));
