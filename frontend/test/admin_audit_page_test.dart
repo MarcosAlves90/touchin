@@ -7,6 +7,7 @@ import 'package:touchin_flutter/features/admin/presentation/admin_audit_page.dar
 import 'package:touchin_flutter/contracts/audit.dart';
 import 'package:touchin_flutter/core/network/api_client.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
+import 'package:touchin_flutter/theme/app_theme.dart';
 
 class FakeTouchInApi extends TouchInApi {
   List<AuditEventResponse> mockEvents = [];
@@ -277,8 +278,10 @@ void main() {
                   .first,
             )
             .decoration! as BoxDecoration;
-        expect((focusedDecoration.border! as Border).top.color,
-            Theme.of(tester.element(endLabel)).colorScheme.primary);
+        expect(
+            (focusedDecoration.border! as Border).top.color,
+            AppTheme.adminColors(Theme.of(tester.element(endLabel)))
+                .selectedIndicator);
       }
 
       final focusedAtCompletion = FocusManager.instance.primaryFocus;
