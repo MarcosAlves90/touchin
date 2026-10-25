@@ -26,6 +26,7 @@ class _EmployeeEditorDialogState extends State<_EmployeeEditorDialog> {
   late EmployeeWorkMode _workMode;
   late RoleLevel _roleLevel;
   late EmployeeAccessRole? _accessRole;
+  bool _accessRoleChanged = false;
   late bool _requiresLocationOnPunch;
   late bool _trustedDeviceRequired;
 
@@ -71,7 +72,11 @@ class _EmployeeEditorDialogState extends State<_EmployeeEditorDialog> {
     _status = draft.status;
     _workMode = draft.workMode;
     _roleLevel = draft.roleLevel;
-    _accessRole = draft.accessRole;
+    _accessRole = switch (widget.employee?.accessRole) {
+      'employee' => EmployeeAccessRole.employee,
+      'manager' => EmployeeAccessRole.manager,
+      _ => draft.accessRole,
+    };
     _requiresLocationOnPunch = draft.requiresLocationOnPunch;
     _trustedDeviceRequired = draft.trustedDeviceRequired;
   }
@@ -108,7 +113,7 @@ class _EmployeeEditorDialogState extends State<_EmployeeEditorDialog> {
         status: _status,
         workMode: _workMode,
         roleLevel: _roleLevel,
-        accessRole: _accessRole,
+        accessRole: _isEditing && !_accessRoleChanged ? null : _accessRole,
         requiresLocationOnPunch: _requiresLocationOnPunch,
         trustedDeviceRequired: _trustedDeviceRequired,
         notes: _notesController.text.trim(),
@@ -122,9 +127,7 @@ class _EmployeeEditorDialogState extends State<_EmployeeEditorDialog> {
       insetPadding: const EdgeInsets.all(24),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.zero,
-        side: BorderSide(
-          color: Theme.of(context).colorScheme.outlineVariant,
-        ),
+        side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
       ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 760),
@@ -139,17 +142,16 @@ class _EmployeeEditorDialogState extends State<_EmployeeEditorDialog> {
                 children: <Widget>[
                   Text(
                     _isEditing ? 'Editar funcionário' : 'Novo funcionário',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
+                    style: Theme.of(context).textTheme.headlineSmall
+                        ?.copyWith(fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     'Preencha o payload do backend: dados principais, jornada, acesso, políticas e observações.',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          height: 1.45,
-                        ),
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      height: 1.45,
+                    ),
                   ),
                   const SizedBox(height: 24),
                   _buildTextField(
@@ -247,7 +249,7 @@ class _EmployeeEditorDialogState extends State<_EmployeeEditorDialog> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  _buildAccessRoleDropdown(),
+                  _buildAccessRoleEditor(),
                   const SizedBox(height: 16),
                   _buildStatusDropdown(),
                   const SizedBox(height: 16),
@@ -369,7 +371,8 @@ class _EmployeeEditorDialogState extends State<_EmployeeEditorDialog> {
         hintText: hintText,
         prefixIcon: Icon(icon),
       ),
-      validator: validator ??
+      validator:
+          validator ??
           (value) {
             if (value == null || value.trim().length < 3) {
               return validatorMessage;
@@ -437,10 +440,7 @@ class _EmployeeEditorDialogState extends State<_EmployeeEditorDialog> {
 
   TimeOfDay _parseTimeOfDay(String value) {
     final parts = value.trim().split(':');
-    return TimeOfDay(
-      hour: int.parse(parts[0]),
-      minute: int.parse(parts[1]),
-    );
+    return TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
   }
 
   Widget _buildStatusDropdown() {
@@ -520,6 +520,7 @@ class _EmployeeEditorDialogState extends State<_EmployeeEditorDialog> {
 
   Widget _buildAccessRoleDropdown() {
     return DropdownButtonFormField<EmployeeAccessRole?>(
+      key: const ValueKey('employee-access-role-dropdown'),
       initialValue: _accessRole ?? EmployeeAccessRole.employee,
       decoration: const InputDecoration(
         labelText: 'Perfil de acesso',
@@ -536,9 +537,46 @@ class _EmployeeEditorDialogState extends State<_EmployeeEditorDialog> {
       onChanged: (value) {
         setState(() {
           _accessRole = value;
+          _accessRoleChanged = true;
         });
       },
     );
+  }
+
+  Widget _buildAccessRoleEditor() {
+    if (!_isEditing) {
+      return _buildAccessRoleDropdown();
+    }
+    final employee = widget.employee!;
+    if (employee.hasAccount == false) {
+      return const ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: Icon(Icons.no_accounts_outlined),
+        title: Text('Sem acesso ao sistema'),
+      );
+    }
+    if (employee.hasAccount != true) {
+      return const ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: Icon(Icons.help_outline_rounded),
+        title: Text('Vínculo de acesso indisponível'),
+      );
+    }
+    if (employee.accessRole == 'admin') {
+      return const ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: Icon(Icons.admin_panel_settings_outlined),
+        title: Text('Administrador (não editável)'),
+      );
+    }
+    if (employee.accessRole != 'employee' && employee.accessRole != 'manager') {
+      return const ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: Icon(Icons.help_outline_rounded),
+        title: Text('Papel de acesso indisponível'),
+      );
+    }
+    return _buildAccessRoleDropdown();
   }
 }
 
@@ -803,11 +841,7 @@ class _AdminMetricItem extends StatelessWidget {
 }
 
 class _InlinePill extends StatelessWidget {
-  const _InlinePill({
-    required this.label,
-    required this.tone,
-    this.icon,
-  });
+  const _InlinePill({required this.label, required this.tone, this.icon});
 
   final String label;
   final Color tone;
@@ -889,8 +923,9 @@ class _EmployeeDetailHero extends StatelessWidget {
                   height: 56,
                   decoration: BoxDecoration(
                     color: statusColor.withValues(alpha: 0.12),
-                    border:
-                        Border.all(color: statusColor.withValues(alpha: 0.28)),
+                    border: Border.all(
+                      color: statusColor.withValues(alpha: 0.28),
+                    ),
                   ),
                   child: Icon(
                     Icons.manage_accounts_rounded,
@@ -1099,8 +1134,9 @@ class _EmployeeOverviewCard extends StatelessWidget {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color:
-                  colorScheme.surfaceContainerHighest.withValues(alpha: 0.88),
+              color: colorScheme.surfaceContainerHighest.withValues(
+                alpha: 0.88,
+              ),
               border: Border.all(color: colorScheme.outlineVariant),
             ),
             child: Icon(icon, size: 18, color: colorScheme.onSurfaceVariant),
@@ -1250,10 +1286,7 @@ class _EmployeePolicyRow extends StatelessWidget {
 }
 
 class _ManagedPunchEditorDialog extends StatefulWidget {
-  const _ManagedPunchEditorDialog({
-    required this.employee,
-    this.punch,
-  });
+  const _ManagedPunchEditorDialog({required this.employee, this.punch});
 
   final EmployeeProfile employee;
   final ManagedPunchRecord? punch;
@@ -1561,11 +1594,7 @@ class _ManagedPunchTile extends StatelessWidget {
               color: tone.withValues(alpha: 0.12),
               border: Border.all(color: tone.withValues(alpha: 0.24)),
             ),
-            child: Icon(
-              _punchTypeIcon(punch.type),
-              size: 17,
-              color: tone,
-            ),
+            child: Icon(_punchTypeIcon(punch.type), size: 17, color: tone),
           ),
           const SizedBox(width: 10),
           Expanded(

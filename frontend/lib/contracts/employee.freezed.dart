@@ -15,6 +15,8 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$EmployeeProfile {
   String get id;
+  bool? get hasAccount;
+  String? get accessRole;
   String get name;
   String get role;
   String get department;
@@ -47,6 +49,10 @@ mixin _$EmployeeProfile {
         (other.runtimeType == runtimeType &&
             other is EmployeeProfile &&
             (identical(other.id, id) || other.id == id) &&
+            (identical(other.hasAccount, hasAccount) ||
+                other.hasAccount == hasAccount) &&
+            (identical(other.accessRole, accessRole) ||
+                other.accessRole == accessRole) &&
             (identical(other.name, name) || other.name == name) &&
             (identical(other.role, role) || other.role == role) &&
             (identical(other.department, department) ||
@@ -78,30 +84,33 @@ mixin _$EmployeeProfile {
   }
 
   @override
-  int get hashCode => Object.hash(
-      runtimeType,
-      id,
-      name,
-      role,
-      department,
-      email,
-      phone,
-      unit,
-      expectedShiftStart,
-      expectedShiftEnd,
-      status,
-      workMode,
-      roleLevel,
-      requiresLocationOnPunch,
-      trustedDeviceRequired,
-      todayWorkedMinutes,
-      pendingAdjustments,
-      lastPunchAt,
-      notes);
+  int get hashCode => Object.hashAll([
+        runtimeType,
+        id,
+        hasAccount,
+        accessRole,
+        name,
+        role,
+        department,
+        email,
+        phone,
+        unit,
+        expectedShiftStart,
+        expectedShiftEnd,
+        status,
+        workMode,
+        roleLevel,
+        requiresLocationOnPunch,
+        trustedDeviceRequired,
+        todayWorkedMinutes,
+        pendingAdjustments,
+        lastPunchAt,
+        notes
+      ]);
 
   @override
   String toString() {
-    return 'EmployeeProfile(id: $id, name: $name, role: $role, department: $department, email: $email, phone: $phone, unit: $unit, expectedShiftStart: $expectedShiftStart, expectedShiftEnd: $expectedShiftEnd, status: $status, workMode: $workMode, roleLevel: $roleLevel, requiresLocationOnPunch: $requiresLocationOnPunch, trustedDeviceRequired: $trustedDeviceRequired, todayWorkedMinutes: $todayWorkedMinutes, pendingAdjustments: $pendingAdjustments, lastPunchAt: $lastPunchAt, notes: $notes)';
+    return 'EmployeeProfile(id: $id, hasAccount: $hasAccount, accessRole: $accessRole, name: $name, role: $role, department: $department, email: $email, phone: $phone, unit: $unit, expectedShiftStart: $expectedShiftStart, expectedShiftEnd: $expectedShiftEnd, status: $status, workMode: $workMode, roleLevel: $roleLevel, requiresLocationOnPunch: $requiresLocationOnPunch, trustedDeviceRequired: $trustedDeviceRequired, todayWorkedMinutes: $todayWorkedMinutes, pendingAdjustments: $pendingAdjustments, lastPunchAt: $lastPunchAt, notes: $notes)';
   }
 }
 
@@ -113,6 +122,8 @@ abstract mixin class $EmployeeProfileCopyWith<$Res> {
   @useResult
   $Res call(
       {String id,
+      bool? hasAccount,
+      String? accessRole,
       String name,
       String role,
       String department,
@@ -146,6 +157,8 @@ class _$EmployeeProfileCopyWithImpl<$Res>
   @override
   $Res call({
     Object? id = null,
+    Object? hasAccount = freezed,
+    Object? accessRole = freezed,
     Object? name = null,
     Object? role = null,
     Object? department = null,
@@ -169,6 +182,14 @@ class _$EmployeeProfileCopyWithImpl<$Res>
           ? _self.id
           : id // ignore: cast_nullable_to_non_nullable
               as String,
+      hasAccount: freezed == hasAccount
+          ? _self.hasAccount
+          : hasAccount // ignore: cast_nullable_to_non_nullable
+              as bool?,
+      accessRole: freezed == accessRole
+          ? _self.accessRole
+          : accessRole // ignore: cast_nullable_to_non_nullable
+              as String?,
       name: null == name
           ? _self.name
           : name // ignore: cast_nullable_to_non_nullable
@@ -336,6 +357,8 @@ extension EmployeeProfilePatterns on EmployeeProfile {
   TResult maybeWhen<TResult extends Object?>(
     TResult Function(
             String id,
+            bool? hasAccount,
+            String? accessRole,
             String name,
             String role,
             String department,
@@ -361,6 +384,8 @@ extension EmployeeProfilePatterns on EmployeeProfile {
       case _EmployeeProfile() when $default != null:
         return $default(
             _that.id,
+            _that.hasAccount,
+            _that.accessRole,
             _that.name,
             _that.role,
             _that.department,
@@ -400,6 +425,8 @@ extension EmployeeProfilePatterns on EmployeeProfile {
   TResult when<TResult extends Object?>(
     TResult Function(
             String id,
+            bool? hasAccount,
+            String? accessRole,
             String name,
             String role,
             String department,
@@ -424,6 +451,8 @@ extension EmployeeProfilePatterns on EmployeeProfile {
       case _EmployeeProfile():
         return $default(
             _that.id,
+            _that.hasAccount,
+            _that.accessRole,
             _that.name,
             _that.role,
             _that.department,
@@ -462,6 +491,8 @@ extension EmployeeProfilePatterns on EmployeeProfile {
   TResult? whenOrNull<TResult extends Object?>(
     TResult? Function(
             String id,
+            bool? hasAccount,
+            String? accessRole,
             String name,
             String role,
             String department,
@@ -486,6 +517,8 @@ extension EmployeeProfilePatterns on EmployeeProfile {
       case _EmployeeProfile() when $default != null:
         return $default(
             _that.id,
+            _that.hasAccount,
+            _that.accessRole,
             _that.name,
             _that.role,
             _that.department,
@@ -514,6 +547,8 @@ extension EmployeeProfilePatterns on EmployeeProfile {
 class _EmployeeProfile extends EmployeeProfile {
   const _EmployeeProfile(
       {required this.id,
+      this.hasAccount = null,
+      this.accessRole = null,
       required this.name,
       required this.role,
       required this.department,
@@ -535,6 +570,12 @@ class _EmployeeProfile extends EmployeeProfile {
 
   @override
   final String id;
+  @override
+  @JsonKey()
+  final bool? hasAccount;
+  @override
+  @JsonKey()
+  final String? accessRole;
   @override
   final String name;
   @override
@@ -584,6 +625,10 @@ class _EmployeeProfile extends EmployeeProfile {
         (other.runtimeType == runtimeType &&
             other is _EmployeeProfile &&
             (identical(other.id, id) || other.id == id) &&
+            (identical(other.hasAccount, hasAccount) ||
+                other.hasAccount == hasAccount) &&
+            (identical(other.accessRole, accessRole) ||
+                other.accessRole == accessRole) &&
             (identical(other.name, name) || other.name == name) &&
             (identical(other.role, role) || other.role == role) &&
             (identical(other.department, department) ||
@@ -615,30 +660,33 @@ class _EmployeeProfile extends EmployeeProfile {
   }
 
   @override
-  int get hashCode => Object.hash(
-      runtimeType,
-      id,
-      name,
-      role,
-      department,
-      email,
-      phone,
-      unit,
-      expectedShiftStart,
-      expectedShiftEnd,
-      status,
-      workMode,
-      roleLevel,
-      requiresLocationOnPunch,
-      trustedDeviceRequired,
-      todayWorkedMinutes,
-      pendingAdjustments,
-      lastPunchAt,
-      notes);
+  int get hashCode => Object.hashAll([
+        runtimeType,
+        id,
+        hasAccount,
+        accessRole,
+        name,
+        role,
+        department,
+        email,
+        phone,
+        unit,
+        expectedShiftStart,
+        expectedShiftEnd,
+        status,
+        workMode,
+        roleLevel,
+        requiresLocationOnPunch,
+        trustedDeviceRequired,
+        todayWorkedMinutes,
+        pendingAdjustments,
+        lastPunchAt,
+        notes
+      ]);
 
   @override
   String toString() {
-    return 'EmployeeProfile(id: $id, name: $name, role: $role, department: $department, email: $email, phone: $phone, unit: $unit, expectedShiftStart: $expectedShiftStart, expectedShiftEnd: $expectedShiftEnd, status: $status, workMode: $workMode, roleLevel: $roleLevel, requiresLocationOnPunch: $requiresLocationOnPunch, trustedDeviceRequired: $trustedDeviceRequired, todayWorkedMinutes: $todayWorkedMinutes, pendingAdjustments: $pendingAdjustments, lastPunchAt: $lastPunchAt, notes: $notes)';
+    return 'EmployeeProfile(id: $id, hasAccount: $hasAccount, accessRole: $accessRole, name: $name, role: $role, department: $department, email: $email, phone: $phone, unit: $unit, expectedShiftStart: $expectedShiftStart, expectedShiftEnd: $expectedShiftEnd, status: $status, workMode: $workMode, roleLevel: $roleLevel, requiresLocationOnPunch: $requiresLocationOnPunch, trustedDeviceRequired: $trustedDeviceRequired, todayWorkedMinutes: $todayWorkedMinutes, pendingAdjustments: $pendingAdjustments, lastPunchAt: $lastPunchAt, notes: $notes)';
   }
 }
 
@@ -652,6 +700,8 @@ abstract mixin class _$EmployeeProfileCopyWith<$Res>
   @useResult
   $Res call(
       {String id,
+      bool? hasAccount,
+      String? accessRole,
       String name,
       String role,
       String department,
@@ -685,6 +735,8 @@ class __$EmployeeProfileCopyWithImpl<$Res>
   @pragma('vm:prefer-inline')
   $Res call({
     Object? id = null,
+    Object? hasAccount = freezed,
+    Object? accessRole = freezed,
     Object? name = null,
     Object? role = null,
     Object? department = null,
@@ -708,6 +760,14 @@ class __$EmployeeProfileCopyWithImpl<$Res>
           ? _self.id
           : id // ignore: cast_nullable_to_non_nullable
               as String,
+      hasAccount: freezed == hasAccount
+          ? _self.hasAccount
+          : hasAccount // ignore: cast_nullable_to_non_nullable
+              as bool?,
+      accessRole: freezed == accessRole
+          ? _self.accessRole
+          : accessRole // ignore: cast_nullable_to_non_nullable
+              as String?,
       name: null == name
           ? _self.name
           : name // ignore: cast_nullable_to_non_nullable

@@ -60,6 +60,9 @@ class EmployeeDraftPayload(CamelModel):
 
 class EmployeeProfileResponse(CamelModel):
     id: str
+    # Nullable during rolling upgrades: legacy responses omit account metadata.
+    has_account: bool | None = None
+    access_role: str | None = None
     name: str
     role: str
     department: str

@@ -199,6 +199,14 @@ def update_employee(
         if linked_account.role == "admin" and not (context.user.role == "admin" and is_self_edit):
             raise DomainError(ErrorKind.forbidden, "Admin profiles can only be edited by the admin account itself.")
 
+    # Validate access-role changes before touching employee fields so rejected
+    # requests cannot leave partial mutations in the session/transaction.
+    if payload.access_role is not None:
+        if linked_account is None:
+            raise DomainError(ErrorKind.bad_request, "Employee account not found.")
+        if linked_account.role == "admin":
+            raise DomainError(ErrorKind.forbidden, "Admin role cannot be changed.")
+
     employee.name_ciphertext = cipher.encrypt(payload.name) or ""
     employee.role_ciphertext = cipher.encrypt(payload.role) or ""
     employee.department_ciphertext = cipher.encrypt(payload.department) or ""
@@ -222,10 +230,7 @@ def update_employee(
         linked_account.email_ciphertext = cipher.encrypt(normalized_email) or ""
         linked_account.email_hash = email_hash
     if payload.access_role is not None:
-        if linked_account is None:
-            raise DomainError(ErrorKind.bad_request, "Employee account not found.")
-        if linked_account.role == "admin":
-            raise DomainError(ErrorKind.forbidden, "Admin role cannot be changed.")
+        assert linked_account is not None
         linked_account.role = _access_role_value(payload)
     
     AuditService.log_action(
