@@ -7,8 +7,10 @@ It does not replace POLIS's policy validation, evidence or provenance gates.
 """
 
 import json
+import ntpath
 import os
 from pathlib import Path
+import shutil
 import signal
 import subprocess
 import sys
@@ -17,6 +19,51 @@ import sys
 ROOT = Path(__file__).resolve().parent.parent
 POLICY = json.loads((ROOT / ".polis" / "policy.json").read_text())
 GATES = {gate["id"]: gate for gate in POLICY["gates"]}
+WINDOWS_PROCESS_ENV = ("SystemRoot", "COMSPEC", "PATHEXT")
+
+
+def _resolve_executable(executable: str, env: dict[str, str]) -> str:
+    resolved = shutil.which(executable, path=env.get("PATH"))
+    if resolved:
+        return resolved
+
+    # shutil.which honors PATHEXT on Windows. The explicit fallback keeps
+    # that resolution testable off Windows and handles a missing python3 alias.
+    candidates = [executable]
+    if os.name == "nt":
+        suffix = ntpath.splitext(executable)[1]
+        if not suffix:
+            if executable.lower() == "python3":
+                candidates.append("python")
+            extensions = env.get("PATHEXT", ".COM;.EXE;.BAT;.CMD").split(";")
+            candidates = [name + extension for name in candidates for extension in extensions]
+
+    for directory in env.get("PATH", "").split(os.pathsep):
+        for candidate_name in candidates:
+            candidate = os.path.join(directory, candidate_name)
+            if os.path.isfile(candidate):
+                return candidate
+    return executable
+
+
+def prepare_command(argv: list[str], env: dict[str, str]) -> list[str]:
+    """Resolve a policy command and dispatch Windows batch files through cmd."""
+    if not argv or os.name != "nt":
+        return list(argv)
+
+    executable = _resolve_executable(argv[0], env)
+    suffix = ntpath.splitext(executable)[1].lower()
+    if suffix not in {".bat", ".cmd"}:
+        return [executable, *argv[1:]]
+
+    command_shell = env.get("COMSPEC") or os.environ.get("COMSPEC") or "cmd.exe"
+    command_line = subprocess.list2cmdline([executable, *argv[1:]])
+    if any(character.isspace() for character in executable):
+        command_line = f'"{command_line}"'
+    else:
+        arguments = subprocess.list2cmdline(argv[1:])
+        command_line = f'"{executable}{(" " + arguments) if arguments else ""}"'
+    return [command_shell, "/d", "/s", "/c", command_line]
 
 
 def _stop_process_tree(process: subprocess.Popen) -> None:
@@ -63,11 +110,17 @@ def run_gate(name: str) -> None:
     if environment["mode"] != "clean":
         raise ValueError(f"POLIS gate {name!r} requires an unsupported environment")
     env = {key: os.environ[key] for key in environment["pass"] if key in os.environ}
+    for key in WINDOWS_PROCESS_ENV:
+        if key in os.environ:
+            env[key] = os.environ[key]
+    env["PYTHONUTF8"] = "1"
+    env["PYTHONIOENCODING"] = "utf-8"
     timeout = command["timeout_seconds"]
     if type(timeout) is not int or timeout <= 0:
         raise ValueError(f"POLIS gate {name!r} has invalid timeout_seconds")
 
     print(f"Running POLIS policy gate {name}: {argv!r}", flush=True)
+    argv = prepare_command(argv, env)
     process = subprocess.Popen(
         argv, cwd=cwd, env=env,
         start_new_session=os.name != "nt",

@@ -1,9 +1,12 @@
 """Run the existing backend and Flutter test suites without a shell command string."""
 
 from pathlib import Path
+import os
 import shutil
 import subprocess
 import sys
+
+from run_polis_gates import prepare_command
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -26,6 +29,7 @@ for name, command, directory in (
     ("frontend", [flutter_executable, "test"], FRONTEND),
 ):
     print(f"POLIS tests: {name}", flush=True)
+    command = prepare_command(command, dict(os.environ))
     result = subprocess.run(command, cwd=directory, check=False)
     if result.returncode != 0:
         sys.exit(result.returncode)
