@@ -3,8 +3,9 @@ from __future__ import annotations
 from typing import Protocol
 
 from fastapi import Depends, HTTPException, status
+from sqlalchemy.orm import Session
 
-from app.dependencies import get_current_context
+from app.dependencies import get_current_context, get_db
 
 AUTH_READ_CONTEXT = "auth.read_context"
 TIME_CLOCK_READ = "time_clock.read"
@@ -142,9 +143,14 @@ class AuthorizationUser(Protocol):
     role: str
 
 
+class AuthorizationEmployee(Protocol):
+    id: str
+
+
 class AuthorizationContext(Protocol):
     company: AuthorizationCompany
     user: AuthorizationUser
+    employee: AuthorizationEmployee | None
 
 
 def can(
@@ -162,6 +168,51 @@ def can(
     if company_id is not None and context.company.id != company_id:
         return False
     return True
+
+
+def can_read_employee_projects(
+    context: AuthorizationContext,
+    employee_id: str,
+) -> bool:
+    if not can(context, PROJECTS_READ, company_id=context.company.id):
+        return False
+    if context.user.role in MANAGERIAL_ROLES:
+        return True
+    return (
+        context.user.role == "employee"
+        and context.employee is not None
+        and context.employee.id == employee_id
+    )
+
+
+def require_employee_project_access():
+    def dependency(
+        employee_id: str,
+        context: AuthorizationContext = Depends(get_current_context),
+        db: Session = Depends(get_db),
+    ) -> AuthorizationContext:
+        if context.user.role == "employee" and (
+            context.employee is None or context.employee.id != employee_id
+        ):
+            from app.domain.project_read import employee_or_404
+
+            employee_or_404(
+                db,
+                company_id=context.company.id,
+                employee_id=employee_id,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Permission denied.",
+            )
+        if not can_read_employee_projects(context, employee_id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Permission denied.",
+            )
+        return context
+
+    return dependency
 
 
 def require_permission(permission: str, *, scope: str = "company"):

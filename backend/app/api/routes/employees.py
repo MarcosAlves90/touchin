@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, BackgroundTasks, Depends, Response, status
 from sqlalchemy.orm import Session
 
-from app.authorization import require_permission
+from app.authorization import require_employee_project_access, require_permission
 from app.dependencies import get_db
 from app.schemas.employee import EmployeeDraftPayload, EmployeeProfileResponse
 from app.schemas.project import ProjectResponse
@@ -45,7 +45,7 @@ def get_employee_route(
 @router.get("/{employee_id}/projects", response_model=list[ProjectResponse])
 def list_employee_projects_route(
     employee_id: str,
-    context: AuthenticatedContext = Depends(require_permission("projects.read")),
+    context: AuthenticatedContext = Depends(require_employee_project_access()),
     db: Session = Depends(get_db),
 ) -> list[ProjectResponse]:
     return list_employee_projects(
