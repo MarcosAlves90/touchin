@@ -155,9 +155,26 @@ jobs:
           & $polis plan --repo .
 
       - name: Run enabled POLIS gates on Windows
+        id: polis-gates
         shell: pwsh
         env:
           TOUCHIN_CHROME: ${{ steps.chrome.outputs.chrome-path }}
         run: |
           $polis = Join-Path (go env GOPATH) 'bin/polis.exe'
           & $polis gates --repo . --gate test.complete --gate lint --gate build --gate smoke
+
+      - name: Print Windows POLIS gate command output after failure
+        if: always() && steps.polis-gates.outcome == 'failure'
+        continue-on-error: true
+        shell: pwsh
+        env:
+          TOUCHIN_CHROME: ${{ steps.chrome.outputs.chrome-path }}
+        run: |
+          python scripts/run_polis_gates.py test.complete
+          $testExit = $LASTEXITCODE
+          python scripts/run_polis_gates.py smoke
+          $smokeExit = $LASTEXITCODE
+          if ($testExit -ne 0 -or $smokeExit -ne 0) {
+            Write-Host "Diagnostic gate exits: test.complete=$testExit smoke=$smokeExit"
+            exit 1
+          }
