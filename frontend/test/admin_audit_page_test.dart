@@ -183,6 +183,72 @@ void main() {
     await tester.binding.setSurfaceSize(null);
   });
 
+  testWidgets(
+      'audit date picker uses the shared square dialog shape in dark theme on desktop and mobile',
+      (tester) async {
+    for (final size in [const Size(1280, 800), const Size(360, 760)]) {
+      await tester.binding.setSurfaceSize(size);
+      await tester.pumpWidget(MaterialApp(
+        theme: AppTheme.darkTheme,
+        home: AdminAuditPage(api: FakeTouchInApi()),
+      ));
+      await tester.pumpAndSettle();
+      for (final label in ['Data Inicial', 'Data Final']) {
+        await tester.ensureVisible(find.text(label));
+        await tester.tap(find.text(label));
+        await tester.pumpAndSettle();
+
+        final dialog = tester.widget<Dialog>(find.byType(Dialog).last);
+        expect(
+            dialog.shape,
+            const RoundedRectangleBorder(
+              borderRadius: BorderRadius.zero,
+            ));
+        expect(find.text('Cancel'), findsOneWidget);
+        expect(find.text('OK'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+
+        await tester.tap(find.text('Cancel'));
+        await tester.pumpAndSettle();
+      }
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('date picker advances month and applies the selected date',
+      (tester) async {
+    final selectedDate = DateTime.now();
+    final expectedDate = DateTime(
+      selectedDate.year,
+      selectedDate.month + 1,
+      15,
+    );
+    final api = FakeTouchInApi();
+    await tester.pumpWidget(MaterialApp(
+      theme: AppTheme.darkTheme,
+      home: AdminAuditPage(api: api),
+    ));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Data Inicial'));
+    await tester.tap(find.text('Data Inicial'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Next month'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('15').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('OK'));
+    await tester.pumpAndSettle();
+
+    final dateLabel = expectedDate.toIso8601String().split('T').first;
+    expect(find.text(dateLabel), findsOneWidget);
+    await tester.tap(find.text('Aplicar filtros'));
+    await tester.pumpAndSettle();
+    expect(api.lastParams['startDate']?.year, expectedDate.year);
+    expect(api.lastParams['startDate']?.month, expectedDate.month);
+    expect(api.lastParams['startDate']?.day, expectedDate.day);
+  });
+
   testWidgets('page 2 HTTP 503 shows accessible error and retries page 2',
       (tester) async {
     final api = FakeTouchInApi()
@@ -521,7 +587,9 @@ void main() {
 
     // Scroll through the list to force loading page 2
     int drags = 0;
-    while (find.textContaining('task.action_50').evaluate().isEmpty &&
+    while (find.text('Ação desconhecida (task.action_50) - Sucesso')
+            .evaluate()
+            .isEmpty &&
         drags < 40) {
       await tester.drag(find.byType(ListView), const Offset(0, -500));
       await tester.pumpAndSettle();
@@ -530,16 +598,20 @@ void main() {
 
     // Must have requested exactly page 1 and page 2
     expect(mockApi.requestedPages, [1, 2]);
-    expect(find.byType(ListTile), findsWidgets);
+    expect(find.text('Ação desconhecida (task.action_50) - Sucesso'),
+        findsOneWidget);
 
     // Continue scrolling to 59
-    while (find.textContaining('task.action_59').evaluate().isEmpty &&
+    while (find.text('Ação desconhecida (task.action_59) - Sucesso')
+            .evaluate()
+            .isEmpty &&
         drags < 40) {
       await tester.drag(find.byType(ListView), const Offset(0, -500));
       await tester.pumpAndSettle();
       drags++;
     }
-    expect(find.byType(ListTile), findsWidgets);
+    expect(find.text('Ação desconhecida (task.action_59) - Sucesso'),
+        findsOneWidget);
 
     // Attempt another scroll past the end to ensure it DOES NOT request page 3
     await tester.drag(find.byType(ListView), const Offset(0, -500));
