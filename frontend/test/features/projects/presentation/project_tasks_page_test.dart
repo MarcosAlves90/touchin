@@ -116,6 +116,51 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('project edit preserves capacity guidance for a 409',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1400, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final api = _ProjectSaveApi();
+    await tester.pumpWidget(MaterialApp(home: ProjectTasksPage(api: api)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Editar projeto'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Nome'),
+      'Projeto com limite reduzido',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Descrição'),
+      'Rascunho deve permanecer',
+    );
+    await tester.tap(find.text('Salvar').last);
+    await tester.pump();
+
+    api.updateGates.single.completeError(
+      ApiException(
+        'O limite por tarefa não pode ser menor que a quantidade de '
+        'funcionários já associados a uma tarefa. Remova participantes antes '
+        'de reduzir o limite.',
+        statusCode: 409,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(WorkspaceEditorDialog), findsOneWidget);
+    expect(find.text('Projeto com limite reduzido'), findsOneWidget);
+    expect(find.text('Rascunho deve permanecer'), findsOneWidget);
+    expect(
+      find.textContaining('Remova participantes antes de reduzir o limite.'),
+      findsOneWidget,
+    );
+    expect(
+      find.text(
+          'O projeto mudou desde que foi aberto. Recarregue e tente novamente.'),
+      findsNothing,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Tasks create retains draft on 403/500 and succeeds on retry',
       (tester) async {
     await tester.binding.setSurfaceSize(const Size(1400, 900));

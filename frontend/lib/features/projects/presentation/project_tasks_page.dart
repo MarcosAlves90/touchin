@@ -11,6 +11,11 @@ import 'package:touchin_flutter/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+const _projectTaskEmployeeLimitConflictMessage =
+    'O limite por tarefa não pode ser menor que a quantidade de funcionários '
+    'já associados a uma tarefa. Remova participantes antes de reduzir o '
+    'limite.';
+
 class ProjectTasksPage extends StatefulWidget {
   const ProjectTasksPage({super.key, this.api, this.controller});
 
@@ -1658,6 +1663,10 @@ class _ProjectEditorDialogState extends State<_ProjectEditorDialog> {
   }
 
   String _projectSaveErrorMessage(ApiException error) {
+    if (error.statusCode == 409 &&
+        error.message == _projectTaskEmployeeLimitConflictMessage) {
+      return _projectTaskEmployeeLimitConflictMessage;
+    }
     return switch (error.statusCode) {
       401 => 'Sua sessão expirou. Entre novamente para salvar o projeto.',
       403 => 'Você não tem permissão para salvar este projeto.',
