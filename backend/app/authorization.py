@@ -161,6 +161,8 @@ def can(
     company_id: str | None = None,
     scope: str = "company",
 ) -> bool:
+    if context.user.must_change_password and permission != AUTH_READ_CONTEXT:
+        return False
     permissions = get_permissions_for_role(context.user.role)
     if permission not in permissions:
         return False
