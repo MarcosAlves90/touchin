@@ -202,8 +202,10 @@ void main() {
       ),
     );
     expect(liveRegion, findsWidgets);
-    expect(find.text('Ação desconhecida (task.action_0) - Sucesso'),
-        findsOneWidget);
+    expect(
+      find.text('Ação desconhecida (task.action_0) - Sucesso'),
+      findsOneWidget,
+    );
     await tester.tap(find.text('Tentar novamente'));
     await tester.pumpAndSettle();
     expect(api.requestedPages, [1, 2, 2]);
@@ -229,16 +231,56 @@ void main() {
     api.mockEvents = [pageEvent(999)];
     await tester.tap(find.text('Aplicar filtros'));
     await tester.pumpAndSettle();
-    expect(find.text('Ação desconhecida (task.action_999) - Sucesso'),
-        findsOneWidget);
+    expect(
+      find.text('Ação desconhecida (task.action_999) - Sucesso'),
+      findsOneWidget,
+    );
     expect(find.text('Carregando mais eventos'), findsNothing);
     pending
         .completeError(ApiException('Stale upstream error', statusCode: 503));
     await tester.pumpAndSettle();
     expect(api.requestedPages, [1, 2, 1]);
-    expect(find.text('Ação desconhecida (task.action_999) - Sucesso'),
-        findsOneWidget);
+    expect(
+      find.text('Ação desconhecida (task.action_999) - Sucesso'),
+      findsOneWidget,
+    );
     expect(find.textContaining('Stale upstream error'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'refresh discards successful page 2 response from obsolete filters',
+      (tester) async {
+    final pending = Completer<List<AuditEventResponse>>();
+    final api = FakeTouchInApi()
+      ..mockEvents = List.generate(100, pageEvent)
+      ..secondPageResponse = pending;
+    await tester.pumpWidget(MaterialApp(home: AdminAuditPage(api: api)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Carregar mais eventos'));
+    await tester.pump();
+
+    final latestEvent = AuditEventResponse(
+      id: 'evt_latest_filter',
+      timestamp: DateTime.utc(2026, 10, 21),
+      companyId: 'company_1',
+      actorUserId: 'user_1',
+      projectId: null,
+      action: 'task.latest',
+      entityType: 'task',
+      entityId: 'latest',
+      result: 'success',
+      metadataPayload: null,
+    );
+    api.mockEvents = [latestEvent];
+    await tester.tap(find.text('Aplicar filtros'));
+    await tester.pumpAndSettle();
+    expect(find.text('Ação desconhecida (task.latest) - Sucesso'), findsOneWidget);
+
+    pending.complete([pageEvent(999)]);
+    await tester.pumpAndSettle();
+    expect(find.text('Ação desconhecida (task.latest) - Sucesso'), findsOneWidget);
+    expect(find.text('Ação desconhecida (task.action_999) - Sucesso'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -521,8 +563,11 @@ void main() {
 
     // Scroll through the list to force loading page 2
     int drags = 0;
-    while (find.textContaining('task.action_50').evaluate().isEmpty &&
-        drags < 40) {
+    while (
+        find.text('Ação desconhecida (task.action_50) - Sucesso')
+                .evaluate()
+                .isEmpty &&
+            drags < 40) {
       await tester.drag(find.byType(ListView), const Offset(0, -500));
       await tester.pumpAndSettle();
       drags++;
@@ -530,16 +575,25 @@ void main() {
 
     // Must have requested exactly page 1 and page 2
     expect(mockApi.requestedPages, [1, 2]);
-    expect(find.byType(ListTile), findsWidgets);
+    expect(
+      find.text('Ação desconhecida (task.action_50) - Sucesso'),
+      findsOneWidget,
+    );
 
     // Continue scrolling to 59
-    while (find.textContaining('task.action_59').evaluate().isEmpty &&
-        drags < 40) {
+    while (
+        find.text('Ação desconhecida (task.action_59) - Sucesso')
+                .evaluate()
+                .isEmpty &&
+            drags < 40) {
       await tester.drag(find.byType(ListView), const Offset(0, -500));
       await tester.pumpAndSettle();
       drags++;
     }
-    expect(find.byType(ListTile), findsWidgets);
+    expect(
+      find.text('Ação desconhecida (task.action_59) - Sucesso'),
+      findsOneWidget,
+    );
 
     // Attempt another scroll past the end to ensure it DOES NOT request page 3
     await tester.drag(find.byType(ListView), const Offset(0, -500));

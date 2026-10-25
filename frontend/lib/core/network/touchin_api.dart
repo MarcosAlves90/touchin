@@ -676,10 +676,20 @@ class TouchInApi {
       'page': page.toString(),
       'limit': limit.toString(),
     };
-    if (startDate != null)
-      queryParameters['start_date'] = startDate.toIso8601String();
-    if (endDate != null)
-      queryParameters['end_date'] = endDate.toIso8601String();
+    if (startDate != null) {
+      queryParameters['start_date'] = DateTime.utc(
+        startDate.year,
+        startDate.month,
+        startDate.day,
+      ).toIso8601String();
+    }
+    if (endDate != null) {
+      queryParameters['end_date'] = DateTime.utc(
+        endDate.year,
+        endDate.month,
+        endDate.day + 1,
+      ).toIso8601String();
+    }
     if (actorUserId != null) queryParameters['actor_user_id'] = actorUserId;
     if (action != null) queryParameters['action'] = action;
     if (entityType != null) queryParameters['entity_type'] = entityType;
