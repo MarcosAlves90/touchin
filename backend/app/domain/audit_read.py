@@ -50,7 +50,7 @@ def list_audit_events(
     if start_date:
         query = query.where(AuditEvent.timestamp >= start_date)
     if end_date:
-        query = query.where(AuditEvent.timestamp <= end_date)
+        query = query.where(AuditEvent.timestamp < end_date)
     if actor_user_id:
         query = query.where(AuditEvent.actor_user_id == actor_user_id)
     if action:
