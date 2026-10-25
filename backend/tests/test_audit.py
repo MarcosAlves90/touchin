@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+
 import pytest
 from sqlalchemy import text
 from app.db import SessionLocal
@@ -19,6 +21,61 @@ def login_headers(client, email):
     assert response.status_code == 200
     token = response.json()["accessToken"]
     return {"Authorization": f"Bearer {token}"}
+
+
+def test_audit_end_date_is_exclusive_at_next_day_utc_boundary(client):
+    headers = login_headers(client, MARINA_EMAIL)
+    with SessionLocal() as db:
+        company = db.query(Company).first()
+        assert company is not None
+        boundary = datetime(2026, 3, 9, tzinfo=timezone.utc)
+        start_boundary = datetime(2026, 3, 8, tzinfo=timezone.utc)
+        db.add_all(
+            [
+                AuditEvent(
+                    id="evt_at_start_boundary",
+                    company_id=company.id,
+                    action="boundary.test",
+                    entity_type="test",
+                    entity_id="at_start",
+                    result="success",
+                    timestamp=start_boundary,
+                ),
+                AuditEvent(
+                    id="evt_before_end_boundary",
+                    company_id=company.id,
+                    action="boundary.test",
+                    entity_type="test",
+                    entity_id="before",
+                    result="success",
+                    timestamp=boundary - timedelta(microseconds=1),
+                ),
+                AuditEvent(
+                    id="evt_at_end_boundary",
+                    company_id=company.id,
+                    action="boundary.test",
+                    entity_type="test",
+                    entity_id="at",
+                    result="success",
+                    timestamp=boundary,
+                ),
+            ]
+        )
+        db.commit()
+
+    response = client.get(
+        "/api/v1/audit-events",
+        headers=headers,
+        params={
+            "start_date": "2026-03-08T00:00:00Z",
+            "end_date": "2026-03-09T00:00:00Z",
+        },
+    )
+    assert response.status_code == 200, response.text
+    ids = {event["id"] for event in response.json()}
+    assert "evt_at_start_boundary" in ids
+    assert "evt_before_end_boundary" in ids
+    assert "evt_at_end_boundary" not in ids
 
 def test_audit_list_tenant_isolation(client):
     with SessionLocal() as db:
