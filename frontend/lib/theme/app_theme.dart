@@ -167,6 +167,9 @@ class AppTheme {
 
     return baseTheme.copyWith(
       textTheme: textTheme,
+      datePickerTheme: DatePickerThemeData(
+        shape: RoundedRectangleBorder(borderRadius: _radius),
+      ),
       appBarTheme: AppBarTheme(
         backgroundColor: colorScheme.surface,
         foregroundColor: colorScheme.onSurface,
