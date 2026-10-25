@@ -438,3 +438,91 @@ def test_project_description_remains_nullable_for_api_compatibility(client):
     )
     assert update_response.status_code == 200, update_response.text
     assert update_response.json()["description"] is None
+
+
+def test_employee_project_read_is_scoped_to_authenticated_employee(client):
+    admin_headers = login_headers(client)
+    employee_headers = login_headers_for(
+        client,
+        email="joao.lima@touchin.com",
+        password=TEST_SEED_SECRET,
+    )
+    manager_headers = login_headers_for(
+        client,
+        email="caio.martins@touchin.com",
+        password=TEST_SEED_SECRET,
+    )
+
+    own_project = _create_project(client, admin_headers, name="Projeto próprio")
+    colleague_project = _create_project(client, admin_headers, name="Projeto colega")
+    for project, employee_id in ((own_project, "emp-04"), (colleague_project, "emp-01")):
+        assigned = client.post(
+            f"/api/v1/projects/{project['id']}/members",
+            headers=admin_headers,
+            json={"employeeId": employee_id},
+        )
+        assert assigned.status_code == 201
+
+    own_response = client.get(
+        "/api/v1/employees/emp-04/projects",
+        headers=employee_headers,
+    )
+    assert own_response.status_code == 200
+    assert [project["id"] for project in own_response.json()] == [own_project["id"]]
+
+    colleague_response = client.get(
+        "/api/v1/employees/emp-01/projects",
+        headers=employee_headers,
+    )
+    assert colleague_response.status_code == 403
+
+    manager_response = client.get(
+        "/api/v1/employees/emp-01/projects",
+        headers=manager_headers,
+    )
+    assert manager_response.status_code == 200
+    assert [project["id"] for project in manager_response.json()] == [colleague_project["id"]]
+
+    foreign_registration = client.post(
+        "/api/v1/auth/register-company",
+        json={
+            "companyName": "Foreign Test Company",
+            "tradeName": "Foreign Test",
+            "cnpj": "20987654321000",
+            "email": "foreign.owner@example.com",
+            "phone": "11987654321",
+            "password": TEST_SEED_SECRET,
+            "acceptTerms": True,
+        },
+    )
+    assert foreign_registration.status_code == 201
+    foreign_headers = {
+        "Authorization": f"Bearer {foreign_registration.json()['accessToken']}"
+    }
+    foreign_employee = client.post(
+        "/api/v1/employees",
+        headers=foreign_headers,
+        json={
+            "name": "Foreign Employee",
+            "role": "Analyst",
+            "department": "Operations",
+            "email": "foreign.employee@example.com",
+            "phone": "11987654322",
+            "unit": "Remote",
+            "expectedShiftStart": "08:00",
+            "expectedShiftEnd": "17:00",
+            "status": "active",
+            "workMode": "remote",
+            "roleLevel": "staff",
+            "requiresLocationOnPunch": False,
+            "trustedDeviceRequired": False,
+            "notes": "",
+        },
+    )
+    assert foreign_employee.status_code == 201
+
+    foreign_response = client.get(
+        f"/api/v1/employees/{foreign_employee.json()['id']}/projects",
+        headers=employee_headers,
+    )
+    assert foreign_response.status_code == 404
