@@ -13,6 +13,9 @@ class WorkspaceEditorDialog extends StatelessWidget {
     this.secondaryLabel = 'Cancelar',
     this.onSecondary,
     this.maxWidth = 640,
+    this.isBusy = false,
+    this.busyLabel = 'Salvando…',
+    this.errorMessage,
   });
 
   final String title;
@@ -25,6 +28,9 @@ class WorkspaceEditorDialog extends StatelessWidget {
   final String secondaryLabel;
   final VoidCallback? onSecondary;
   final double maxWidth;
+  final bool isBusy;
+  final String busyLabel;
+  final String? errorMessage;
 
   @override
   Widget build(BuildContext context) {
@@ -34,6 +40,9 @@ class WorkspaceEditorDialog extends StatelessWidget {
     final compact = viewport.width < 600;
 
     void close() {
+      if (isBusy) {
+        return;
+      }
       if (onSecondary != null) {
         onSecondary!();
       } else {
@@ -42,7 +51,7 @@ class WorkspaceEditorDialog extends StatelessWidget {
     }
 
     final cancel = TextButton(
-      onPressed: close,
+      onPressed: isBusy ? null : close,
       child: Text(secondaryLabel),
     );
     final submitStyle = FilledButton.styleFrom(
@@ -51,14 +60,19 @@ class WorkspaceEditorDialog extends StatelessWidget {
     final submit = primaryIcon == null
         ? FilledButton(
             style: submitStyle,
-            onPressed: onPrimary,
-            child: Text(primaryLabel),
+            onPressed: isBusy ? null : onPrimary,
+            child: _submitLabel(),
           )
         : FilledButton.icon(
             style: submitStyle,
-            onPressed: onPrimary,
-            icon: Icon(primaryIcon, size: 18),
-            label: Text(primaryLabel),
+            onPressed: isBusy ? null : onPrimary,
+            icon: isBusy
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Icon(primaryIcon, size: 18),
+            label: Text(isBusy ? busyLabel : primaryLabel),
           );
 
     return Dialog(
@@ -131,7 +145,7 @@ class WorkspaceEditorDialog extends StatelessWidget {
                   IconButton(
                     tooltip: 'Fechar',
                     visualDensity: VisualDensity.compact,
-                    onPressed: close,
+                    onPressed: isBusy ? null : close,
                     icon: const Icon(Icons.close_rounded),
                   ),
                 ],
@@ -141,7 +155,17 @@ class WorkspaceEditorDialog extends StatelessWidget {
             Flexible(
               child: SingleChildScrollView(
                 padding: EdgeInsets.all(compact ? 16 : 22),
-                child: child,
+                child: errorMessage == null
+                    ? child
+                    : Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: <Widget>[
+                          _InlineErrorMessage(message: errorMessage!),
+                          const SizedBox(height: 14),
+                          child,
+                        ],
+                      ),
               ),
             ),
             const Divider(height: 1),
@@ -181,6 +205,54 @@ class WorkspaceEditorDialog extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _submitLabel() {
+    if (!isBusy) {
+      return Text(primaryLabel);
+    }
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        const SizedBox.square(
+          dimension: 18,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+        const SizedBox(width: 10),
+        Text(busyLabel),
+      ],
+    );
+  }
+}
+
+class _InlineErrorMessage extends StatelessWidget {
+  const _InlineErrorMessage({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colorScheme.errorContainer,
+        border: Border.all(color: colorScheme.error),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Icon(Icons.error_outline_rounded, color: colorScheme.error, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(color: colorScheme.onErrorContainer),
+            ),
+          ),
+        ],
       ),
     );
   }
