@@ -8,8 +8,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('renders desktop admin header with create action on the right',
-      (WidgetTester tester) async {
+  testWidgets('renders desktop admin header with create action on the right', (
+    WidgetTester tester,
+  ) async {
     tester.view.physicalSize = const Size(1440, 1200);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -44,8 +45,9 @@ void main() {
     expect(find.text('Novo funcionário'), findsOneWidget);
   });
 
-  testWidgets('does not render selected edit action in mobile header',
-      (WidgetTester tester) async {
+  testWidgets('does not render selected edit action in mobile header', (
+    WidgetTester tester,
+  ) async {
     tester.view.physicalSize = const Size(430, 932);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -60,8 +62,9 @@ void main() {
     expect(find.byIcon(Icons.badge_rounded), findsNothing);
   });
 
-  testWidgets('renders company data from auth context in the sidebar',
-      (WidgetTester tester) async {
+  testWidgets('renders company data from auth context in the sidebar', (
+    WidgetTester tester,
+  ) async {
     tester.view.physicalSize = const Size(1440, 1200);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -81,8 +84,9 @@ void main() {
     expect(find.text('Dados mascarados'), findsOneWidget);
   });
 
-  testWidgets('opens punch tab without runtime error and shows empty state',
-      (WidgetTester tester) async {
+  testWidgets('opens punch tab without runtime error and shows empty state', (
+    WidgetTester tester,
+  ) async {
     tester.view.physicalSize = const Size(1440, 1200);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -103,8 +107,9 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('paginates managed punches on the admin screen',
-      (WidgetTester tester) async {
+  testWidgets('paginates managed punches on the admin screen', (
+    WidgetTester tester,
+  ) async {
     tester.view.physicalSize = const Size(1440, 1200);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -154,8 +159,9 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('employee search and selection expose accessible controls',
-      (WidgetTester tester) async {
+  testWidgets('employee search and selection expose accessible controls', (
+    WidgetTester tester,
+  ) async {
     final semantics = tester.ensureSemantics();
     tester.view.physicalSize = const Size(1440, 1200);
     tester.view.devicePixelRatio = 1.0;
@@ -167,7 +173,9 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.enterText(
-        find.widgetWithText(TextField, 'Buscar funcionário'), 'Renata');
+      find.widgetWithText(TextField, 'Buscar funcionário'),
+      'Renata',
+    );
     await tester.pumpAndSettle();
     expect(find.byTooltip('Limpar busca'), findsOneWidget);
     await tester.tap(find.byTooltip('Limpar busca'));
@@ -181,21 +189,117 @@ void main() {
     expect(
       find.ancestor(
         of: employeeName,
-        matching: find.byWidgetPredicate((widget) =>
-            widget is Semantics && widget.properties.selected == true),
+        matching: find.byWidgetPredicate(
+          (widget) => widget is Semantics && widget.properties.selected == true,
+        ),
       ),
       findsOneWidget,
     );
     semantics.dispose();
   });
+
+  testWidgets('shows the linked manager role separately from job title', (
+    WidgetTester tester,
+  ) async {
+    await _openEditor(tester, _employeeResponse(accessRole: 'manager'));
+
+    expect(
+      find.text('Gestor'),
+      findsOneWidget,
+      reason: 'employee_access_role_manager_not_shown',
+    );
+    expect(find.text('Analista Financeira'), findsOneWidget);
+  });
+
+  testWidgets(
+    'does not offer an access role for employees without an account',
+    (WidgetTester tester) async {
+      await _openEditor(
+        tester,
+        _employeeResponse(hasAccount: false, accessRole: null),
+      );
+
+      expect(
+        find.text('Sem acesso ao sistema'),
+        findsOneWidget,
+        reason: 'employee_access_role_missing_account_not_distinguished',
+      );
+      expect(
+        find.byKey(const ValueKey('employee-access-role-dropdown')),
+        findsNothing,
+      );
+    },
+  );
+
+  testWidgets('shows the linked admin role as read-only', (
+    WidgetTester tester,
+  ) async {
+    await _openEditor(tester, _employeeResponse(accessRole: 'admin'));
+
+    expect(
+      find.text('Administrador (não editável)'),
+      findsOneWidget,
+      reason: 'employee_access_role_admin_not_read_only',
+    );
+    expect(
+      find.byKey(const ValueKey('employee-access-role-dropdown')),
+      findsNothing,
+    );
+  });
 }
 
+Future<void> _openEditor(WidgetTester tester, EmployeeProfile employee) async {
+  tester.view.physicalSize = const Size(1440, 1200);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+
+  await tester.pumpWidget(
+    MaterialApp(
+      home: AdminEmployeesPage(api: _FakeAdminApi(employee: employee)),
+    ),
+  );
+  await tester.pumpAndSettle();
+  await tester.tap(find.byTooltip('Editar funcionário'));
+  await tester.pumpAndSettle();
+}
+
+EmployeeProfile _employeeResponse({
+  bool? hasAccount = true,
+  String? accessRole = 'manager',
+  bool includeAccountMetadata = true,
+}) =>
+    EmployeeProfile.fromJson(<String, dynamic>{
+      'id': 'emp-99',
+      'name': 'Renata Souza',
+      'role': 'Analista Financeira',
+      'department': 'Financeiro',
+      'email': 'renata.souza@touchin.com',
+      'phone': '(11) 94444-6060',
+      'unit': 'Backoffice Centro',
+      'expectedShiftStart': '08:00:00',
+      'expectedShiftEnd': '17:00:00',
+      'status': 'active',
+      'workMode': 'hybrid',
+      'roleLevel': 'specialist',
+      'requiresLocationOnPunch': false,
+      'trustedDeviceRequired': true,
+      'todayWorkedMinutes': 0,
+      'pendingAdjustments': 0,
+      'lastPunchAt': null,
+      'notes': 'Nova contratação.',
+      if (includeAccountMetadata) 'hasAccount': hasAccount,
+      if (includeAccountMetadata) 'accessRole': accessRole,
+    });
+
 class _FakeAdminApi extends TouchInApi {
-  _FakeAdminApi(
-      {Map<String, List<ManagedPunchRecord>>? managedPunchesByEmployeeId})
-      : managedPunchesByEmployeeId =
+  _FakeAdminApi({
+    EmployeeProfile? employee,
+    Map<String, List<ManagedPunchRecord>>? managedPunchesByEmployeeId,
+  })  : employee = employee ?? _employeeResponse(),
+        managedPunchesByEmployeeId =
             managedPunchesByEmployeeId ?? <String, List<ManagedPunchRecord>>{};
 
+  final EmployeeProfile employee;
   final Map<String, List<ManagedPunchRecord>> managedPunchesByEmployeeId;
 
   @override
@@ -220,28 +324,7 @@ class _FakeAdminApi extends TouchInApi {
 
   @override
   Future<List<EmployeeProfile>> listEmployees() async {
-    return <EmployeeProfile>[
-      EmployeeProfile(
-        id: 'emp-99',
-        name: 'Renata Souza',
-        role: 'Analista Financeira',
-        department: 'Financeiro',
-        email: 'renata.souza@touchin.com',
-        phone: '(11) 94444-6060',
-        unit: 'Backoffice Centro',
-        expectedShiftStart: const TimeOfDay(hour: 8, minute: 0),
-        expectedShiftEnd: const TimeOfDay(hour: 17, minute: 0),
-        status: EmployeeStatus.active,
-        workMode: EmployeeWorkMode.hybrid,
-        roleLevel: RoleLevel.specialist,
-        requiresLocationOnPunch: false,
-        trustedDeviceRequired: true,
-        todayWorkedMinutes: 0,
-        pendingAdjustments: 0,
-        lastPunchAt: null,
-        notes: 'Nova contratacao.',
-      ),
-    ];
+    return <EmployeeProfile>[employee];
   }
 
   @override

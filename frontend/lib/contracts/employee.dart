@@ -21,8 +21,8 @@ EmployeeStatus employeeStatusFromApi(String value) {
     'onLeave' => EmployeeStatus.onLeave,
     'inactive' => EmployeeStatus.inactive,
     _ => throw ContractParsingException(
-        'Unsupported employee status value: $value',
-      ),
+      'Unsupported employee status value: $value',
+    ),
   };
 }
 
@@ -41,8 +41,8 @@ EmployeeWorkMode employeeWorkModeFromApi(String value) {
     'hybrid' => EmployeeWorkMode.hybrid,
     'remote' => EmployeeWorkMode.remote,
     _ => throw ContractParsingException(
-        'Unsupported employee work mode value: $value',
-      ),
+      'Unsupported employee work mode value: $value',
+    ),
   };
 }
 
@@ -59,9 +59,7 @@ RoleLevel roleLevelFromApi(String value) {
     'staff' => RoleLevel.staff,
     'specialist' => RoleLevel.specialist,
     'leadership' => RoleLevel.leadership,
-    _ => throw ContractParsingException(
-        'Unsupported role level value: $value',
-      ),
+    _ => throw ContractParsingException('Unsupported role level value: $value'),
   };
 }
 
@@ -78,8 +76,8 @@ EmployeeAccessRole employeeAccessRoleFromApi(String value) {
     'employee' => EmployeeAccessRole.employee,
     'manager' => EmployeeAccessRole.manager,
     _ => throw ContractParsingException(
-        'Unsupported employee access role value: $value',
-      ),
+      'Unsupported employee access role value: $value',
+    ),
   };
 }
 
@@ -122,6 +120,8 @@ abstract class EmployeeProfile with _$EmployeeProfile {
 
   const factory EmployeeProfile({
     required String id,
+    @Default(null) bool? hasAccount,
+    @Default(null) String? accessRole,
     required String name,
     required String role,
     required String department,
@@ -144,6 +144,12 @@ abstract class EmployeeProfile with _$EmployeeProfile {
   factory EmployeeProfile.fromJson(JsonMap json) {
     return EmployeeProfile(
       id: requireString(json, 'id'),
+      hasAccount: json['hasAccount'] is bool
+          ? json['hasAccount'] as bool
+          : null,
+      accessRole: json['accessRole'] is String
+          ? json['accessRole'] as String
+          : null,
       name: requireString(json, 'name'),
       role: requireString(json, 'role'),
       department: requireString(json, 'department'),
@@ -170,6 +176,8 @@ abstract class EmployeeProfile with _$EmployeeProfile {
   }) {
     return EmployeeProfile(
       id: id,
+      hasAccount: null,
+      accessRole: null,
       name: draft.name,
       role: draft.role,
       department: draft.department,
@@ -193,6 +201,8 @@ abstract class EmployeeProfile with _$EmployeeProfile {
   EmployeeProfile applyDraft(EmployeeDraft draft) {
     return EmployeeProfile(
       id: id,
+      hasAccount: hasAccount,
+      accessRole: accessRole,
       name: draft.name,
       role: draft.role,
       department: draft.department,

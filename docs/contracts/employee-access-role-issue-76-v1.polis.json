@@ -1,0 +1,237 @@
+{
+  "schema_version": 6,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      "backend/app/schemas/employee.py",
+      "backend/app/domain/employee_read.py",
+      "backend/app/services/employees.py",
+      "backend/tests/test_api.py",
+      "frontend/lib/contracts/employee.dart",
+      "frontend/lib/contracts/employee.freezed.dart",
+      "frontend/lib/features/admin/presentation/admin_employees_page_widgets.dart",
+      "frontend/test/admin_employees_page_test.dart",
+      "frontend/test/contracts/employee_access_role_test.dart",
+      "docs/contracts/employee-access-role-issue-76-v1.polis.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "backend/tests/test_api.py",
+      "frontend/test/admin_employees_page_test.dart",
+      "frontend/test/contracts/employee_access_role_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Implement issue #76 so employee responses report linked account presence and access role, the admin editor represents account roles without confusing them with job titles, and role changes remain explicit and atomic.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "Employee list, detail, create, and update responses expose hasAccount and accessRole from the linked UserAccount employee_id relation; no account yields hasAccount=false and accessRole=null."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "Employee.role remains the descriptive job title. accessRole is account authorization and linked manager/employee roles are represented accurately; admin is represented but not editable."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "Employees without a linked account are distinguished and cannot be assigned an access role through the employee editor; unknown legacy account state is read-only."
+      },
+      {
+        "id": "REQ-004",
+        "statement": "Existing update payloads that omit accessRole remain accepted and preserve the linked account role. Older employee responses missing account metadata remain parseable as unknown state."
+      },
+      {
+        "id": "REQ-005",
+        "statement": "Unsupported request roles, explicit role changes without an account, and attempts to change an admin role are rejected without persisting employee or account mutations."
+      },
+      {
+        "id": "REQ-006",
+        "statement": "The response exposes only account link presence and role; no account identifiers, email, or authentication data are added."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "List/detail/create/update responses report hasAccount=true and the actual employee/manager account role; no linked account reports false and null, while all existing response fields remain present.",
+        "requirements": [
+          "REQ-001",
+          "REQ-006"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "Editing an employee with a manager account displays manager, keeps Employee.role as the job title, and an unchanged access role is omitted from the request so the existing role is preserved.",
+        "requirements": [
+          "REQ-002",
+          "REQ-004"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-003",
+        "statement": "An employee without an account sees a no-access state and no access-role control; a linked admin sees an explicit non-editable admin state.",
+        "requirements": [
+          "REQ-002",
+          "REQ-003"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-004",
+        "statement": "A response payload from the old contract still parses with account state unknown, and old update payloads without accessRole are accepted.",
+        "requirements": [
+          "REQ-004"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-005",
+        "statement": "An invalid accessRole request, a valid role change for an unlinked employee, and a role change for an admin account do not persist changes to employee fields, account roles, or success audit records.",
+        "requirements": [
+          "REQ-005"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "Employee.role continues to store and return the employee's descriptive job title; account role is never inferred from or written into it."
+      },
+      {
+        "id": "INV-002",
+        "statement": "Only employee and manager are request-selectable roles. Admin remains visible and read-only, and account creation/linking and authorization policy do not change."
+      },
+      {
+        "id": "INV-003",
+        "statement": "Omitting accessRole from an update does not alter the linked account role."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "The employee editor defaults an unknown or missing account role to employee or permits access-role changes when there is no linked account."
+      },
+      {
+        "id": "FORB-002",
+        "statement": "A rejected role update leaves dirty employee fields, account data, or success audit writes in the database session."
+      },
+      {
+        "id": "FORB-003",
+        "statement": "Account identifiers, email, password, or authentication details are added to employee responses."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "Employee.account and UserAccount.employee_id relation, current EmployeeProfileResponse, and EmployeeDraftPayload."
+      },
+      {
+        "id": "IN-002",
+        "statement": "Issue #76 acceptance criteria and the focused Odesa contract review."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "Backward-compatible employee response metadata and a form that only offers valid explicit role edits."
+      },
+      {
+        "id": "OUT-002",
+        "statement": "Regression evidence for response serialization, UI states, role preservation, and rejected role mutations."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "Invalid roles fail request validation before service mutation; missing-account and admin role changes are rejected before employee/account fields are assigned."
+      },
+      {
+        "id": "FAIL-002",
+        "statement": "If the new account fields are absent in a legacy response, the parser keeps account state unknown and the editor does not offer role mutation."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "14c33dd4e70f2283cdc528f7b8bfd156a0a02427",
+    "base_tree": "ede6f6768c44ad71a6eabaf53e222bc0c7404428",
+    "policy_sha256": "14cc707c5ec1808040456d7e177738126dc3a1c5fb3c3e5cbf8f3992d6e63a51",
+    "specification_sha256": "ed97a367f3cf5d331c3b1bbca618a40d8fa2578c6646d4db05807e201700729f"
+  },
+  "behavior": {
+    "argv": [
+      "python3",
+      "-m",
+      "pytest",
+      "tests/test_api.py"
+    ],
+    "cwd": "backend",
+    "timeout_seconds": 1200,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "python3",
+      "-m",
+      "pytest",
+      "tests/test_api.py",
+      "-k",
+      "employee_access_role"
+    ],
+    "cwd": "backend",
+    "timeout_seconds": 300,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_api.py",
+        "-k",
+        "employee_access_role_contract"
+      ],
+      "cwd": "backend",
+      "timeout_seconds": 300,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "employee_access_role_response_missing"
+    ]
+  }
+}

@@ -43,6 +43,28 @@ def login_headers_for(client, *, email: str, password: str):
     return {"Authorization": f"Bearer {token}"}
 
 
+def _employee_update_payload(profile: dict[str, object], **changes: object) -> dict[str, object]:
+    fields = (
+        "name",
+        "role",
+        "department",
+        "email",
+        "phone",
+        "unit",
+        "expectedShiftStart",
+        "expectedShiftEnd",
+        "status",
+        "workMode",
+        "roleLevel",
+        "requiresLocationOnPunch",
+        "trustedDeviceRequired",
+        "notes",
+    )
+    payload = {field: profile[field] for field in fields}
+    payload.update(changes)
+    return payload
+
+
 def _clear_employee_punches(employee_id: str) -> None:
     with SessionLocal() as db:
         punches = db.scalars(select(Punch).where(Punch.employee_id == employee_id)).all()
@@ -104,6 +126,8 @@ def test_create_and_update_employee(client):
     assert create_response.status_code == 201
     employee = create_response.json()
     assert employee["email"] == "renata.souza@touchin.com"
+    assert employee["hasAccount"] is True
+    assert employee["accessRole"] == "manager"
     assert employee["expectedShiftStart"] == "08:00:00"
     assert employee["expectedShiftEnd"] == "17:00:00"
     assert employee["todayWorkedMinutes"] == 0
@@ -130,7 +154,6 @@ def test_create_and_update_employee(client):
             "status": "active",
             "workMode": "remote",
             "roleLevel": "specialist",
-            "accessRole": "employee",
             "requiresLocationOnPunch": False,
             "trustedDeviceRequired": True,
             "notes": "Atualizada para operacao remota.",
@@ -140,6 +163,7 @@ def test_create_and_update_employee(client):
     updated = update_response.json()
     assert updated["role"] == "Analista Financeira Senior"
     assert updated["workMode"] == "remote"
+    assert updated["accessRole"] == "manager"
 
     patch_response = client.patch(
         f"/api/v1/employees/{employee['id']}",
@@ -169,6 +193,138 @@ def test_create_and_update_employee(client):
         user = db.scalar(select(UserAccount).where(UserAccount.employee_id == employee["id"]))
         assert user is not None
         assert user.role == "employee"
+
+
+def test_employee_access_role_contract(client):
+    headers = login_headers(client)
+    manager_response = client.post(
+        "/api/v1/employees",
+        headers=headers,
+        json={
+            "name": "Carla Gestora",
+            "role": "Analista Financeira",
+            "department": "Financeiro",
+            "email": "carla.gestora@touchin.com",
+            "phone": "(11) 96666-1010",
+            "unit": "Matriz",
+            "expectedShiftStart": "08:00",
+            "expectedShiftEnd": "17:00",
+            "status": "active",
+            "workMode": "hybrid",
+            "roleLevel": "specialist",
+            "accessRole": "manager",
+            "requiresLocationOnPunch": False,
+            "trustedDeviceRequired": False,
+            "notes": "",
+        },
+    )
+    assert manager_response.status_code == 201
+    manager = manager_response.json()
+    assert manager.get("hasAccount") is True, "employee_access_role_response_missing"
+    assert manager.get("accessRole") == "manager", "employee_access_role_response_missing"
+    assert manager["role"] == "Analista Financeira"
+
+    detail = client.get(f"/api/v1/employees/{manager['id']}", headers=headers)
+    listed = client.get("/api/v1/employees", headers=headers)
+    assert detail.status_code == 200
+    assert detail.json()["accessRole"] == "manager"
+    assert any(item["id"] == manager["id"] and item["accessRole"] == "manager" for item in listed.json())
+
+    default_employee_response = client.post(
+        "/api/v1/employees",
+        headers=headers,
+        json={
+            "name": "Eduardo Funcionário",
+            "role": "Analista de Operações",
+            "department": "Operações",
+            "email": "eduardo.funcionario@touchin.com",
+            "phone": "(11) 96666-2020",
+            "unit": "Matriz",
+            "expectedShiftStart": "08:00",
+            "expectedShiftEnd": "17:00",
+            "status": "active",
+            "workMode": "onsite",
+            "roleLevel": "staff",
+            "requiresLocationOnPunch": False,
+            "trustedDeviceRequired": False,
+            "notes": "",
+        },
+    )
+    assert default_employee_response.status_code == 201
+    assert default_employee_response.json()["hasAccount"] is True
+    assert default_employee_response.json()["accessRole"] == "employee"
+
+    with SessionLocal() as db:
+        account = db.scalar(select(UserAccount).where(UserAccount.employee_id == "emp-03"))
+        assert account is not None
+        account.employee_id = None
+        db.commit()
+
+    unlinked = client.get("/api/v1/employees/emp-03", headers=headers)
+    assert unlinked.status_code == 200
+    assert unlinked.json().get("hasAccount") is False, "employee_access_role_response_missing"
+    assert unlinked.json().get("accessRole") is None
+
+
+def test_employee_access_role_contract_rejections_do_not_persist_mutations(client):
+    headers = login_headers(client)
+    original = client.get("/api/v1/employees/emp-03", headers=headers).json()
+
+    invalid_role_payload = _employee_update_payload(
+        original,
+        name="Invalid Role Mutation",
+        accessRole="supervisor",
+    )
+    invalid_role = client.put(
+        f"/api/v1/employees/{original['id']}",
+        headers=headers,
+        json=invalid_role_payload,
+    )
+    assert invalid_role.status_code == 422
+
+    with SessionLocal() as db:
+        employee = db.get(Employee, original["id"])
+        assert employee is not None
+        assert _cipher().decrypt(employee.name_ciphertext) == original["name"]
+        account = db.scalar(select(UserAccount).where(UserAccount.employee_id == employee.id))
+        assert account is not None
+        account.employee_id = None
+        db.commit()
+
+    unlinked_payload = _employee_update_payload(
+        original,
+        name="No Account Mutation",
+        accessRole="manager",
+    )
+    rejected_unlinked = client.put(
+        f"/api/v1/employees/{original['id']}",
+        headers=headers,
+        json=unlinked_payload,
+    )
+    assert rejected_unlinked.status_code == 400
+    with SessionLocal() as db:
+        employee = db.get(Employee, original["id"])
+        assert employee is not None
+        assert _cipher().decrypt(employee.name_ciphertext) == original["name"]
+
+    admin = client.get("/api/v1/employees/emp-01", headers=headers).json()
+    rejected_admin = client.put(
+        f"/api/v1/employees/{admin['id']}",
+        headers=headers,
+        json=_employee_update_payload(
+            admin,
+            name="Admin Role Mutation",
+            accessRole="manager",
+        ),
+    )
+    assert rejected_admin.status_code == 403
+    with SessionLocal() as db:
+        employee = db.get(Employee, admin["id"])
+        account = db.scalar(select(UserAccount).where(UserAccount.employee_id == admin["id"]))
+        assert employee is not None
+        assert _cipher().decrypt(employee.name_ciphertext) == admin["name"]
+        assert account is not None
+        assert account.role == "admin"
 
 
 def test_admin_can_edit_self(client):
