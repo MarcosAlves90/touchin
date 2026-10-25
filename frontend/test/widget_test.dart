@@ -310,7 +310,8 @@ void main() {
 
     expect(find.text('Entrar'), findsNothing);
     expect(find.byType(Scaffold), findsWidgets);
-    expect(api.authContextRequests, 1);
+    expect(api.authContextRequests, 1,
+        reason: 'restoring a persisted session validates it on the server');
   });
 
   testWidgets('falls back to login when persisted session is revoked', (
@@ -510,7 +511,8 @@ void main() {
 
     expect(find.text('Bater ponto'), findsOneWidget);
     expect(find.text('Entrar'), findsNothing);
-    expect(api.authContextRequests, 1);
+    expect(api.authContextRequests, 0,
+        reason: 'login supplied a verified session for internal navigation');
   });
 
   testWidgets(

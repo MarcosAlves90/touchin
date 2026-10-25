@@ -363,6 +363,149 @@ def _ensure_work_log_indexes(bind) -> None:
         )
 
 
+def _ensure_punch_transition_index(bind, inspector) -> None:
+    if "punches" not in inspector.get_table_names():
+        return
+    with bind.begin() as connection:
+        connection.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_punches_employee_timestamp_id "
+            "ON punches (employee_id, timestamp, id)"
+        ))
+
+
+def _upgrade_work_log_retention(bind, inspector) -> None:
+    """Keep immutable work-log evidence when its live source is removed.
+
+    SQLite cannot ALTER a foreign key or drop NOT NULL in place. Rebuild only
+    the log table in one transaction with FK checks before committing; the
+    work_log_tasks association remains attached to the preserved log IDs.
+    """
+    if "work_logs" not in inspector.get_table_names():
+        return
+    columns = {column["name"]: column for column in inspector.get_columns("work_logs")}
+    foreign_keys = inspector.get_foreign_keys("work_logs")
+    sources = ("employee_id", "punch_id")
+    if bind.dialect.name == "sqlite":
+        # SQLAlchemy SQLite reflection may omit ON DELETE from column-level
+        # REFERENCES constraints; the SQLite catalog is authoritative here.
+        with bind.connect() as connection:
+            sqlite_actions = {
+                row[3]: row[6].upper()
+                for row in connection.exec_driver_sql("PRAGMA foreign_key_list('work_logs')")
+            }
+        broken = any(
+            columns[name]["nullable"] is False or sqlite_actions.get(name) != "SET NULL"
+            for name in sources
+        )
+    else:
+        broken = any(columns[name]["nullable"] is False or not any(
+            name in fk["constrained_columns"] and
+            (fk.get("options") or {}).get("ondelete", "").upper() == "SET NULL"
+            for fk in foreign_keys
+        ) for name in sources)
+    if not broken and "employee_id_snapshot" in columns:
+        return
+
+    if bind.dialect.name == "postgresql":
+        preparer = bind.dialect.identifier_preparer
+        with bind.begin() as connection:
+            if "employee_id_snapshot" not in columns:
+                connection.execute(text(
+                    "ALTER TABLE work_logs ADD COLUMN employee_id_snapshot VARCHAR(64)"
+                ))
+            connection.execute(text(
+                "UPDATE work_logs SET employee_id_snapshot = employee_id "
+                "WHERE employee_id_snapshot IS NULL AND employee_id IS NOT NULL"
+            ))
+            connection.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_work_logs_employee_id_snapshot "
+                "ON work_logs (employee_id_snapshot)"
+            ))
+            for name in sources:
+                existing = next(
+                    (fk for fk in foreign_keys if name in fk["constrained_columns"]), None,
+                )
+                action = (existing.get("options") or {}).get("ondelete", "").upper() if existing else ""
+                if columns[name]["nullable"] and action == "SET NULL":
+                    continue
+                connection.execute(text(f"ALTER TABLE work_logs ALTER COLUMN {name} DROP NOT NULL"))
+                if existing is not None and existing.get("name"):
+                    connection.execute(text(
+                        "ALTER TABLE work_logs DROP CONSTRAINT " +
+                        preparer.quote(existing["name"])
+                    ))
+                connection.execute(text(
+                    f"ALTER TABLE work_logs ADD CONSTRAINT fk_work_logs_{name}_retention "
+                    f"FOREIGN KEY ({name}) REFERENCES "
+                    f"{'employees' if name == 'employee_id' else 'punches'}(id) ON DELETE SET NULL"
+                ))
+        return
+
+    if bind.dialect.name != "sqlite":
+        raise RuntimeError("WorkLog retention migration requires PostgreSQL or SQLite")
+
+    dbapi = bind.raw_connection()
+    cursor = dbapi.cursor()
+    try:
+        initial_fk = cursor.execute("PRAGMA foreign_keys").fetchone()[0]
+        cursor.execute("PRAGMA foreign_keys=OFF")
+        if cursor.execute("PRAGMA foreign_keys").fetchone()[0] != 0:
+            raise RuntimeError("Could not suspend SQLite foreign keys for atomic migration")
+        try:
+            cursor.execute("BEGIN IMMEDIATE")
+            cursor.execute("""
+                CREATE TABLE work_logs_retention_new (
+                    id VARCHAR(64) NOT NULL PRIMARY KEY,
+                    company_id VARCHAR(64) NOT NULL REFERENCES companies(id),
+                    employee_id VARCHAR(64) REFERENCES employees(id) ON DELETE SET NULL,
+                    employee_id_snapshot VARCHAR(64),
+                    project_id VARCHAR(64) REFERENCES projects(id),
+                    punch_id VARCHAR(64) REFERENCES punches(id) ON DELETE SET NULL,
+                    start_time DATETIME NOT NULL,
+                    end_time DATETIME NOT NULL,
+                    duration_seconds INTEGER NOT NULL,
+                    description_ciphertext TEXT NOT NULL,
+                    task_snapshots_ciphertext TEXT NOT NULL,
+                    created_at DATETIME NOT NULL
+                )
+            """)
+            names = ("id", "company_id", "employee_id", "project_id", "punch_id",
+                     "start_time", "end_time", "duration_seconds", "description_ciphertext",
+                     "task_snapshots_ciphertext", "created_at")
+            columns_sql = ", ".join(names)
+            snapshot_source = (
+                "COALESCE(employee_id_snapshot, employee_id)"
+                if "employee_id_snapshot" in columns else "employee_id"
+            )
+            cursor.execute(
+                f"INSERT INTO work_logs_retention_new ({columns_sql}, employee_id_snapshot) "
+                f"SELECT {columns_sql}, {snapshot_source} FROM work_logs"
+            )
+            cursor.execute("DROP TABLE work_logs")
+            cursor.execute("ALTER TABLE work_logs_retention_new RENAME TO work_logs")
+            for name in ("company_id", "employee_id", "employee_id_snapshot", "project_id", "punch_id"):
+                cursor.execute(f"CREATE INDEX ix_work_logs_{name} ON work_logs ({name})")
+            cursor.execute("""
+                CREATE INDEX ix_work_logs_company_project_start_time
+                ON work_logs (company_id, project_id, start_time)
+            """)
+            if cursor.execute("PRAGMA foreign_key_check").fetchall():
+                raise RuntimeError("WorkLog retention migration violates foreign keys")
+            dbapi.commit()
+        except Exception:
+            dbapi.rollback()
+            raise
+    finally:
+        try:
+            if initial_fk:
+                cursor.execute("PRAGMA foreign_keys=ON")
+                if cursor.execute("PRAGMA foreign_keys").fetchone()[0] != 1:
+                    raise RuntimeError("Could not restore SQLite foreign keys")
+        finally:
+            cursor.close()
+            dbapi.close()
+
+
 def _upgrade_audit_events(bind, inspector) -> None:
     if "audit_events" not in inspector.get_table_names():
         return
@@ -473,7 +616,15 @@ def upgrade_database_schema(bind) -> None:
     inspector = inspect(bind)
     _upgrade_punches(bind, inspector)
     inspector = inspect(bind)
+    _ensure_punch_transition_index(bind, inspector)
     if "work_logs" in inspector.get_table_names():
+        _upgrade_work_log_retention(bind, inspector)
         _ensure_work_log_indexes(bind)
     inspector = inspect(bind)
     _upgrade_audit_events(bind, inspector)
+    # Existing deployments use schema upgrades; CREATE ALL only handles new DBs.
+    if "user_accounts" in inspect(bind).get_table_names():
+        from app.models import PasswordResetThrottle, PasswordResetToken
+
+        PasswordResetToken.__table__.create(bind, checkfirst=True)
+        PasswordResetThrottle.__table__.create(bind, checkfirst=True)

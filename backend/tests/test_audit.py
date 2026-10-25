@@ -79,20 +79,30 @@ def test_audit_end_date_is_exclusive_at_next_day_utc_boundary(client):
 
 def test_audit_list_tenant_isolation(client):
     with SessionLocal() as db:
-        # Get existing company and admin user (marina)
+        # Isolated companies must both be valid referenced entities when SQLite
+        # enforces the same foreign keys used by PostgreSQL.
         company1 = db.query(Company).first()
         assert company1 is not None
-        
-        # Create a second company manually (bypassing strict crypto/fields for raw sql or just using an endpoint)
-        # Actually, let's just insert an audit event for company1 and an audit event for a fake company
-        from datetime import datetime, timezone
+        company2 = Company(
+            id="comp_audit_other",
+            legal_name_ciphertext=company1.legal_name_ciphertext,
+            trade_name_ciphertext=company1.trade_name_ciphertext,
+            cnpj_ciphertext=company1.cnpj_ciphertext,
+            cnpj_hash="audit-tenant-other-cnpj-hash",
+            contact_email_ciphertext=company1.contact_email_ciphertext,
+            contact_email_hash="audit-tenant-other-email-hash",
+            contact_phone_ciphertext=company1.contact_phone_ciphertext,
+            consented_at=datetime.now(timezone.utc),
+        )
+        db.add(company2)
+        db.flush()
         evt1 = AuditEvent(
             id="evt_audit_1", company_id=company1.id, action="test_action", 
             entity_type="test", entity_id="test", result="success",
             timestamp=datetime.now(timezone.utc)
         )
         evt2 = AuditEvent(
-            id="evt_audit_2", company_id="comp_fake", action="test_action", 
+            id="evt_audit_2", company_id=company2.id, action="test_action",
             entity_type="test", entity_id="test", result="success",
             timestamp=datetime.now(timezone.utc)
         )

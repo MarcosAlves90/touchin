@@ -16,16 +16,16 @@ from app.domain.auth_read import (
 )
 from app.domain.auth_session import build_auth_response, issue_session
 from app.domain.identity import normalize_email as _normalize_email
-from app.db import utcnow
+from app.db import begin_serialized_write, utcnow
 from app.errors import DomainError, ErrorKind
-from app.models import AuthSession, Company, Employee, UserAccount
+from app.models import AuthSession, Company, Employee, PasswordResetToken, UserAccount
 from app.schemas.auth import (
     AuthContextResponse,
     AuthSessionResponse,
     CompanyRegisterRequest,
     LoginRequest,
 )
-from app.security import generate_temp_password, hash_password, verify_password
+from app.security import hash_password, verify_password
 from app.services.brevo import send_company_welcome_email
 
 
@@ -178,32 +178,6 @@ def login(db: Session, payload: LoginRequest) -> AuthSessionResponse:
     return build_auth_response(token, auth_session, user, company, cipher)
 
 
-def reset_password(
-    db: Session,
-    *,
-    email: str,
-) -> tuple[str, str, str]:
-    cipher = _cipher()
-    user, normalized_email, _ = _resolve_user(db, email)
-    if user is None:
-        raise DomainError(ErrorKind.not_found, "User not found.")
-
-    company = db.get(Company, user.company_id)
-    if company is None:
-        raise DomainError(ErrorKind.forbidden, "The company account is inactive.")
-    _ensure_accounts_active(user, company)
-
-    temp_password = generate_temp_password()
-    user.password_hash = hash_password(temp_password)
-    user.must_change_password = True
-    _revoke_active_sessions(db, user_id=user.id)
-    db.commit()
-
-    recipient_email = cipher.decrypt(user.email_ciphertext) or normalized_email
-    display_name = _display_name_for_user(db, user=user, cipher=cipher)
-    return recipient_email, display_name, temp_password
-
-
 def change_password(
     db: Session,
     *,
@@ -212,13 +186,22 @@ def change_password(
     new_password: str,
 ) -> tuple[str, str]:
     cipher = _cipher()
-    user = context.user
+    begin_serialized_write(db)
+    user = db.scalar(select(UserAccount).where(UserAccount.id == context.user.id).with_for_update())
+    if user is None:
+        raise DomainError(ErrorKind.unauthorized, "Invalid session.")
+    db.refresh(user)
     if not verify_password(current_password, user.password_hash):
         raise DomainError(ErrorKind.unauthorized, "Invalid password.")
 
     user.password_hash = hash_password(new_password)
     user.must_change_password = False
     _revoke_active_sessions(db, user_id=user.id)
+    db.execute(
+        update(PasswordResetToken)
+        .where(PasswordResetToken.user_id == user.id, PasswordResetToken.consumed_at.is_(None))
+        .values(consumed_at=utcnow())
+    )
     db.commit()
 
     recipient_email = cipher.decrypt(user.email_ciphertext) or ""

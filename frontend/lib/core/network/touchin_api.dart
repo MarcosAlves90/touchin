@@ -17,6 +17,32 @@ class TouchInApi {
 
   final ApiClient _client;
   final TokenStorage _tokenStorage;
+  static String? _contextToken;
+  static AuthContext? _contextCache;
+  static String? _pendingContextToken;
+  static Future<AuthContext>? _pendingContext;
+  static int _contextGeneration = 0;
+
+  static void invalidateAuthContext({String? token}) {
+    if (token != null &&
+        _contextToken != token &&
+        _pendingContextToken != token) {
+      return;
+    }
+    _contextGeneration++;
+    _contextToken = null;
+    _contextCache = null;
+    _pendingContextToken = null;
+    _pendingContext = null;
+  }
+
+  static void rememberAuthContext(String token, AuthContext context) {
+    _contextGeneration++;
+    _contextToken = token;
+    _contextCache = context;
+    _pendingContextToken = null;
+    _pendingContext = null;
+  }
 
   Future<AuthSession> login({
     required LoginCredentials credentials,
@@ -53,17 +79,54 @@ class TouchInApi {
   }
 
   Future<AuthContext> getAuthContext() async {
+    final token = await _tokenStorage.readAccessToken();
+    if (token != null && token == _contextToken && _contextCache != null) {
+      return _contextCache!;
+    }
+    if (token != null &&
+        token == _pendingContextToken &&
+        _pendingContext != null) {
+      return _pendingContext!;
+    }
+    final generation = _contextGeneration;
+    final request = _loadAuthContext();
+    if (token != null) {
+      _pendingContextToken = token;
+      _pendingContext = request;
+    }
+    try {
+      final context = await request;
+      if (token != null && generation == _contextGeneration) {
+        _contextToken = token;
+        _contextCache = context;
+      }
+      return context;
+    } catch (_) {
+      if (token != null && _contextToken == token) {
+        invalidateAuthContext(token: token);
+      }
+      rethrow;
+    } finally {
+      if (identical(_pendingContext, request)) {
+        _pendingContextToken = null;
+        _pendingContext = null;
+      }
+    }
+  }
+
+  Future<AuthContext> _loadAuthContext() async {
     final response = await _client.get('/auth/me', withAuth: true);
     return _parseContract(
-      'auth/me',
-      () => AuthContext.fromJson(requireJsonMap(response, 'auth/me response')),
-    );
+        'auth/me',
+        () =>
+            AuthContext.fromJson(requireJsonMap(response, 'auth/me response')));
   }
 
   Future<void> logout() async {
     try {
       await _client.post('/auth/logout', withAuth: true);
     } finally {
+      invalidateAuthContext();
       await _tokenStorage.clearAccessToken();
     }
   }
@@ -76,6 +139,19 @@ class TouchInApi {
 
     final map = requireJsonMap(response, 'reset-password response');
     return requireString(map, 'message');
+  }
+
+  Future<void> confirmPasswordReset({
+    required String token,
+    required String newPassword,
+  }) async {
+    await _client.post(
+      '/auth/reset-password/confirm',
+      body: <String, dynamic>{
+        'token': token,
+        'newPassword': newPassword,
+      },
+    );
   }
 
   Future<void> changePassword({
@@ -716,6 +792,10 @@ class TouchInApi {
 
   Future<AuthSession> _persistSession(AuthSession session) async {
     await _tokenStorage.saveAuthSession(session);
+    rememberAuthContext(
+      session.accessToken,
+      AuthContext(company: session.company, user: session.user),
+    );
     return session;
   }
 

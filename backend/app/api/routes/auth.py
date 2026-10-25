@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, BackgroundTasks, Depends, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Request, status
 from sqlalchemy.orm import Session
 
 from app.authorization import require_permission
@@ -12,6 +12,7 @@ from app.schemas.auth import (
     LoginRequest,
     PasswordChangeRequest,
     PasswordResetRequest,
+    PasswordResetConfirmRequest,
 )
 from app.schemas.base import MessageResponse
 from app.services.auth import (
@@ -21,9 +22,9 @@ from app.services.auth import (
     login,
     logout,
     register_company,
-    reset_password,
 )
 from app.services import auth as auth_service
+from app.services.password_reset import confirm_password_reset, request_password_reset
 from app.services.brevo import send_password_changed_email, send_password_reset_email
 
 
@@ -62,19 +63,38 @@ def login_route(
 def reset_password_route(
     payload: PasswordResetRequest,
     background_tasks: BackgroundTasks,
+    request: Request,
     db: Session = Depends(get_db),
 ) -> MessageResponse:
-    recipient_email, display_name, temp_password = reset_password(
+    email_job = request_password_reset(
         db,
         email=str(payload.email).strip(),
+        client_ip=request.client.host if request.client else "unknown",
     )
-    background_tasks.add_task(
-        send_password_reset_email,
-        recipient_email=recipient_email,
-        display_name=display_name,
-        temp_password=temp_password,
+    if email_job is not None:
+        recipient_email, display_name, token = email_job
+        background_tasks.add_task(
+            send_password_reset_email,
+            recipient_email=recipient_email,
+            display_name=display_name,
+            token=token,
+        )
+    return MessageResponse(message="If the email is registered, password reset instructions will be sent.")
+
+
+@router.post("/reset-password/confirm", response_model=MessageResponse)
+def confirm_password_reset_route(
+    payload: PasswordResetConfirmRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> MessageResponse:
+    confirm_password_reset(
+        db,
+        token=payload.token,
+        new_password=payload.new_password,
+        client_ip=request.client.host if request.client else "unknown",
     )
-    return MessageResponse(message="Password reset email sent.")
+    return MessageResponse(message="Password updated successfully.")
 
 
 @router.post("/change-password", response_model=MessageResponse)

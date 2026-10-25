@@ -86,29 +86,30 @@ def _password_reset_subject() -> str:
     return "Redefinição de senha — TouchIn"
 
 
-def _password_reset_text(display_name: str, recipient_email: str, temp_password: str) -> str:
+def _password_reset_text(display_name: str, recipient_email: str, reset_link: str) -> str:
     return (
         f"Prezado(a) {display_name},\n\n"
         "Recebemos uma solicitação para redefinir sua senha.\n"
         f"E-mail de acesso: {recipient_email}\n"
-        f"Senha temporária: {temp_password}\n\n"
-        "Por segurança, altere sua senha após o primeiro acesso.\n\n"
+        f"Link de redefinição (válido por 30 minutos): {reset_link}\n\n"
+        "Se você não solicitou a redefinição, ignore esta mensagem. Sua senha não foi alterada.\n\n"
         "Atenciosamente,\n"
         "Equipe TouchIn\n"
     )
 
 
-def _password_reset_html(display_name: str, recipient_email: str, temp_password: str) -> str:
+def _password_reset_html(display_name: str, recipient_email: str, reset_link: str) -> str:
     safe_display_name = escape(display_name)
     safe_email = escape(recipient_email)
-    safe_password = escape(temp_password)
+    safe_link = escape(reset_link, quote=True)
     return (
         f"<p>Prezado(a) {safe_display_name},</p>"
         "<p>Recebemos uma solicitação para redefinir sua senha.</p>"
         "<p>E-mail de acesso: "
         f"<strong>{safe_email}</strong><br>"
-        f"Senha temporária: <strong>{safe_password}</strong></p>"
-        "<p>Por segurança, altere sua senha após o primeiro acesso.</p>"
+        f'<a href="{safe_link}" rel="noreferrer">Redefinir minha senha</a></p>'
+        "<p>O link expira em 30 minutos e só pode ser usado uma vez. "
+        "Se você não solicitou, ignore este e-mail; sua senha permanece inalterada.</p>"
         "<p>Atenciosamente,<br>Equipe TouchIn</p>"
     )
 
@@ -188,11 +189,14 @@ def send_password_reset_email(
     *,
     recipient_email: str,
     display_name: str,
-    temp_password: str,
+    token: str,
 ) -> None:
     settings = get_settings()
     if not _is_brevo_enabled(settings):
         return
+
+    separator = "?" if "#" in settings.password_reset_url else "#"
+    reset_link = f"{settings.password_reset_url}{separator}token={token}"
 
     payload = {
         "sender": {
@@ -201,8 +205,8 @@ def send_password_reset_email(
         },
         "to": [{"email": recipient_email.strip(), "name": display_name.strip()}],
         "subject": _password_reset_subject(),
-        "textContent": _password_reset_text(display_name, recipient_email.strip(), temp_password),
-        "htmlContent": _password_reset_html(display_name, recipient_email.strip(), temp_password),
+        "textContent": _password_reset_text(display_name, recipient_email.strip(), reset_link),
+        "htmlContent": _password_reset_html(display_name, recipient_email.strip(), reset_link),
     }
     headers = {
         "accept": JSON_MEDIA_TYPE,

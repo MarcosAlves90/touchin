@@ -127,7 +127,7 @@ frontend/
 ### Autenticação
 1. `POST /api/v1/auth/register-company` cria empresa, usuário inicial e sessão
 2. `POST /api/v1/auth/login` valida e-mail e senha e cria `AuthSession`
-3. `POST /api/v1/auth/reset-password` gera senha temporária e dispara e-mail em background
+3. `POST /api/v1/auth/reset-password` registra solicitação pública com resposta uniforme, limita frequência no banco e envia link de token por Brevo; somente `POST /api/v1/auth/reset-password/confirm` valida o token de uso único e expiração de 30 minutos antes de alterar a senha e revogar sessões
 4. `POST /api/v1/auth/change-password` exige contexto autenticado e envia confirmação por e-mail
 5. `GET /api/v1/auth/me` devolve o contexto autenticado
 6. `POST /api/v1/auth/logout` revoga a sessão e limpa token + sessão local

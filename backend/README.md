@@ -96,6 +96,7 @@ O CI executa o backend com Python 3.12. Configure a versão de Python do serviç
 - `TOUCHIN_BREVO_SENDER_EMAIL`: remetente das mensagens
 - `TOUCHIN_BREVO_SENDER_NAME`: nome do remetente
 - `TOUCHIN_BREVO_WELCOME_ENABLED`: habilita e-mails de boas-vindas
+- `TOUCHIN_PASSWORD_RESET_URL`: URL pública da tela de confirmação, por exemplo `https://app.exemplo.com/#/reset-password`; em produção, configurar HTTPS e entregar os e-mails pela Brevo
 
 Em produção, mantenha `TOUCHIN_BOOTSTRAP_DATABASE_ON_STARTUP=false` quando o banco já tiver o schema provisionado. Isso evita trabalho extra no boot do Render.
 
@@ -149,11 +150,16 @@ Authorization: Bearer <accessToken>
 | POST | `/api/v1/auth/register-company` | público |
 | POST | `/api/v1/auth/login` | público |
 | POST | `/api/v1/auth/reset-password` | público |
+| POST | `/api/v1/auth/reset-password/confirm` | público, token de posse |
 | POST | `/api/v1/auth/change-password` | autenticado |
 | GET | `/api/v1/auth/me` | `auth.read_context` |
 | POST | `/api/v1/auth/logout` | autenticado |
 
 `register-company`, `reset-password` e `change-password` podem disparar e-mails via Brevo em background. Falha de e-mail não desfaz o fluxo principal.
+
+A solicitação pública de reset (`{"email":"usuario@empresa.com"}`) sempre retorna a mesma mensagem e HTTP 200 para contas existentes, inexistentes, inativas ou com limite excedido. Ela não modifica senha, flag de troca obrigatória nem sessões. Para contas ativas, o servidor persiste apenas o HMAC do token aleatório e envia um link Brevo usando o fragmento da URL: `https://app.exemplo.com/#/reset-password?token=...`. A conclusão exige `{"token":"...","newPassword":"..."}`. O token expira em **30 minutos**, aceita **uma única conclusão** e a emissão de outro link invalida os anteriores; a confirmação troca a senha escolhida e revoga todas as sessões existentes em uma transação.
+
+Os limites persistentes são **3 solicitações por endereço de e-mail por hora**, **30 solicitações por IP por hora** e **30 tentativas de conclusão por IP por hora**. Endereços e IPs aparecem nos limites somente como HMACs. O servidor usa o IP da conexão (`request.client.host`); em instalações atrás de proxy, configure corretamente a identificação do cliente no servidor ASGI para preservar a efetividade do controle. Os limites internos complementam controles externos contra abuso distribuído. Em produção, configure `TOUCHIN_PASSWORD_RESET_URL` com HTTPS e a Brevo antes de habilitar o fluxo de recuperação.
 
 ## Permissões
 

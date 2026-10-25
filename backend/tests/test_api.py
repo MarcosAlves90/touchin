@@ -928,13 +928,13 @@ def test_reset_password_triggers_email_task(client, monkeypatch):
         *,
         recipient_email: str,
         display_name: str,
-        temp_password: str,
+        token: str,
     ) -> None:
         calls.append(
             {
                 "recipient_email": recipient_email,
                 "display_name": display_name,
-                "temp_password": temp_password,
+                "token": token,
             },
         )
 
@@ -952,13 +952,17 @@ def test_reset_password_triggers_email_task(client, monkeypatch):
     assert response.status_code == 200
     assert len(calls) == 1
     assert calls[0]["recipient_email"] == "marina.costa@touchin.com"
-    assert len(calls[0]["temp_password"]) >= 12
+    assert len(calls[0]["token"]) >= 32
+
+    confirmation = {"token": calls[0]["token"], "newPassword": "ConfirmedPassword@123"}
+    completed = client.post("/api/v1/auth/reset-password/confirm", json=confirmation)
+    assert completed.status_code == 200
 
     login_response = client.post(
         "/api/v1/auth/login",
         json={
             "email": "marina.costa@touchin.com",
-            "password": calls[0]["temp_password"],
+            "password": "ConfirmedPassword@123",
             "keepConnected": True,
         },
     )

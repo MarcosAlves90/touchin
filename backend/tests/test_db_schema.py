@@ -20,6 +20,23 @@ def test_new_database_creates_work_log_index(tmp_path):
         bind.dispose()
 
 
+def test_upgrade_creates_password_recovery_tables_idempotently(tmp_path):
+    bind = create_engine(f"sqlite:///{tmp_path / 'legacy-auth.db'}")
+    try:
+        with bind.begin() as connection:
+            connection.execute(text("CREATE TABLE user_accounts (id VARCHAR(64) PRIMARY KEY)"))
+        upgrade_database_schema(bind)
+        upgrade_database_schema(bind)
+        inspector = inspect(bind)
+        assert "password_reset_tokens" in inspector.get_table_names()
+        assert "password_reset_throttles" in inspector.get_table_names()
+        assert {"token_hash", "expires_at", "consumed_at"}.issubset(
+            {column["name"] for column in inspector.get_columns("password_reset_tokens")}
+        )
+    finally:
+        bind.dispose()
+
+
 def test_upgrade_restores_index_on_existing_work_logs_without_changing_data(tmp_path, monkeypatch):
     from app import db as db_module
 

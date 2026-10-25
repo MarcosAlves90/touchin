@@ -196,7 +196,10 @@ def generate_monthly_work_logs_report(
     )
     
     if employee_id is not None:
-        query = query.where(WorkLog.employee_id == employee_id)
+        query = query.where(
+            (WorkLog.employee_id == employee_id) |
+            (WorkLog.employee_id_snapshot == employee_id)
+        )
         
     records = []
     logs_result = db.scalars(
