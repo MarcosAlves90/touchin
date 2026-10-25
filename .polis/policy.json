@@ -7,7 +7,7 @@
       "mode": "command",
       "command": {
         "argv": [
-          "python3",
+          "python",
           "scripts/polis_tests.py"
         ],
         "cwd": ".",

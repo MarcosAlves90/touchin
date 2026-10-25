@@ -18,16 +18,18 @@ class ApiException implements Exception {
 }
 
 class ApiClient {
-  ApiClient({http.Client? client, TokenStorage? tokenStorage})
+  ApiClient({http.Client? client, TokenStorage? tokenStorage, String? baseUrl})
       : _client = client ?? http.Client(),
-        _tokenStorage = tokenStorage ?? TokenStorage();
+        _tokenStorage = tokenStorage ?? TokenStorage(),
+        _baseUrl = (baseUrl ?? AppConfig.apiBaseUrl).replaceFirst(RegExp(r'/+$'), '');
 
   final http.Client _client;
   final TokenStorage _tokenStorage;
+  final String _baseUrl;
 
   Uri _uri(String path) {
-    final sanitizedPath = path.startsWith('/') ? path.substring(1) : path;
-    return Uri.parse('${AppConfig.apiBaseUrl}/$sanitizedPath');
+    final sanitizedPath = path.replaceFirst(RegExp(r'^/+'), '');
+    return Uri.parse('$_baseUrl/$sanitizedPath');
   }
 
   Future<Map<String, String>> _headers({bool withAuth = false}) async {
@@ -98,21 +100,38 @@ class ApiClient {
   }
 
   dynamic _decodeResponse(http.Response response) {
-    final hasBody = response.body.isNotEmpty;
-    final parsedBody = hasBody ? jsonDecode(response.body) : null;
+    final isSuccess = response.statusCode >= 200 && response.statusCode < 300;
+    dynamic parsedBody;
+    if (response.body.trim().isNotEmpty) {
+      try {
+        parsedBody = jsonDecode(response.body);
+      } on FormatException {
+        if (isSuccess) {
+          throw ApiException('Resposta inválida do servidor.',
+              statusCode: response.statusCode);
+        }
+        // Proxies can return HTML or plain text for error statuses.
+      }
+    }
 
-    if (response.statusCode >= 200 && response.statusCode < 300) {
+    if (isSuccess) {
       return parsedBody;
     }
 
-    final detail =
-        _extractMessage(parsedBody) ?? 'Falha na comunicacao com a API.';
     final code =
         parsedBody is Map<String, dynamic> && parsedBody['code'] is String
             ? parsedBody['code'] as String
             : null;
-    final message =
-        _translateErrorCode(code) ?? _translateMessage(detail) ?? detail;
+    final detail = _extractMessage(parsedBody);
+    final message = response.statusCode >= 500
+        ? 'Serviço temporariamente indisponível. Tente novamente.'
+        : _translateErrorCode(code) ??
+            (detail == null ? null : _translateMessage(detail) ?? detail) ??
+            (response.statusCode == 403
+                ? 'Você não tem permissão para acessar este recurso.'
+                : response.statusCode == 404
+                    ? 'Recurso não encontrado.'
+                    : 'Não foi possível concluir a solicitação.');
     throw ApiException(message, statusCode: response.statusCode, code: code);
   }
 
@@ -152,6 +171,9 @@ class ApiClient {
         'A sessão autenticada não está mais disponível.',
       'The company account is inactive.' => 'A conta da empresa está inativa.',
       'This account is inactive.' => 'Esta conta está inativa.',
+      'Permission denied.' => 'Você não tem permissão para acessar este recurso.',
+      'Admin privileges are required for this operation.' =>
+        'Privilégios de administrador são necessários para esta operação.',
       'Project task employee limit is below current task membership.' =>
         'O limite por tarefa não pode ser menor que a quantidade de funcionários já associados a uma tarefa. Remova participantes antes de reduzir o limite.',
       _ => null,

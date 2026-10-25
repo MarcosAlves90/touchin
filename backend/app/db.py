@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from typing import overload
 
 from sqlalchemy import create_engine, text
+from sqlalchemy.engine import make_url
 from sqlalchemy.pool import StaticPool
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
@@ -45,7 +46,23 @@ engine_kwargs = {
 if is_memory_sqlite:
     engine_kwargs["poolclass"] = StaticPool
 
-engine = create_engine(settings.database_url, **engine_kwargs)
+database_url = make_url(settings.database_url)
+if database_url.drivername in {"postgres", "postgresql"}:
+    # SQLAlchemy 2.1 changes the implicit PostgreSQL driver to psycopg 3.
+    # Our declared dependency and existing deployment contract use psycopg2.
+    database_url = database_url.set(drivername="postgresql+psycopg2")
+elif database_url.drivername == "postgresql+psycopg":
+    raise RuntimeError(
+        "TOUCHIN_DATABASE_URL selects psycopg 3, but this backend uses psycopg2. "
+        "Use postgresql+psycopg2://, postgresql:// or postgres://."
+    )
+elif database_url.drivername.startswith("postgresql+") and database_url.drivername != "postgresql+psycopg2":
+    raise RuntimeError(
+        "TOUCHIN_DATABASE_URL selects an unsupported PostgreSQL driver. "
+        "Use postgresql+psycopg2://, postgresql:// or postgres://."
+    )
+
+engine = create_engine(database_url, **engine_kwargs)
 SessionLocal = sessionmaker(
     bind=engine,
     autoflush=False,

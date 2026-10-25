@@ -131,6 +131,13 @@ def test_repository_uses_touchin_identity_only() -> None:
     assert not offenders, "old product identity remains: " + ", ".join(offenders)
 
 
+def test_branding_gate_only_inspects_repository_content() -> None:
+    paths = {path.relative_to(ROOT).as_posix() for path in _repository_paths()}
+    assert "backend/app/db.py" in paths
+    assert "backend/.env" not in paths
+    assert "frontend/ios/Flutter/Generated.xcconfig" not in paths
+
+
 def test_repository_satisfies_quality_contract() -> None:
     offenders = _find_quality_offenders()
     assert not offenders, "quality contract violations remain: " + ", ".join(offenders)

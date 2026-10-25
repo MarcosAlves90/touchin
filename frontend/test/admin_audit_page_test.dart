@@ -5,10 +5,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:touchin_flutter/features/admin/presentation/admin_audit_page.dart';
 import 'package:touchin_flutter/contracts/audit.dart';
+import 'package:touchin_flutter/core/network/api_client.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
 
 class FakeTouchInApi extends TouchInApi {
   List<AuditEventResponse> mockEvents = [];
+  Object? firstError;
+  Object? secondPageError;
   Map<String, dynamic> lastParams = {};
   List<int> requestedPages = [];
   Completer<List<AuditEventResponse>>? secondPageResponse;
@@ -27,6 +30,10 @@ class FakeTouchInApi extends TouchInApi {
     int limit = 50,
   }) async {
     requestedPages.add(page);
+    if (firstError case final error?) {
+      firstError = null;
+      throw error;
+    }
     lastParams = {
       'page': page,
       'limit': limit,
@@ -43,6 +50,11 @@ class FakeTouchInApi extends TouchInApi {
     if (page == 2 && secondPageResponse != null) {
       return secondPageResponse!.future;
     }
+    if (page == 2 && secondPageError != null) {
+      final error = secondPageError!;
+      secondPageError = null;
+      throw error;
+    }
 
     // Simulate pagination
     int start = (page - 1) * limit;
@@ -58,6 +70,147 @@ class FakeTouchInApi extends TouchInApi {
 }
 
 void main() {
+  AuditEventResponse pageEvent(int index) => AuditEventResponse(
+        id: 'evt_$index',
+        timestamp: DateTime.utc(2026, 10, 20),
+        companyId: 'company_1',
+        actorUserId: 'user_1',
+        projectId: null,
+        action: 'task.action_$index',
+        entityType: 'task',
+        entityId: 'task_$index',
+        result: 'success',
+        metadataPayload: null,
+      );
+
+  testWidgets('page 2 HTTP 503 shows accessible error and retries page 2',
+      (tester) async {
+    final api = FakeTouchInApi()
+      ..mockEvents = List.generate(51, pageEvent)
+      ..secondPageError = ApiException('Upstream error', statusCode: 503);
+    await tester.pumpWidget(MaterialApp(home: AdminAuditPage(api: api)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Carregar mais eventos'));
+    await tester.pumpAndSettle();
+    expect(api.requestedPages, [1, 2]);
+    final failure = find.textContaining('Serviço temporariamente indisponível');
+    expect(failure, findsOneWidget);
+    final liveRegion = find.ancestor(
+      of: failure,
+      matching: find.byWidgetPredicate(
+        (widget) => widget is Semantics && widget.properties.liveRegion == true,
+      ),
+    );
+    expect(liveRegion, findsWidgets);
+    expect(find.text('task.action_0 - success'), findsOneWidget);
+    await tester.tap(find.text('Tentar novamente'));
+    await tester.pumpAndSettle();
+    expect(api.requestedPages, [1, 2, 2]);
+    expect(failure, findsNothing);
+    final list = tester.widget<ListView>(find.byType(ListView));
+    final delegate = list.childrenDelegate as SliverChildBuilderDelegate;
+    expect(delegate.estimatedChildCount, 51);
+    expect(find.text('Todos os eventos de auditoria foram carregados.'),
+        findsOneWidget);
+  });
+
+  testWidgets('refresh discards pending page 2 failure and resets loading',
+      (tester) async {
+    final pending = Completer<List<AuditEventResponse>>();
+    final api = FakeTouchInApi()
+      ..mockEvents = List.generate(100, pageEvent)
+      ..secondPageResponse = pending;
+    await tester.pumpWidget(MaterialApp(home: AdminAuditPage(api: api)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Carregar mais eventos'));
+    await tester.pump();
+    expect(find.text('Carregando mais eventos'), findsOneWidget);
+    api.mockEvents = [pageEvent(999)];
+    await tester.tap(find.text('Apply Filters'));
+    await tester.pumpAndSettle();
+    expect(find.text('task.action_999 - success'), findsOneWidget);
+    expect(find.text('Carregando mais eventos'), findsNothing);
+    pending.completeError(ApiException('Stale upstream error', statusCode: 503));
+    await tester.pumpAndSettle();
+    expect(api.requestedPages, [1, 2, 1]);
+    expect(find.text('task.action_999 - success'), findsOneWidget);
+    expect(find.textContaining('Stale upstream error'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('audit events have Material and remain visible in direct route',
+      (tester) async {
+    final api = FakeTouchInApi()
+      ..mockEvents = [
+        AuditEventResponse(
+          id: 'evt_material',
+          timestamp: DateTime.utc(2026, 10, 20),
+          companyId: 'company_1',
+          actorUserId: 'user_1',
+          projectId: 'project_1',
+          action: 'task.created',
+          entityType: 'task',
+          entityId: 'task_1',
+          result: 'success',
+          metadataPayload: null,
+        ),
+      ];
+    await tester.pumpWidget(MaterialApp(home: AdminAuditPage(api: api)));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('task.created - success'), findsOneWidget);
+    expect(find.byType(ListTile), findsWidgets);
+  });
+
+  testWidgets('filter button keeps finite width with production button style',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final api = FakeTouchInApi();
+    await tester.pumpWidget(MaterialApp(
+      theme: ThemeData(
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            minimumSize: const Size.fromHeight(52),
+          ),
+        ),
+      ),
+      home: AdminAuditPage(api: api),
+    ));
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    final button = find.widgetWithText(ElevatedButton, 'Apply Filters');
+    expect(button, findsOneWidget);
+    expect(tester.getSize(button).width, lessThan(1280));
+    await tester.ensureVisible(button);
+    await tester.tap(button);
+    await tester.pump();
+    expect(api.requestedPages, [1, 1]);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('invalid audit response hides parsing details', (tester) async {
+    final api = FakeTouchInApi()
+      ..firstError = ApiException('Contrato invalido na resposta de audit events: expected list');
+    await tester.pumpWidget(MaterialApp(home: AdminAuditPage(api: api)));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('O serviço de auditoria retornou uma resposta inválida.'), findsOneWidget);
+    expect(find.textContaining('expected list'), findsNothing);
+  });
+
+  testWidgets('404 error permits retry without exposing exception', (tester) async {
+    final api = FakeTouchInApi()
+      ..firstError = ApiException('Proxy error', statusCode: 404);
+    await tester.pumpWidget(MaterialApp(home: AdminAuditPage(api: api)));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('O serviço de auditoria não foi encontrado.'), findsOneWidget);
+    expect(find.textContaining('ApiException'), findsNothing);
+    await tester.tap(find.text('Tentar novamente'));
+    await tester.pumpAndSettle();
+    expect(api.requestedPages, [1, 1]);
+    expect(find.text('Nenhum evento de auditoria encontrado.'), findsOneWidget);
+  });
+
   for (final additionalEvents in [50, 1]) {
     testWidgets('keyboard focus survives page of $additionalEvents events',
         (tester) async {
