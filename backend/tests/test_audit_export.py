@@ -4,6 +4,8 @@ import csv
 import io
 from datetime import datetime, timedelta, timezone
 
+import pytest
+
 from app.db import SessionLocal
 from app.config import Settings
 from app.models import AuditEvent, Company
@@ -13,6 +15,22 @@ from app.services.audit_export import CSV_COLUMNS
 from tests.test_audit import login_headers
 
 EXPORT_ENTITY_TYPE = "export-contract"
+
+
+@pytest.mark.parametrize(
+    ("configured_bytes", "expected_bytes"),
+    [
+        (2 * 1024 * 1024, 1024 * 1024),
+        (1024 * 1024, 1024 * 1024),
+        (512 * 1024, 512 * 1024),
+    ],
+)
+def test_audit_export_config_cannot_raise_hard_byte_ceiling(
+    monkeypatch, configured_bytes, expected_bytes
+):
+    monkeypatch.setenv("TOUCHIN_AUDIT_EXPORT_MAX_BYTES", str(configured_bytes))
+
+    assert Settings().audit_export_max_bytes == expected_bytes
 
 
 def _company_id() -> str:
