@@ -136,6 +136,14 @@ jobs:
       - name: Compare canonical navigation goldens
         run: flutter test --tags canonical-golden
 
+      - name: Upload canonical golden failure images
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: canonical-navigation-golden-failure-images
+          path: frontend/test/failures/
+          if-no-files-found: warn
+
   windows-polis-gates:
     name: POLIS gates (Windows)
     runs-on: windows-latest
