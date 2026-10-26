@@ -82,6 +82,33 @@ _ALLOWED_FOLLOWING_PUNCH_TYPES = {
 }
 
 
+def _ensure_work_interval_not_already_accounted(
+    db: Session, *, company_id: str, employee_id: str,
+    start, end, exclude_log_id: str | None = None,
+) -> None:
+    """Prevent a replacement punch from billing preserved historical work again.
+
+    All punch writers hold the employee's row lock (or SQLite write reservation)
+    before calling this check. Include detached rows and pre-snapshot legacy rows;
+    WorkLog.punch_id is not an indicator of whether time was accounted.
+    """
+    query = select(WorkLog.id).where(
+        WorkLog.company_id == company_id,
+        or_(WorkLog.employee_id == employee_id,
+            WorkLog.employee_id_snapshot == employee_id),
+        WorkLog.start_time < end,
+        WorkLog.end_time > start,
+    )
+    if exclude_log_id is not None:
+        query = query.where(WorkLog.id != exclude_log_id)
+    if db.scalar(query.limit(1)) is not None:
+        raise DomainError(
+            ErrorKind.conflict,
+            "Este período já possui atividades contabilizadas. "
+            "Solicite um ajuste de ponto sem sobrepor o histórico preservado.",
+        )
+
+
 def _validate_adjacent_punches(previous: Punch | None, following: Punch | None) -> None:
     """Prevent administrative writes from corrupting a whole shift sequence."""
     if following is None:
@@ -123,6 +150,11 @@ def _reconcile_linked_work_log(
         )
     end = ensure_utc(punch.timestamp)
     start = ensure_utc(previous.timestamp)
+    _ensure_work_interval_not_already_accounted(
+        db, company_id=log.company_id,
+        employee_id=log.employee_id_snapshot or log.employee_id or punch.employee_id,
+        start=start, end=end, exclude_log_id=log.id,
+    )
     log.start_time = start
     log.end_time = end
     log.duration_seconds = max(int((end - start).total_seconds()), 0)
@@ -259,6 +291,10 @@ def create_punch(
         assert last_punch is not None
         start_time = ensure_utc(last_punch.timestamp)
         end_time = ensure_utc(record.timestamp)
+        _ensure_work_interval_not_already_accounted(
+            db, company_id=employee.company_id, employee_id=employee.id,
+            start=start_time, end=end_time,
+        )
         duration_seconds = int((end_time - start_time).total_seconds())
         if duration_seconds < 0:
             duration_seconds = 0

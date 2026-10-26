@@ -18,7 +18,7 @@ from app.db import Base, ensure_utc
 from app.database_schema import upgrade_database_schema
 from app.errors import DomainError
 from app.models import Company, Employee, EmployeeProject, KanbanColumn, Project, Punch, Task, WorkLog, WorkLogTask
-from app.schemas.punch import CreatePunchRequest, ManagePunchRequest, PunchType, UpdateManagedPunchRequest
+from app.schemas.punch import CreatePunchRequest, ManagePunchRequest, PunchType, UpdateManagedPunchRequest, WorkLogPayload
 from app.seed import seed_database
 from app.services.employees import delete_employee
 from app.services.projects import remove_project_member
@@ -220,6 +220,134 @@ def test_deleting_punch_retains_history_with_foreign_keys_on(sqlite_fk):
         assert db.get(Punch, punch_id) is None
     with engine.connect() as connection:
         assert connection.exec_driver_sql("PRAGMA foreign_key_check").all() == []
+
+
+@pytest.mark.parametrize("database_fixture", ["sqlite_fk", "pg_read_committed"])
+def test_replacement_checkout_cannot_double_count_detached_work_log(
+    request, monkeypatch, database_fixture,
+):
+    factory, engine = request.getfixturevalue(database_fixture)
+    start = datetime(2026, 6, 1, 10, tzinfo=timezone.utc)
+    first_end = start + timedelta(hours=2)
+    replacement_end = start + timedelta(hours=3)
+    with factory() as db:
+        cipher = FieldCipher(get_settings().encryption_secret or "")
+        project = Project(company_id="company-touchin", name_ciphertext=cipher.encrypt("Jornada") or "")
+        db.add(project)
+        db.flush()
+        db.add(EmployeeProject(project_id=project.id, employee_id="emp-04"))
+        column = KanbanColumn(project_id=project.id, name_ciphertext=cipher.encrypt("A Fazer") or "", position=0)
+        db.add(column)
+        db.flush()
+        task = Task(project_id=project.id, kanban_column_id=column.id, card_number=1,
+                    kanban_position=0, name_ciphertext=cipher.encrypt("Atividade") or "",
+                    description_ciphertext="", type="feature")
+        db.add(task)
+        db.commit()
+
+        # Seeded punches may be newer than this historical scenario; isolate
+        # the employee's shift so the next operational punch is truly checkOut.
+        db.execute(delete(Punch).where(Punch.employee_id == "emp-04"))
+        db.commit()
+        check_in_id, check_out_id, log_id = _punch_with_log(db, project_id=project.id)
+        delete_managed_punch(db, company_id="company-touchin", employee_id="emp-04", punch_id=check_out_id)
+        db.expire_all()
+        retained = db.get(WorkLog, log_id)
+        assert retained.punch_id is None
+        assert (ensure_utc(retained.start_time), ensure_utc(retained.end_time), retained.duration_seconds) == (
+            start, first_end, 7200,
+        )
+        assert db.get(Punch, check_in_id) is not None
+
+        monkeypatch.setattr("app.services.time_clock.utcnow", lambda: replacement_end)
+        try:
+            create_punch(db, employee=db.get(Employee, "emp-04"),
+                         payload=CreatePunchRequest(type=PunchType.check_out, project_id=project.id,
+                                                    work_log=WorkLogPayload(description="Saida substituta",
+                                                                            task_ids=[task.id])),
+                         timezone_name="America/Sao_Paulo")
+        except DomainError as failure:
+            assert failure.kind.value == "conflict"
+        else:
+            db.expire_all()
+            duplicates = db.scalars(select(WorkLog).where(
+                WorkLog.company_id == "company-touchin", WorkLog.employee_id == "emp-04",
+                WorkLog.start_time < replacement_end, WorkLog.end_time > start,
+            )).all()
+            pytest.fail("Overlapping WorkLogs after replacement checkout: "
+                        f"durations={[log.duration_seconds for log in duplicates]}, "
+                        f"total={sum(log.duration_seconds for log in duplicates)} seconds")
+        db.rollback()
+        db.expire_all()
+        logs = db.scalars(select(WorkLog).where(
+            WorkLog.company_id == "company-touchin", WorkLog.employee_id == "emp-04",
+            WorkLog.start_time < replacement_end, WorkLog.end_time > start,
+        )).all()
+        assert [log.id for log in logs] == [log_id]
+        assert sum(log.duration_seconds for log in logs) == 7200
+        assert db.get(WorkLog, log_id).punch_id is None
+        assert db.get(Punch, check_out_id) is None
+        assert db.get(Punch, check_in_id).type == PunchType.check_in.value
+
+    if engine.dialect.name == "sqlite":
+        with engine.connect() as conn:
+            assert conn.exec_driver_sql("PRAGMA foreign_keys").scalar() == 1
+            assert conn.exec_driver_sql("PRAGMA foreign_key_check").all() == []
+
+
+@pytest.mark.parametrize("database_fixture", ["sqlite_fk", "pg_read_committed"])
+def test_consecutive_nonoverlapping_shifts_still_account_real_work(
+    request, monkeypatch, database_fixture,
+):
+    factory, engine = request.getfixturevalue(database_fixture)
+    end_first = datetime(2026, 6, 1, 12, tzinfo=timezone.utc)
+    start_second = end_first + timedelta(minutes=1)
+    end_second = start_second + timedelta(hours=1)
+    with factory() as db:
+        cipher = FieldCipher(get_settings().encryption_secret or "")
+        project = Project(company_id="company-touchin", name_ciphertext=cipher.encrypt("Turnos") or "")
+        db.add(project)
+        db.flush()
+        db.add(EmployeeProject(project_id=project.id, employee_id="emp-04"))
+        column = KanbanColumn(project_id=project.id, name_ciphertext="Coluna", position=0)
+        db.add(column)
+        db.flush()
+        task = Task(project_id=project.id, kanban_column_id=column.id, card_number=1,
+                    kanban_position=0, name_ciphertext=cipher.encrypt("Atividade") or "",
+                    description_ciphertext="", type="feature")
+        db.add(task)
+        db.commit()
+
+        db.execute(delete(Punch).where(Punch.employee_id == "emp-04"))
+        db.commit()
+        _, _, log_a_id = _punch_with_log(db, project_id=project.id)
+        # Give adjacent shifts distinct timestamps: equal-time punches are
+        # ordered by UUID id and do not encode a chronological transition.
+        monkeypatch.setattr("app.services.time_clock.utcnow", lambda: start_second)
+        create_punch(db, employee=db.get(Employee, "emp-04"),
+                     payload=CreatePunchRequest(type=PunchType.check_in, project_id=project.id),
+                     timezone_name="America/Sao_Paulo")
+        monkeypatch.setattr("app.services.time_clock.utcnow", lambda: end_second)
+        create_punch(db, employee=db.get(Employee, "emp-04"),
+                     payload=CreatePunchRequest(type=PunchType.check_out, project_id=project.id,
+                                                work_log=WorkLogPayload(description="Turno adicional",
+                                                                        task_ids=[task.id])),
+                     timezone_name="America/Sao_Paulo")
+        rows = db.scalars(select(WorkLog).where(
+            WorkLog.company_id == "company-touchin", WorkLog.employee_id == "emp-04",
+            WorkLog.start_time < end_second,
+            WorkLog.end_time > end_first - timedelta(hours=2),
+        )).all()
+        assert sorted((ensure_utc(log.start_time), ensure_utc(log.end_time), log.duration_seconds)
+                      for log in rows) == [
+            (end_first - timedelta(hours=2), end_first, 7200),
+            (start_second, end_second, 3600),
+        ]
+        assert sum(log.duration_seconds for log in rows) == 10800
+        assert db.get(WorkLog, log_a_id).duration_seconds == 7200
+    if engine.dialect.name == "sqlite":
+        with engine.connect() as conn:
+            assert conn.exec_driver_sql("PRAGMA foreign_key_check").all() == []
 
 
 def test_deleting_employee_retains_work_logs_and_removes_live_punches(sqlite_fk):
