@@ -351,7 +351,7 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
         animation: _controller,
         builder: (context, _) {
           return WorkspaceScaffold(
-            sidebar: _buildSummaryPanel(),
+            contextualContent: _buildSummaryPanel(),
             contentBuilder: (context, isWide) =>
                 _buildWorkspace(isWide: isWide),
           );
@@ -366,9 +366,6 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
     final companyIdentity = _companyIdentitySummary(company);
 
     return WorkspaceSidebar(
-      title: 'Painel administrativo da empresa.',
-      description:
-          'Acompanhe equipe, pendências e regras operacionais em um só lugar.',
       summaryChildren: <Widget>[
         WorkspaceSummaryStripe(
           label: 'Empresa',

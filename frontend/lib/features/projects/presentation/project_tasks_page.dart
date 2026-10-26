@@ -54,7 +54,7 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
       animation: _controller,
       builder: (context, _) {
         return WorkspaceScaffold(
-          sidebar: _buildSidebar(),
+          contextualContent: _buildSidebar(),
           contentBuilder: (context, isWide) => _buildContent(isWide),
         );
       },
@@ -65,9 +65,6 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
     final project = _controller.selectedProject;
     final task = _controller.selectedTask;
     return WorkspaceSidebar(
-      title: 'Painel de projetos da empresa.',
-      description:
-          'Acompanhe projetos, tarefas, acessos e capacidade em um só lugar.',
       summaryChildren: <Widget>[
         WorkspaceSummaryStripe(
           label: 'Projetos',

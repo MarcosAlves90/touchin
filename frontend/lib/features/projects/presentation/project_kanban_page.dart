@@ -10,7 +10,6 @@ import 'package:touchin_flutter/features/projects/presentation/widgets/task_edit
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_editor_dialog.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_instant_select_field.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
-import 'package:touchin_flutter/theme/app_theme.dart';
 
 class ProjectKanbanPage extends StatefulWidget {
   const ProjectKanbanPage({super.key, this.api, this.controller});
@@ -47,44 +46,18 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      drawer: const WorkspaceNavigationDrawer(),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final isWide = constraints.maxWidth >= 1080;
-          return Row(
-            children: <Widget>[
-              if (isWide)
-                SizedBox(
-                  width: 280,
-                  child: WorkspaceDesktopNavigation(currentRoute: '/kanban'),
-                ),
-              Expanded(
-                child: Builder(
-                  builder: (scaffoldContext) => SafeArea(
-                    child: Column(
-                      children: <Widget>[
-                        _KanbanTopBar(
-                          controller: _controller,
-                          onMenuPressed: isWide
-                              ? null
-                              : () => Scaffold.of(scaffoldContext).openDrawer(),
-                          showBrand: !isWide,
-                        ),
-                        Expanded(
-                          child: AnimatedBuilder(
-                            animation: _controller,
-                            builder: (context, _) => _buildPageBody(),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          );
-        },
+    return WorkspaceScaffold(
+      contentScrollable: false,
+      contentBuilder: (context, _) => Column(
+        children: <Widget>[
+          _KanbanTopBar(controller: _controller),
+          Expanded(
+            child: AnimatedBuilder(
+              animation: _controller,
+              builder: (context, _) => _buildPageBody(),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -198,7 +171,7 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
         padding: EdgeInsets.all(compact ? 7 : 8),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            if (!compact && constraints.maxWidth >= 1080) {
+            if (!compact && constraints.maxWidth >= 980) {
               return Row(
                 children: <Widget>[
                   Expanded(child: selector),
@@ -938,55 +911,34 @@ class _SkeletonBlock extends StatelessWidget {
 }
 
 class _KanbanTopBar extends StatelessWidget {
-  const _KanbanTopBar({
-    required this.controller,
-    required this.onMenuPressed,
-    required this.showBrand,
-  });
+  const _KanbanTopBar({required this.controller});
 
   final ProjectKanbanController controller;
-  final VoidCallback? onMenuPressed;
-  final bool showBrand;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     return Material(
       key: const ValueKey<String>('kanban-topbar'),
-      color: AppTheme.accent,
-      child: SizedBox(
+      color: colorScheme.surface,
+      child: Container(
         height: 54,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: Row(
-            children: <Widget>[
-              if (onMenuPressed != null) ...<Widget>[
-                IconButton(
-                  tooltip: 'Abrir menu',
-                  onPressed: onMenuPressed,
-                  icon: Icon(Icons.menu_rounded, color: colorScheme.onPrimary),
-                ),
-                const SizedBox(width: 6),
-              ],
-              if (showBrand)
-                Text(
-                  'TOUCHIN',
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    color: colorScheme.onPrimary.withValues(alpha: 0.82),
-                    letterSpacing: 1.8,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              Expanded(
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: _KanbanSyncStatus(controller: controller),
-                ),
-              ),
-              const SizedBox(width: 4),
-            ],
+        padding: const EdgeInsets.fromLTRB(16, 0, 12, 0),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(color: colorScheme.outlineVariant),
           ),
+        ),
+        child: Row(
+          children: <Widget>[
+            Expanded(
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: _KanbanSyncStatus(controller: controller),
+              ),
+            ),
+            const SizedBox(width: 4),
+          ],
         ),
       ),
     );

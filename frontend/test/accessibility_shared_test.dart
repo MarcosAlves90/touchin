@@ -47,10 +47,8 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: WorkspaceScaffold(
-          sidebar: const WorkspaceSidebar(
-            title: 'Resumo da jornada',
-            description: 'Descrição',
-            summaryChildren: [],
+          contextualContent: const WorkspaceSidebar(
+            summaryChildren: [Text('Resumo da jornada')],
             highlightChips: [],
           ),
           contentBuilder: (context, isWide) => const WorkspaceHeader(

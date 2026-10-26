@@ -103,7 +103,9 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
 
   Future<void> _loadEvents({bool refresh = false, bool retry = false}) async {
     if (!refresh &&
-        (_isLoading || _isLoadingMore || !_hasMore ||
+        (_isLoading ||
+            _isLoadingMore ||
+            !_hasMore ||
             (_error != null && !retry))) {
       return;
     }
@@ -376,13 +378,6 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
 
   Widget _buildScaffold() {
     return WorkspaceScaffold(
-      sidebar: const WorkspaceSidebar(
-        title: 'Trilha de auditoria',
-        description:
-            'Consulte eventos registrados e filtre por recurso, ator e período.',
-        summaryChildren: [],
-        highlightChips: [],
-      ),
       contentScrollable: false,
       contentBuilder: (context, isWide) => Column(
         children: [
@@ -452,7 +447,8 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
                                           OutlinedButton(
                                             focusNode: _loadMoreFocusNode,
                                             onPressed: () {
-                                              if (!_isLoadingMore && _error == null) {
+                                              if (!_isLoadingMore &&
+                                                  _error == null) {
                                                 _loadEvents();
                                               }
                                             },
@@ -466,8 +462,10 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
                                               child: Text('Erro: $_error'),
                                             ),
                                             TextButton(
-                                              onPressed: () => _loadEvents(retry: true),
-                                              child: const Text('Tentar novamente'),
+                                              onPressed: () =>
+                                                  _loadEvents(retry: true),
+                                              child: const Text(
+                                                  'Tentar novamente'),
                                             ),
                                           ],
                                           if (_isLoadingMore) ...[
@@ -490,8 +488,8 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
                                               padding: const EdgeInsets.all(8),
                                               decoration: BoxDecoration(
                                                 border: Border.all(
-                                                  color:
-                                                      Focus.of(context).hasFocus
+                                                  color: Focus.of(context)
+                                                          .hasFocus
                                                       ? AppTheme.adminColors(
                                                           Theme.of(context),
                                                         ).selectedIndicator

@@ -16,7 +16,7 @@ class ThemeSettingsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return WorkspaceScaffold(
-      sidebar: _buildSummaryPanel(context),
+      contextualContent: _buildSummaryPanel(context),
       contentBuilder: (context, isWide) => _buildWorkspace(context, isWide),
     );
   }
@@ -26,8 +26,6 @@ class ThemeSettingsPage extends StatelessWidget {
       animation: _controller,
       builder: (context, _) {
         return WorkspaceSidebar(
-          title: 'Aparência e tema.',
-          description: 'Escolha entre tema claro, escuro ou seguir o sistema.',
           summaryChildren: <Widget>[
             WorkspaceSummaryStripe(
               label: 'Tema atual',

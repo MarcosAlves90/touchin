@@ -59,6 +59,12 @@ class AppTheme {
         backgroundColor: _darkBackground,
       );
 
+  static WorkspaceNavigationColors navigationColors(ThemeData theme) =>
+      theme.extension<WorkspaceNavigationColors>() ??
+      (theme.brightness == Brightness.dark
+          ? WorkspaceNavigationColors.dark
+          : WorkspaceNavigationColors.light);
+
   static AdminSemanticColors adminColors(ThemeData theme) =>
       theme.extension<AdminSemanticColors>() ??
       (theme.brightness == Brightness.dark
@@ -166,6 +172,11 @@ class AppTheme {
     );
 
     return baseTheme.copyWith(
+      extensions: <ThemeExtension<dynamic>>[
+        colorScheme.brightness == Brightness.dark
+            ? WorkspaceNavigationColors.dark
+            : WorkspaceNavigationColors.light,
+      ],
       textTheme: textTheme,
       datePickerTheme: DatePickerThemeData(
         shape: RoundedRectangleBorder(borderRadius: _radius),
@@ -281,6 +292,84 @@ class AppTheme {
         modalBackgroundColor: colorScheme.surface,
         shape: const RoundedRectangleBorder(borderRadius: _radius),
       ),
+    );
+  }
+}
+
+@immutable
+class WorkspaceNavigationColors
+    extends ThemeExtension<WorkspaceNavigationColors> {
+  const WorkspaceNavigationColors({
+    required this.itemForeground,
+    required this.selectedForeground,
+    required this.selectedContainer,
+    required this.focusRing,
+    required this.hoverOverlay,
+  });
+
+  static const WorkspaceNavigationColors light = WorkspaceNavigationColors(
+    itemForeground: AppTheme._lightText,
+    selectedForeground: Color(0xFF704600),
+    selectedContainer: Color(0xFFFFF1D6),
+    focusRing: Color(0xFF704600),
+    hoverOverlay: Color(0x0F1D1B16),
+  );
+
+  static const WorkspaceNavigationColors dark = WorkspaceNavigationColors(
+    itemForeground: AppTheme._darkText,
+    selectedForeground: Color(0xFFFFE6A6),
+    selectedContainer: Color(0xFF4A3200),
+    focusRing: Color(0xFFFFD180),
+    hoverOverlay: Color(0x0FF5F1E8),
+  );
+
+  final Color itemForeground;
+  final Color selectedForeground;
+  final Color selectedContainer;
+  final Color focusRing;
+  final Color hoverOverlay;
+
+  static WorkspaceNavigationColors of(ThemeData theme) =>
+      AppTheme.navigationColors(theme);
+
+  @override
+  WorkspaceNavigationColors copyWith({
+    Color? itemForeground,
+    Color? selectedForeground,
+    Color? selectedContainer,
+    Color? focusRing,
+    Color? hoverOverlay,
+  }) =>
+      WorkspaceNavigationColors(
+        itemForeground: itemForeground ?? this.itemForeground,
+        selectedForeground: selectedForeground ?? this.selectedForeground,
+        selectedContainer: selectedContainer ?? this.selectedContainer,
+        focusRing: focusRing ?? this.focusRing,
+        hoverOverlay: hoverOverlay ?? this.hoverOverlay,
+      );
+
+  @override
+  WorkspaceNavigationColors lerp(
+    covariant ThemeExtension<WorkspaceNavigationColors>? other,
+    double t,
+  ) {
+    if (other is! WorkspaceNavigationColors) {
+      return this;
+    }
+    return WorkspaceNavigationColors(
+      itemForeground: Color.lerp(itemForeground, other.itemForeground, t)!,
+      selectedForeground: Color.lerp(
+        selectedForeground,
+        other.selectedForeground,
+        t,
+      )!,
+      selectedContainer: Color.lerp(
+        selectedContainer,
+        other.selectedContainer,
+        t,
+      )!,
+      focusRing: Color.lerp(focusRing, other.focusRing, t)!,
+      hoverOverlay: Color.lerp(hoverOverlay, other.hoverOverlay, t)!,
     );
   }
 }

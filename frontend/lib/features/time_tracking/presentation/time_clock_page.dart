@@ -286,7 +286,7 @@ class _TimeClockPageState extends State<TimeClockPage> {
       animation: _controller,
       builder: (context, _) {
         return WorkspaceScaffold(
-          sidebar: _buildSummaryPanel(),
+          contextualContent: _buildSummaryPanel(),
           contentBuilder: (context, isWide) => _buildWorkspace(isWide: isWide),
         );
       },
@@ -298,10 +298,6 @@ class _TimeClockPageState extends State<TimeClockPage> {
     final hasError = _hasLoadError;
 
     return WorkspaceSidebar(
-      title: 'Ponto digital em tempo real.',
-      description: _controller.requiresLocationOnPunch
-          ? 'Uma tela operacional para registrar entrada, pausa e saída com localização exigida em cada batida.'
-          : 'Uma tela operacional para registrar entrada, pausa e saída com localização opcional.',
       summaryChildren: <Widget>[
         WorkspaceSummaryStripe(
           label: 'Status',

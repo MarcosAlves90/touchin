@@ -222,6 +222,7 @@ class _SessionGateState extends State<_SessionGate> {
               _future = _resolveSession();
             });
           }
+
           return widget.isStartup
               ? _SessionVerificationError(onRetry: onRetry)
               : _RouteSessionVerificationError(onRetry: onRetry);
@@ -261,12 +262,6 @@ class _RouteSessionSkeleton extends StatelessWidget {
     final skeletonColor = colorScheme.onSurface.withValues(alpha: 0.08);
 
     return WorkspaceScaffold(
-      sidebar: const WorkspaceSidebar(
-        title: 'Carregando página',
-        description: 'Estamos validando sua sessão para abrir este espaço.',
-        summaryChildren: <Widget>[],
-        highlightChips: <Widget>[],
-      ),
       contentBuilder: (context, _) => Semantics(
         liveRegion: true,
         label: 'Carregando conteúdo da página',
@@ -352,13 +347,6 @@ class _RouteSessionVerificationError extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return WorkspaceScaffold(
-      sidebar: const WorkspaceSidebar(
-        title: 'Página indisponível',
-        description:
-            'A navegação continua disponível enquanto você tenta de novo.',
-        summaryChildren: <Widget>[],
-        highlightChips: <Widget>[],
-      ),
       contentBuilder: (context, _) => Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
