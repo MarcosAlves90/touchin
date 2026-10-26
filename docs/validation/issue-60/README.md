@@ -55,6 +55,13 @@ Signing out clears that user and a new sign-in replaces it.
 - After the change: `flutter test test/widget_test.dart` 39/39,
   `flutter test` 307/307, and `dart analyze lib test` reports the same 12
   pre-existing infos as the baseline and nothing new.
+- POLIS artifacts retained in [`polis/`](polis/):
+  [`red-regression.patch`](polis/red-regression.patch) is the captured Red
+  proof (SHA-256 `14eb6456…5b16e`), and
+  [`workspace-validation.json`](polis/workspace-validation.json) is the
+  `polis workspace validate` report: `PASS` with `test.complete`, `lint`,
+  `build` and `smoke` passing for tree `0860b05b`, the tree of commit
+  `c99b91f`. Later commits only add these artifacts and this note.
 
 ## Running the POLIS proof on Windows
 
