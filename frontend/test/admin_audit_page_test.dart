@@ -7,6 +7,7 @@ import 'package:touchin_flutter/features/admin/presentation/admin_audit_page.dar
 import 'package:touchin_flutter/contracts/audit.dart';
 import 'package:touchin_flutter/core/network/api_client.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_skeleton.dart';
 import 'package:touchin_flutter/theme/app_theme.dart';
 
 class FakeTouchInApi extends TouchInApi {
@@ -645,6 +646,21 @@ void main() {
     expect(
       find.byKey(const ValueKey<String>('audit-loading-skeleton')),
       findsOneWidget,
+    );
+    final auditSkeleton = find.byKey(
+      const ValueKey<String>('audit-loading-skeleton'),
+    );
+    final auditRegion = find.ancestor(
+      of: auditSkeleton,
+      matching: find.byType(WorkspaceSkeletonRegion),
+    );
+    expect(auditRegion, findsOneWidget);
+    expect(
+      find.descendant(
+        of: auditRegion,
+        matching: find.byType(WorkspaceSkeleton),
+      ),
+      findsAtLeastNWidgets(1),
     );
     expect(find.byType(CircularProgressIndicator), findsNothing);
     await tester.pumpAndSettle();

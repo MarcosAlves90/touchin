@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:touchin_flutter/contracts/audit.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_skeleton.dart';
 import 'package:touchin_flutter/theme/app_theme.dart';
 
 String auditLocalDate(DateTime value) {
@@ -628,9 +629,7 @@ class AuditLoadingSkeleton extends StatelessWidget {
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: 4,
                 separatorBuilder: (_, __) => const SizedBox(height: 10),
-                itemBuilder: (_, index) => _AuditCardSkeleton(
-                  color: colors.surfaceContainerHighest,
-                ),
+                itemBuilder: (_, index) => const _AuditCardSkeleton(),
               )
             : Column(
                 children: [
@@ -643,9 +642,7 @@ class AuditLoadingSkeleton extends StatelessWidget {
                       physics: const NeverScrollableScrollPhysics(),
                       itemCount: 6,
                       separatorBuilder: (_, __) => const SizedBox(height: 1),
-                      itemBuilder: (_, index) => _AuditRowSkeleton(
-                        color: colors.surfaceContainerHighest,
-                      ),
+                      itemBuilder: (_, index) => const _AuditRowSkeleton(),
                     ),
                   ),
                 ],
@@ -667,15 +664,15 @@ class _AuditTableSkeletonHeader extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       child: Row(
         children: [
-          _AuditSkeletonBlock(width: 92, height: 12, color: color),
+          _AuditSkeletonBlock(width: 92, height: 12),
           const SizedBox(width: 22),
-          _AuditSkeletonBlock(width: 120, height: 12, color: color),
+          _AuditSkeletonBlock(width: 120, height: 12),
           const Spacer(),
-          _AuditSkeletonBlock(width: 68, height: 12, color: color),
+          _AuditSkeletonBlock(width: 68, height: 12),
           const SizedBox(width: 18),
-          _AuditSkeletonBlock(width: 74, height: 12, color: color),
+          _AuditSkeletonBlock(width: 74, height: 12),
           const SizedBox(width: 18),
-          _AuditSkeletonBlock(width: 92, height: 12, color: color),
+          _AuditSkeletonBlock(width: 92, height: 12),
         ],
       ),
     );
@@ -683,9 +680,7 @@ class _AuditTableSkeletonHeader extends StatelessWidget {
 }
 
 class _AuditRowSkeleton extends StatelessWidget {
-  const _AuditRowSkeleton({required this.color});
-
-  final Color color;
+  const _AuditRowSkeleton();
 
   @override
   Widget build(BuildContext context) {
@@ -700,15 +695,15 @@ class _AuditRowSkeleton extends StatelessWidget {
       ),
       child: Row(
         children: [
-          _AuditSkeletonBlock(width: 78, height: 12, color: color),
+          _AuditSkeletonBlock(width: 78, height: 12),
           const SizedBox(width: 24),
-          _AuditSkeletonBlock(width: 180, height: 14, color: color),
+          _AuditSkeletonBlock(width: 180, height: 14),
           const Spacer(),
-          _AuditSkeletonBlock(width: 68, height: 22, color: color),
+          _AuditSkeletonBlock(width: 68, height: 22),
           const SizedBox(width: 18),
-          _AuditSkeletonBlock(width: 80, height: 12, color: color),
+          _AuditSkeletonBlock(width: 80, height: 12),
           const SizedBox(width: 22),
-          _AuditSkeletonBlock(width: 106, height: 12, color: color),
+          _AuditSkeletonBlock(width: 106, height: 12),
         ],
       ),
     );
@@ -716,9 +711,7 @@ class _AuditRowSkeleton extends StatelessWidget {
 }
 
 class _AuditCardSkeleton extends StatelessWidget {
-  const _AuditCardSkeleton({required this.color});
-
-  final Color color;
+  const _AuditCardSkeleton();
 
   @override
   Widget build(BuildContext context) {
@@ -734,19 +727,19 @@ class _AuditCardSkeleton extends StatelessWidget {
         children: [
           Row(
             children: [
-              _AuditSkeletonBlock(width: 74, height: 22, color: color),
+              _AuditSkeletonBlock(width: 74, height: 22),
               const Spacer(),
-              _AuditSkeletonBlock(width: 116, height: 12, color: color),
+              _AuditSkeletonBlock(width: 116, height: 12),
             ],
           ),
           const SizedBox(height: 14),
-          _AuditSkeletonBlock(width: 190, height: 16, color: color),
+          _AuditSkeletonBlock(width: 190, height: 16),
           const SizedBox(height: 8),
-          _AuditSkeletonBlock(width: 110, height: 10, color: color),
+          _AuditSkeletonBlock(width: 110, height: 10),
           const SizedBox(height: 16),
-          _AuditSkeletonBlock(width: double.infinity, height: 12, color: color),
+          _AuditSkeletonBlock(width: double.infinity, height: 12),
           const SizedBox(height: 8),
-          _AuditSkeletonBlock(width: 220, height: 12, color: color),
+          _AuditSkeletonBlock(width: 220, height: 12),
         ],
       ),
     );
@@ -757,21 +750,16 @@ class _AuditSkeletonBlock extends StatelessWidget {
   const _AuditSkeletonBlock({
     required this.width,
     required this.height,
-    required this.color,
   });
 
   final double width;
   final double height;
-  final Color color;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
+    return WorkspaceSkeleton(
       width: width,
       height: height,
-      child: DecoratedBox(
-        decoration: BoxDecoration(color: color.withValues(alpha: 0.72)),
-      ),
     );
   }
 }
