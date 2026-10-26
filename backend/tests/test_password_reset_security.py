@@ -13,6 +13,7 @@ from app.schemas.auth import LoginRequest
 from app.services.auth import login
 from app.services.password_reset import (
     EMAIL_ATTEMPTS_PER_HOUR,
+    IP_ATTEMPTS_PER_HOUR,
     confirm_password_reset,
     request_password_reset,
 )
@@ -111,3 +112,30 @@ def test_authenticated_change_revokes_pending_recovery_link(client):
         )
         with pytest.raises(DomainError):
             _confirm(db, issued[2])
+
+
+def test_blocked_ip_cannot_exhaust_another_address_recovery_quota(client):
+    blocked_ip = "198.51.100.88"
+    with SessionLocal() as db:
+        for attempt in range(IP_ATTEMPTS_PER_HOUR):
+            _issue(db, email=f"unknown-{attempt}@example.com", ip=blocked_ip)
+        for _ in range(EMAIL_ATTEMPTS_PER_HOUR + 1):
+            assert _issue(db, email=EMAIL, ip=blocked_ip) is None
+        assert _issue(db, email=EMAIL, ip="198.51.100.89") is not None
+
+
+def test_missing_reset_url_does_not_spend_any_rate_limit(client, monkeypatch):
+    settings = get_settings()
+    monkeypatch.setattr(settings, "password_reset_url", "")
+    with SessionLocal() as db:
+        assert _issue(db) is None
+        assert db.query(PasswordResetThrottle).count() == 0
+        assert db.query(PasswordResetToken).count() == 0
+
+
+def test_request_returns_employee_display_name_for_brevo(client):
+    with SessionLocal() as db:
+        result = _issue(db, email="bianca.nogueira@touchin.com")
+        assert result is not None
+        assert result[0] == "bianca.nogueira@touchin.com"
+        assert result[1] == "Bianca Nogueira"

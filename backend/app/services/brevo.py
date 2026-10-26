@@ -195,8 +195,7 @@ def send_password_reset_email(
     if not _is_brevo_enabled(settings):
         return
 
-    separator = "?" if "#" in settings.password_reset_url else "#"
-    reset_link = f"{settings.password_reset_url}{separator}token={token}"
+    reset_link = f"{settings.password_reset_url}?token={token}"
 
     payload = {
         "sender": {

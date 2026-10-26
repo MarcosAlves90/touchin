@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.config import get_settings
 from app.crypto import FieldCipher, lookup_digest
 from app.db import begin_serialized_write, utcnow
+from app.domain.auth_read import display_name_for_user
 from app.errors import DomainError, ErrorKind
 from app.models import AuthSession, Company, PasswordResetThrottle, PasswordResetToken, UserAccount
 from app.security import hash_password, issue_bearer_token
@@ -53,15 +54,21 @@ def request_password_reset(
     normalized_email = email.strip().lower()
     email_digest = lookup_digest(normalized_email, settings.encryption_secret or "")
 
+    if not settings.password_reset_url:
+        return None
+
     begin_serialized_write(db)
     ip_allowed = _consume_rate_limit(
         db, scope="ip", identifier=client_ip, limit=IP_ATTEMPTS_PER_HOUR, now=now
     )
+    if not ip_allowed:
+        db.commit()
+        return None
     email_allowed = _consume_rate_limit(
         db, scope="email", identifier=normalized_email,
         limit=EMAIL_ATTEMPTS_PER_HOUR, now=now,
     )
-    if not (ip_allowed and email_allowed) or not settings.password_reset_url:
+    if not email_allowed:
         db.commit()
         return None
 
@@ -93,9 +100,11 @@ def request_password_reset(
         PasswordResetToken.user_id == user.id,
         PasswordResetToken.expires_at < now - timedelta(days=7)
     ))
-    recipient = FieldCipher(settings.encryption_secret or "").decrypt(user.email_ciphertext)
+    cipher = FieldCipher(settings.encryption_secret or "")
+    recipient = cipher.decrypt(user.email_ciphertext)
+    display_name = display_name_for_user(db, user=user, field_cipher=cipher)
     db.commit()
-    return recipient or normalized_email, normalized_email, token
+    return recipient or normalized_email, display_name, token
 
 
 def confirm_password_reset(
