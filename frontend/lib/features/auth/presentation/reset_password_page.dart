@@ -1,12 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:touchin_flutter/core/navigation/workspace_router.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
+import 'package:touchin_flutter/core/storage/token_storage.dart';
 import 'package:touchin_flutter/features/auth/presentation/auth_submission_mixin.dart';
 import 'package:touchin_flutter/features/auth/presentation/widgets/auth_shell.dart';
 
 class ResetPasswordPage extends StatefulWidget {
-  const ResetPasswordPage({super.key, required this.token});
+  const ResetPasswordPage({
+    super.key,
+    required this.token,
+    this.api,
+    this.tokenStorage,
+  });
   final String token;
+  final TouchInApi? api;
+  final TokenStorage? tokenStorage;
 
   @override
   State<ResetPasswordPage> createState() => _ResetPasswordPageState();
@@ -14,7 +22,8 @@ class ResetPasswordPage extends StatefulWidget {
 
 class _ResetPasswordPageState extends State<ResetPasswordPage>
     with AuthSubmissionMixin<ResetPasswordPage> {
-  final TouchInApi _api = TouchInApi();
+  TouchInApi get _api => widget.api ?? TouchInApi();
+  TokenStorage get _tokenStorage => widget.tokenStorage ?? TokenStorage();
   final _formKey = GlobalKey<FormState>();
   final _newPassword = TextEditingController();
   final _confirmPassword = TextEditingController();
@@ -28,8 +37,18 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
     super.dispose();
   }
 
-  void _backToLogin() {
+  Future<void> _backToLogin() async {
     final router = WorkspaceRouterScope.maybeOf(context);
+    if (_completed) {
+      // Only a successful confirmation revokes stored credentials.
+      TouchInApi.invalidateAuthContext();
+      await _tokenStorage.clearAccessToken();
+      if (!mounted) return;
+      if (router != null) {
+        Router.neglect(context, router.signedOut);
+        return;
+      }
+    }
     if (router != null) {
       Router.neglect(context, () => router.navigate('/'));
     } else {

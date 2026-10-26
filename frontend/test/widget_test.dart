@@ -227,8 +227,133 @@ void main() {
     expect(find.text('Administrar equipe'), findsOneWidget);
   });
 
+  testWidgets('background resume keeps mounted workspace until auth check ends',
+      (tester) async {
+    tester.binding.platformDispatcher.defaultRouteNameTestValue =
+        '/admin/employees';
+    addTearDown(() {
+      tester.binding.platformDispatcher.defaultRouteNameTestValue = '/';
+    });
+    final storage = _InMemoryTokenStorage()
+      ..savedSession = AuthSession(
+        accessToken: 'token-123',
+        tokenType: 'bearer',
+        expiresAt: DateTime.parse('2099-04-26T18:00:00Z'),
+        company: company,
+        user: user,
+      );
+    final check = Completer<AuthContext>();
+    final api = _FakeTouchInApi(
+      tokenStorage: storage,
+      authContext: const AuthContext(company: company, user: user),
+      authContextRequestCompleters: {2: check},
+    );
+    await tester.pumpWidget(MyApp(api: api, tokenStorage: storage));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    final workspace = tester.element(find.byType(AdminEmployeesPage).last);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    expect(api.authContextRequests, 2);
+    expect(
+        tester.element(find.byType(AdminEmployeesPage).last), same(workspace));
+    expect(find.text('Aguardando o servidor'), findsNothing);
+
+    check.completeError(const SocketException('offline'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.text('Não foi possível validar sua sessão'), findsOneWidget);
+    expect(find.byType(AdminEmployeesPage, skipOffstage: false), findsWidgets);
+    expect(storage.savedSession, isNotNull);
+    await tester.tap(find.text('Tentar novamente'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byType(AdminEmployeesPage), findsWidgets);
+    expect(
+        tester.element(find.byType(AdminEmployeesPage).last), same(workspace));
+    expect(find.text('Aguardando o servidor'), findsNothing);
+  });
+
+  testWidgets('resource 403 does not revoke or replace an active workspace',
+      (tester) async {
+    tester.binding.platformDispatcher.defaultRouteNameTestValue =
+        '/admin/employees';
+    addTearDown(() {
+      tester.binding.platformDispatcher.defaultRouteNameTestValue = '/';
+    });
+    final storage = _InMemoryTokenStorage()
+      ..savedSession = AuthSession(
+        accessToken: 'token-123',
+        tokenType: 'bearer',
+        expiresAt: DateTime.parse('2099-04-26T18:00:00Z'),
+        company: company,
+        user: user,
+      );
+    final check = Completer<AuthContext>();
+    final api = _FakeTouchInApi(
+      tokenStorage: storage,
+      authContext: const AuthContext(company: company, user: user),
+      authContextRequestCompleters: {2: check},
+    );
+    await tester.pumpWidget(MyApp(api: api, tokenStorage: storage));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    final workspace = tester.element(find.byType(AdminEmployeesPage).last);
+    AuthRejectionEvents.onRejected?.call('token-123');
+    await tester.pump();
+    expect(
+        tester.element(find.byType(AdminEmployeesPage).last), same(workspace));
+    expect(find.text('Aguardando o servidor'), findsNothing);
+    check.complete(const AuthContext(company: company, user: user));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(storage.savedSession, isNotNull);
+    expect(find.byType(AdminEmployeesPage), findsWidgets);
+  });
+
+  testWidgets('reset success removes prior local session before login',
+      (tester) async {
+    final storage = _InMemoryTokenStorage()
+      ..savedSession = AuthSession(
+        accessToken: 'token-123',
+        tokenType: 'bearer',
+        expiresAt: DateTime.parse('2099-04-26T18:00:00Z'),
+        company: company,
+        user: user,
+      );
+    final api = _FakeTouchInApi(
+      tokenStorage: storage,
+      authContext: const AuthContext(company: company, user: user),
+    );
+    await tester.pumpWidget(MyApp(api: api, tokenStorage: storage));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    final router = WorkspaceRouterScope.maybeOf(
+      tester.element(find.byType(AdminEmployeesPage)),
+    )!;
+    router.navigate(
+      '/reset-password?token=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(storage.savedSession, isNotNull);
+    await tester.enterText(find.byType(TextFormField).at(0), 'NovaSenha123!');
+    await tester.enterText(find.byType(TextFormField).at(1), 'NovaSenha123!');
+    await tester.tap(find.text('Salvar nova senha'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Senha atualizada'), findsOneWidget);
+    expect(api.resetConfirmRequests, 1);
+    await tester.tap(find.text('Ir para login'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(storage.savedSession, isNull);
+    expect(find.byType(LoginPage), findsOneWidget);
+    expect(find.byType(AdminEmployeesPage), findsNothing);
+  });
+
   testWidgets(
-    'keeps workspace shell visible while a navigated route verifies session',
+    'reuses verified session on internal navigation without redundant bootstrap',
     (WidgetTester tester) async {
       final tokenStorage = _InMemoryTokenStorage()
         ..savedSession = AuthSession(
@@ -238,13 +363,9 @@ void main() {
           company: company,
           user: user,
         );
-      final routeVerification = Completer<AuthContext>();
       final api = _FakeTouchInApi(
         tokenStorage: tokenStorage,
         authContext: const AuthContext(company: company, user: user),
-        authContextRequestCompleters: <int, Completer<AuthContext>>{
-          2: routeVerification,
-        },
       );
 
       await tester.pumpWidget(MyApp(api: api, tokenStorage: tokenStorage));
@@ -260,23 +381,20 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
 
-      expect(api.authContextRequests, 2);
-      expect(find.byKey(const ValueKey<String>('route-session-skeleton')),
-          findsOneWidget);
-      expect(find.text('Aguardando o servidor'), findsNothing);
-      expect(find.byType(AdminEmployeesPage), findsNothing);
-      expect(find.byType(TimeClockPage), findsNothing);
-      expect(find.byTooltip('Abrir menu'), findsOneWidget);
-
-      routeVerification
-          .complete(const AuthContext(company: company, user: user));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 500));
-
-      expect(find.byType(TimeClockPage), findsOneWidget);
+      expect(api.authContextRequests, 1);
       expect(find.byKey(const ValueKey<String>('route-session-skeleton')),
           findsNothing);
+      expect(find.text('Aguardando o servidor'), findsNothing);
+      expect(find.byType(AdminEmployeesPage), findsNothing);
+      expect(find.byType(TimeClockPage), findsOneWidget);
+      expect(find.byTooltip('Abrir menu'), findsOneWidget);
+
+      // An actual auth rejection, unlike navigation, triggers revalidation.
+      AuthRejectionEvents.onRejected?.call('token-123');
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
       expect(api.authContextRequests, 2);
+      expect(find.byType(TimeClockPage), findsOneWidget);
     },
   );
 
@@ -309,12 +427,12 @@ void main() {
       )!
           .navigate('/time-clock');
       await tester.pump();
+      AuthRejectionEvents.onRejected?.call('token-123');
       await tester.pump(const Duration(milliseconds: 500));
 
       expect(find.text('Não foi possível validar sua sessão'), findsOneWidget);
       expect(find.text('Aguardando o servidor'), findsNothing);
       expect(find.byTooltip('Abrir menu'), findsOneWidget);
-      expect(find.byType(TimeClockPage), findsNothing);
       expect(tokenStorage.savedSession, isNotNull);
       expect(api.authContextRequests, 2);
 
@@ -356,7 +474,11 @@ void main() {
         )!
             .navigate('/time-clock');
         await tester.pump();
+        AuthRejectionEvents.onRejected?.call('token-123');
         await tester.pump(const Duration(milliseconds: 500));
+        // The Navigator removes the old workspace page after the session
+        // revocation animation has completed, not during its first frame.
+        await tester.pumpAndSettle();
 
         expect(find.byType(TimeClockPage), findsNothing);
         expect(find.text('Entrar'), findsWidgets);
@@ -753,6 +875,15 @@ class _FakeTouchInApi extends TouchInApi {
   final Completer<AuthContext>? authContextCompleter;
   final Map<int, Completer<AuthContext>>? authContextRequestCompleters;
   int authContextRequests = 0;
+  int resetConfirmRequests = 0;
+
+  @override
+  Future<void> confirmPasswordReset({
+    required String token,
+    required String newPassword,
+  }) async {
+    resetConfirmRequests++;
+  }
 
   @override
   Future<AuthContext> getAuthContext() async {
