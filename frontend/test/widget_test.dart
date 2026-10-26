@@ -227,6 +227,146 @@ void main() {
     expect(find.text('Administrar equipe'), findsOneWidget);
   });
 
+  testWidgets(
+    'keeps workspace shell visible while a navigated route verifies session',
+    (WidgetTester tester) async {
+      final tokenStorage = _InMemoryTokenStorage()
+        ..savedSession = AuthSession(
+          accessToken: 'token-123',
+          tokenType: 'bearer',
+          expiresAt: DateTime.parse('2099-04-26T18:00:00Z'),
+          company: company,
+          user: user,
+        );
+      final routeVerification = Completer<AuthContext>();
+      final api = _FakeTouchInApi(
+        tokenStorage: tokenStorage,
+        authContext: const AuthContext(company: company, user: user),
+        authContextRequestCompleters: <int, Completer<AuthContext>>{
+          2: routeVerification,
+        },
+      );
+
+      await tester.pumpWidget(MyApp(api: api, tokenStorage: tokenStorage));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.byType(AdminEmployeesPage), findsOneWidget);
+      expect(api.authContextRequests, 1);
+
+      WorkspaceRouterScope.maybeOf(
+        tester.element(find.byType(AdminEmployeesPage)),
+      )!
+          .navigate('/time-clock');
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(api.authContextRequests, 2);
+      expect(find.byKey(const ValueKey<String>('route-session-skeleton')),
+          findsOneWidget);
+      expect(find.text('Aguardando o servidor'), findsNothing);
+      expect(find.byType(AdminEmployeesPage), findsNothing);
+      expect(find.byType(TimeClockPage), findsNothing);
+      expect(find.byTooltip('Abrir menu'), findsOneWidget);
+
+      routeVerification
+          .complete(const AuthContext(company: company, user: user));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(find.byType(TimeClockPage), findsOneWidget);
+      expect(find.byKey(const ValueKey<String>('route-session-skeleton')),
+          findsNothing);
+      expect(api.authContextRequests, 2);
+    },
+  );
+
+  testWidgets(
+    'shows a scoped retry after route verification fails transiently',
+    (WidgetTester tester) async {
+      final tokenStorage = _InMemoryTokenStorage()
+        ..savedSession = AuthSession(
+          accessToken: 'token-123',
+          tokenType: 'bearer',
+          expiresAt: DateTime.parse('2099-04-26T18:00:00Z'),
+          company: company,
+          user: user,
+        );
+      final api = _FakeTouchInApi(
+        tokenStorage: tokenStorage,
+        authContextResults: <Object>[
+          const AuthContext(company: company, user: user),
+          ApiException('Serviço temporariamente indisponível.',
+              statusCode: 503),
+          const AuthContext(company: company, user: user),
+        ],
+      );
+
+      await tester.pumpWidget(MyApp(api: api, tokenStorage: tokenStorage));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      WorkspaceRouterScope.maybeOf(
+        tester.element(find.byType(AdminEmployeesPage)),
+      )!
+          .navigate('/time-clock');
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(find.text('Não foi possível validar sua sessão'), findsOneWidget);
+      expect(find.text('Aguardando o servidor'), findsNothing);
+      expect(find.byTooltip('Abrir menu'), findsOneWidget);
+      expect(find.byType(TimeClockPage), findsNothing);
+      expect(tokenStorage.savedSession, isNotNull);
+      expect(api.authContextRequests, 2);
+
+      await tester.tap(find.text('Tentar novamente'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(find.byType(TimeClockPage), findsOneWidget);
+      expect(find.text('Não foi possível validar sua sessão'), findsNothing);
+      expect(api.authContextRequests, 3);
+    },
+  );
+
+  for (final statusCode in <int>[401, 403]) {
+    testWidgets(
+      'route verification $statusCode still revokes the session',
+      (WidgetTester tester) async {
+        final tokenStorage = _InMemoryTokenStorage()
+          ..savedSession = AuthSession(
+            accessToken: 'token-123',
+            tokenType: 'bearer',
+            expiresAt: DateTime.parse('2099-04-26T18:00:00Z'),
+            company: company,
+            user: user,
+          );
+        final api = _FakeTouchInApi(
+          tokenStorage: tokenStorage,
+          authContextResults: <Object>[
+            const AuthContext(company: company, user: user),
+            ApiException('Sessão revogada', statusCode: statusCode),
+          ],
+        );
+
+        await tester.pumpWidget(MyApp(api: api, tokenStorage: tokenStorage));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 500));
+        WorkspaceRouterScope.maybeOf(
+          tester.element(find.byType(AdminEmployeesPage)),
+        )!
+            .navigate('/time-clock');
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 500));
+
+        expect(find.byType(TimeClockPage), findsNothing);
+        expect(find.text('Entrar'), findsWidgets);
+        expect(find.text('Aguardando o servidor'), findsNothing);
+        expect(tokenStorage.savedSession, isNull);
+        expect(api.authContextRequests, 2);
+      },
+    );
+  }
+
   testWidgets('keeps opaque themed backgrounds during auth navigation', (
     WidgetTester tester,
   ) async {
@@ -601,6 +741,7 @@ class _FakeTouchInApi extends TouchInApi {
     this.authContextError,
     this.authContextResults,
     this.authContextCompleter,
+    this.authContextRequestCompleters,
   }) : super(tokenStorage: tokenStorage);
 
   final TokenStorage tokenStorage;
@@ -608,11 +749,16 @@ class _FakeTouchInApi extends TouchInApi {
   final ApiException? authContextError;
   final List<Object>? authContextResults;
   final Completer<AuthContext>? authContextCompleter;
+  final Map<int, Completer<AuthContext>>? authContextRequestCompleters;
   int authContextRequests = 0;
 
   @override
   Future<AuthContext> getAuthContext() async {
     authContextRequests += 1;
+    final requestCompleter = authContextRequestCompleters?[authContextRequests];
+    if (requestCompleter != null) {
+      return await requestCompleter.future;
+    }
     if (authContextCompleter != null) {
       return await authContextCompleter!.future;
     }
