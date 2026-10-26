@@ -577,6 +577,14 @@ def test_postgres_admin_punch_write_waits_for_employee_lock(pg_read_committed):
 
     factory, engine = pg_read_committed
     about_to_lock = Event()
+    with factory() as db:
+        last = db.scalar(select(Punch).where(
+            Punch.employee_id == "emp-04",
+        ).order_by(Punch.timestamp.desc(), Punch.id.desc()).limit(1))
+        assert last is not None and last.type == PunchType.check_out.value
+        # Preserve a valid checkOut -> checkIn edge: this test isolates the
+        # employee row lock, not rejection of invalid punch sequences.
+        new_timestamp = ensure_utc(last.timestamp) + timedelta(hours=1)
 
     def observe(conn, cursor, statement, parameters, context, many):
         if "FROM employees" in statement and "FOR UPDATE" in statement:
@@ -588,7 +596,7 @@ def test_postgres_admin_punch_write_waits_for_employee_lock(pg_read_committed):
                 db, company_id="company-touchin", employee_id="emp-04",
                 payload=ManagePunchRequest(
                     type=PunchType.check_in,
-                    timestamp=datetime(2025, 2, 1, 8, tzinfo=timezone.utc),
+                    timestamp=new_timestamp,
                 ),
             )
 
