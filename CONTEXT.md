@@ -1,304 +1,116 @@
-# CONTEXT.md — TouchIn App
+# CONTEXT.md — TouchIn
 
-- Última atualização: 2026-10-07
-- Versão do documento: 1.2.2
-- Mantenedor: Time Platform
+- Última atualização: 2026-10-25
+- Versão do documento: 1.2.3
 
 ---
 
 ## 1. Visão Geral do Projeto
 
-App de gerenciamento empresarial para registro de ponto eletrônico, controle de jornada e alocação de funcionários em projetos.
+TouchIn é uma aplicação web para registro de ponto e gestão de equipes, com frontend Flutter e backend FastAPI.
 
-- **Público-alvo:** PMs, líderes de equipe e funcionários
-- **Problema resolvido:** Centralizar ponto, jornada e alocação com privacidade de dados pessoais
-- **Estado atual:** Frontend Flutter com tema global persistido, tela de configurações, gestão de projetos e tarefas, painel administrativo e fluxo de ponto com registro obrigatório de atividades ao iniciar pausa ou encerrar a jornada; backend com read models separados, sessão extraída, bootstrap dedicado e sem bus de eventos interno
-- **Links:** [docs](./docs), [frontend](./frontend), [backend](./backend)
-
----
+- Capacidades: autenticação, jornada/ponto, funcionários, projetos, tarefas, Kanban e funções administrativas.
+- [Frontend](./frontend), [backend](./backend), [documentação](./docs) e [início rápido](./README.md).
 
 ## 2. Stack Tecnológica
 
-| Tecnologia | Versão | Papel |
-|---|---:|---|
-| Flutter | 3.x | Frontend mobile/web |
-| Dart | >=3.0 | Linguagem do frontend |
-| FastAPI | 0.115.x | API REST |
-| SQLAlchemy | 2.0.x | ORM |
-| SQLite | dev | Banco local |
-| PostgreSQL | 15.x | Banco de produção/staging |
-| Uvicorn | 0.32.x | Servidor ASGI |
-| Cryptography | 44.x | Criptografia de PII |
-| Pytest | 8.3.x | Testes do backend |
-| Brevo API | — | E-mail transacional |
+| Tecnologia | Referência versionada | Papel |
+|---|---|---|
+| Flutter/Dart | Flutter stable no CI; intervalo Dart em `frontend/pubspec.yaml` | Frontend web |
+| Python | 3.12 no CI; restrições em `backend/requirements.txt` | Backend e gates POLIS |
+| FastAPI, SQLAlchemy, Pydantic | Restrições em `backend/requirements.txt` | API e persistência |
+| SQLite | URL padrão em `backend/app/config.py` | Banco local |
+| PostgreSQL/psycopg2 | Dependência `psycopg2-binary`; URL compatível descrita em `backend/app/db.py` | Banco alternativo |
 
----
+As versões/ranges completos devem ser lidos nos manifests e no workflow de CI, não inferidos deste resumo.
 
 ## 3. Arquitetura
 
-- **Frontend:** Clean Architecture por feature, com módulos em `auth`, `admin`, `settings`, `shared` e `time_tracking`
-- **Backend:** Monólito modular com FastAPI, rotas por domínio em `api/routes/`, comandos em `services/`, read models e regras compartilhadas em `domain/`, lifecycle em `bootstrap.py` e upgrade de schema em `database_schema.py`
-- **Persistência:** SQLAlchemy declarativo com UUIDs string como chaves primárias
-- **Criptografia:** PII armazenada como ciphertext + hash para lookup. AES-GCM via `cryptography`
-- **Autenticação:** Bearer token aleatório com hash em `auth_sessions`. Não usa JWT nem refresh token dedicado
-- **Tema global:** `ThemeModeController` no frontend controla claro, escuro e seguir sistema, com padrão escuro e persistência local
-- **Notificações:** e-mails transacionais via Brevo para boas-vindas, reset de senha, alteração de senha e credenciais de funcionário
-
----
+- O Flutter organiza a UI por áreas em `frontend/lib/features/` e mantém configuração, navegação, rede, armazenamento e tema em `frontend/lib/core/`.
+- O backend registra rotas em `backend/app/api/`, com código relacionado em `domain/` e `services/`.
+- `backend/app/config.py` centraliza configuração por ambiente. O banco padrão é SQLite; as formas de URL PostgreSQL suportadas estão em `backend/app/db.py`.
+- O contrato versionado da API começa em `/api/v1`.
 
 ## 4. Estrutura de Pastas
 
 ```text
-backend/
-  app/
-    api/
-      router.py
-      routes/
-    domain/
-    schemas/
-    services/
-    main.py
-    models.py
-    security.py
-    crypto.py
-    authorization.py
-    bootstrap.py
-    database_schema.py
-    dependencies.py
-    seed.py
-    scripts/
-  tests/
-  .env.example
-  requirements.txt
-  pytest.ini
-
-frontend/
-  lib/
-    main.dart
-    contracts/
-    core/
-      config/
-      forms/
-      network/
-      storage/
-      theme/
-    features/
-      admin/
-        presentation/
-          admin_employees_page.dart
-          admin_employees_page_widgets.dart
-      auth/
-        presentation/
-          auth_session_navigation.dart
-          forgot_password_page.dart
-          login_page.dart
-          logout_navigation.dart
-          must_change_password_page.dart
-          register_page.dart
-          widgets/
-            auth_shell.dart
-            auth_form_widgets.dart
-      settings/
-        presentation/
-          settings_page.dart
-      shared/
-      time_tracking/
-    theme/
-  test/
+backend/app/       API, domínio, serviços e persistência
+backend/tests/     testes do backend
+frontend/lib/      app Flutter
+frontend/test/     testes do frontend
+docs/              relatórios e contratos POLIS versionados
+.polis/            policy de validação do repositório
 ```
 
----
+Consulte os diretórios atuais antes de assumir que este mapa enumera todos os módulos.
 
 ## 5. Convenções de Código
 
-- **Backend:** snake_case para funções/variáveis, PascalCase para classes
-- **Frontend:** lowerCamelCase para funções/variáveis, PascalCase para widgets e classes
-- **IDs:** UUID v4 string (`str(uuid4())`)
-- **PII:** sufixo `_ciphertext` para dados criptografados e `_hash` para índices de lookup
-- **Datas:** `DateTime(timezone=True)` no backend e datas com fuso explícito quando possível
-- **Commits:** Conventional Commits (`feat`, `fix`, `chore`, `docs`, `test`)
-- **Linter:** `analysis_options.yaml` no frontend; `pytest` e checks Python no backend
-- **Tipos:** evitar `dynamic` no Dart e `Any` no Python, salvo necessidade real
-
----
+- Python: `snake_case` para funções/variáveis e `PascalCase` para classes.
+- Dart: `lowerCamelCase` para membros e `UpperCamelCase` para tipos/widgets.
+- O frontend usa `analysis_options.yaml`; o backend usa `pytest`.
+- Arquivos gerados como `*.freezed.dart` devem ser regenerados pela ferramenta correspondente, não editados manualmente.
+- O fluxo local de validação e os gates estão em [docs/DEVELOPMENT.md](./docs/DEVELOPMENT.md) e `.polis/policy.json`.
 
 ## 6. Fluxos Críticos
 
-### Autenticação
-1. `POST /api/v1/auth/register-company` cria empresa, usuário inicial e sessão
-2. `POST /api/v1/auth/login` valida e-mail e senha e cria `AuthSession`
-3. `POST /api/v1/auth/reset-password` gera senha temporária e dispara e-mail em background
-4. `POST /api/v1/auth/change-password` exige contexto autenticado e envia confirmação por e-mail
-5. `GET /api/v1/auth/me` devolve o contexto autenticado
-6. `POST /api/v1/auth/logout` revoga a sessão e limpa token + sessão local
-7. O frontend armazena a sessão auth em `flutter_secure_storage`, revalida no startup e envia `Authorization: Bearer <token>`
+- Login e operações protegidas usam bearer token opaco; a API mantém sessões rastreáveis e valida o token conforme o código de autenticação.
+- O frontend consulta a API em `/api/v1`; endereço local e configuração web estão em `frontend/lib/core/config/app_config.dart` e [docs/DEVELOPMENT.md](./docs/DEVELOPMENT.md).
+- O módulo de ponto expõe ações `checkIn`, `breakStart`, `breakEnd` e `checkOut`; a API e suas regras atuais são a fonte de verdade.
+- Setup de build web e limites de deploy estão em [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md). O repositório não define URLs de produção.
 
-### Criação de Funcionário
-1. Admin cria ou edita funcionário em `/api/v1/employees`
-2. Campos sensíveis são criptografados antes da persistência
-3. O frontend usa validação e máscaras, mas o backend continua sendo a fonte de verdade
-4. A criação dispara e-mail com credenciais temporárias em background
-5. A listagem e o detalhe respeitam a empresa do contexto autenticado e o timezone da empresa
+## 7. Decisões Arquiteturais
 
-### Registro de Ponto
-1. Funcionário registra entrada, pausa ou saída em `/api/v1/time-clock/me/punches`
-2. O estado atual vem de `/api/v1/time-clock/me`
-3. Time clock gerenciado usa rotas em `/api/v1/time-clock/employees/{employee_id}/punches?page=&limit=`
-4. O timestamp vem do servidor
-5. Metadados e payloads opcionais ficam criptografados
-6. Regras de localização e dispositivo confiável são aplicadas quando habilitadas
-7. O módulo de time clock exige vínculo com employee para acesso ao fluxo próprio do usuário
-8. Os tipos de ponto expostos no contrato atual são `checkIn`, `checkOut`, `breakStart` e `breakEnd`
-9. Ao iniciar uma pausa (`breakStart`) ou encerrar a jornada (`checkOut`) enquanto está trabalhando, o funcionário informa projeto, descrição não vazia e ao menos uma tarefa antes do envio
-10. Projetos ativos e tarefas são carregados pelas APIs existentes, que continuam aplicando as regras de autorização
-11. Entrada (`checkIn`) e retomada da jornada (`breakEnd`) não exigem registro de atividades; a saída não pode ser registrada durante uma pausa, que deve ser encerrada primeiro
-
-### Tema Global
-1. O app inicia com `ThemeModeController`
-2. O modo salvo é carregado do armazenamento seguro
-3. O padrão quando não há preferência salva é `ThemeMode.dark`
-4. A tela de configurações permite escolher `claro`, `escuro` ou `seguir sistema`
-5. A preferência é persistida por `ThemePreferenceStore`
-6. A escolha é aplicada globalmente sem reiniciar o app
-
----
-
-## 7. Decisões Arquiteturais (ADR)
-
-### ADR-001: Criptografia de PII em nível de aplicação
-
-- **Data:** 2026-05-23
-- **Contexto:** Dados pessoais não podem ficar em texto simples no banco
-- **Decisão:** Criptografia simétrica AES-GCM via `cryptography`
-- **Alternativas:** pgcrypto no banco, hashing apenas
-- **Consequências:** Lookup por hash, overhead de descriptografia e necessidade de recriptografia em troca de chave
-
-### ADR-002: Autenticação estateless com bearer token rastreável
-
-- **Data:** 2026-05-23
-- **Contexto:** Necessidade de revogar sessões individuais
-- **Decisão:** Token aleatório com hash em `auth_sessions`
-- **Alternativas:** JWT ou OAuth2 completo
-- **Consequências:** Lookup em banco a cada request, mas revogação simples e controle de expiração
-
-### ADR-003: UUID string como chave primária
-
-- **Data:** 2026-05-23
-- **Contexto:** Evitar IDs sequenciais expostos
-- **Decisão:** UUID v4 em string
-- **Alternativas:** Inteiro auto-incremento ou UUID binário
-- **Consequências:** Índices maiores, mas compatibilidade alta entre ambientes
-
----
+Este arquivo é um resumo, não um registro de ADR. Contratos de mudança aprovados ficam em [`docs/contracts/`](./docs/contracts/). Confira o contrato e o código atuais antes de tratar uma especificação histórica como comportamento presente.
 
 ## 8. Segurança
 
-- **Senhas:** PBKDF2-SHA256 com 310.000 iterações e salt de 16 bytes
-- **Tokens:** `secrets.token_urlsafe(32)` com hash SHA-256 armazenado em `auth_sessions.token_hash`
-- **PII:** AES-GCM com chave de 256 bits via `TOUCHIN_ENCRYPTION_SECRET`
-- **Lookup:** campos sensíveis também recebem hash para busca e unicidade
-- **CORS:** Configurável via `TOUCHIN_ALLOWED_ORIGINS`
-- **HTTPS:** Middleware `https_guard` bloqueia tráfego não seguro quando ativado
-- **Secrets:** `TOUCHIN_TOKEN_SECRET` e `TOUCHIN_ENCRYPTION_SECRET` são obrigatórios
-- **RBAC:** `authorization.py` concentra permissões por papel e checagem de acesso
-- **Seed:** `seed.py` tem builders pequenos e `seed_database` como entrada simples para testes e bootstrap
-- **Frontend:** sessão auth fica no `flutter_secure_storage`, não em armazenamento comum
-
----
+- O backend usa bearer tokens opacos; sessões guardam um hash de lookup do token.
+- Senhas são verificadas com PBKDF2-HMAC-SHA256; parâmetros implementados estão em `backend/app/security.py`.
+- `FieldCipher` protege campos selecionados e payloads JSON; a implementação está em `backend/app/crypto.py`.
+- `TOUCHIN_TOKEN_SECRET` e `TOUCHIN_ENCRYPTION_SECRET` são obrigatórios. Use secrets por ambiente e não copie placeholders de `.env.example` para produção.
+- Esse resumo não representa certificação ou avaliação de conformidade.
 
 ## 9. Ambientes
 
-| Ambiente | URL | DB | Acesso | Deploy automático |
-|---|---|---|---|---|
-| dev | `http://localhost:8000` | SQLite (`./touchin.db`) | equipe | `uvicorn app.main:app --reload` |
-| staging | TBD | PostgreSQL | QA | TBD |
-| prod | TBD | PostgreSQL | usuários finais | TBD |
-
----
+| Ambiente | Estado confirmado no repositório |
+|---|---|
+| Desenvolvimento local | `.env.example` usa SQLite. Os comandos atuais estão em `docs/DEVELOPMENT.md`. |
+| CI | `.github/workflows/ci.yml` define Python 3.12, Flutter stable e os jobs de teste/gates. |
+| Staging/produção | URLs e provedor do backend não estão definidos nos arquivos inspecionados; confirme no ambiente de deploy. |
 
 ## 10. Integrações Externas
 
-### Brevo
-
-- **API Key:** `TOUCHIN_BREVO_API_KEY`
-- **Remetente:** `TOUCHIN_BREVO_SENDER_EMAIL` e `TOUCHIN_BREVO_SENDER_NAME`
-- **Uso:** e-mail de boas-vindas, reset de senha, confirmação de senha alterada e credenciais temporárias
-- **Comportamento em falha:** registra log e não bloqueia o fluxo principal
-
----
+O código de configuração prevê integração de e-mail Brevo por `TOUCHIN_BREVO_*`. Credenciais e remetentes reais pertencem à configuração segura de cada ambiente; não são documentados aqui.
 
 ## 11. Padrões de API
 
-- **Prefixo:** `/api/v1`
-- **Formato:** JSON
-- **Autenticação:** `Authorization: Bearer <token>`
-- **Erros:** `{"detail": "mensagem"}`
-- **Principais rotas:**
-  - `/auth/register-company`
-  - `/auth/login`
-  - `/auth/reset-password`
-  - `/auth/change-password`
-  - `/auth/me`
-  - `/auth/logout`
-  - `/employees`
-  - `/employees/{employee_id}/projects`
-  - `/projects`
-  - `/time-clock/me`
-  - `/time-clock/me/punches`
-  - `/time-clock/employees/{employee_id}/punches`
-  - `/admin`
-  - `/health`
-
----
+- Prefixo: `/api/v1`.
+- Health público implementado: `GET /api/v1/health`.
+- Áreas de rota: `/auth`, `/employees`, `/projects` (inclui tarefas, Kanban e relatórios), `/time-clock`, `/audit-events` e `/admin`.
+- `/docs` e `/openapi.json` são expostos pelo FastAPI durante execução local.
+- Métodos, schemas e autenticação por operação devem ser consultados no OpenAPI e nas rotas em `backend/app/api/routes/`.
 
 ## 12. Regras de Negócio
 
-- **Empresa:** CNPJ único por hash, consentimento obrigatório e timezone configurável
-- **Funcionário:** e-mail único por empresa, status, modo de trabalho e nível de acesso definidos
-- **Perfil vinculado:** algumas rotas exigem employee associado ao usuário autenticado
-- **Projetos:** funcionários podem ser listados por projeto e alocados por empresa
-- **Ponto:** tipos `clock_in`, `clock_out`, `break_start`, `break_end`
-- **Registro de atividades:** `break_start` e `clock_out` durante uma jornada em andamento exigem projeto, descrição não vazia e pelo menos uma tarefa autorizada
-- **Projeto:** associação N:N entre empresas e funcionários via tabela de junção
-- **Sessão:** `expires_at` e `revoked_at` controlam validade e logout
-- **Seed:** admin padrão pode ser criado na inicialização quando o banco estiver vazio
-
----
+As regras de ponto, autorização, escopo empresarial e validação estão nas rotas, serviços, domínio e schemas do backend. Este resumo não substitui esses contratos; os tipos de ação de ponto seguem os valores camelCase listados acima.
 
 ## 13. Observações para IA
 
-- **Arquivos gerados:** `*.freezed.dart` não devem ser editados manualmente
-- **Frontend:** rodar `dart run build_runner build` após alterar `contracts/`
-- **Tema global:** o modo atual fica em `ThemeModeController` e o padrão é escuro
-- **Auth:** páginas de auth compartilham widgets comuns em `features/auth/presentation/widgets/`
-- **Admin:** `admin_employees_page.dart` foi dividido em arquivo principal + widgets auxiliares; pontos e membros estão mais compactos e o seletor desktop evita quebra de texto
-- **Theme store:** o valor salvo do tema passa por `ThemePreferenceStore` em `core/theme/theme_mode_controller.dart`
-- **Docs:** manter este arquivo e o `README.md` alinhados ao estado atual do repositório
-- **Segredos:** nunca commitar valores reais de secret
-- **Testes:** rodar `pytest` no backend e `flutter test` no frontend antes de commitar mudanças funcionais
+- Leia instruções do repositório e `.polis/policy.json` antes de alterar o projeto.
+- Preserve dados sensíveis e nunca registre secrets reais em documentação, testes ou Git.
+- Siga os comandos de `docs/DEVELOPMENT.md`; não presuma que `npm run verify` exista.
+- Verifique manifests, CI e código antes de atualizar versões, variáveis ou caminhos neste arquivo.
 
----
+## 14. Pendências Técnicas
 
-## 14. Pendências Técnicas (Tech Debt)
-
-- [ ] Considerar tool de migrations para o banco
-- [ ] Adicionar testes de integração para fluxos completos de auth e ponto
-- [ ] Documentar melhor a tela de configurações e o comportamento de tema por dispositivo
-- [ ] Revisar a estratégia de deploy para staging e produção
-
----
+Este documento não é a fonte de status do backlog. Issues e contratos devem ser consultados para confirmar pendências; esta auditoria não revalidou o backlog técnico completo.
 
 ## 15. Glossário
 
 | Termo | Definição |
 |---|---|
-| TouchIn | Nome do app |
-| Punch | Registro de ponto |
-| Company | Empresa cliente |
-| Employee | Funcionário vinculado a uma empresa |
-| Workspace | Área de trabalho do app com navegação e contexto |
-| PII | Personally Identifiable Information |
-| Ciphertext | Dado criptografado armazenado em banco |
-| Hash | Valor derivado usado para lookup |
-| Brevo | Plataforma de e-mail transacional |
-| ThemeModeController | Controlador global do tema no frontend |
+| Ponto | Registro de jornada de trabalho |
+| Bearer token opaco | Token aleatório de sessão, validado pelo backend |
+| PII | Informação pessoal identificável |
+| `FieldCipher` | Componente de criptografia de campos em `backend/app/crypto.py` |
