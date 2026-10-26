@@ -83,8 +83,11 @@ void main() {
             _contrast(badge.tone, badgeBackground), greaterThanOrEqualTo(4.5),
             reason: '$brightness: ${state.value} badge');
 
-        final locationHeading =
-            tester.widget<Text>(find.text('Permissão bloqueada').first);
+        final locationHeading = tester.widget<Text>(
+          find.byKey(
+            const ValueKey<String>('time-clock-location-status-heading'),
+          ),
+        );
         final locationForeground = locationHeading.style!.color!;
         final locationBackground = Color.alphaBlend(
           locationForeground.withValues(alpha: 0.08),
