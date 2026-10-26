@@ -31,6 +31,11 @@ class Settings:
             "sqlite:///./touchin.db",
         )
         self.timezone = os.getenv("TOUCHIN_TIMEZONE", "America/Sao_Paulo")
+        self.audit_export_max_bytes = int(
+            os.getenv("TOUCHIN_AUDIT_EXPORT_MAX_BYTES", str(1024 * 1024))
+        )
+        if self.audit_export_max_bytes < 1:
+            raise ValueError("TOUCHIN_AUDIT_EXPORT_MAX_BYTES must be positive")
         self.token_secret = os.getenv("TOUCHIN_TOKEN_SECRET")
         self.encryption_secret = os.getenv("TOUCHIN_ENCRYPTION_SECRET")
         self.token_ttl_hours = int(os.getenv("TOUCHIN_TOKEN_TTL_HOURS", "12"))

@@ -573,6 +573,30 @@ void main() {
     );
   });
 
+  testWidgets('over-limit export explains count and suggests narrower filters',
+      (
+    tester,
+  ) async {
+    final api = FakeAuditExportApi(events: [event(1)])
+      ..exportError = ApiException(
+        'O CSV de 9000 registros excede o limite de 1 MiB. Restrinja os filtros e tente novamente.',
+        statusCode: 413,
+        code: 'audit_export_too_large',
+      );
+
+    await pumpPage(tester, api);
+    await tester.ensureVisible(
+      find.byKey(const ValueKey<String>('audit-export-button')),
+    );
+    await tester.tap(find.byKey(const ValueKey<String>('audit-export-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('9000 registros'), findsOneWidget);
+    expect(find.textContaining('1 MiB'), findsOneWidget);
+    expect(find.textContaining('Restrinja os filtros'), findsOneWidget);
+    expect(api.exportCalls, 1);
+  });
+
   testWidgets('successful export status clears when the filter draft changes', (
     tester,
   ) async {

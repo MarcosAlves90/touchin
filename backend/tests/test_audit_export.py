@@ -5,6 +5,7 @@ import io
 from datetime import datetime, timedelta, timezone
 
 from app.db import SessionLocal
+from app.config import Settings
 from app.models import AuditEvent, Company
 from app.seed import CAIO_EMAIL, JOAO_EMAIL, MARINA_EMAIL
 from app.services.audit_export import CSV_COLUMNS
@@ -408,3 +409,81 @@ def test_export_exposes_row_count_header_to_browser_origins(client):
     exposed = response.headers["access-control-expose-headers"]
     assert "X-Audit-Export-Rows" in exposed
     assert "Content-Disposition" in exposed
+
+
+def test_export_rejects_csv_over_configured_byte_limit_with_exact_count(
+    client, monkeypatch
+):
+    company_id = _company_id()
+    _add_events(
+        [
+            _event(
+                "evt_export_limit_001",
+                company_id=company_id,
+                timestamp=datetime(2026, 4, 1, 12, 0, tzinfo=timezone.utc),
+                entity_id="oversize-row-001",
+                entity_type="export-limit",
+                action="export.limit.test",
+            )
+        ]
+    )
+    monkeypatch.setenv("TOUCHIN_AUDIT_EXPORT_MAX_BYTES", "1")
+    monkeypatch.setattr("app.api.routes.audit.get_settings", Settings)
+
+    response = client.get(
+        "/api/v1/audit-events/export",
+        headers=_export_headers(client),
+        params={"entity_type": "export-limit", "action": "export.limit.test"},
+    )
+
+    assert response.status_code == 413
+    assert response.json()["code"] == "audit_export_too_large"
+    assert response.json()["row_count"] == 1
+    assert response.json()["max_bytes"] == 1
+    assert "1 registro" in response.json()["message"]
+    assert b"timestamp_utc" not in response.content
+
+
+def test_export_byte_limit_accepts_exact_boundary_and_rejects_one_byte_less(
+    client, monkeypatch
+):
+    company_id = _company_id()
+    _add_events(
+        [
+            _event(
+                "evt_export_limit_boundary",
+                company_id=company_id,
+                timestamp=datetime(2026, 4, 1, 12, 0, tzinfo=timezone.utc),
+                entity_id="boundary-row",
+                entity_type="limit-boundary",
+                action="export.limit.boundary",
+            ),
+            _event(
+                "evt_export_limit_boundary_other",
+                company_id=company_id,
+                timestamp=datetime(2026, 4, 1, 11, 0, tzinfo=timezone.utc),
+                entity_id="excluded-row",
+                entity_type="other-type",
+                action="export.limit.boundary",
+            ),
+        ]
+    )
+    monkeypatch.setattr("app.api.routes.audit.get_settings", Settings)
+    params = {"entity_type": "limit-boundary", "action": "export.limit.boundary"}
+    headers = _export_headers(client)
+    monkeypatch.setenv("TOUCHIN_AUDIT_EXPORT_MAX_BYTES", str(1024 * 1024))
+    reference = client.get("/api/v1/audit-events/export", headers=headers, params=params)
+    assert reference.status_code == 200
+    exact_size = len(reference.content)
+
+    monkeypatch.setenv("TOUCHIN_AUDIT_EXPORT_MAX_BYTES", str(exact_size))
+    exact = client.get("/api/v1/audit-events/export", headers=headers, params=params)
+    assert exact.status_code == 200
+    assert exact.content == reference.content
+
+    monkeypatch.setenv("TOUCHIN_AUDIT_EXPORT_MAX_BYTES", str(exact_size - 1))
+    over = client.get("/api/v1/audit-events/export", headers=headers, params=params)
+    assert over.status_code == 413
+    assert over.json()["row_count"] == 1
+    assert over.json()["max_bytes"] == exact_size - 1
+    assert "boundary-row" not in over.text

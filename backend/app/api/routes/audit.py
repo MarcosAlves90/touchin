@@ -6,10 +6,11 @@ from datetime import datetime, timezone
 from typing import BinaryIO
 
 from fastapi import APIRouter, Depends, Query
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.authorization import require_permission
+from app.config import get_settings
 from app.dependencies import get_db
 from app.services.auth import AuthenticatedContext
 from app.schemas.audit import AuditEventResponse
@@ -18,7 +19,7 @@ from app.domain.audit_read import (
     iter_audit_export_rows,
     list_audit_events,
 )
-from app.services.audit_export import write_audit_csv
+from app.services.audit_export import AuditCsvTooLarge, write_audit_csv
 
 router = APIRouter()
 
@@ -86,8 +87,12 @@ def _materialize_audit_export(
         row_count = write_audit_csv(
             iter_audit_export_rows(db, company_id=company_id, filters=filters),
             spool,
+            max_bytes=get_settings().audit_export_max_bytes,
         )
         spool.seek(0)
+    except AuditCsvTooLarge:
+        spool.close()
+        raise
     except Exception:
         spool.close()
         raise
@@ -107,12 +112,33 @@ def export_audit_events_route(
     filters: AuditEventFilters = Depends(audit_event_filters),
     context: AuthenticatedContext = Depends(require_permission("audit.read")),
     db: Session = Depends(get_db),
-) -> StreamingResponse:
-    spool, row_count = _materialize_audit_export(
-        db,
-        company_id=context.company.id,
-        filters=filters,
-    )
+) -> Response:
+    try:
+        spool, row_count = _materialize_audit_export(
+            db,
+            company_id=context.company.id,
+            filters=filters,
+        )
+    except AuditCsvTooLarge as error:
+        record_label = "registro" if error.row_count == 1 else "registros"
+        limit_label = (
+            f"{error.max_bytes // (1024 * 1024)} MiB"
+            if error.max_bytes % (1024 * 1024) == 0
+            else f"{error.max_bytes:,} bytes"
+        )
+        return JSONResponse(
+            status_code=413,
+            content={
+                "code": "audit_export_too_large",
+                "message": (
+                    f"O CSV de {error.row_count} {record_label} excede o limite de "
+                    f"{limit_label}. "
+                    "Restrinja os filtros e tente novamente."
+                ),
+                "row_count": error.row_count,
+                "max_bytes": error.max_bytes,
+            },
+        )
     filename = f"audit-events-{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}.csv"
 
     return StreamingResponse(
