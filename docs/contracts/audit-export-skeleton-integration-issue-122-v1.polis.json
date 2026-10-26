@@ -1,0 +1,344 @@
+{
+  "schema_version": 6,
+  "kind": "feature",
+  "scope": {
+    "allowed_paths": [
+      "backend/app/api/routes/audit.py",
+      "backend/app/config.py",
+      "backend/app/domain/audit_read.py",
+      "backend/app/main.py",
+      "backend/app/services/audit_export.py",
+      "backend/tests/test_audit_export.py",
+      "docs/contracts/audit-export-limit-issue-113-v1.polis.json",
+      "docs/contracts/audit-export-limit-issue-113-v2.polis.json",
+      "docs/contracts/audit-export-skeleton-integration-issue-122-v1.polis.json",
+      "frontend/lib/contracts/audit.dart",
+      "frontend/lib/core/network/api_client.dart",
+      "frontend/lib/core/network/touchin_api.dart",
+      "frontend/lib/core/platform/file_download.dart",
+      "frontend/lib/core/platform/file_download_stub.dart",
+      "frontend/lib/core/platform/file_download_web.dart",
+      "frontend/lib/features/admin/presentation/admin_audit_page.dart",
+      "frontend/lib/features/admin/presentation/admin_audit_page_widgets.dart",
+      "frontend/test/admin_audit_export_test.dart",
+      "frontend/test/admin_audit_page_test.dart",
+      "frontend/test/admin_contrast_test.dart",
+      "frontend/test/audit_export_api_client_test.dart",
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart",
+      "frontend/test/features/projects/presentation/project_tasks_page_test.dart",
+      "frontend/test/features/shared/presentation/widgets/workspace_skeleton_test.dart",
+      "frontend/test/features/time_tracking/presentation/time_clock_page_test.dart",
+      "frontend/test/issue121_visual_entrypoint.dart",
+      "frontend/test/loading_spinner_audit_test.dart"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "backend/tests/test_audit_export.py",
+      "frontend/test/admin_audit_export_test.dart",
+      "frontend/test/admin_audit_page_test.dart",
+      "frontend/test/admin_contrast_test.dart",
+      "frontend/test/audit_export_api_client_test.dart",
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart",
+      "frontend/test/features/projects/presentation/project_tasks_page_test.dart",
+      "frontend/test/features/shared/presentation/widgets/workspace_skeleton_test.dart",
+      "frontend/test/features/time_tracking/presentation/time_clock_page_test.dart",
+      "frontend/test/issue121_visual_entrypoint.dart",
+      "frontend/test/loading_spinner_audit_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Validate the #122 integration commit that combines the authenticated audit CSV hard limit from #113 with the already integrated accessible workspace skeleton behavior from #121, using main as the pre-integration baseline.",
+    "requirements": [
+      {
+        "id": "122-113-REQ-113-LIMIT-01",
+        "statement": "The backend enforces an effective maximum CSV byte size no greater than 1 MiB before returning any CSV bytes and reports the exact matching row count and effective limit when over the ceiling; lower positive configuration values are supported."
+      },
+      {
+        "id": "122-113-REQ-113-LIMIT-02",
+        "statement": "An export exactly at the effective byte ceiling succeeds; an export one byte above it is rejected without a CSV body. Configured values above 1 MiB never raise the effective ceiling."
+      },
+      {
+        "id": "122-113-REQ-113-LIMIT-03",
+        "statement": "Over-limit feedback tells the user how many rows matched and the maximum file size, and asks them to narrow filters."
+      },
+      {
+        "id": "122-113-REQ-113-LIMIT-04",
+        "statement": "Authorization, company scope, applied filters, order, CSV columns and encoding remain identical."
+      },
+      {
+        "id": "122-121-REQ-001",
+        "statement": "One shared configurable skeleton primitive supports composable shapes, one animation controller per loading region, system reduced motion, theme colors, text scaling and responsive widths."
+      },
+      {
+        "id": "122-121-REQ-002",
+        "statement": "Route-session and Kanban skeletons reuse the shared primitive without changing their layout, keys or board rendering foundation."
+      },
+      {
+        "id": "122-121-REQ-003",
+        "statement": "Every ordinary content-loading spinner in Audit, Employees, Kanban, Projects/Tasks, time tracking and work-log task lists is replaced by a content-shaped skeleton."
+      },
+      {
+        "id": "122-121-REQ-004",
+        "statement": "Action submissions use disabled controls with accessible pending text/status and never use a content skeleton or spinner."
+      },
+      {
+        "id": "122-121-REQ-005",
+        "statement": "Workspace shell/navigation remains mounted; existing success, empty, error, retry, pagination, auth/revocation behavior and API contracts are preserved."
+      },
+      {
+        "id": "122-121-REQ-006",
+        "statement": "Skeleton regions expose one live announcement; decorative blocks are hidden from assistive technology; reduced motion stops animation and leaves no running ticker."
+      },
+      {
+        "id": "122-121-REQ-007",
+        "statement": "No dependency is added; only startup splash retains the CircularProgressIndicator, with the #113 audit export LinearProgressIndicator as its narrowly documented action-progress exception."
+      },
+      {
+        "id": "REQ-122-HISTORY-01",
+        "statement": "The #113 v1/v2 and #121 v2 locked contract files remain byte-for-byte identical to their source commits; this integration contract is additive and does not replace historical locks or proofs."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "122-113-AC-113-LIMIT-01",
+        "statement": "At the configured maximum size the authenticated export returns the complete CSV; one byte above returns a bounded error with exact count and limit, no CSV bytes.",
+        "requirements": [
+          "122-113-REQ-113-LIMIT-01",
+          "122-113-REQ-113-LIMIT-02"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "122-113-AC-113-LIMIT-02",
+        "statement": "A user holding audit.read sees a localized over-limit message with count and limit; the same endpoint continues to reject unauthorized users and exclude other tenants.",
+        "requirements": [
+          "122-113-REQ-113-LIMIT-03",
+          "122-113-REQ-113-LIMIT-04"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "122-121-AC-001",
+        "statement": "A shared primitive and region are reused by all migrated surfaces and route-session/Kanban skeletons.",
+        "requirements": [
+          "122-121-REQ-001",
+          "122-121-REQ-002",
+          "122-121-REQ-003"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "122-121-AC-002",
+        "statement": "Loading to success/empty/error remains usable and preserves scoped retry/pagination and workspace shell.",
+        "requirements": [
+          "122-121-REQ-002",
+          "122-121-REQ-003",
+          "122-121-REQ-005"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "122-121-AC-003",
+        "statement": "Reduced motion renders a static skeleton without a running ticker; animated regions use one controller; decorative blocks are excluded and the region label appears once.",
+        "requirements": [
+          "122-121-REQ-001",
+          "122-121-REQ-006"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "122-121-AC-004",
+        "statement": "Representative production ProjectTasksPage loading state is visually inspected at desktop and mobile browser viewports using a reproducible harness; responsive layout has no observed horizontal overflow.",
+        "requirements": [
+          "122-121-REQ-001",
+          "122-121-REQ-003"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "122-121-AC-005",
+        "statement": "Only the startup splash CircularProgressIndicator and narrowly contextualized audit-export LinearProgressIndicator remain; no added dependency or altered API contract.",
+        "requirements": [
+          "122-121-REQ-004",
+          "122-121-REQ-005",
+          "122-121-REQ-007"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "122-121-AC-006",
+        "statement": "Flutter analysis, focused and full test suites, build/smoke where available, git diff check, and complete diff review pass.",
+        "requirements": [
+          "122-121-REQ-001",
+          "122-121-REQ-002",
+          "122-121-REQ-003",
+          "122-121-REQ-004",
+          "122-121-REQ-005",
+          "122-121-REQ-006",
+          "122-121-REQ-007"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "122-121-AC-007",
+        "statement": "A repeatable browser harness renders the production ProjectTasksPage with a pending API response and retains the desktop/mobile visual inspection evidence.",
+        "requirements": [
+          "122-121-REQ-001",
+          "122-121-REQ-003",
+          "122-121-REQ-005"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-122-HISTORY-01",
+        "statement": "The original #113 v1/v2 locked contracts match their source commit bytes, the #121 v2 locked contract matches main, and this new integration contract is a separate file.",
+        "requirements": [
+          "REQ-122-HISTORY-01"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "122-113-INV-113-LIMIT-01",
+        "statement": "No company selector or permission bypass is introduced; request filters and authenticated company scope are unchanged."
+      },
+      {
+        "id": "122-113-INV-113-LIMIT-02",
+        "statement": "The effective export ceiling is always at most 1 MiB, regardless of environment configuration."
+      },
+      {
+        "id": "122-121-INV-001",
+        "statement": "Circular progress remains exclusively for cold-start server waiting; action pending states use disabled controls and accessible status."
+      },
+      {
+        "id": "122-121-INV-002",
+        "statement": "API contracts, auth/revocation, existing loading/error/empty/retry/pagination semantics, and Kanban board rendering behavior do not change."
+      },
+      {
+        "id": "122-121-INV-003",
+        "statement": "No external dependency is introduced; current workspace visual language and responsive behavior are preserved."
+      },
+      {
+        "id": "INV-122-01",
+        "statement": "Do not modify or replace any existing #113/#121 contract lock or historical proof; the integration contract has its own baseline and identity."
+      },
+      {
+        "id": "INV-122-02",
+        "statement": "The 1 MiB CSV ceiling and CSV authorization/company-scope invariants coexist with #121 skeleton behavior; export action progress remains the narrowly documented LinearProgressIndicator exception."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "122-113-FORB-113-LIMIT-01",
+        "statement": "The server silently truncates an export or returns a partial CSV as if complete."
+      },
+      {
+        "id": "122-121-FORB-001",
+        "statement": "Ordinary in-app content loading uses a circular/refresh/Cupertino spinner."
+      },
+      {
+        "id": "122-121-FORB-002",
+        "statement": "Submission is represented by a misleading skeleton or inaccessible pending state."
+      },
+      {
+        "id": "122-121-FORB-003",
+        "statement": "Reduced motion leaves an active animation ticker or decorative blocks exposed to assistive technology."
+      },
+      {
+        "id": "FORB-122-01",
+        "statement": "No historical contract or proof is rewritten, removed, or re-baselined to make the integration validate."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "122-113-IN-113-LIMIT-01",
+        "statement": "Existing authenticated audit export filters and server-configured byte ceiling."
+      },
+      {
+        "id": "122-121-IN-001",
+        "statement": "Current content loading regions, their surrounding workspace shell, and accessible labels."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "122-113-OUT-113-LIMIT-01",
+        "statement": "Complete CSV within the byte ceiling, or a bounded over-limit error including exact matching row count and limit."
+      },
+      {
+        "id": "122-121-OUT-001",
+        "statement": "Reusable skeleton regions and page-specific skeleton compositions with preserved loading transitions."
+      },
+      {
+        "id": "OUT-122-01",
+        "statement": "An integrated source tree satisfying the #113 CSV size/security contract and the #121 skeleton/loading contract with original evidence preserved."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "122-113-FAIL-113-LIMIT-01",
+        "statement": "Oversize exports fail with HTTP 413 before CSV delivery; no partial file is downloaded."
+      },
+      {
+        "id": "122-121-FAIL-001",
+        "statement": "If any ordinary content loading indicator remains outside the startup splash and the narrowly scoped audit export progress action, the source inventory regression exits nonzero and identifies the offending path/token."
+      },
+      {
+        "id": "FAIL-122-01",
+        "statement": "Any failed configured gate, CSV security/limit regression, skeleton acceptance failure, or historical-lock byte mismatch blocks acceptance of this integration."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "1024189266d6cdbcb70a231e87d6c1a366e1147a",
+    "base_tree": "e47964c4c006fd5b4587354352c57d4df8f4ac7f",
+    "policy_sha256": "5563facc34ae2a1a07cf7ec7ec2f115cb8d250c49dd6e2bd5c7a3de4c977d450",
+    "specification_sha256": "fee4dadd7630519ed9e6c317e3b7e7ca9099a104b0384df945f344508eda69b7"
+  },
+  "behavior": {
+    "argv": [
+      "python",
+      "scripts/polis_tests.py"
+    ],
+    "cwd": ".",
+    "timeout_seconds": 1200,
+    "environment": {
+      "mode": "inherit"
+    }
+  },
+  "affected": {
+    "argv": [
+      "python",
+      "scripts/polis_tests.py"
+    ],
+    "cwd": ".",
+    "timeout_seconds": 1200,
+    "environment": {
+      "mode": "inherit"
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "python",
+        "-m",
+        "pytest",
+        "tests/test_audit_export.py",
+        "-q"
+      ],
+      "cwd": "backend",
+      "timeout_seconds": 300,
+      "environment": {
+        "mode": "inherit"
+      }
+    },
+    "baseline_exit_code": 2,
+    "baseline_output_contains": [
+      "No module named 'app.services.audit_export'"
+    ]
+  }
+}
