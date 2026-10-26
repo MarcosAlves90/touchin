@@ -5,7 +5,6 @@ import assert from 'node:assert/strict';
 import { rm } from 'node:fs/promises';
 import {
   findChromeExecutable, waitFor, readCsp, serveBuild, startChrome, DevTools,
-  getButton, clickButton,
 } from './first_paint_smoke.mjs';
 
 const session = {
@@ -113,9 +112,30 @@ async function expectRoute(cdp, route) {
   assert.ok(await hasRouteText(), `${route}: content mismatch`);
 }
 
-async function navigateViaDrawer(cdp, label, path) {
-  await clickButton(cdp, 'Abrir menu');
-  await clickButton(cdp, label);
+async function clickDesktopNavigation(cdp, label) {
+  const target = await waitFor(() => cdp.evaluate(`(() => {
+    const element = [...document.querySelectorAll('flt-semantics[role="button"]')]
+      .find((node) => {
+        const accessibleLabel = node.getAttribute('aria-label');
+        const firstTextLine = (node.textContent || '').trim().split(/\\s*\\n\\s*/)[0];
+        return accessibleLabel === ${JSON.stringify(label)} || firstTextLine === ${JSON.stringify(label)};
+      });
+    if (!element) return null;
+    const rect = element.getBoundingClientRect();
+    if (rect.width <= 3 || rect.height <= 3 || rect.top < 0 || rect.bottom > innerHeight) return null;
+    return {x: Math.round((rect.left + rect.right) / 2), y: Math.round((rect.top + rect.bottom) / 2)};
+  })()`), `accessible desktop navigation ${label}`, 10000);
+  await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', ...target });
+  await cdp.send('Input.dispatchMouseEvent', {
+    type: 'mousePressed', ...target, button: 'left', clickCount: 1,
+  });
+  await cdp.send('Input.dispatchMouseEvent', {
+    type: 'mouseReleased', ...target, button: 'left', clickCount: 1,
+  });
+}
+
+async function navigateViaDesktopNavigation(cdp, label, path) {
+  await clickDesktopNavigation(cdp, label);
   await expectRoute(cdp, path);
 }
 
@@ -127,7 +147,7 @@ async function smoke() {
     chrome = await startChrome(findChromeExecutable());
     cdp = new DevTools(chrome.tabUrl);
     await cdp.connect();
-    // Wide header exposes the consistently labelled workspace menu control.
+    // Exercise the persistent desktop navigation used at this viewport.
     await cdp.send('Emulation.setDeviceMetricsOverride', {
       width: 1366, height: 900, deviceScaleFactor: 1, mobile: false,
     });
@@ -148,7 +168,7 @@ async function smoke() {
       assert.equal(await cdp.evaluate('history.length'),
         historyLengthBeforeAuthenticatedReload,
         'Authenticated canonical redirect must replace its browser entry');
-      await navigateViaDrawer(cdp, 'Projetos e tarefas', '/projects');
+      await navigateViaDesktopNavigation(cdp, 'Projetos e tarefas', '/projects');
       await cdp.send('Page.reload', { ignoreCache: true });
       await waitFor(() => cdp.evaluate(`(() => {
         const placeholder = document.querySelector('flt-semantics-placeholder');
@@ -158,7 +178,7 @@ async function smoke() {
       await expectRoute(cdp, '/projects');
       const visitedEntry = await cdp.evaluate('history.state?.state');
       assert.ok(visitedEntry, 'Reloaded route needs a browser entry identity');
-      await navigateViaDrawer(cdp, 'Configurações', '/settings');
+      await navigateViaDesktopNavigation(cdp, 'Configurações', '/settings');
       assert.notEqual(await cdp.evaluate('history.state?.state'), visitedEntry,
         'Navigation after reload must create a distinct entry identity');
       await cdp.evaluate('history.back()');
@@ -168,7 +188,7 @@ async function smoke() {
       await expectRoute(cdp, '/settings');
       await cdp.evaluate('history.back()');
       await expectRoute(cdp, '/projects');
-      await navigateViaDrawer(cdp, 'Configurações', '/settings');
+      await navigateViaDesktopNavigation(cdp, 'Configurações', '/settings');
 
       for (const path of ['/projects', '/admin/employees']) {
         await cdp.evaluate('history.back()');
@@ -179,19 +199,19 @@ async function smoke() {
         await expectRoute(cdp, path);
       }
       // Reselecting the active route must not create an extra Back entry.
-      await navigateViaDrawer(cdp, 'Configurações', '/settings');
+      await navigateViaDesktopNavigation(cdp, 'Configurações', '/settings');
       await cdp.evaluate('history.back()');
       await expectRoute(cdp, '/projects');
-      await navigateViaDrawer(cdp, 'Kanban', '/kanban');
+      await navigateViaDesktopNavigation(cdp, 'Kanban', '/kanban');
       await cdp.evaluate('history.forward()');
       await new Promise((resolve) => setTimeout(resolve, 300));
       await expectRoute(cdp, '/kanban');
       await cdp.evaluate('history.back()');
       await expectRoute(cdp, '/projects');
       // A and A2 have the same URL but different browser entry identities.
-      await navigateViaDrawer(cdp, 'Administrar Equipe', '/admin/employees');
-      await navigateViaDrawer(cdp, 'Configurações', '/settings');
-      await navigateViaDrawer(cdp, 'Administrar Equipe', '/admin/employees');
+      await navigateViaDesktopNavigation(cdp, 'Administrar Equipe', '/admin/employees');
+      await navigateViaDesktopNavigation(cdp, 'Configurações', '/settings');
+      await navigateViaDesktopNavigation(cdp, 'Administrar Equipe', '/admin/employees');
       await cdp.evaluate('history.back()');
       await expectRoute(cdp, '/settings');
       await cdp.evaluate('history.forward()');

@@ -593,6 +593,9 @@ class _TimeClockPageState extends State<TimeClockPage> {
               Expanded(
                 child: Text(
                   _locationStatusLabel(),
+                  key: const ValueKey<String>(
+                    'time-clock-location-status-heading',
+                  ),
                   style: theme.textTheme.titleMedium?.copyWith(
                     color: color,
                     fontWeight: FontWeight.w700,
