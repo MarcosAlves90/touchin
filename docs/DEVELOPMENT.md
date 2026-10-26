@@ -20,7 +20,18 @@ cp .env.example .env
 uvicorn app.main:app --reload --port 8071
 ```
 
-No PowerShell, crie o ambiente com `py -3.12 -m venv .venv`, ative com `.venv\Scripts\Activate.ps1` e copie com `Copy-Item .env.example .env`. O arquivo de exemplo contém placeholders adequados apenas para desenvolvimento local. A API responde em `http://127.0.0.1:8071`; health check: `/api/v1/health`; documentação interativa: `/docs`.
+No PowerShell, execute a sequência completa a partir da raiz do repositório:
+
+```powershell
+Set-Location backend
+py -3.12 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+Copy-Item .env.example .env
+python -m uvicorn app.main:app --reload --port 8071
+```
+
+O arquivo de exemplo contém placeholders adequados apenas para desenvolvimento local. A API responde em `http://127.0.0.1:8071`; health check: `/api/v1/health`; documentação interativa: `/docs`.
 
 ## Preparar o frontend
 
@@ -36,13 +47,15 @@ O endereço local padrão do frontend é `http://localhost:8071/api/v1`, definid
 
 ## Testes e análise
 
-Execute os testes focados dentro dos respectivos diretórios (em PowerShell, use `py -3.12 -m pytest -q` para o backend):
+Execute os testes focados dentro dos respectivos diretórios:
 
 ```bash
 (cd backend && python -m pytest -q)
 (cd frontend && flutter test)
 (cd frontend && dart analyze lib test)
 ```
+
+No PowerShell, com a venv do backend ativada, rode `python -m pytest -q` dentro de `backend`; no frontend, rode `flutter test` e `dart analyze lib test` dentro de `frontend`.
 
 Para a validação de gates usada pelo repositório, instale a mesma versão do CI e execute a policy:
 
