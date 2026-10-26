@@ -1,14 +1,19 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:touchin_flutter/contracts/audit.dart';
 import 'package:touchin_flutter/core/network/api_client.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
+import 'package:touchin_flutter/core/platform/file_download.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
 import 'package:touchin_flutter/theme/app_theme.dart';
 
 class AdminAuditPage extends StatefulWidget {
-  const AdminAuditPage({super.key, this.api});
+  const AdminAuditPage({super.key, this.api, this.saveAuditExport});
 
   final TouchInApi? api;
+  final Future<void> Function(String filename, Uint8List bytes)?
+      saveAuditExport;
 
   @override
   State<AdminAuditPage> createState() => _AdminAuditPageState();
@@ -48,6 +53,9 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
   };
   bool _isLoading = false;
   bool _isLoadingMore = false;
+  bool _isExporting = false;
+  bool _exportFailed = false;
+  String? _exportStatus;
   String? _error;
   final List<AuditEventResponse> _events = [];
   bool _hasMore = true;
@@ -127,36 +135,18 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
         });
       }
 
-      final actorUserId = _actorUserIdController.text.trim().isEmpty
-          ? null
-          : _actorUserIdController.text.trim();
-      final action = _actionController.text.trim().isEmpty
-          ? null
-          : _actionController.text.trim();
-      final entityType = _entityTypeController.text.trim().isEmpty
-          ? null
-          : _entityTypeController.text.trim();
-      final entityId = _entityIdController.text.trim().isEmpty
-          ? null
-          : _entityIdController.text.trim();
-      final projectId = _projectIdController.text.trim().isEmpty
-          ? null
-          : _projectIdController.text.trim();
-      final result = _resultController.text.trim().isEmpty
-          ? null
-          : _resultController.text.trim();
-
+      final filters = _activeFilters();
       final newEvents = await _api.listAuditEvents(
         page: requestedPage,
         limit: _limit,
-        startDate: _startDate,
-        endDate: _endDate,
-        actorUserId: actorUserId,
-        action: action,
-        entityType: entityType,
-        entityId: entityId,
-        projectId: projectId,
-        result: result,
+        startDate: filters.startDate,
+        endDate: filters.endDate,
+        actorUserId: filters.actorUserId,
+        action: filters.action,
+        entityType: filters.entityType,
+        entityId: filters.entityId,
+        projectId: filters.projectId,
+        result: filters.result,
       );
 
       if (!mounted || generation != _requestGeneration) return;
@@ -203,6 +193,101 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
       return error.message;
     }
     return 'Não foi possível carregar os eventos de auditoria. Tente novamente.';
+  }
+
+  ({DateTime? startDate, DateTime? endDate, String? actorUserId, String? action,
+      String? entityType, String? entityId, String? projectId, String? result})
+      _activeFilters() {
+    String? trimmed(TextEditingController controller) {
+      final value = controller.text.trim();
+      return value.isEmpty ? null : value;
+    }
+
+    return (
+      startDate: _startDate,
+      endDate: _endDate,
+      actorUserId: trimmed(_actorUserIdController),
+      action: trimmed(_actionController),
+      entityType: trimmed(_entityTypeController),
+      entityId: trimmed(_entityIdController),
+      projectId: trimmed(_projectIdController),
+      result: trimmed(_resultController),
+    );
+  }
+
+  Future<void> _exportEvents() async {
+    if (_isExporting) return;
+    final filters = _activeFilters();
+    setState(() {
+      _isExporting = true;
+      _exportFailed = false;
+      _exportStatus = 'Exportando registros...';
+    });
+
+    try {
+      final export = await _api.exportAuditEvents(
+        startDate: filters.startDate,
+        endDate: filters.endDate,
+        actorUserId: filters.actorUserId,
+        action: filters.action,
+        entityType: filters.entityType,
+        entityId: filters.entityId,
+        projectId: filters.projectId,
+        result: filters.result,
+      );
+      if (!mounted) return;
+
+      if (export.rowCount == 0) {
+        setState(() {
+          _isExporting = false;
+          _exportStatus = 'Nenhum registro corresponde aos filtros.';
+        });
+        return;
+      }
+
+      final save = widget.saveAuditExport ??
+          (String filename, Uint8List bytes) =>
+              downloadFileBytes(filename: filename, bytes: bytes);
+      await save(export.filename, export.bytes);
+      if (!mounted) return;
+
+      final count = export.rowCount;
+      setState(() {
+        _isExporting = false;
+        _exportStatus = count == null
+            ? 'Exportação concluída.'
+            : 'Exportação concluída: $count '
+                '${count == 1 ? 'registro' : 'registros'}.';
+      });
+    } on UnsupportedError {
+      if (!mounted) return;
+      setState(() {
+        _isExporting = false;
+        _exportFailed = true;
+        _exportStatus =
+            'O download de arquivos está disponível apenas na versão web.';
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _isExporting = false;
+        _exportFailed = true;
+        _exportStatus = _exportErrorMessage(error);
+      });
+    }
+  }
+
+  String _exportErrorMessage(Object error) {
+    if (error is ApiException) {
+      if (error.statusCode == 403) {
+        return 'Você não tem permissão para exportar a auditoria.';
+      }
+      if (error.statusCode != null && error.statusCode! >= 500) {
+        return 'Serviço temporariamente indisponível. Tente novamente.';
+      }
+      return error.message;
+    }
+    return 'Não foi possível exportar os registros. Tente novamente.';
   }
 
   String _eventActionLabel(String value) =>
@@ -354,8 +439,39 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
                           },
                           child: const Text('Limpar filtros'),
                         ),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size(0, 52),
+                          ),
+                          onPressed: _isExporting ? null : _exportEvents,
+                          icon: const Icon(Icons.download, size: 18),
+                          label: Text(
+                            _isExporting ? 'Exportando...' : 'Exportar CSV',
+                          ),
+                        ),
                       ],
                     ),
+                    if (_isExporting) ...[
+                      const SizedBox(height: 12),
+                      const LinearProgressIndicator(
+                        minHeight: 2,
+                        semanticsLabel: 'Exportando registros de auditoria',
+                      ),
+                    ],
+                    if (_exportStatus != null) ...[
+                      const SizedBox(height: 8),
+                      Semantics(
+                        liveRegion: true,
+                        child: Text(
+                          _exportStatus!,
+                          style: _exportFailed
+                              ? TextStyle(
+                                  color: Theme.of(context).colorScheme.error,
+                                )
+                              : null,
+                        ),
+                      ),
+                    ],
                   ],
                 );
               },

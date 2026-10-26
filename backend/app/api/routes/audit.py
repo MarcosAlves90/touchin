@@ -1,19 +1,27 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, Query
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.authorization import require_permission
 from app.dependencies import get_db
 from app.services.auth import AuthenticatedContext
-from app.schemas.audit import AuditEventResponse 
-from app.domain.audit_read import list_audit_events
+from app.schemas.audit import AuditEventResponse
+from app.domain.audit_read import (
+    AuditEventFilters,
+    count_audit_events,
+    iter_audit_export_rows,
+    list_audit_events,
+)
+from app.services.audit_export import iter_audit_csv
 
 router = APIRouter()
 
-@router.get("", response_model=list[AuditEventResponse])
-def list_audit_events_route(
+
+def audit_event_filters(
     start_date: datetime | None = Query(None),
     end_date: datetime | None = Query(None),
     actor_user_id: str | None = Query(None),
@@ -22,14 +30,8 @@ def list_audit_events_route(
     entity_id: str | None = Query(None),
     project_id: str | None = Query(None),
     result: str | None = Query(None),
-    page: int = Query(1, ge=1),
-    limit: int = Query(50, ge=1, le=100),
-    context: AuthenticatedContext = Depends(require_permission("audit.read")),
-    db: Session = Depends(get_db),
-) -> list[AuditEventResponse]:
-    return list_audit_events(
-        db,
-        company_id=context.company.id,
+) -> AuditEventFilters:
+    return AuditEventFilters(
         start_date=start_date,
         end_date=end_date,
         actor_user_id=actor_user_id,
@@ -38,6 +40,52 @@ def list_audit_events_route(
         entity_id=entity_id,
         project_id=project_id,
         result=result,
+    )
+
+
+@router.get("", response_model=list[AuditEventResponse])
+def list_audit_events_route(
+    filters: AuditEventFilters = Depends(audit_event_filters),
+    page: int = Query(1, ge=1),
+    limit: int = Query(50, ge=1, le=100),
+    context: AuthenticatedContext = Depends(require_permission("audit.read")),
+    db: Session = Depends(get_db),
+) -> list[AuditEventResponse]:
+    return list_audit_events(
+        db,
+        company_id=context.company.id,
+        start_date=filters.start_date,
+        end_date=filters.end_date,
+        actor_user_id=filters.actor_user_id,
+        action=filters.action,
+        entity_type=filters.entity_type,
+        entity_id=filters.entity_id,
+        project_id=filters.project_id,
+        result=filters.result,
         limit=limit,
         offset=(page - 1) * limit,
+    )
+
+
+@router.get("/export")
+def export_audit_events_route(
+    filters: AuditEventFilters = Depends(audit_event_filters),
+    context: AuthenticatedContext = Depends(require_permission("audit.read")),
+    db: Session = Depends(get_db),
+) -> StreamingResponse:
+    company_id = context.company.id
+    row_count = count_audit_events(db, company_id=company_id, filters=filters)
+    filename = f"audit-events-{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}.csv"
+
+    return StreamingResponse(
+        iter_audit_csv(
+            iter_audit_export_rows(db, company_id=company_id, filters=filters)
+        ),
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "no-store",
+            "X-Content-Type-Options": "nosniff",
+            "X-Audit-Export-Rows": str(row_count),
+        },
     )
