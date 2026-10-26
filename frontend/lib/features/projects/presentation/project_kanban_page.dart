@@ -49,23 +49,42 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       drawer: const WorkspaceNavigationDrawer(),
-      body: Builder(
-        builder: (scaffoldContext) => SafeArea(
-          child: Column(
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final isWide = constraints.maxWidth >= 1080;
+          return Row(
             children: <Widget>[
-              _KanbanTopBar(
-                controller: _controller,
-                onMenuPressed: () => Scaffold.of(scaffoldContext).openDrawer(),
-              ),
+              if (isWide)
+                SizedBox(
+                  width: 280,
+                  child: WorkspaceDesktopNavigation(currentRoute: '/kanban'),
+                ),
               Expanded(
-                child: AnimatedBuilder(
-                  animation: _controller,
-                  builder: (context, _) => _buildPageBody(),
+                child: Builder(
+                  builder: (scaffoldContext) => SafeArea(
+                    child: Column(
+                      children: <Widget>[
+                        _KanbanTopBar(
+                          controller: _controller,
+                          onMenuPressed: isWide
+                              ? null
+                              : () => Scaffold.of(scaffoldContext).openDrawer(),
+                          showBrand: !isWide,
+                        ),
+                        Expanded(
+                          child: AnimatedBuilder(
+                            animation: _controller,
+                            builder: (context, _) => _buildPageBody(),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ],
-          ),
-        ),
+          );
+        },
       ),
     );
   }
@@ -922,10 +941,12 @@ class _KanbanTopBar extends StatelessWidget {
   const _KanbanTopBar({
     required this.controller,
     required this.onMenuPressed,
+    required this.showBrand,
   });
 
   final ProjectKanbanController controller;
-  final VoidCallback onMenuPressed;
+  final VoidCallback? onMenuPressed;
+  final bool showBrand;
 
   @override
   Widget build(BuildContext context) {
@@ -940,20 +961,23 @@ class _KanbanTopBar extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 8),
           child: Row(
             children: <Widget>[
-              IconButton(
-                tooltip: 'Abrir menu',
-                onPressed: onMenuPressed,
-                icon: Icon(Icons.menu_rounded, color: colorScheme.onPrimary),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                'TOUCHIN',
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: colorScheme.onPrimary.withValues(alpha: 0.82),
-                  letterSpacing: 1.8,
-                  fontWeight: FontWeight.w900,
+              if (onMenuPressed != null) ...<Widget>[
+                IconButton(
+                  tooltip: 'Abrir menu',
+                  onPressed: onMenuPressed,
+                  icon: Icon(Icons.menu_rounded, color: colorScheme.onPrimary),
                 ),
-              ),
+                const SizedBox(width: 6),
+              ],
+              if (showBrand)
+                Text(
+                  'TOUCHIN',
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: colorScheme.onPrimary.withValues(alpha: 0.82),
+                    letterSpacing: 1.8,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
               Expanded(
                 child: Align(
                   alignment: Alignment.centerRight,

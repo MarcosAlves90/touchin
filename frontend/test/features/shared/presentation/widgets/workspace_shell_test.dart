@@ -6,9 +6,152 @@ import 'package:touchin_flutter/features/auth/presentation/login_page.dart';
 import 'package:touchin_flutter/features/auth/presentation/logout_navigation.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('desktop sidebar persists at the 1080px breakpoint', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1079, 720));
+    await tester.pumpWidget(MaterialApp(
+      home: WorkspaceScaffold(
+        sidebar: const WorkspaceSidebar(
+          title: 'Projects',
+          description: 'Context description',
+          summaryChildren: <Widget>[],
+          highlightChips: <Widget>[],
+        ),
+        contentBuilder: (_, __) => const SizedBox(height: 100),
+      ),
+    ));
+    expect(
+      find.byKey(const ValueKey('workspace-desktop-destinations')),
+      findsNothing,
+    );
+    expect(find.byTooltip('Abrir menu'), findsOneWidget);
+
+    await tester.binding.setSurfaceSize(const Size(1080, 720));
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey('workspace-desktop-destinations')),
+      findsOneWidget,
+    );
+    expect(find.byTooltip('Abrir menu'), findsNothing);
+    for (final label in <String>[
+      'Bater Ponto',
+      'Administrar Equipe',
+      'Trilha de Auditoria',
+      'Projetos e tarefas',
+      'Kanban',
+      'Configurações',
+      'Sair do Sistema',
+    ]) {
+      expect(find.text(label), findsOneWidget);
+    }
+    expect(
+      find.byKey(const ValueKey('workspace-context-scroll')),
+      findsOneWidget,
+    );
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('desktop context scroll leaves navigation anchored', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1080, 520));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(MaterialApp(
+      home: WorkspaceScaffold(
+        sidebar: WorkspaceSidebar(
+          title: 'Context title',
+          description: 'Long context ' * 30,
+          summaryChildren: List<Widget>.generate(
+            8,
+            (index) => Text('Summary $index'),
+          ),
+          highlightChips: const <Widget>[],
+        ),
+        contentBuilder: (_, __) => const SizedBox.shrink(),
+      ),
+    ));
+    final navScrollable = tester.state<ScrollableState>(
+      find.descendant(
+        of: find.byKey(const ValueKey('workspace-desktop-destinations')),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    final initialNavOffset = navScrollable.position.pixels;
+    await tester.drag(
+      find.byKey(const ValueKey('workspace-context-scroll')),
+      const Offset(0, -180),
+    );
+    await tester.pumpAndSettle();
+    expect(navScrollable.position.pixels, initialNavOffset);
+    expect(find.text('Bater Ponto'), findsOneWidget);
+  });
+
+  testWidgets('desktop navigation exposes selected state and keyboard focus',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final semantics = tester.ensureSemantics();
+    Route<void> route(RouteSettings settings) => MaterialPageRoute<void>(
+          settings: settings,
+          builder: (_) => WorkspaceScaffold(
+            sidebar: const SizedBox.shrink(),
+            contentBuilder: (_, __) => const SizedBox.shrink(),
+          ),
+        );
+    await tester.pumpWidget(MaterialApp(
+      initialRoute: '/kanban',
+      onGenerateInitialRoutes: (name) => <Route<void>>[
+        route(RouteSettings(name: name)),
+      ],
+      onGenerateRoute: route,
+    ));
+    final kanban = tester.getSemantics(find.text('Kanban'));
+    expect(kanban.hasFlag(SemanticsFlag.isButton), isTrue);
+    expect(kanban.hasFlag(SemanticsFlag.isSelected), isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    expect(FocusManager.instance.primaryFocus, isNotNull);
+    semantics.dispose();
+  });
+
+  testWidgets('desktop route navigation preserves Back and desktop logout',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    var logoutRequested = false;
+    Route<void> route(RouteSettings settings) => MaterialPageRoute<void>(
+          settings: settings,
+          builder: (_) => WorkspaceScaffold(
+            sidebar: const SizedBox.shrink(),
+            contentBuilder: (_, __) => Text('Active ${settings.name}'),
+            onLogoutRequested: (_) async {
+              logoutRequested = true;
+            },
+          ),
+        );
+    await tester.pumpWidget(MaterialApp(
+      initialRoute: '/projects',
+      onGenerateInitialRoutes: (name) => <Route<void>>[
+        route(RouteSettings(name: name)),
+      ],
+      onGenerateRoute: route,
+    ));
+    await tester.tap(find.text('Bater Ponto'));
+    await tester.pumpAndSettle();
+    expect(find.text('Active /time-clock'), findsOneWidget);
+    expect(await tester.binding.handlePopRoute(), isTrue);
+    await tester.pumpAndSettle();
+    expect(find.text('Active /projects'), findsOneWidget);
+    await tester.tap(find.text('Sair do Sistema'));
+    expect(logoutRequested, isTrue);
+  });
+
   testWidgets('browser Back restores the previous workspace screen',
       (tester) async {
     Route<void> workspaceRoute(RouteSettings settings) =>
@@ -104,7 +247,7 @@ void main() {
         ),
       );
 
-      expect(find.byType(SingleChildScrollView), findsOneWidget);
+      expect(find.byType(SingleChildScrollView), findsNWidgets(2));
     },
   );
 
@@ -124,7 +267,7 @@ void main() {
       );
 
       expect(find.byType(BackdropFilter), findsOneWidget);
-      expect(find.byType(SingleChildScrollView), findsNWidgets(2));
+      expect(find.byType(SingleChildScrollView), findsNWidgets(3));
       expect(
         find.ancestor(
           of: find.byType(SingleChildScrollView),

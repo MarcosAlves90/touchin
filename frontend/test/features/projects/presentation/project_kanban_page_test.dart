@@ -16,6 +16,37 @@ import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_i
 import 'package:touchin_flutter/theme/app_theme.dart';
 
 void main() {
+  testWidgets('Kanban uses persistent desktop nav and mobile drawer', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1079, 760));
+    await tester.pumpWidget(
+      MaterialApp(home: ProjectKanbanPage(api: _FakeKanbanApi())),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('workspace-desktop-destinations')),
+      findsNothing,
+    );
+    expect(find.byTooltip('Abrir menu'), findsOneWidget);
+
+    await tester.binding.setSurfaceSize(const Size(1080, 760));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('workspace-desktop-destinations')),
+      findsOneWidget,
+    );
+    expect(find.byTooltip('Abrir menu'), findsNothing);
+    for (final label in <String>[
+      'Bater Ponto', 'Administrar Equipe', 'Trilha de Auditoria',
+      'Projetos e tarefas', 'Kanban', 'Configurações', 'Sair do Sistema',
+    ]) {
+      expect(find.text(label), findsOneWidget);
+    }
+    expect(find.byKey(const ValueKey<String>('kanban-topbar')), findsOneWidget);
+    await tester.binding.setSurfaceSize(null);
+  });
+
   for (final inBacklog in <bool>[false, true]) {
     testWidgets(
         '${inBacklog ? 'Backlog' : 'Kanban'} create retains draft on 403/500 and retries',
@@ -376,7 +407,7 @@ void main() {
     expect(api.updatedDrafts.keys.toList(), <String>['task-01']);
     expect(find.text('Título atualizado'), findsOneWidget);
     expect(find.text('#1'), findsOneWidget);
-    await tester.tap(find.text('Kanban'));
+    await tester.tap(find.text('Kanban').last);
     await tester.pumpAndSettle();
     expect(find.text('Título atualizado'), findsOneWidget);
     expect(find.text('#1'), findsOneWidget);
@@ -408,7 +439,7 @@ void main() {
         <String>['task-1-2', 'task-01', 'task-1-3']);
     expect(find.text('#2'), findsOneWidget);
 
-    await tester.tap(find.text('Kanban'));
+    await tester.tap(find.text('Kanban').last);
     await tester.pumpAndSettle();
     var cards = tester
         .widget<ProjectKanbanBoard>(find.byType(ProjectKanbanBoard))
@@ -472,7 +503,7 @@ void main() {
             .data,
         'Concluído');
 
-    await tester.tap(find.text('Kanban'));
+    await tester.tap(find.text('Kanban').last);
     await tester.pumpAndSettle();
     var columns = tester
         .widget<ProjectKanbanBoard>(find.byType(ProjectKanbanBoard))
@@ -555,7 +586,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Gestor TouchIn'), findsOneWidget);
 
-    await tester.tap(find.text('Kanban'));
+    await tester.tap(find.text('Kanban').last);
     await tester.pumpAndSettle();
     final cards = tester
         .widget<ProjectKanbanBoard>(find.byType(ProjectKanbanBoard))
@@ -580,7 +611,7 @@ void main() {
     expect(find.text('Nova entrega revisada'), findsOneWidget);
     expect(api.updatedDrafts['created-1']?.name, 'Nova entrega revisada');
 
-    await tester.tap(find.text('Kanban'));
+    await tester.tap(find.text('Kanban').last);
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Atualizar quadro'));
     await tester.pumpAndSettle();
@@ -613,7 +644,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('#2'), findsNothing);
     expect(find.text('#3'), findsOneWidget);
-    await tester.tap(find.text('Kanban'));
+    await tester.tap(find.text('Kanban').last);
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Atualizar quadro'));
     await tester.pumpAndSettle();
@@ -1080,7 +1111,8 @@ void main() {
     final topBar = find.byKey(const ValueKey<String>('kanban-topbar'));
     expect(topBar, findsOneWidget);
     expect(find.descendant(of: topBar, matching: find.text('TOUCHIN')),
-        findsOneWidget);
+        findsNothing);
+    expect(find.text('TOUCHIN'), findsOneWidget);
     expect(find.descendant(of: topBar, matching: find.text('Kanban')),
         findsNothing);
     expect(tester.takeException(), isNull);

@@ -107,11 +107,12 @@ class WorkspaceScaffold extends StatelessWidget {
       children: <Widget>[
         SizedBox(
           width: sidebarWidth,
-          child: SingleChildScrollView(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: constraints.maxHeight),
-              child: sidebar,
-            ),
+          child: WorkspaceDesktopNavigation(
+            contextualContent: sidebar,
+            onLogoutRequested: onLogoutRequested,
+            currentRoute: WorkspaceRouterScope.maybeOf(context)
+                    ?.currentConfiguration.path ??
+                ModalRoute.of(context)?.settings.name,
           ),
         ),
         Expanded(
@@ -150,6 +151,200 @@ class WorkspaceScaffold extends StatelessWidget {
     }
     return content;
   }
+}
+
+class _WorkspaceDestination {
+  const _WorkspaceDestination(this.icon, this.label, this.route);
+
+  final IconData icon;
+  final String label;
+  final String route;
+}
+
+const _workspaceDestinations = <_WorkspaceDestination>[
+  _WorkspaceDestination(Icons.timer_outlined, 'Bater Ponto', '/time-clock'),
+  _WorkspaceDestination(
+    Icons.groups_2_rounded,
+    'Administrar Equipe',
+    '/admin/employees',
+  ),
+  _WorkspaceDestination(Icons.history_edu, 'Trilha de Auditoria', '/admin/audit'),
+  _WorkspaceDestination(
+    Icons.account_tree_outlined,
+    'Projetos e tarefas',
+    '/projects',
+  ),
+  _WorkspaceDestination(Icons.view_kanban_outlined, 'Kanban', '/kanban'),
+  _WorkspaceDestination(Icons.tune_rounded, 'Configurações', '/settings'),
+];
+
+class WorkspaceDesktopNavigation extends StatelessWidget {
+  const WorkspaceDesktopNavigation({
+    super.key,
+    this.contextualContent,
+    this.onLogoutRequested = logoutFromWorkspace,
+    this.currentRoute,
+  });
+
+  final Widget? contextualContent;
+  final WorkspaceLogoutHandler onLogoutRequested;
+  final String? currentRoute;
+
+  void _navigateTo(BuildContext context, String routeName) {
+    final router = WorkspaceRouterScope.maybeOf(context);
+    final navigator = Navigator.of(context);
+    final route = router?.currentConfiguration.path ??
+        ModalRoute.of(context)?.settings.name;
+    if (route == routeName) return;
+    if (router != null) {
+      router.navigate(routeName);
+    } else {
+      navigator.pushNamed(routeName);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final activeRoute = currentRoute ??
+        WorkspaceRouterScope.maybeOf(context)?.currentConfiguration.path ??
+        ModalRoute.of(context)?.settings.name;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppTheme.accent,
+        border: Border(
+          right: BorderSide(color: Colors.black.withValues(alpha: 0.1)),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 16, 12),
+            child: Row(
+              children: <Widget>[
+                Icon(Icons.fingerprint_rounded, color: colors.onPrimary),
+                const SizedBox(width: 10),
+                Text(
+                  'TOUCHIN',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: colors.onPrimary,
+                    letterSpacing: 1.7,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            flex: 5,
+            child: SingleChildScrollView(
+              key: const ValueKey<String>('workspace-desktop-destinations'),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: Column(
+                  children: <Widget>[
+                    for (final destination in _workspaceDestinations)
+                      _buildAction(
+                        context,
+                        icon: destination.icon,
+                        label: destination.label,
+                        selected: activeRoute == destination.route,
+                        onPressed: () =>
+                            _navigateTo(context, destination.route),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const Divider(height: 1),
+          _buildAction(
+            context,
+            icon: Icons.logout_rounded,
+            label: 'Sair do Sistema',
+            selected: false,
+            onPressed: () => onLogoutRequested(context),
+          ),
+          if (contextualContent != null)
+            Expanded(
+              flex: 4,
+              child: SingleChildScrollView(
+                key: const ValueKey<String>('workspace-context-scroll'),
+                padding: const EdgeInsets.fromLTRB(24, 20, 24, 28),
+                child: _WorkspaceDesktopScope(child: contextualContent!),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAction(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required bool selected,
+    required VoidCallback onPressed,
+  }) {
+    final colors = Theme.of(context).colorScheme;
+    final foreground = selected ? colors.onPrimary : colors.onSurface;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Semantics(
+        button: true,
+        selected: selected,
+        label: label,
+        child: Material(
+          color: selected
+              ? colors.onPrimary.withValues(alpha: 0.14)
+              : Colors.transparent,
+          child: InkWell(
+            onTap: onPressed,
+            borderRadius: BorderRadius.zero,
+            focusColor: colors.onPrimary.withValues(alpha: 0.18),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Row(
+                children: <Widget>[
+                  Icon(icon, size: 21, color: foreground),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: foreground,
+                            fontWeight: selected
+                                ? FontWeight.w800
+                                : FontWeight.w600,
+                          ),
+                    ),
+                  ),
+                  if (selected)
+                    Icon(Icons.chevron_right, size: 18, color: foreground),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _WorkspaceDesktopScope extends InheritedWidget {
+  const _WorkspaceDesktopScope({required super.child});
+
+  static bool of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_WorkspaceDesktopScope>() !=
+      null;
+
+  @override
+  bool updateShouldNotify(_WorkspaceDesktopScope oldWidget) => false;
 }
 
 class WorkspaceNavigationDrawer extends StatelessWidget {
@@ -316,7 +511,7 @@ class WorkspaceNavigationDrawer extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.zero,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             child: Row(
@@ -363,46 +558,16 @@ class WorkspaceSidebar extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isWide = MediaQuery.of(context).size.width >= 1080;
+    final isWide = _WorkspaceDesktopScope.of(context) ||
+        MediaQuery.of(context).size.width >= 1080;
 
     if (!isWide) {
       return _buildMobileHeader(context);
     }
 
-    return Container(
-      padding: const EdgeInsets.fromLTRB(28, 20, 28, 40),
-      decoration: BoxDecoration(
-        color: AppTheme.accent,
-        border: Border(
-          right: BorderSide(
-            color: Colors.black.withValues(alpha: 0.1),
-            width: 1,
-          ),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Row(
-            children: [
-              IconButton(
-                onPressed: () => Scaffold.of(context).openDrawer(),
-                icon: Icon(Icons.menu_rounded, color: colorScheme.onPrimary),
-                tooltip: 'Abrir menu',
-                visualDensity: VisualDensity.compact,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                brandLabel,
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: colorScheme.onPrimary.withValues(alpha: 0.8),
-                  letterSpacing: 2.0,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 48),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
           Semantics(
             header: true,
             child: Text(
@@ -469,8 +634,7 @@ class WorkspaceSidebar extends StatelessWidget {
               child: Wrap(spacing: 8, runSpacing: 8, children: highlightChips),
             ),
           ],
-        ],
-      ),
+      ],
     );
   }
 
