@@ -7,6 +7,7 @@ import 'package:touchin_flutter/core/network/touchin_api.dart';
 import 'package:touchin_flutter/core/platform/file_download.dart';
 import 'package:touchin_flutter/features/admin/presentation/admin_audit_page_widgets.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_skeleton.dart';
 import 'package:touchin_flutter/theme/app_theme.dart';
 
 typedef _AuditFilters = ({
@@ -1119,7 +1120,7 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  if (exporting) ...[
+                  if (_isExporting) ...[
                     const SizedBox(height: 6),
                     Text(
                       'Todos os registros dos filtros aplicados • timestamps em UTC.',
@@ -1128,6 +1129,8 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
                       ),
                     ),
                     const SizedBox(height: 8),
+                  ],
+                  if (_isExporting)
                     LinearProgressIndicator(
                       key: const ValueKey<String>('audit-export-progress'),
                       minHeight: 2,
@@ -1136,7 +1139,6 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
                           colorScheme.surface.withValues(alpha: 0.35),
                       semanticsLabel: 'Exportando registros de auditoria',
                     ),
-                  ],
                 ],
               ),
             ),
@@ -1161,7 +1163,10 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
         16,
       ),
       child: _isLoading
-          ? AuditLoadingSkeleton(compact: compact)
+          ? WorkspaceSkeletonRegion(
+              label: 'Carregando eventos de auditoria',
+              child: AuditLoadingSkeleton(compact: compact),
+            )
           : _error != null && _events.isEmpty
               ? _buildErrorState()
               : _events.isEmpty
@@ -1352,16 +1357,25 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (_isLoadingMore) ...[
-              LinearProgressIndicator(
-                key: const ValueKey<String>('audit-load-more-progress'),
-                minHeight: 2,
-                semanticsLabel: 'Carregando mais eventos de auditoria',
+              WorkspaceSkeletonRegion(
+                label: 'Carregando mais eventos de auditoria',
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8),
+                  child: WorkspaceSkeletonList(
+                    count: 2,
+                    leadingSize: null,
+                    spacing: 8,
+                  ),
+                ),
               ),
               const SizedBox(height: 8),
-              Text(
-                'Carregando mais eventos...',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
+              Semantics(
+                liveRegion: true,
+                child: Text(
+                  'Carregando mais eventos...',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ),
               const SizedBox(height: 8),

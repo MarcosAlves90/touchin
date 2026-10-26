@@ -9,6 +9,7 @@ import 'package:touchin_flutter/features/projects/presentation/widgets/project_k
 import 'package:touchin_flutter/features/projects/presentation/widgets/task_editor_dialog.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_editor_dialog.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_instant_select_field.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_skeleton.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
 import 'package:touchin_flutter/theme/app_theme.dart';
 
@@ -91,7 +92,7 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
 
   Widget _buildPageBody() {
     if (_controller.isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const _KanbanPageSkeleton();
     }
 
     if (_controller.loadError != null) {
@@ -364,7 +365,7 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
             left: 0,
             top: 0,
             right: 0,
-            child: LinearProgressIndicator(minHeight: 2),
+            child: _KanbanMutationStatus(),
           ),
       ],
     );
@@ -773,9 +774,49 @@ class _KanbanBoardSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    return const WorkspaceSkeletonRegion(
+      key: ValueKey<String>('kanban-board-skeleton'),
+      label: 'Carregando quadro Kanban',
+      child: _KanbanBoardSkeletonBody(),
+    );
+  }
+}
+
+class _KanbanPageSkeleton extends StatelessWidget {
+  const _KanbanPageSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return const WorkspaceSkeletonRegion(
+      key: ValueKey<String>('kanban-page-skeleton'),
+      label: 'Carregando Kanban',
+      child: Padding(
+        padding: EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                WorkspaceSkeleton(width: 148, height: 20),
+                Spacer(),
+                WorkspaceSkeleton(width: 112, height: 30),
+              ],
+            ),
+            SizedBox(height: 12),
+            Expanded(child: _KanbanBoardSkeletonBody()),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _KanbanBoardSkeletonBody extends StatelessWidget {
+  const _KanbanBoardSkeletonBody();
+
+  @override
+  Widget build(BuildContext context) {
     return LayoutBuilder(
-      key: const ValueKey<String>('kanban-board-skeleton'),
       builder: (context, constraints) {
         final laneCount = constraints.maxWidth >= 1050
             ? 3
@@ -786,18 +827,10 @@ class _KanbanBoardSkeleton extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
             Row(
-              children: <Widget>[
-                _SkeletonBlock(
-                  width: 118,
-                  height: 20,
-                  color: colorScheme.surfaceContainerHighest,
-                ),
-                const Spacer(),
-                _SkeletonBlock(
-                  width: 92,
-                  height: 30,
-                  color: colorScheme.surfaceContainerHighest,
-                ),
+              children: const <Widget>[
+                WorkspaceSkeleton(width: 118, height: 20),
+                Spacer(),
+                WorkspaceSkeleton(width: 92, height: 30),
               ],
             ),
             const SizedBox(height: 10),
@@ -842,17 +875,9 @@ class _KanbanLaneSkeleton extends StatelessWidget {
           children: <Widget>[
             Row(
               children: <Widget>[
-                _SkeletonBlock(
-                  width: 92 + (index * 12),
-                  height: 16,
-                  color: colorScheme.surfaceContainerHighest,
-                ),
+                WorkspaceSkeleton(width: 92 + (index * 12), height: 16),
                 const Spacer(),
-                _SkeletonBlock(
-                  width: 28,
-                  height: 28,
-                  color: colorScheme.surfaceContainerHighest,
-                ),
+                const WorkspaceSkeleton(width: 28, height: 28),
               ],
             ),
             const SizedBox(height: 12),
@@ -860,11 +885,7 @@ class _KanbanLaneSkeleton extends StatelessWidget {
             const SizedBox(height: 10),
             _KanbanCardSkeleton(colorScheme: colorScheme, compact: true),
             const Spacer(),
-            _SkeletonBlock(
-              width: double.infinity,
-              height: 38,
-              color: colorScheme.surfaceContainerHighest,
-            ),
+            const WorkspaceSkeleton(height: 38),
           ],
         ),
       ),
@@ -890,23 +911,11 @@ class _KanbanCardSkeleton extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            _SkeletonBlock(
-              width: 72,
-              height: 14,
-              color: colorScheme.surfaceContainerHighest,
-            ),
+            const WorkspaceSkeleton(width: 72, height: 14),
             const SizedBox(height: 10),
-            _SkeletonBlock(
-              width: compact ? 120 : 172,
-              height: 16,
-              color: colorScheme.surfaceContainerHighest,
-            ),
+            WorkspaceSkeleton(width: compact ? 120 : 172, height: 16),
             const SizedBox(height: 8),
-            _SkeletonBlock(
-              width: compact ? 154 : 210,
-              height: 12,
-              color: colorScheme.surfaceContainerHighest,
-            ),
+            WorkspaceSkeleton(width: compact ? 154 : 210, height: 12),
           ],
         ),
       ),
@@ -914,24 +923,28 @@ class _KanbanCardSkeleton extends StatelessWidget {
   }
 }
 
-class _SkeletonBlock extends StatelessWidget {
-  const _SkeletonBlock({
-    required this.width,
-    required this.height,
-    required this.color,
-  });
-
-  final double width;
-  final double height;
-  final Color color;
+class _KanbanMutationStatus extends StatelessWidget {
+  const _KanbanMutationStatus();
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: width,
-      height: height,
-      child: DecoratedBox(
-        decoration: BoxDecoration(color: color.withValues(alpha: 0.72)),
+    final colorScheme = Theme.of(context).colorScheme;
+    return Semantics(
+      container: true,
+      liveRegion: true,
+      label: 'Atualizando o quadro',
+      child: ExcludeSemantics(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          color: colorScheme.surfaceContainerHighest,
+          child: Text(
+            'Atualizando o quadro…',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                ),
+          ),
+        ),
       ),
     );
   }
