@@ -115,7 +115,7 @@ void main() {
       );
     }
     await tester.binding.setSurfaceSize(null);
-  });
+  }, tags: <String>{'canonical-golden'});
 
   test('workspace destinations are the unique ordered navigation source', () {
     expect(

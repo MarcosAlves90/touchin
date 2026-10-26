@@ -22,6 +22,7 @@ virtual_env_python = BACKEND / ".venv" / (
 )
 backend_python = str(virtual_env_python) if virtual_env_python.is_file() else sys.executable
 flutter_executable = shutil.which("flutter.bat") or shutil.which("flutter") or "flutter"
+# The frontend command is "flutter test --exclude-tags canonical-golden".
 
 for name, command, directory in (
     (
@@ -30,7 +31,11 @@ for name, command, directory in (
         ROOT,
     ),
     ("backend", [backend_python, "-B", "-m", "pytest"], BACKEND),
-    ("frontend", [flutter_executable, "test"], FRONTEND),
+    (
+        "frontend",
+        [flutter_executable, "test", "--exclude-tags", "canonical-golden"],
+        FRONTEND,
+    ),
 ):
     print(f"POLIS tests: {name}", flush=True)
     command = prepare_command(command, dict(os.environ))

@@ -57,7 +57,7 @@ jobs:
         run: flutter pub get
 
       - name: Run frontend tests
-        run: flutter test
+        run: flutter test --exclude-tags canonical-golden
 
       - name: Test POLIS CI gate runner
         working-directory: .
@@ -108,6 +108,33 @@ jobs:
           TOUCHIN_CHROME: ${{ steps.chrome.outputs.chrome-path }}
           TOUCHIN_CHROME_NO_SANDBOX: '1'
         run: node test/browser/navigation_history_smoke.mjs
+
+  frontend-golden-ubuntu:
+    name: Frontend visual goldens (Ubuntu, Flutter 3.47.2)
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter 3.47.2 for canonical goldens
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.2'
+          cache: true
+
+      - name: Confirm canonical Flutter runtime
+        run: flutter --version
+
+      - name: Install frontend dependencies
+        run: flutter pub get
+
+      - name: Compare canonical navigation goldens
+        run: flutter test --tags canonical-golden
 
   windows-polis-gates:
     name: POLIS gates (Windows)
