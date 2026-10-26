@@ -440,7 +440,10 @@ def delete_managed_punch(
         employee_id=employee_id,
         punch_id=punch_id,
     )
+    predecessor = _previous_punch(db, record=record)
     successor = _next_punch(db, record=record)
+    if predecessor is not None and successor is not None:
+        _validate_adjacent_punches(predecessor, successor)
     # Keep the accounted work (including its original duration and task
     # snapshots), but release its link to the deleted live punch.
     db.execute(update(WorkLog).where(WorkLog.punch_id == punch_id).values(punch_id=None))

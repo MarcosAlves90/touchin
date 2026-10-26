@@ -210,6 +210,8 @@ def test_application_sqlite_connections_enforce_foreign_keys():
 def test_deleting_punch_retains_history_with_foreign_keys_on(sqlite_fk):
     factory, engine = sqlite_fk
     with factory() as db:
+        db.execute(delete(Punch).where(Punch.employee_id == "emp-04"))
+        db.commit()
         _, punch_id, log_id = _punch_with_log(db)
         delete_managed_punch(db, company_id="company-touchin", employee_id="emp-04", punch_id=punch_id)
         db.expire_all()
@@ -220,6 +222,100 @@ def test_deleting_punch_retains_history_with_foreign_keys_on(sqlite_fk):
         assert db.get(Punch, punch_id) is None
     with engine.connect() as connection:
         assert connection.exec_driver_sql("PRAGMA foreign_key_check").all() == []
+
+
+@pytest.mark.parametrize("database_fixture", ["sqlite_fk", "pg_read_committed"])
+def test_deleting_intermediate_punch_rejects_invalid_remaining_sequence(
+    request, database_fixture,
+):
+    factory, engine = request.getfixturevalue(database_fixture)
+    start = datetime(2026, 6, 1, 10, tzinfo=timezone.utc)
+    with factory() as db:
+        # A complete valid shift must not become checkIn -> breakEnd -> checkOut.
+        db.execute(delete(Punch).where(Punch.employee_id == "emp-04"))
+        db.commit()
+        records = [
+            Punch(company_id="company-touchin", employee_id="emp-04", type=punch_type,
+                  timestamp=start + timedelta(hours=hour), detail_ciphertext="test")
+            for hour, punch_type in enumerate(("checkIn", "breakStart", "breakEnd", "checkOut"))
+        ]
+        db.add_all(records)
+        db.flush()
+        first_log = WorkLog(
+            company_id="company-touchin", employee_id="emp-04", punch_id=records[1].id,
+            start_time=records[0].timestamp, end_time=records[1].timestamp,
+            duration_seconds=3600, description_ciphertext="historical first interval",
+            task_snapshots_ciphertext="[]",
+        )
+        last_log = WorkLog(
+            company_id="company-touchin", employee_id="emp-04", punch_id=records[3].id,
+            start_time=records[2].timestamp, end_time=records[3].timestamp,
+            duration_seconds=3600, description_ciphertext="historical last interval",
+            task_snapshots_ciphertext="[]",
+        )
+        db.add_all([first_log, last_log])
+        db.commit()
+
+        with pytest.raises(DomainError) as failure:
+            delete_managed_punch(
+                db, company_id="company-touchin", employee_id="emp-04",
+                punch_id=records[1].id,
+            )
+        assert failure.value.kind.value == "conflict"
+        db.rollback()
+        db.expire_all()
+        assert [(item.id, item.type) for item in db.scalars(
+            select(Punch).where(Punch.employee_id == "emp-04")
+            .order_by(Punch.timestamp, Punch.id)
+        )] == [(item.id, item.type) for item in records]
+        assert (db.get(WorkLog, first_log.id).punch_id,
+                db.get(WorkLog, first_log.id).duration_seconds) == (records[1].id, 3600)
+        assert (db.get(WorkLog, last_log.id).punch_id,
+                db.get(WorkLog, last_log.id).duration_seconds) == (records[3].id, 3600)
+
+    if engine.dialect.name == "sqlite":
+        with engine.connect() as connection:
+            assert connection.exec_driver_sql("PRAGMA foreign_key_check").all() == []
+
+
+@pytest.mark.parametrize("database_fixture", ["sqlite_fk", "pg_read_committed"])
+def test_deleting_intermediate_punch_allows_valid_bridge_and_retains_history(
+    request, database_fixture,
+):
+    factory, _ = request.getfixturevalue(database_fixture)
+    start = datetime(2026, 6, 1, 10, tzinfo=timezone.utc)
+    with factory() as db:
+        db.execute(delete(Punch).where(Punch.employee_id == "emp-04"))
+        db.commit()
+        records = [
+            Punch(company_id="company-touchin", employee_id="emp-04", type=punch_type,
+                  timestamp=start + timedelta(hours=hour), detail_ciphertext="test")
+            for hour, punch_type in enumerate(("checkIn", "breakStart", "checkOut"))
+        ]
+        db.add_all(records)
+        db.flush()
+        historical_log = WorkLog(
+            company_id="company-touchin", employee_id="emp-04", punch_id=records[1].id,
+            start_time=records[0].timestamp, end_time=records[1].timestamp,
+            duration_seconds=3600, description_ciphertext="historic activity",
+            task_snapshots_ciphertext="[]",
+        )
+        db.add(historical_log)
+        db.commit()
+
+        delete_managed_punch(
+            db, company_id="company-touchin", employee_id="emp-04", punch_id=records[1].id,
+        )
+        db.expire_all()
+        assert [item.type for item in db.scalars(
+            select(Punch).where(Punch.employee_id == "emp-04").order_by(Punch.timestamp, Punch.id)
+        )] == ["checkIn", "checkOut"]
+        retained = db.get(WorkLog, historical_log.id)
+        assert retained.punch_id is None
+        assert retained.duration_seconds == 3600
+        assert (ensure_utc(retained.start_time), ensure_utc(retained.end_time)) == (
+            start, start + timedelta(hours=1),
+        )
 
 
 @pytest.mark.parametrize("database_fixture", ["sqlite_fk", "pg_read_committed"])
@@ -379,6 +475,8 @@ def test_legacy_sqlite_work_log_migration_retains_data_and_enables_fk_actions(tm
         factory = sessionmaker(bind=engine, expire_on_commit=False)
         with factory() as db:
             seed_database(db)
+            db.execute(delete(Punch).where(Punch.employee_id == "emp-04"))
+            db.commit()
             _, end_id, log_id = _punch_with_log(db)
             project = Project(company_id="company-touchin", name_ciphertext="project")
             db.add(project)
@@ -607,6 +705,8 @@ def test_postgres_parallel_checkins_are_serialized(pg_read_committed):
 def test_postgres_work_logs_survive_employee_and_punch_deletions(pg_read_committed):
     factory, engine = pg_read_committed
     with factory() as db:
+        db.execute(delete(Punch).where(Punch.employee_id == "emp-04"))
+        db.commit()
         _, punch_id, log_id = _punch_with_log(db)
         delete_managed_punch(db, company_id="company-touchin", employee_id="emp-04", punch_id=punch_id)
         db.expire_all()
@@ -625,6 +725,8 @@ def test_postgres_work_logs_survive_employee_and_punch_deletions(pg_read_committ
 def test_postgres_legacy_work_log_schema_migrates_without_losing_history(pg_read_committed):
     factory, engine = pg_read_committed
     with factory() as db:
+        db.execute(delete(Punch).where(Punch.employee_id == "emp-04"))
+        db.commit()
         _, punch_id, log_id = _punch_with_log(db)
 
     # Reproduce the original mandatory live references on a dedicated PG DB.
