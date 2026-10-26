@@ -184,11 +184,13 @@ class AuthSubmissionIndicator extends StatelessWidget {
     return Semantics(
       liveRegion: true,
       label: label,
-      child: const ExcludeSemantics(
-        child: SizedBox(
-          width: 18,
-          height: 18,
-          child: CircularProgressIndicator(strokeWidth: 2),
+      child: ExcludeSemantics(
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
         ),
       ),
     );

@@ -3,6 +3,7 @@ import 'package:touchin_flutter/contracts/audit.dart';
 import 'package:touchin_flutter/core/network/api_client.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_skeleton.dart';
 import 'package:touchin_flutter/theme/app_theme.dart';
 
 class AdminAuditPage extends StatefulWidget {
@@ -389,10 +390,17 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
           _buildFilters(),
           Expanded(
             child: _isLoading
-                ? const Center(
-                    child: CircularProgressIndicator(
-                    semanticsLabel: 'Carregando eventos de auditoria',
-                  ))
+                ? WorkspaceSkeletonRegion(
+                    key: const ValueKey<String>('audit-events-skeleton'),
+                    label: 'Carregando eventos de auditoria',
+                    child: ListView(
+                      padding: const EdgeInsets.all(16),
+                      physics: const NeverScrollableScrollPhysics(),
+                      children: const <Widget>[
+                        WorkspaceSkeletonList(count: 6, leadingSize: 20),
+                      ],
+                    ),
+                  )
                 : _error != null && _events.isEmpty
                     ? Center(
                         child: Column(

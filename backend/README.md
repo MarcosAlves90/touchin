@@ -1,322 +1,64 @@
-# TouchIn Backend
+# Backend TouchIn
 
-API FastAPI + SQLAlchemy para autenticação empresarial, gestão de funcionários, projetos e controle de ponto.
+API REST em FastAPI. O prefixo versionado é `/api/v1`; a documentação interativa do FastAPI fica em `/docs` e o esquema OpenAPI em `/openapi.json`.
 
-## Visão Geral
+## Desenvolvimento local
 
-- Base path: `/api/v1`
-- Stack principal: FastAPI, SQLAlchemy, Pydantic, cryptography, pytest
-- Autenticação: bearer token opaco, armazenado como hash no banco
-- Banco padrão: SQLite em desenvolvimento; PostgreSQL via `TOUCHIN_DATABASE_URL`
-- Documentação interativa: `http://127.0.0.1:8000/docs`
-
-## Estrutura Atual
-
-```text
-backend/
-  app/
-    api/
-      router.py
-      routes/
-    domain/
-      auth_read.py
-      auth_session.py
-      employee_read.py
-      project_read.py
-      time_clock_read.py
-    schemas/
-    services/
-    main.py
-    models.py
-    security.py
-    crypto.py
-    authorization.py
-    bootstrap.py
-    database_schema.py
-    dependencies.py
-    seed.py
-    scripts/
-  tests/
-  .env.example
-  requirements.txt
-  pytest.ini
-```
-
-## Como Rodar
-
-### 1. Criar o `.env`
-
-```powershell
-Copy-Item backend\.env.example backend\.env
-```
-
-### 2. Ajustar segredos obrigatórios
-
-```env
-TOUCHIN_TOKEN_SECRET=troque-este-token-secret
-TOUCHIN_ENCRYPTION_SECRET=troque-este-encryption-secret
-```
-
-### 3. Instalar dependências
-
-```powershell
-cd backend
-py -3 -m pip install -r requirements.txt
-```
-
-### 4. Subir a API
-
-```powershell
-py -3 -m uvicorn app.main:app --reload
-```
-
-### 5. Rodar testes
-
-```powershell
-py -3 -m pytest -q
-```
+Siga o [guia de desenvolvimento](../docs/DEVELOPMENT.md) para instalar dependências, preparar `.env`, iniciar a API e executar os testes. A aplicação usa SQLite por padrão e inicia na porta informada ao Uvicorn. O exemplo do repositório usa a porta `8071` para corresponder ao endereço padrão do frontend.
 
 ## Configuração
 
-Variáveis mais importantes:
+As configurações abaixo são lidas em `app/config.py`; os valores locais de exemplo estão em `.env.example`.
 
-- `TOUCHIN_DATABASE_URL`: URL SQLAlchemy. Exemplo: `sqlite:///./touchin.db`
-
-Para PostgreSQL, configure `TOUCHIN_DATABASE_URL` com `postgresql+psycopg2://` (ou `postgresql://`, normalizado internamente para psycopg2). O backend declara `psycopg2-binary`; `postgresql+psycopg://` seleciona outro driver e é rejeitado na inicialização. O import da aplicação não exige conexão ao banco, mas o startup completo depende de um PostgreSQL acessível se bootstrap ou seed estiverem ativados.
-
-O CI executa o backend com Python 3.12. Configure a versão de Python do serviço Render para 3.12 e recrie o ambiente após ajustar as dependências, ou atualize explicitamente a matriz do CI para cobrir a versão escolhida para produção. A seleção de versão feita no painel do Render não é determinada por este repositório. Verifique os logs de inicialização e a resposta de `GET /api/v1/health` após o redeploy.
-- `TOUCHIN_TOKEN_SECRET`: segredo para tokens opacos
-- `TOUCHIN_ENCRYPTION_SECRET`: segredo para criptografia de PII
-- `TOUCHIN_ALLOWED_ORIGINS`: CSV de origens liberadas no CORS
-- `TOUCHIN_ENFORCE_HTTPS`: exige HTTPS fora de localhost quando `true`
-- `TOUCHIN_BOOTSTRAP_DATABASE_ON_STARTUP`: cria tabelas e faz upgrade legado na inicialização
-- `TOUCHIN_SEED_ON_STARTUP`: cria seed de desenvolvimento quando `true`
-- `TOUCHIN_SEED_ADMIN_PASSWORD`: senha usada pelos usuários seed
-- `TOUCHIN_BREVO_API_KEY`: chave opcional da Brevo
-- `TOUCHIN_BREVO_SENDER_EMAIL`: remetente das mensagens
-- `TOUCHIN_BREVO_SENDER_NAME`: nome do remetente
-- `TOUCHIN_BREVO_WELCOME_ENABLED`: habilita e-mails de boas-vindas
-- `TOUCHIN_PASSWORD_RESET_URL`: URL pública da tela de confirmação, por exemplo `https://app.exemplo.com/#/reset-password`; em produção, configurar HTTPS e entregar os e-mails pela Brevo
-
-Em produção, mantenha `TOUCHIN_BOOTSTRAP_DATABASE_ON_STARTUP=false` quando o banco já tiver o schema provisionado. Isso evita trabalho extra no boot do Render.
-
-## Seed de Desenvolvimento
-
-Com `TOUCHIN_SEED_ON_STARTUP=true`, a inicialização cria uma empresa e usuários de apoio.
-
-| Role | Email | Senha |
-| --- | --- | --- |
-| admin | `marina.costa@touchin.com` | `TOUCHIN_SEED_ADMIN_PASSWORD` |
-| manager | `caio.martins@touchin.com` | `TOUCHIN_SEED_ADMIN_PASSWORD` |
-| employee | `bianca.nogueira@touchin.com` | `TOUCHIN_SEED_ADMIN_PASSWORD` |
-| employee | `joao.lima@touchin.com` | `TOUCHIN_SEED_ADMIN_PASSWORD` |
-| super_admin | `super.admin@touchin.com` | `TOUCHIN_SEED_ADMIN_PASSWORD` |
-
-`emp-03` também tem `user-account` vinculado, então mudanças de `accessRole` funcionam no front quando esse funcionário é editado.
-
-## Autenticação
-
-### Login
-
-```http
-POST /api/v1/auth/login
-Content-Type: application/json
-
-{
-  "email": "marina.costa@touchin.com",
-  "password": "TOUCHIN_SEED_ADMIN_PASSWORD",
-  "keepConnected": true
-}
-```
-
-Resposta inclui `accessToken`. Use o token em rotas protegidas:
-
-```http
-Authorization: Bearer <accessToken>
-```
-
-### Fluxo de sessão
-
-- O token nunca é salvo em texto puro no banco.
-- O banco guarda apenas `token_hash`.
-- `POST /api/v1/auth/logout` revoga a sessão atual.
-- `keepConnected=true` usa o TTL longo configurado em `TOUCHIN_REMEMBER_ME_TTL_DAYS`.
-- `keepConnected=false` usa o TTL curto configurado em `TOUCHIN_TOKEN_TTL_HOURS`; o frontend ainda pode reaproveitar a sessão salva localmente até `expiresAt`, então isso não faz logout imediato.
-
-### Rotas de auth
-
-| Método | Rota | Acesso |
-| --- | --- | --- |
-| POST | `/api/v1/auth/register-company` | público |
-| POST | `/api/v1/auth/login` | público |
-| POST | `/api/v1/auth/reset-password` | público |
-| POST | `/api/v1/auth/reset-password/confirm` | público, token de posse |
-| POST | `/api/v1/auth/change-password` | autenticado |
-| GET | `/api/v1/auth/me` | `auth.read_context` |
-| POST | `/api/v1/auth/logout` | autenticado |
-
-`register-company`, `reset-password` e `change-password` podem disparar e-mails via Brevo em background. Falha de e-mail não desfaz o fluxo principal.
-
-A solicitação pública de reset (`{"email":"usuario@empresa.com"}`) sempre retorna a mesma mensagem e HTTP 200 para contas existentes, inexistentes, inativas ou com limite excedido. Ela não modifica senha, flag de troca obrigatória nem sessões. Para contas ativas, o servidor persiste apenas o HMAC do token aleatório e envia um link Brevo usando o fragmento da URL: `https://app.exemplo.com/#/reset-password?token=...`. A conclusão exige `{"token":"...","newPassword":"..."}`. O token expira em **30 minutos**, aceita **uma única conclusão** e a emissão de outro link invalida os anteriores; a confirmação troca a senha escolhida e revoga todas as sessões existentes em uma transação.
-
-Os limites persistentes são **3 solicitações por endereço de e-mail por hora**, **30 solicitações por IP por hora** e **30 tentativas de conclusão por IP por hora**. Endereços e IPs aparecem nos limites somente como HMACs. O servidor usa o IP da conexão (`request.client.host`); em instalações atrás de proxy, configure corretamente a identificação do cliente no servidor ASGI para preservar a efetividade do controle. Os limites internos complementam controles externos contra abuso distribuído. Em produção, configure `TOUCHIN_PASSWORD_RESET_URL` com HTTPS e a Brevo antes de habilitar o fluxo de recuperação.
-
-## Permissões
-
-As permissões ficam em `app/authorization.py`.
-
-| Role | Permissões principais |
+| Variável | Uso e padrão |
 | --- | --- |
-| employee | ler contexto de auth, ler e registrar o próprio ponto, ler projetos |
-| manager | employee read/update, projects create/update/assign, time clock manage |
-| admin | manager + employee create/delete, projects delete, company manage |
-| super_admin | admin + acesso cross-company |
+| `TOUCHIN_APP_NAME` | Nome exibido pela API; padrão `TouchIn Backend`. |
+| `TOUCHIN_ENV` | Ambiente; padrão `development`. |
+| `TOUCHIN_DATABASE_URL` | URL SQLAlchemy; padrão `sqlite:///./touchin.db`. |
+| `TOUCHIN_TIMEZONE` | Fuso empresarial; padrão `America/Sao_Paulo`. |
+| `TOUCHIN_TOKEN_SECRET` | Segredo obrigatório para derivar o hash de lookup dos tokens. |
+| `TOUCHIN_ENCRYPTION_SECRET` | Segredo obrigatório usado por `FieldCipher` para dados protegidos. |
+| `TOUCHIN_TOKEN_TTL_HOURS` | TTL curto; padrão `12`. |
+| `TOUCHIN_REMEMBER_ME_TTL_DAYS` | TTL de “manter conectado”; padrão `30`. |
+| `TOUCHIN_ENFORCE_HTTPS` | Ativa a verificação HTTPS para tráfego não local; padrão `false`. |
+| `TOUCHIN_BOOTSTRAP_DATABASE_ON_STARTUP` | Controla a inicialização/atualização de schema; por padrão ativo em `development` e `test`. |
+| `TOUCHIN_SEED_ON_STARTUP` | Controla dados seed; por padrão ativo em `development` e `test`. |
+| `TOUCHIN_SEED_ADMIN_PASSWORD` | Obrigatório quando seed está ativo; senha dos usuários seed locais. |
+| `TOUCHIN_ALLOWED_ORIGINS` | Lista CSV de origens CORS; o padrão contém origens localhost. |
+| `TOUCHIN_BREVO_API_KEY` | Chave opcional para integração de e-mail Brevo. |
+| `TOUCHIN_BREVO_SENDER_EMAIL` | Endereço remetente da integração Brevo. |
+| `TOUCHIN_BREVO_SENDER_NAME` | Nome remetente; padrão igual a `TOUCHIN_APP_NAME`. |
+| `TOUCHIN_BREVO_WELCOME_ENABLED` | Ativa e-mails de boas-vindas; padrão `true`. |
+| `TOUCHIN_PASSWORD_RESET_URL` | URL HTTPS pública para recuperação; aceita domínio base ou rota Flutter Web `/#/reset-password`, sempre normalizada para a rota de confirmação. |
 
-Regras gerais:
+`TOUCHIN_TOKEN_SECRET` e `TOUCHIN_ENCRYPTION_SECRET` são sempre exigidos na inicialização. Os valores de `.env.example` são placeholders para desenvolvimento, não segredos de produção.
 
-- As rotas comuns são escopadas por empresa.
-- `admin.cross_company` exige `super_admin`.
+A recuperação pública exige um token de uso único válido por 30 minutos, não altera credenciais no momento da solicitação, limita tentativas por IP e e-mail e revoga as sessões existentes somente na confirmação válida. Para a operação em produção, configurar HTTPS/Brevo e assegurar que o IP de origem utilizado nos limites seja fornecido por um proxy confiável. As migrações de `WorkLog` preservam referências históricas e devem ser ensaiadas com backup antes do deploy.
 
-## Arquitetura Atual
+Para PostgreSQL, use `postgresql+psycopg2://`, `postgresql://` ou `postgres://`; as duas últimas formas são normalizadas para psycopg2. A dependência declarada é `psycopg2-binary`; o driver `postgresql+psycopg://` não é suportado. Confira `backend/app/db.py` antes de alterar a URL usada por um ambiente.
 
-- `services/` fica com comandos e orquestração
-- `domain/` guarda read models e helpers compartilhados
-- `bootstrap.py` concentra o lifecycle da app
-- `database_schema.py` concentra upgrade de schema legado
-- `seed.py` usa builders pequenos e expõe `seed_database`
-- `time-clock/me` e `time-clock/employees/{employeeId}/punches` aceitam paginação por `page` e `limit`
+`API_BASE_URL` é uma configuração de build do frontend, não uma variável do backend. Veja [Deploy](../docs/DEPLOYMENT.md).
 
-## Endpoints
+## Rotas
 
-### Health
+As rotas são registradas em `app/api/router.py`. Consulte `/docs` ou `/openapi.json` no servidor em execução para métodos, esquemas e permissões atuais.
 
-| Método | Rota | Auth |
-| --- | --- | --- |
-| GET | `/api/v1/health` | não |
+| Área | Prefixo |
+| --- | --- |
+| Health | `GET /api/v1/health` |
+| Autenticação | `/api/v1/auth` |
+| Funcionários | `/api/v1/employees` |
+| Projetos, tarefas, Kanban e relatórios | `/api/v1/projects` |
+| Ponto | `/api/v1/time-clock` |
+| Auditoria | `/api/v1/audit-events` |
+| Administração | `/api/v1/admin` |
 
-### Employees
+Use `Authorization: Bearer <token>` nas rotas que exigem autenticação; a especificação interativa informa os requisitos de cada operação. As regras de autorização ficam em `app/authorization.py` e nas rotas/serviços correspondentes.
 
-| Método | Rota | Permissão |
-| --- | --- | --- |
-| GET | `/api/v1/employees` | `employees.read` |
-| GET | `/api/v1/employees/{employeeId}` | `employees.read` |
-| POST | `/api/v1/employees` | `employees.create` |
-| PUT | `/api/v1/employees/{employeeId}` | `employees.update` |
-| PATCH | `/api/v1/employees/{employeeId}` | `employees.update` |
-| DELETE | `/api/v1/employees/{employeeId}` | `employees.delete` |
-| GET | `/api/v1/employees/{employeeId}/projects` | `projects.read` |
+## Persistência e dados sensíveis
 
-Payload de criação/edição:
+SQLite é o padrão local. PostgreSQL é aceito pelas formas de URL descritas acima. Sessões usam tokens bearer opacos e o backend consulta o hash do token; campos protegidos usam `FieldCipher`. Consulte o código de `app/security.py`, `app/crypto.py` e `app/domain/` para o comportamento vigente.
 
-```json
-{
-  "name": "Renata Souza",
-  "role": "Analista Financeira",
-  "department": "Financeiro",
-  "email": "renata.souza@touchin.com",
-  "phone": "(11) 94444-6060",
-  "unit": "Backoffice Centro",
-  "expectedShiftStart": "08:00",
-  "expectedShiftEnd": "17:00",
-  "status": "active",
-  "workMode": "hybrid",
-  "roleLevel": "specialist",
-  "requiresLocationOnPunch": false,
-  "trustedDeviceRequired": true,
-  "notes": "Observação interna."
-}
-```
+## Validação
 
-### Projects
-
-| Método | Rota | Permissão |
-| --- | --- | --- |
-| GET | `/api/v1/projects` | `projects.read` |
-| POST | `/api/v1/projects` | `projects.create` |
-| GET | `/api/v1/projects/{projectId}` | `projects.read` |
-| PUT | `/api/v1/projects/{projectId}` | `projects.update` |
-| PATCH | `/api/v1/projects/{projectId}` | `projects.update` |
-| DELETE | `/api/v1/projects/{projectId}` | `projects.delete` |
-| GET | `/api/v1/projects/{projectId}/members` | `projects.read` |
-| POST | `/api/v1/projects/{projectId}/members` | `projects.assign` |
-| DELETE | `/api/v1/projects/{projectId}/members/{employeeId}` | `projects.assign` |
-
-`DELETE /projects/{projectId}` marca o projeto como `inactive` e não remove fisicamente.
-
-Payload de projeto:
-
-```json
-{
-  "name": "Implantação Cliente Sul",
-  "description": "Projeto de operação assistida.",
-  "status": "active"
-}
-```
-
-### Time Clock
-
-| Método | Rota | Permissão |
-| --- | --- | --- |
-| GET | `/api/v1/time-clock/me` | `time_clock.read` |
-| POST | `/api/v1/time-clock/me/punches` | `time_clock.punch` |
-| GET | `/api/v1/time-clock/employees/{employeeId}/punches` | `time_clock.manage` |
-| POST | `/api/v1/time-clock/employees/{employeeId}/punches` | `time_clock.manage` |
-| PUT | `/api/v1/time-clock/employees/{employeeId}/punches/{punchId}` | `time_clock.manage` |
-| PATCH | `/api/v1/time-clock/employees/{employeeId}/punches/{punchId}` | `time_clock.manage` |
-| DELETE | `/api/v1/time-clock/employees/{employeeId}/punches/{punchId}` | `time_clock.manage` |
-
-Transições automáticas permitidas no ponto próprio:
-
-- `checkedOut` -> `checkIn`
-- `working` -> `breakStart` ou `checkOut`
-- `onBreak` -> `breakEnd` ou `checkOut`
-
-Se o funcionário tiver `requiresLocationOnPunch=true`, a requisição precisa enviar `location`.
-
-Payload de ponto próprio:
-
-```json
-{
-  "type": "checkIn",
-  "projectId": null,
-  "location": {
-    "latitude": -23.5632,
-    "longitude": -46.6545,
-    "accuracyMeters": 12,
-    "capturedAt": "2026-04-25T16:30:00-03:00"
-  }
-}
-```
-
-Payload de ajuste gerencial:
-
-```json
-{
-  "type": "checkIn",
-  "timestamp": "2026-05-20T09:00:00-03:00",
-  "detail": "Ajuste manual aprovado pelo gestor.",
-  "projectId": null,
-  "location": null
-}
-```
-
-### Admin
-
-| Método | Rota | Permissão |
-| --- | --- | --- |
-| GET | `/api/v1/admin/companies` | `admin.cross_company` |
-
-## Privacidade e Segurança
-
-PII protegida:
-
-- nome, e-mail, telefone, CNPJ, unidade, cargo, departamento e notas são criptografados em repouso
-- e-mail e CNPJ também recebem HMAC determinístico para lookup sem texto puro
-- payload de localização do ponto é criptografado
-- tokens são opacos e o banco guarda apenas o hash
-
-Regras operacionais:
-
-- não logar payload sensível
-- usar HTTPS fora de localhost em ambientes reais
-- manter `TOUCHIN_TOKEN_SECRET` e `TOUCHIN_ENCRYPTION_SECRET` definidos
+O CI executa `pytest` no backend e aplica os gates POLIS descritos em [Desenvolvimento](../docs/DEVELOPMENT.md). O CI fixa Python 3.12; as restrições completas das bibliotecas estão em `requirements.txt`.

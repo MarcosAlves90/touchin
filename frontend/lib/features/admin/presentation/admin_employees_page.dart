@@ -6,6 +6,7 @@ import 'package:touchin_flutter/core/forms/br_input_masks.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/pagination_controls.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_skeleton.dart';
 import 'package:touchin_flutter/features/admin/presentation/admin_employees_controller.dart';
 import 'package:touchin_flutter/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -617,7 +618,11 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
           if (_isLoading)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 24),
-              child: Center(child: CircularProgressIndicator()),
+              child: WorkspaceSkeletonRegion(
+                key: ValueKey<String>('employee-list-skeleton'),
+                label: 'Carregando funcionários',
+                child: WorkspaceSkeletonList(count: 5),
+              ),
             )
           else if (_loadError != null)
             Container(
@@ -1022,7 +1027,11 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
         if (_isLoadingEmployeePunches)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 24),
-            child: Center(child: CircularProgressIndicator()),
+            child: WorkspaceSkeletonRegion(
+              key: ValueKey<String>('employee-punches-skeleton'),
+              label: 'Carregando registros de ponto',
+              child: WorkspaceSkeletonList(count: 4, leadingSize: 24),
+            ),
           )
         else if (_employeePunchesError != null)
           Container(

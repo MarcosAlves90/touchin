@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:touchin_flutter/contracts/time_clock.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_skeleton.dart';
 import 'package:touchin_flutter/features/time_tracking/presentation/time_clock_controller.dart';
 
 class WorkLogSubmission {
@@ -140,7 +141,11 @@ class _WorkLogDialogState extends State<WorkLogDialog> {
               if (_selectedProjectId == null)
                 const Text('Selecione um projeto para carregar as tarefas.')
               else if (controller.isLoadingWorkLogTasks)
-                const Center(child: CircularProgressIndicator())
+                const WorkspaceSkeletonRegion(
+                  key: ValueKey<String>('work-log-tasks-skeleton'),
+                  label: 'Carregando tarefas do projeto',
+                  child: WorkspaceSkeletonList(count: 3, leadingSize: 24),
+                )
               else if (_loadError != null)
                 Text(_loadError!)
               else if (tasks.isEmpty)

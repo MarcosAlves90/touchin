@@ -570,7 +570,11 @@ void main() {
       ),
     ));
 
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(
+      find.byKey(const ValueKey<String>('audit-events-skeleton')),
+      findsOneWidget,
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('Tarefa criada - Sucesso'), findsOneWidget);

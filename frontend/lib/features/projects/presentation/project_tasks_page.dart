@@ -7,6 +7,7 @@ import 'package:touchin_flutter/features/projects/presentation/project_tasks_con
 import 'package:touchin_flutter/features/projects/presentation/widgets/task_editor_dialog.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_editor_dialog.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_skeleton.dart';
 import 'package:touchin_flutter/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -101,10 +102,7 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
 
   Widget _buildContent(bool isWide) {
     if (_controller.isLoading) {
-      return const SizedBox(
-        height: 520,
-        child: Center(child: CircularProgressIndicator()),
-      );
+      return _buildPageSkeleton(isWide);
     }
 
     if (_controller.loadError != null) {
@@ -133,6 +131,73 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
             _buildTaskWorkspace(isWide),
           ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildPageSkeleton(bool isWide) {
+    return WorkspaceSkeletonRegion(
+      key: const ValueKey<String>('project-tasks-page-skeleton'),
+      label: 'Carregando projetos e tarefas',
+      child: Padding(
+        padding:
+            EdgeInsets.fromLTRB(isWide ? 32 : 24, 28, isWide ? 32 : 24, 28),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            const WorkspaceSkeleton(width: 280, height: 30),
+            const SizedBox(height: 12),
+            const FractionallySizedBox(
+              widthFactor: 0.62,
+              alignment: Alignment.centerLeft,
+              child: WorkspaceSkeleton(height: 14),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: const <Widget>[
+                Expanded(child: WorkspaceSkeleton(height: 84)),
+                SizedBox(width: 12),
+                Expanded(child: WorkspaceSkeleton(height: 84)),
+                SizedBox(width: 12),
+                Expanded(child: WorkspaceSkeleton(height: 84)),
+              ],
+            ),
+            const SizedBox(height: 20),
+            const WorkspaceSkeletonPanel(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  WorkspaceSkeleton(width: 180, height: 20),
+                  SizedBox(height: 10),
+                  FractionallySizedBox(
+                    widthFactor: 0.55,
+                    alignment: Alignment.centerLeft,
+                    child: WorkspaceSkeleton(height: 12),
+                  ),
+                  SizedBox(height: 20),
+                  WorkspaceSkeletonList(count: 3),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            const WorkspaceSkeletonPanel(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  WorkspaceSkeleton(width: 140, height: 20),
+                  SizedBox(height: 10),
+                  FractionallySizedBox(
+                    widthFactor: 0.5,
+                    alignment: Alignment.centerLeft,
+                    child: WorkspaceSkeleton(height: 12),
+                  ),
+                  SizedBox(height: 20),
+                  WorkspaceSkeletonList(count: 3, leadingSize: 24),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -511,7 +576,10 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
           if (_controller.isLoadingProjectMembers)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 24),
-              child: Center(child: CircularProgressIndicator()),
+              child: WorkspaceSkeletonRegion(
+                label: 'Carregando funcionários do projeto',
+                child: WorkspaceSkeletonList(count: 3),
+              ),
             )
           else if (_controller.projectMembersError != null)
             _InlineError(
@@ -579,7 +647,10 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
           ),
           const SizedBox(height: 20),
           if (_controller.isLoadingTasks)
-            const Center(child: CircularProgressIndicator())
+            const WorkspaceSkeletonRegion(
+              label: 'Carregando tarefas',
+              child: WorkspaceSkeletonList(count: 3, leadingSize: 24),
+            )
           else if (_controller.tasksError != null)
             _InlineError(
               message: _controller.tasksError!,
@@ -677,7 +748,10 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
           if (_controller.isLoadingMembers)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 24),
-              child: Center(child: CircularProgressIndicator()),
+              child: WorkspaceSkeletonRegion(
+                label: 'Carregando participantes da tarefa',
+                child: WorkspaceSkeletonList(count: 3),
+              ),
             )
           else if (_controller.membersError != null)
             _InlineError(
