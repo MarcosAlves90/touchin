@@ -158,13 +158,16 @@ def test_export_returns_every_matching_record_across_pages_in_stable_order(clien
 
 
 def test_export_requires_audit_read_permission(client):
-    for email in (JOAO_EMAIL, CAIO_EMAIL):
+    for email in (MARINA_EMAIL, CAIO_EMAIL):
         response = client.get(
             "/api/v1/audit-events/export", headers=login_headers(client, email)
         )
-        if email == CAIO_EMAIL and response.status_code == 200:
-            continue
-        assert response.status_code == 403
+        assert response.status_code == 200, email
+
+    denied = client.get(
+        "/api/v1/audit-events/export", headers=login_headers(client, JOAO_EMAIL)
+    )
+    assert denied.status_code == 403
 
 
 def test_export_does_not_leak_another_company(client):
@@ -300,6 +303,27 @@ def test_export_escapes_rfc4180_and_neutralizes_formulas(client):
                 entity_id="   =HYPERLINK(\"http://example.test\")",
                 action="export.safety",
             ),
+            _event(
+                "evt_export_formula_tab",
+                company_id=company_id,
+                timestamp=timestamp - timedelta(seconds=6),
+                entity_id="\t=1+1",
+                action="export.safety",
+            ),
+            _event(
+                "evt_export_formula_cr",
+                company_id=company_id,
+                timestamp=timestamp - timedelta(seconds=7),
+                entity_id="\r=1+1",
+                action="export.safety",
+            ),
+            _event(
+                "evt_export_formula_lf",
+                company_id=company_id,
+                timestamp=timestamp - timedelta(seconds=8),
+                entity_id="\n=1+1",
+                action="export.safety",
+            ),
         ]
     )
 
@@ -312,7 +336,7 @@ def test_export_escapes_rfc4180_and_neutralizes_formulas(client):
     assert response.status_code == 200
     rows = _parse_csv(response)
     assert rows[0] == list(CSV_COLUMNS)
-    assert len(rows) == 7
+    assert len(rows) == 10
 
     escaped = rows[1]
     assert escaped[1] == "usuário-ç"
@@ -328,7 +352,33 @@ def test_export_escapes_rfc4180_and_neutralizes_formulas(client):
         "'-2+3",
         "'@SUM(A1)",
         "'   =HYPERLINK(\"http://example.test\")",
+        "'\t=1+1",
+        "'\r=1+1",
+        "'\n=1+1",
     ]
+
+
+def test_export_row_count_is_derived_from_the_materialized_stream(client, monkeypatch):
+    timestamp = datetime(2026, 7, 1, 10, 0, tzinfo=timezone.utc)
+    streamed_rows = [
+        (timestamp, "user-a", "stream.test", "success", "export-stream", "row-a", None),
+        (timestamp, "user-b", "stream.test", "failed", "export-stream", "row-b", "proj-b"),
+    ]
+
+    monkeypatch.setattr(
+        "app.api.routes.audit.iter_audit_export_rows",
+        lambda *args, **kwargs: iter(streamed_rows),
+    )
+
+    response = client.get(
+        "/api/v1/audit-events/export", headers=_export_headers(client)
+    )
+
+    assert response.status_code == 200
+    rows = _parse_csv(response)
+    assert response.headers["x-audit-export-rows"] == "2"
+    assert len(rows) - 1 == 2
+    assert [row[5] for row in rows[1:]] == ["row-a", "row-b"]
 
 
 def test_export_without_matches_reports_zero_rows_and_only_header(client):

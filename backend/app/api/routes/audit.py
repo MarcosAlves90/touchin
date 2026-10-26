@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import tempfile
+from collections.abc import Iterator
 from datetime import datetime, timezone
+from typing import BinaryIO
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
@@ -12,11 +15,10 @@ from app.services.auth import AuthenticatedContext
 from app.schemas.audit import AuditEventResponse
 from app.domain.audit_read import (
     AuditEventFilters,
-    count_audit_events,
     iter_audit_export_rows,
     list_audit_events,
 )
-from app.services.audit_export import iter_audit_csv
+from app.services.audit_export import write_audit_csv
 
 router = APIRouter()
 
@@ -67,20 +69,54 @@ def list_audit_events_route(
     )
 
 
+def _materialize_audit_export(
+    db: Session,
+    *,
+    company_id: str,
+    filters: AuditEventFilters,
+) -> tuple[BinaryIO, int]:
+    """Write the scoped export to a bounded-memory spool.
+
+    Materializing the same iterator that is streamed to the client makes the
+    row-count header and the "no data" decision deterministic. Large exports
+    spill to disk, so server memory remains bounded.
+    """
+    spool = tempfile.SpooledTemporaryFile(max_size=4 * 1024 * 1024, mode="w+b")
+    try:
+        row_count = write_audit_csv(
+            iter_audit_export_rows(db, company_id=company_id, filters=filters),
+            spool,
+        )
+        spool.seek(0)
+    except Exception:
+        spool.close()
+        raise
+    return spool, row_count
+
+
+def _stream_spool(spool: BinaryIO) -> Iterator[bytes]:
+    try:
+        while chunk := spool.read(64 * 1024):
+            yield chunk
+    finally:
+        spool.close()
+
+
 @router.get("/export")
 def export_audit_events_route(
     filters: AuditEventFilters = Depends(audit_event_filters),
     context: AuthenticatedContext = Depends(require_permission("audit.read")),
     db: Session = Depends(get_db),
 ) -> StreamingResponse:
-    company_id = context.company.id
-    row_count = count_audit_events(db, company_id=company_id, filters=filters)
+    spool, row_count = _materialize_audit_export(
+        db,
+        company_id=context.company.id,
+        filters=filters,
+    )
     filename = f"audit-events-{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}.csv"
 
     return StreamingResponse(
-        iter_audit_csv(
-            iter_audit_export_rows(db, company_id=company_id, filters=filters)
-        ),
+        _stream_spool(spool),
         media_type="text/csv; charset=utf-8",
         headers={
             "Content-Disposition": f'attachment; filename="{filename}"',

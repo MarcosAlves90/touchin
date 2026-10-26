@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Iterator, Sequence
 
-from sqlalchemy import Select, func, select
+from sqlalchemy import Select, select
 from sqlalchemy.orm import Session
 
 from app.models import AuditEvent
@@ -104,19 +104,6 @@ def list_audit_events(
 
     events = db.scalars(query).all()
     return [serialize_audit_event(e) for e in events]
-
-
-def count_audit_events(
-    db: Session,
-    *,
-    company_id: str,
-    filters: AuditEventFilters,
-) -> int:
-    matching = build_audit_query(company_id=company_id, filters=filters)
-    count_query = select(func.count()).select_from(
-        matching.order_by(None).subquery()
-    )
-    return int(db.scalar(count_query) or 0)
 
 
 def iter_audit_export_rows(

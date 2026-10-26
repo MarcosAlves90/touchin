@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import csv
 import io
-from collections.abc import Iterable, Iterator, Sequence
+from collections.abc import Iterable, Sequence
 from datetime import datetime, timezone
+from typing import BinaryIO
 
 CSV_COLUMNS = (
     "timestamp_utc",
@@ -17,7 +18,7 @@ CSV_COLUMNS = (
 
 _CSV_LINE_TERMINATOR = "\r\n"
 _FORMULA_PREFIXES = ("=", "+", "-", "@")
-_CONTROL_FORMULA_PREFIXES = ("\t", "\r")
+_CONTROL_FORMULA_PREFIXES = ("\t", "\r", "\n")
 
 
 def _format_timestamp(value: object) -> str:
@@ -51,20 +52,36 @@ def _csv_line(values: Sequence[str]) -> str:
     return buffer.getvalue()
 
 
-def iter_audit_csv(rows: Iterable[Sequence[object]]) -> Iterator[str]:
-    """Yield an UTF-8 BOM, a fixed header, and RFC 4180 encoded rows."""
-    yield "\ufeff"
-    yield _csv_line(CSV_COLUMNS)
-    for row in rows:
-        timestamp, actor_user_id, action, result, entity_type, entity_id, project_id = row
-        yield _csv_line(
-            (
-                _format_cell(timestamp, timestamp=True),
-                _format_cell(actor_user_id),
-                _format_cell(action),
-                _format_cell(result),
-                _format_cell(entity_type),
-                _format_cell(entity_id),
-                _format_cell(project_id),
-            )
+_CSV_PREAMBLE = "\ufeff" + _csv_line(CSV_COLUMNS)
+
+
+def _csv_data_row(row: Sequence[object]) -> str:
+    timestamp, actor_user_id, action, result, entity_type, entity_id, project_id = row
+    return _csv_line(
+        (
+            _format_cell(timestamp, timestamp=True),
+            _format_cell(actor_user_id),
+            _format_cell(action),
+            _format_cell(result),
+            _format_cell(entity_type),
+            _format_cell(entity_id),
+            _format_cell(project_id),
         )
+    )
+
+
+def write_audit_csv(
+    rows: Iterable[Sequence[object]],
+    target: BinaryIO,
+) -> int:
+    """Write the CSV and return the number of data rows materialized.
+
+    The count comes from the exact rows written to ``target`` so callers do not
+    need a second, racy database count to label an export.
+    """
+    target.write(_CSV_PREAMBLE.encode("utf-8"))
+    row_count = 0
+    for row in rows:
+        target.write(_csv_data_row(row).encode("utf-8"))
+        row_count += 1
+    return row_count
