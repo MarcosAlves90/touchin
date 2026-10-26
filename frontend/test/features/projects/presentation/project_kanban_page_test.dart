@@ -1186,6 +1186,54 @@ void main() {
     );
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('page loading keeps the workspace shell and renders skeletons', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final api = _DelayedProjectsKanbanApi();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.lightTheme,
+        darkTheme: AppTheme.darkTheme,
+        home: ProjectKanbanPage(api: api),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey<String>('kanban-page-skeleton')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('workspace-desktop-destinations')),
+      findsOneWidget,
+    );
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+
+    api.projectsGate.complete();
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey<String>('kanban-page-skeleton')),
+      findsNothing,
+    );
+    expect(find.byType(ProjectKanbanBoard), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+}
+
+class _DelayedProjectsKanbanApi extends _FakeKanbanApi {
+  final Completer<void> projectsGate = Completer<void>();
+
+  @override
+  Future<List<ProjectSummary>> listProjects({ProjectStatus? status}) async {
+    await projectsGate.future;
+    return super.listProjects(status: status);
+  }
 }
 
 class _FakeKanbanApi extends TouchInApi {
