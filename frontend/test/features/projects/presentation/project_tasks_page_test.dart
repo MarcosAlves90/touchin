@@ -14,6 +14,38 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('page loading keeps workspace shell and renders skeletons', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final api = _DelayedProjectsTasksApi();
+
+    await tester.pumpWidget(MaterialApp(home: ProjectTasksPage(api: api)));
+    await tester.pump();
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey<String>('project-tasks-page-skeleton')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('workspace-desktop-destinations')),
+      findsOneWidget,
+    );
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+
+    api.projectsGate.complete();
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey<String>('project-tasks-page-skeleton')),
+      findsNothing,
+    );
+    expect(find.text('Tarefas'), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
       'project creation uses standard dialog and blocks pending actions',
       (tester) async {
@@ -40,7 +72,7 @@ void main() {
 
     expect(api.createAttempts, 1);
     expect(find.text('Salvando projeto…'), findsOneWidget);
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
     expect(find.text('Cancelar'), findsOneWidget);
     expect(
         tester
@@ -657,6 +689,18 @@ class _FakeProjectTasksApi extends TouchInApi {
       employeeName: 'João Lima',
       createdAt: DateTime(2026, 9, 9),
     );
+  }
+}
+
+class _DelayedProjectsTasksApi extends _FakeProjectTasksApi {
+  _DelayedProjectsTasksApi() : super(role: 'manager', employeeId: 'emp-02');
+
+  final Completer<void> projectsGate = Completer<void>();
+
+  @override
+  Future<List<ProjectSummary>> listProjects({ProjectStatus? status}) async {
+    await projectsGate.future;
+    return super.listProjects(status: status);
   }
 }
 

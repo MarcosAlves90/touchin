@@ -66,13 +66,8 @@ class WorkspaceEditorDialog extends StatelessWidget {
         : FilledButton.icon(
             style: submitStyle,
             onPressed: isBusy ? null : onPrimary,
-            icon: isBusy
-                ? const SizedBox.square(
-                    dimension: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Icon(primaryIcon, size: 18),
-            label: Text(isBusy ? busyLabel : primaryLabel),
+            icon: Icon(primaryIcon, size: 18),
+            label: _submitLabel(),
           );
 
     return Dialog(
@@ -213,16 +208,10 @@ class WorkspaceEditorDialog extends StatelessWidget {
     if (!isBusy) {
       return Text(primaryLabel);
     }
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: <Widget>[
-        const SizedBox.square(
-          dimension: 18,
-          child: CircularProgressIndicator(strokeWidth: 2),
-        ),
-        const SizedBox(width: 10),
-        Text(busyLabel),
-      ],
+    return Semantics(
+      liveRegion: true,
+      label: busyLabel,
+      child: ExcludeSemantics(child: Text(busyLabel)),
     );
   }
 }
