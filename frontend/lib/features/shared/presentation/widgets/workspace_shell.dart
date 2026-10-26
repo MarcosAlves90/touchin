@@ -1,8 +1,10 @@
 import 'dart:ui';
 
+import 'package:touchin_flutter/contracts/auth.dart';
 import 'package:touchin_flutter/features/auth/presentation/logout_navigation.dart';
 import 'package:touchin_flutter/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:touchin_flutter/core/navigation/workspace_destinations.dart';
 import 'package:touchin_flutter/core/navigation/workspace_router.dart';
 
 typedef WorkspaceLogoutHandler = Future<void> Function(BuildContext context);
@@ -153,30 +155,27 @@ class WorkspaceScaffold extends StatelessWidget {
   }
 }
 
-class _WorkspaceDestination {
-  const _WorkspaceDestination(this.icon, this.label, this.route);
+/// Builds navigation from the destinations available to the router's verified
+/// user. Standalone shells outside the workspace router list every destination.
+class _AvailableDestinations extends StatelessWidget {
+  const _AvailableDestinations({required this.builder});
 
-  final IconData icon;
-  final String label;
-  final String route;
+  final Widget Function(
+    BuildContext context,
+    List<WorkspaceDestination> destinations,
+  ) builder;
+
+  @override
+  Widget build(BuildContext context) {
+    final router = WorkspaceRouterScope.maybeOf(context);
+    if (router == null) return builder(context, workspaceDestinations);
+    return ValueListenableBuilder<AuthUserSummary?>(
+      valueListenable: router.navigationUser,
+      builder: (context, user, _) =>
+          builder(context, availableWorkspaceDestinations(user)),
+    );
+  }
 }
-
-const _workspaceDestinations = <_WorkspaceDestination>[
-  _WorkspaceDestination(Icons.timer_outlined, 'Bater Ponto', '/time-clock'),
-  _WorkspaceDestination(
-    Icons.groups_2_rounded,
-    'Administrar Equipe',
-    '/admin/employees',
-  ),
-  _WorkspaceDestination(Icons.history_edu, 'Trilha de Auditoria', '/admin/audit'),
-  _WorkspaceDestination(
-    Icons.account_tree_outlined,
-    'Projetos e tarefas',
-    '/projects',
-  ),
-  _WorkspaceDestination(Icons.view_kanban_outlined, 'Kanban', '/kanban'),
-  _WorkspaceDestination(Icons.tune_rounded, 'Configurações', '/settings'),
-];
 
 class WorkspaceDesktopNavigation extends StatelessWidget {
   const WorkspaceDesktopNavigation({
@@ -244,18 +243,20 @@ class WorkspaceDesktopNavigation extends StatelessWidget {
               key: const ValueKey<String>('workspace-desktop-destinations'),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 10),
-                child: Column(
-                  children: <Widget>[
-                    for (final destination in _workspaceDestinations)
-                      _buildAction(
-                        context,
-                        icon: destination.icon,
-                        label: destination.label,
-                        selected: activeRoute == destination.route,
-                        onPressed: () =>
-                            _navigateTo(context, destination.route),
-                      ),
-                  ],
+                child: _AvailableDestinations(
+                  builder: (context, destinations) => Column(
+                    children: <Widget>[
+                      for (final destination in destinations)
+                        _buildAction(
+                          context,
+                          icon: destination.icon,
+                          label: destination.label,
+                          selected: activeRoute == destination.route,
+                          onPressed: () =>
+                              _navigateTo(context, destination.route),
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -421,57 +422,24 @@ class WorkspaceNavigationDrawer extends StatelessWidget {
             ),
           ),
           Expanded(
-              child: ListView(padding: EdgeInsets.zero, children: [
-            const SizedBox(height: 16),
-            _buildDrawerItem(
-              context,
-              icon: Icons.timer_outlined,
-              label: 'Bater Ponto',
-              onTap: () {
-                _navigateTo(context, '/time-clock');
-              },
+            child: _AvailableDestinations(
+              builder: (context, destinations) => ListView(
+                padding: EdgeInsets.zero,
+                children: [
+                  const SizedBox(height: 16),
+                  for (final destination in destinations)
+                    _buildDrawerItem(
+                      context,
+                      icon: destination.icon,
+                      label: destination.label,
+                      onTap: () {
+                        _navigateTo(context, destination.route);
+                      },
+                    ),
+                ],
+              ),
             ),
-            _buildDrawerItem(
-              context,
-              icon: Icons.groups_2_rounded,
-              label: 'Administrar Equipe',
-              onTap: () {
-                _navigateTo(context, '/admin/employees');
-              },
-            ),
-            _buildDrawerItem(
-              context,
-              icon: Icons.history_edu,
-              label: 'Trilha de Auditoria',
-              onTap: () {
-                _navigateTo(context, '/admin/audit');
-              },
-            ),
-            _buildDrawerItem(
-              context,
-              icon: Icons.account_tree_outlined,
-              label: 'Projetos e tarefas',
-              onTap: () {
-                _navigateTo(context, '/projects');
-              },
-            ),
-            _buildDrawerItem(
-              context,
-              icon: Icons.view_kanban_outlined,
-              label: 'Kanban',
-              onTap: () {
-                _navigateTo(context, '/kanban');
-              },
-            ),
-            _buildDrawerItem(
-              context,
-              icon: Icons.tune_rounded,
-              label: 'Configurações',
-              onTap: () {
-                _navigateTo(context, '/settings');
-              },
-            ),
-          ])),
+          ),
           const SizedBox(height: 16),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),

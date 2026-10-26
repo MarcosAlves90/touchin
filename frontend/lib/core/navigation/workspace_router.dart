@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:touchin_flutter/contracts/auth.dart';
 import 'package:touchin_flutter/features/auth/presentation/auth_session_navigation.dart';
@@ -71,6 +72,11 @@ class WorkspaceRouter extends RouterDelegate<WorkspaceLocation>
   bool _sessionRevoked = false;
   int get sessionGeneration => _sessionGeneration;
   bool get sessionRevoked => _sessionRevoked;
+  // Display-only: navigation chrome keeps the last verified user's
+  // destinations while a route revalidates its session. Never authorizes.
+  final ValueNotifier<AuthUserSummary?> _navigationUser =
+      ValueNotifier<AuthUserSummary?>(null);
+  ValueListenable<AuthUserSummary?> get navigationUser => _navigationUser;
 
   String get _path => _history[_currentIndex];
 
@@ -171,14 +177,23 @@ class WorkspaceRouter extends RouterDelegate<WorkspaceLocation>
   void authenticate(AuthSession session) {
     _sessionRevoked = false;
     _sessionGeneration++;
+    _navigationUser.value = session.user;
     final route = buildAuthenticatedWorkspaceRoute(session).settings.name!;
     _replaceHistory(route, session);
     notifyListeners();
   }
 
+  /// Records the user confirmed by a route's session bootstrap. Call it only
+  /// outside the build phase, after the verification completed.
+  void rememberVerifiedSession(AuthSession session) {
+    if (_sessionRevoked) return;
+    _navigationUser.value = session.user;
+  }
+
   void signedOut() {
     _sessionGeneration++;
     _sessionRevoked = true;
+    _navigationUser.value = null;
     _replaceHistory('/');
     notifyListeners();
   }
@@ -217,6 +232,12 @@ class WorkspaceRouter extends RouterDelegate<WorkspaceLocation>
       ],
       onDidRemovePage: _didRemovePage,
     );
+  }
+
+  @override
+  void dispose() {
+    _navigationUser.dispose();
+    super.dispose();
   }
 }
 

@@ -90,12 +90,12 @@ class _MyAppState extends State<MyApp> {
       if (generation != _router.sessionGeneration) {
         return const _SessionBootstrapResult.unauthenticated();
       }
-      return _SessionBootstrapResult.authenticated(
-        persistedSession.copyWith(
-          company: authContext.company,
-          user: authContext.user,
-        ),
+      final verifiedSession = persistedSession.copyWith(
+        company: authContext.company,
+        user: authContext.user,
       );
+      _router.rememberVerifiedSession(verifiedSession);
+      return _SessionBootstrapResult.authenticated(verifiedSession);
     } on ApiException catch (error) {
       if (error.statusCode == 401 || error.statusCode == 403) {
         if (generation != _router.sessionGeneration) {
