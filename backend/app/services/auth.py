@@ -158,7 +158,17 @@ def register_company(
 
 def login(db: Session, payload: LoginRequest) -> AuthSessionResponse:
     cipher = _cipher()
+    # Credential verification and creation of the resulting AuthSession must
+    # hold the same user lock used by password reset and password change.
+    # Otherwise a stale login can commit a valid session after reset revoked
+    # every session that existed at its commit.
+    begin_serialized_write(db)
     user, _, _ = _resolve_user(db, str(payload.email))
+    if user is not None:
+        user = db.scalar(
+            select(UserAccount).where(UserAccount.id == user.id)
+            .with_for_update().execution_options(populate_existing=True)
+        )
     if user is None or not verify_password(payload.password, user.password_hash):
         raise DomainError(ErrorKind.unauthorized, "Invalid email or password.")
 

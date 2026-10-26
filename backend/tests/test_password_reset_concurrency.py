@@ -1,16 +1,23 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
-from threading import Barrier
+from threading import Barrier, Event
+from os import getenv
 
-from sqlalchemy import create_engine, select
+import pytest
+
+from sqlalchemy import create_engine, select, text
 from sqlalchemy.orm import sessionmaker
 
 from app.config import get_settings
 from app.crypto import FieldCipher, lookup_digest
 from app.db import Base, utcnow
 from app.errors import DomainError
-from app.models import Company, PasswordResetToken, UserAccount
+from app.models import AuthSession, Company, PasswordResetToken, UserAccount
+from app.schemas.auth import LoginRequest
+from app.seed import seed_database
+from app.services import auth as auth_service
+from app.services.auth import login, resolve_context
 from app.security import hash_password, verify_password
 from app.services.password_reset import confirm_password_reset, request_password_reset
 
@@ -76,3 +83,92 @@ def test_two_connections_can_consume_the_same_token_only_once(tmp_path):
         assert verify_password(accepted_password, stored.password_hash)
         assert token_row.consumed_at is not None
     engine.dispose()
+
+
+def test_pg_login_cannot_issue_old_password_session_after_reset(monkeypatch):
+    url = getenv("TOUCHIN_TIME_CLOCK_PG_URL", "")
+    if not url:
+        pytest.skip("TOUCHIN_TIME_CLOCK_PG_URL: isolated PostgreSQL required")
+    engine = create_engine(url, isolation_level="READ COMMITTED", pool_size=5,
+                           connect_args={"connect_timeout": 4})
+    try:
+        with engine.connect() as conn:
+            name = conn.scalar(text("select current_database()"))
+            isolation = conn.scalar(text("show transaction_isolation"))
+        if not name.startswith("touchin_time_clock_test_") or isolation != "read committed":
+            pytest.fail("Refusing unsafe/non-READ COMMITTED PostgreSQL database")
+        Base.metadata.drop_all(engine)
+        Base.metadata.create_all(engine)
+        factory = sessionmaker(bind=engine, expire_on_commit=False, autoflush=False)
+        with factory() as db:
+            seed_database(db)
+            job = request_password_reset(db, email="marina.costa@touchin.com", client_ip="192.0.2.221")
+            assert job is not None
+            reset_token = job[2]
+
+        verified_old_password = Event()
+        release_login = Event()
+        reset_done = Event()
+        real_verify = auth_service.verify_password
+
+        def pause_after_verification(password, hashed_password):
+            verified = real_verify(password, hashed_password)
+            if verified:
+                verified_old_password.set()
+                assert release_login.wait(15), "Login was not released"
+            return verified
+
+        monkeypatch.setattr(auth_service, "verify_password", pause_after_verification)
+
+        def login_old_password():
+            with factory() as db:
+                return login(db, LoginRequest(email="marina.costa@touchin.com",
+                                              password=get_settings().seed_admin_password,
+                                              keep_connected=True))
+
+        def reset_password():
+            try:
+                with factory() as db:
+                    confirm_password_reset(db, token=reset_token,
+                                           new_password="RaceSafeNewPassword!123",
+                                           client_ip="192.0.2.222")
+            finally:
+                reset_done.set()
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            login_future = executor.submit(login_old_password)
+            assert verified_old_password.wait(10), "Login never reached verification"
+            reset_future = executor.submit(reset_password)
+            try:
+                # Without a user row lock, reset commits first and a stale
+                # login can then mint a session that was never revoked.
+                reset_completed_during_login = reset_done.wait(timeout=1.5)
+            finally:
+                release_login.set()
+            login_response = login_future.result(timeout=15)
+            reset_future.result(timeout=15)
+
+        monkeypatch.setattr(auth_service, "verify_password", real_verify)
+        with factory() as db:
+            token_hash = lookup_digest(login_response.access_token,
+                                       get_settings().token_secret or "")
+            row = db.scalar(select(AuthSession).where(AuthSession.token_hash == token_hash))
+            assert row is not None
+            assert row.revoked_at is not None, (
+                "Old-password login session stayed valid after reset; "
+                f"reset_completed_during_login={reset_completed_during_login}"
+            )
+            with pytest.raises(DomainError):
+                resolve_context(db, login_response.access_token)
+        with factory() as db:
+            with pytest.raises(DomainError):
+                login(db, LoginRequest(email="marina.costa@touchin.com",
+                                       password=get_settings().seed_admin_password,
+                                       keep_connected=True))
+            db.rollback()
+            fresh = login(db, LoginRequest(email="marina.costa@touchin.com",
+                                           password="RaceSafeNewPassword!123",
+                                           keep_connected=True))
+            assert resolve_context(db, fresh.access_token).user is not None
+    finally:
+        engine.dispose()
