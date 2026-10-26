@@ -162,15 +162,51 @@ def generate_monthly_work_logs_report(
     timezone_name: str,
     employee_id: str | None = None,
 ):
-    from app.models import WorkLog
+    from app.models import AuditEvent, WorkLog
     from app.schemas.project import MonthlyWorkLogReport, MonthlyWorkLogRecord
     field_cipher = cipher()
+    # Project ownership remains mandatory even when the actor's historical
+    # membership has expired. Do not relax other project read endpoints.
     project_or_404(
         db,
         company_id=company_id,
         project_id=project_id,
-        employee_id=employee_id,
     )
+    if employee_id is not None:
+        # The caller is a current employee of this company (or an unassigned
+        # principal with an empty identifier, which must not gain access).
+        employee_or_404(db, company_id=company_id, employee_id=employee_id)
+        member = db.scalar(select(EmployeeProject.employee_id).where(
+            EmployeeProject.employee_id == employee_id,
+            EmployeeProject.project_id == project_id,
+        ).limit(1))
+        if member is None:
+            # An arbitrary WorkLog (e.g. an imported/malformed legacy row)
+            # cannot establish former membership. Require the actual audited
+            # revocation for this exact tenant, project and employee.
+            revocations = db.scalars(select(AuditEvent.metadata_payload).where(
+                AuditEvent.company_id == company_id,
+                AuditEvent.project_id == project_id,
+                AuditEvent.action == "project.member_removed",
+                AuditEvent.result == "success",
+            )).yield_per(200)
+            was_member = False
+            for metadata_payload in revocations:
+                try:
+                    metadata = json.loads(metadata_payload or "{}")
+                except (TypeError, ValueError):
+                    continue
+                if isinstance(metadata, dict) and metadata.get("employeeId") == employee_id:
+                    was_member = True
+                    break
+            historical = db.scalar(select(WorkLog.id).where(
+                WorkLog.company_id == company_id,
+                WorkLog.project_id == project_id,
+                (WorkLog.employee_id == employee_id) |
+                (WorkLog.employee_id_snapshot == employee_id),
+            ).limit(1)) if was_member else None
+            if historical is None:
+                raise DomainError(ErrorKind.not_found, "Project not found.")
     
     if not 1 <= month <= 12 or not 1 <= year < 9999:
         return MonthlyWorkLogReport(project_id=project_id, year=year, month=month, records=[])

@@ -65,6 +65,35 @@ def _next_punch(db: Session, *, record: Punch) -> Punch | None:
     ).order_by(Punch.timestamp, Punch.id).limit(1))
 
 
+def _previous_punch(db: Session, *, record: Punch) -> Punch | None:
+    return db.scalar(select(Punch).where(
+        Punch.employee_id == record.employee_id,
+        or_(Punch.timestamp < record.timestamp,
+            and_(Punch.timestamp == record.timestamp, Punch.id < record.id)),
+    ).order_by(Punch.timestamp.desc(), Punch.id.desc()).limit(1))
+
+
+_ALLOWED_FOLLOWING_PUNCH_TYPES = {
+    None: {PunchType.check_in.value},
+    PunchType.check_in.value: {PunchType.break_start.value, PunchType.check_out.value},
+    PunchType.break_start.value: {PunchType.break_end.value, PunchType.check_out.value},
+    PunchType.break_end.value: {PunchType.break_start.value, PunchType.check_out.value},
+    PunchType.check_out.value: {PunchType.check_in.value},
+}
+
+
+def _validate_adjacent_punches(previous: Punch | None, following: Punch | None) -> None:
+    """Prevent administrative writes from corrupting a whole shift sequence."""
+    if following is None:
+        return  # A shift is allowed to remain open.
+    preceding_type = previous.type if previous is not None else None
+    if following.type not in _ALLOWED_FOLLOWING_PUNCH_TYPES.get(preceding_type, set()):
+        raise DomainError(
+            ErrorKind.conflict,
+            "A alteração produziria uma sequência inválida de registros de ponto.",
+        )
+
+
 def _reconcile_linked_work_log(
     db: Session, *, punch_id: str, detach_if_invalid: bool = False,
 ) -> None:
@@ -79,11 +108,7 @@ def _reconcile_linked_work_log(
     punch = db.get(Punch, punch_id)
     if punch is None:
         return
-    previous = db.scalar(select(Punch).where(
-        Punch.employee_id == punch.employee_id,
-        or_(Punch.timestamp < punch.timestamp,
-            and_(Punch.timestamp == punch.timestamp, Punch.id < punch.id)),
-    ).order_by(Punch.timestamp.desc(), Punch.id.desc()).limit(1))
+    previous = _previous_punch(db, record=punch)
     if (previous is None
             or previous.type not in {PunchType.check_in.value, PunchType.break_end.value}
             or punch.type not in {PunchType.break_start.value, PunchType.check_out.value}):
@@ -294,7 +319,10 @@ def create_managed_punch(
     )
     db.add(record)
     db.flush()
+    previous = _previous_punch(db, record=record)
     subsequent = _next_punch(db, record=record)
+    _validate_adjacent_punches(previous, record)
+    _validate_adjacent_punches(record, subsequent)
     if subsequent is not None:
         _reconcile_linked_work_log(db, punch_id=subsequent.id)
     db.commit()
@@ -318,6 +346,7 @@ def update_managed_punch(
         employee_id=employee_id,
         punch_id=punch_id,
     )
+    previous_predecessor = _previous_punch(db, record=record)
     previous_successor = _next_punch(db, record=record)
 
     if "type" in payload.model_fields_set and payload.type is not None:
@@ -343,7 +372,16 @@ def update_managed_punch(
         )
 
     db.flush()
+    predecessor = _previous_punch(db, record=record)
     successor = _next_punch(db, record=record)
+    # A moved punch must not leave an invalid edge behind at its old slot.
+    if ((previous_predecessor.id if previous_predecessor else None) !=
+            (predecessor.id if predecessor else None) or
+            (previous_successor.id if previous_successor else None) !=
+            (successor.id if successor else None)):
+        _validate_adjacent_punches(previous_predecessor, previous_successor)
+    _validate_adjacent_punches(predecessor, record)
+    _validate_adjacent_punches(record, successor)
     for affected_id in {record.id, previous_successor.id if previous_successor else None,
                         successor.id if successor else None} - {None}:
         _reconcile_linked_work_log(db, punch_id=affected_id)

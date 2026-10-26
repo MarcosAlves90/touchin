@@ -8,7 +8,7 @@ from os import getenv
 from threading import Barrier, Event
 
 import pytest
-from sqlalchemy import create_engine, event, inspect, insert, select, text
+from sqlalchemy import create_engine, delete, event, inspect, insert, select, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -17,11 +17,12 @@ from app.crypto import FieldCipher
 from app.db import Base, ensure_utc
 from app.database_schema import upgrade_database_schema
 from app.errors import DomainError
-from app.models import Employee, KanbanColumn, Project, Punch, Task, WorkLog, WorkLogTask
+from app.models import Company, Employee, EmployeeProject, KanbanColumn, Project, Punch, Task, WorkLog, WorkLogTask
 from app.schemas.punch import CreatePunchRequest, ManagePunchRequest, PunchType, UpdateManagedPunchRequest
 from app.seed import seed_database
 from app.services.employees import delete_employee
-from app.services.time_clock import create_punch, delete_managed_punch, update_managed_punch
+from app.services.projects import remove_project_member
+from app.services.time_clock import create_managed_punch, create_punch, delete_managed_punch, update_managed_punch
 
 
 @pytest.fixture
@@ -63,6 +64,140 @@ def _punch_with_log(db, *, employee_id="emp-04", project_id=None):
     db.add(log)
     db.commit()
     return first.id, end_punch.id, log.id
+
+
+def test_historical_report_allows_former_member_only_their_company_project_and_work(sqlite_fk):
+    from app.domain.project_read import generate_monthly_work_logs_report
+
+    factory, _ = sqlite_fk
+    with factory() as db:
+        cipher = FieldCipher(get_settings().encryption_secret or "")
+        project = Project(company_id="company-touchin", name_ciphertext=cipher.encrypt("Original") or "")
+        unrelated = Project(company_id="company-touchin", name_ciphertext=cipher.encrypt("Other") or "")
+        db.add_all([project, unrelated])
+        db.flush()
+        link = EmployeeProject(project_id=project.id, employee_id="emp-04")
+        db.add(link)
+        db.commit()
+        _, _, historical_id = _punch_with_log(db, project_id=project.id)
+        foreign_employee_log = WorkLog(
+            company_id="company-touchin", employee_id="emp-05", employee_id_snapshot="emp-05",
+            project_id=project.id, punch_id=None,
+            start_time=datetime(2026, 6, 1, 10, tzinfo=timezone.utc),
+            end_time=datetime(2026, 6, 1, 12, tzinfo=timezone.utc), duration_seconds=7200,
+            description_ciphertext=cipher.encrypt("other-person") or "",
+            task_snapshots_ciphertext=cipher.encrypt("[]") or "",
+        )
+        db.add(foreign_employee_log)
+        # A malformed legacy row must never bridge the project/company boundary.
+        company = db.get(Company, "company-touchin")
+        foreign_company = Company(
+            id="foreign-company", legal_name_ciphertext=company.legal_name_ciphertext,
+            trade_name_ciphertext=company.trade_name_ciphertext,
+            cnpj_ciphertext=company.cnpj_ciphertext, cnpj_hash="foreign-cnpj",
+            contact_email_ciphertext=company.contact_email_ciphertext,
+            contact_email_hash="foreign-email", contact_phone_ciphertext=company.contact_phone_ciphertext,
+            consented_at=company.consented_at,
+        )
+        db.add(foreign_company)
+        db.flush()
+        db.add(WorkLog(
+            company_id=foreign_company.id, employee_id_snapshot="emp-04", project_id=project.id,
+            start_time=datetime(2026, 6, 1, 10, tzinfo=timezone.utc),
+            end_time=datetime(2026, 6, 1, 12, tzinfo=timezone.utc), duration_seconds=7200,
+            description_ciphertext=cipher.encrypt("foreign-company-secret") or "",
+            task_snapshots_ciphertext=cipher.encrypt("[]") or "",
+        ))
+        db.commit()
+        remove_project_member(db, company_id="company-touchin", project_id=project.id,
+                              employee_id="emp-04")
+
+        def report(*, company_id="company-touchin", project_id=project.id, employee_id=None):
+            return generate_monthly_work_logs_report(
+                db, company_id=company_id, project_id=project_id, year=2026, month=6,
+                timezone_name="America/Sao_Paulo", employee_id=employee_id,
+            )
+
+        own = report(employee_id="emp-04")
+        assert [item.description for item in own.records] == ["Trabalho comprovado"]
+        assert db.get(WorkLog, historical_id).duration_seconds == 7200
+        assert {item.description for item in report().records} == {
+            "Trabalho comprovado", "other-person",
+        }
+        for kwargs in (
+            {"employee_id": "emp-03"},
+            {"employee_id": "emp-04", "project_id": unrelated.id},
+            {"employee_id": "emp-04", "company_id": "foreign-company"},
+        ):
+            with pytest.raises(DomainError) as denied:
+                report(**kwargs)
+            assert denied.value.kind.value == "not_found"
+
+        delete_employee(db, company_id="company-touchin", employee_id="emp-04")
+        db.expire_all()
+        retained = db.get(WorkLog, historical_id)
+        assert retained.employee_id is None
+        assert retained.employee_id_snapshot == "emp-04"
+        assert retained.duration_seconds == 7200
+        assert {item.description for item in report().records} == {
+            "Trabalho comprovado", "other-person",
+        }
+
+
+@pytest.mark.parametrize("punch_type,hour", [
+    (PunchType.check_in, 9),
+    (PunchType.check_in, 11),
+    (PunchType.check_out, 13),
+])
+def test_managed_insertion_rejects_invalid_full_transition_and_retains_7200s(sqlite_fk, punch_type, hour):
+    factory, _ = sqlite_fk
+    with factory() as db:
+        first_id, end_id, log_id = _punch_with_log(db)
+        existing = set(db.scalars(select(Punch.id).where(Punch.employee_id == "emp-04")).all())
+        with pytest.raises(DomainError) as failure:
+            create_managed_punch(
+                db, company_id="company-touchin", employee_id="emp-04",
+                payload=ManagePunchRequest(type=punch_type,
+                                           timestamp=datetime(2026, 6, 1, hour, tzinfo=timezone.utc)),
+            )
+        assert failure.value.kind.value == "conflict"
+        db.rollback()
+        assert set(db.scalars(select(Punch.id).where(Punch.employee_id == "emp-04")).all()) == existing
+        assert db.get(Punch, first_id).type == "checkIn"
+        assert db.get(Punch, end_id).type == "checkOut"
+        assert db.get(WorkLog, log_id).duration_seconds == 7200
+
+
+def test_managed_move_and_type_edit_reject_invalid_neighbors_without_rewriting_history(sqlite_fk):
+    factory, _ = sqlite_fk
+    with factory() as db:
+        # Keep this history isolated from the seeded employee's current shift.
+        db.execute(delete(Punch).where(Punch.employee_id == "emp-04"))
+        db.commit()
+        _, end_id, log_id = _punch_with_log(db)
+        next_in = create_managed_punch(
+            db, company_id="company-touchin", employee_id="emp-04",
+            payload=ManagePunchRequest(type=PunchType.check_in,
+                                       timestamp=datetime(2026, 6, 1, 14, tzinfo=timezone.utc)),
+        )
+        create_managed_punch(
+            db, company_id="company-touchin", employee_id="emp-04",
+            payload=ManagePunchRequest(type=PunchType.check_out,
+                                       timestamp=datetime(2026, 6, 1, 16, tzinfo=timezone.utc)),
+        )
+        for payload in (
+            UpdateManagedPunchRequest(timestamp=datetime(2026, 6, 1, 11, tzinfo=timezone.utc)),
+            UpdateManagedPunchRequest(type=PunchType.break_end),
+        ):
+            with pytest.raises(DomainError) as failure:
+                update_managed_punch(db, company_id="company-touchin", employee_id="emp-04",
+                                     punch_id=next_in.id, payload=payload)
+            assert failure.value.kind.value == "conflict"
+            db.rollback()
+            assert db.get(Punch, next_in.id).type == "checkIn"
+            assert ensure_utc(db.get(Punch, next_in.id).timestamp) == datetime(2026, 6, 1, 14, tzinfo=timezone.utc)
+            assert db.get(Punch, end_id).type == "checkOut"
+            assert db.get(WorkLog, log_id).duration_seconds == 7200
 
 
 def test_application_sqlite_connections_enforce_foreign_keys():

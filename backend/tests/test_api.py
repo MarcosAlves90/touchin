@@ -805,12 +805,17 @@ def test_manager_paginates_employee_punches(client):
     _clear_employee_punches("emp-02")
 
     for index in range(5):
+        # Exercise pagination with a valid alternating shift timeline.
+        # Five consecutive check-ins would correctly be rejected with 409.
+        is_check_in = index % 2 == 0
+        day = 20 + index // 2
+        hour = "09" if is_check_in else "18"
         response = client.post(
             "/api/v1/time-clock/employees/emp-02/punches",
             headers=headers,
             json={
-                "type": "checkIn",
-                "timestamp": f"2026-05-2{index}T09:00:00-03:00",
+                "type": "checkIn" if is_check_in else "checkOut",
+                "timestamp": f"2026-05-{day:02d}T{hour}:00:00-03:00",
                 "detail": f"Batch {index + 1}",
             },
         )
