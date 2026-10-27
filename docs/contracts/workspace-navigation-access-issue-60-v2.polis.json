@@ -1,0 +1,170 @@
+{
+  "schema_version": 6,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      "frontend/lib/core/navigation/workspace_destinations.dart",
+      "frontend/lib/core/navigation/workspace_router.dart",
+      "frontend/test/widget_test.dart",
+      "docs/contracts/workspace-navigation-access-issue-60-v2.polis.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/widget_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Supersede the original workspace-navigation contract with final access rules and guarantee session-revocation UI consistency during password-reset history navigation.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "Kanban is available to managerial users with or without an employee profile, and to ordinary employees only when an employee profile is linked."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "Password-reset confirmation clears the cached navigation user whenever it revokes the active session, without replacing the reset/history route."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "Workspace widget coverage asserts Kanban is hidden for an unlinked employee and visible for a manager without a profile in both desktop and mobile navigation.",
+        "requirements": [
+          "REQ-001"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "The async reset/history regression delays the next session read, asserts the route-session skeleton contains no former-user destinations after revocation, and confirms protected content never renders.",
+        "requirements": [
+          "REQ-002"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "The backend remains the authorization authority and protected content remains inaccessible after session revocation."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "An employee without a linked profile sees Kanban, or a revoked user's destinations appear during the route-session skeleton."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "Verified user role/profile and password-reset confirmation during protected route history navigation."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "Role-appropriate workspace navigation and no cached destination after revocation."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "Widget assertions fail if a disallowed destination appears or remains visible after reset revocation."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "353738c6cee0992b36b4a52acfc89e6c248c1283",
+    "base_tree": "62172fa48eee8b94097caf4d12457f74c5f07b9c",
+    "policy_sha256": "5563facc34ae2a1a07cf7ec7ec2f115cb8d250c49dd6e2bd5c7a3de4c977d450",
+    "specification_sha256": "c7d322be1a789d52a72777dd8920bb1b59cd056602a79dd5306e4b568c21f0df"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 1200,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP",
+        "SystemRoot",
+        "COMSPEC",
+        "PATHEXT",
+        "USERPROFILE",
+        "LOCALAPPDATA",
+        "PYTHONUTF8",
+        "PYTHONIOENCODING"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/widget_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP",
+        "SystemRoot",
+        "COMSPEC",
+        "PATHEXT",
+        "USERPROFILE",
+        "LOCALAPPDATA",
+        "PYTHONUTF8",
+        "PYTHONIOENCODING"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "test/widget_test.dart"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 600,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP",
+          "SystemRoot",
+          "COMSPEC",
+          "PATHEXT",
+          "USERPROFILE",
+          "LOCALAPPDATA",
+          "PYTHONUTF8",
+          "PYTHONIOENCODING"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "former-user destination remains visible after reset revocation"
+    ]
+  }
+}

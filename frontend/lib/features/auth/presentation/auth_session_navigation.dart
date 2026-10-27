@@ -1,4 +1,5 @@
 import 'package:touchin_flutter/contracts/auth.dart';
+import 'package:touchin_flutter/core/navigation/workspace_destinations.dart';
 import 'package:touchin_flutter/features/admin/presentation/admin_audit_page.dart';
 import 'package:touchin_flutter/features/admin/presentation/admin_employees_page.dart';
 import 'package:touchin_flutter/features/auth/presentation/must_change_password_page.dart';
@@ -19,15 +20,7 @@ Route<void> buildAuthenticatedWorkspaceRoute(
     );
   }
 
-  final requestedPage = switch (routeName) {
-    '/time-clock' => const TimeClockPage(),
-    '/admin/employees' => const AdminEmployeesPage(),
-    '/admin/audit' => const AdminAuditPage(),
-    '/projects' => const ProjectTasksPage(),
-    '/kanban' => const ProjectKanbanPage(),
-    '/settings' => const ThemeSettingsPage(),
-    _ => null,
-  };
+  final requestedPage = _workspacePage(routeName);
   if (requestedPage != null) {
     return MaterialPageRoute<void>(
       settings: RouteSettings(name: routeName),
@@ -35,16 +28,20 @@ Route<void> buildAuthenticatedWorkspaceRoute(
     );
   }
 
-  if (session.user.hasAdminWorkspaceAccess ||
-      !session.user.hasEmployeeProfile) {
-    return MaterialPageRoute<void>(
-      settings: const RouteSettings(name: '/admin/employees'),
-      builder: (_) => const AdminEmployeesPage(),
-    );
-  }
-
+  final defaultRoute = defaultWorkspaceRouteFor(session.user);
+  final defaultPage = _workspacePage(defaultRoute)!;
   return MaterialPageRoute<void>(
-    settings: const RouteSettings(name: '/time-clock'),
-    builder: (_) => const TimeClockPage(),
+    settings: RouteSettings(name: defaultRoute),
+    builder: (_) => defaultPage,
   );
 }
+
+Widget? _workspacePage(String? routeName) => switch (routeName) {
+      '/time-clock' => const TimeClockPage(),
+      '/admin/employees' => const AdminEmployeesPage(),
+      '/admin/audit' => const AdminAuditPage(),
+      '/projects' => const ProjectTasksPage(),
+      '/kanban' => const ProjectKanbanPage(),
+      '/settings' => const ThemeSettingsPage(),
+      _ => null,
+    };

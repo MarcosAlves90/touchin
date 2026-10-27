@@ -1,0 +1,232 @@
+{
+  "schema_version": 6,
+  "kind": "feature",
+  "scope": {
+    "allowed_paths": [
+      "frontend/lib/core/navigation/workspace_destinations.dart",
+      "frontend/lib/core/navigation/workspace_router.dart",
+      "frontend/lib/features/shared/presentation/widgets/workspace_shell.dart",
+      "frontend/lib/features/auth/presentation/auth_session_navigation.dart",
+      "frontend/lib/main.dart",
+      "frontend/test/widget_test.dart",
+      "docs/contracts/workspace-navigation-access-issue-60-v1.polis.json",
+      "docs/validation/issue-60/README.md"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/widget_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Show in the workspace desktop sidebar and mobile drawer only the destinations the authenticated user can actually use, mirroring backend authorization, without changing routes, session revalidation, browser history or API contracts.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "One shared destination policy mirrors backend authorization for the known roles employee, manager, admin and super_admin: Bater Ponto requires a linked employee profile; Administrar Equipe and Trilha de Auditoria require a managerial role (manager, admin or super_admin); Projetos e tarefas and Kanban are available to every known role; Configuracoes, which does not call the backend, is always available; a role the backend does not recognize receives only Configuracoes."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "The desktop sidebar and the mobile drawer render the same filtered destinations, in the same canonical order and with unchanged labels, icons and routes; Sair do Sistema remains available."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "While a navigated route revalidates its session, the workspace shell keeps the last verified user's filtered navigation; signing out clears that user and a new authentication replaces it, so no unavailable or stale destination is shown."
+      },
+      {
+        "id": "REQ-004",
+        "statement": "The default landing route chosen after authentication is always one of the destinations available to that user."
+      },
+      {
+        "id": "REQ-005",
+        "statement": "Existing route paths and deep links, per-route session revalidation, browser Back/Forward history, auth/revocation handling, page content and API contracts are unchanged; a shell rendered outside the workspace router keeps the full destination list."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "For employee with and without employee profile, manager with profile, admin and super_admin without profile, and a role the backend does not recognize, the desktop sidebar and the mobile drawer each list exactly the available destinations in canonical order.",
+        "requirements": [
+          "REQ-001",
+          "REQ-002"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "During a pending route-session verification the skeleton shell lists only the verified user's destinations, and after signing out and authenticating as a different role the navigation reflects only the new user.",
+        "requirements": [
+          "REQ-001",
+          "REQ-003"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-003",
+        "statement": "An employee without employee profile authenticated at the root route lands on Projetos e tarefas instead of an administrative page; existing admin and employee landing routes are preserved.",
+        "requirements": [
+          "REQ-004"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-004",
+        "statement": "Existing deep-link, browser history, revocation, route-verification and shell tests pass; only fixtures that opened Bater Ponto from the menu with an account lacking an employee profile receive a linked employee profile.",
+        "requirements": [
+          "REQ-005"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-005",
+        "statement": "Flutter analysis, the full frontend test suite, POLIS project gates (test.complete, lint, build, smoke), git diff check and complete diff review pass.",
+        "requirements": [
+          "REQ-001",
+          "REQ-002",
+          "REQ-003",
+          "REQ-004",
+          "REQ-005"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "The backend remains the authorization authority; the navigation filter only hides destinations and never grants access."
+      },
+      {
+        "id": "INV-002",
+        "statement": "Route paths, per-route session revalidation, browser history semantics, logout and API contracts do not change."
+      },
+      {
+        "id": "INV-003",
+        "statement": "No dependency is added and the existing navigation visual language, labels and icons are preserved."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "An authenticated user sees a navigation destination that the backend would reject for that user."
+      },
+      {
+        "id": "FORB-002",
+        "statement": "Desktop sidebar and mobile drawer list different destinations for the same user."
+      },
+      {
+        "id": "FORB-003",
+        "statement": "Navigation shows destinations of a previous user after sign-out or re-authentication."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "The verified AuthUserSummary role and employeeId of the current workspace session."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "Filtered, canonically ordered workspace destinations for the desktop sidebar and mobile drawer, and an available default landing route."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "If any role fixture shows a destination outside its available set, omits an available destination, or differs between desktop and drawer, the widget regression exits nonzero naming the role and layout."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "1024189266d6cdbcb70a231e87d6c1a366e1147a",
+    "base_tree": "e47964c4c006fd5b4587354352c57d4df8f4ac7f",
+    "policy_sha256": "5563facc34ae2a1a07cf7ec7ec2f115cb8d250c49dd6e2bd5c7a3de4c977d450",
+    "specification_sha256": "4f0c82884e700308f69407e4e2fcef2e584d8b53a09f93511ee36eeb327d85a1"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 1200,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP",
+        "SystemRoot",
+        "COMSPEC",
+        "PATHEXT",
+        "USERPROFILE",
+        "LOCALAPPDATA",
+        "PYTHONUTF8",
+        "PYTHONIOENCODING"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/widget_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP",
+        "SystemRoot",
+        "COMSPEC",
+        "PATHEXT",
+        "USERPROFILE",
+        "LOCALAPPDATA",
+        "PYTHONUTF8",
+        "PYTHONIOENCODING"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "test/widget_test.dart"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 600,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP",
+          "SystemRoot",
+          "COMSPEC",
+          "PATHEXT",
+          "USERPROFILE",
+          "LOCALAPPDATA",
+          "PYTHONUTF8",
+          "PYTHONIOENCODING"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "Some tests failed"
+    ]
+  }
+}
