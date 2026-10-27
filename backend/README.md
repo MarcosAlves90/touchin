@@ -29,8 +29,11 @@ As configurações abaixo são lidas em `app/config.py`; os valores locais de ex
 | `TOUCHIN_BREVO_SENDER_EMAIL` | Endereço remetente da integração Brevo. |
 | `TOUCHIN_BREVO_SENDER_NAME` | Nome remetente; padrão igual a `TOUCHIN_APP_NAME`. |
 | `TOUCHIN_BREVO_WELCOME_ENABLED` | Ativa e-mails de boas-vindas; padrão `true`. |
+| `TOUCHIN_PASSWORD_RESET_URL` | URL HTTPS pública para recuperação; aceita domínio base ou rota Flutter Web `/#/reset-password`, sempre normalizada para a rota de confirmação. |
 
 `TOUCHIN_TOKEN_SECRET` e `TOUCHIN_ENCRYPTION_SECRET` são sempre exigidos na inicialização. Os valores de `.env.example` são placeholders para desenvolvimento, não segredos de produção.
+
+A recuperação pública exige um token de uso único válido por 30 minutos, não altera credenciais no momento da solicitação, limita tentativas por IP e e-mail e revoga as sessões existentes somente na confirmação válida. Para a operação em produção, configurar HTTPS/Brevo e assegurar que o IP de origem utilizado nos limites seja fornecido por um proxy confiável. As migrações de `WorkLog` preservam referências históricas e devem ser ensaiadas com backup antes do deploy.
 
 Para PostgreSQL, use `postgresql+psycopg2://`, `postgresql://` ou `postgres://`; as duas últimas formas são normalizadas para psycopg2. A dependência declarada é `psycopg2-binary`; o driver `postgresql+psycopg://` não é suportado. Confira `backend/app/db.py` antes de alterar a URL usada por um ambiente.
 

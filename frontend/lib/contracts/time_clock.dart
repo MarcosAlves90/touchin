@@ -103,14 +103,16 @@ class ManagedPunchDraft {
     PunchType? type,
     DateTime? timestamp,
     String? detail,
-    String? projectId,
+    Object? projectId = _managedPunchProjectSentinel,
     Object? location = _managedPunchLocationSentinel,
   }) {
     return ManagedPunchDraft(
       type: type ?? this.type,
       timestamp: timestamp ?? this.timestamp,
       detail: detail ?? this.detail,
-      projectId: projectId ?? this.projectId,
+      projectId: identical(projectId, _managedPunchProjectSentinel)
+          ? this.projectId
+          : projectId as String?,
       location: identical(location, _managedPunchLocationSentinel)
           ? this.location
           : location as PunchLocationSnapshot?,
@@ -133,16 +135,19 @@ class ManagedPunchDraft {
       'type': punchTypeToApi(type),
       'timestamp': timestamp.toUtc().toIso8601String(),
       'detail': detail,
-      if (projectId != null && projectId!.trim().isNotEmpty)
-        'projectId': projectId!.trim(),
+      // Managed edits are complete form submissions. Explicit null clears the
+      // old project; omitting this key would retain the previous association.
+      'projectId': projectId == null || projectId!.trim().isEmpty
+          ? null
+          : projectId!.trim(),
       if (location != null) 'location': location!.toApiJson(),
     };
-    payload.removeWhere((key, value) => value == null);
     return payload;
   }
 }
 
 const Object _managedPunchLocationSentinel = Object();
+const Object _managedPunchProjectSentinel = Object();
 
 class WorkLogPayload {
   const WorkLogPayload({

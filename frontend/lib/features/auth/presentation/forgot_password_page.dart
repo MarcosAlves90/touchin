@@ -36,7 +36,6 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
 
     await submitAuthAction<String>(
       action: () => _api.resetPassword(email: _emailController.text.trim()),
-      ignoreFailures: true,
       onSuccess: (_) {
         setState(() {
           _submitted = true;
@@ -153,7 +152,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
           ),
           const SizedBox(height: 20),
           Text(
-            'E-mail enviado com sucesso.',
+            'Solicitação recebida.',
             style: theme.textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.w600,
             ),

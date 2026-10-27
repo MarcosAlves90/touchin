@@ -524,7 +524,14 @@ def test_cross_tenant_project_mutation_is_rejected_and_audit_query_remains_isola
             entity_id=foreign_project_id,
             result="success",
         )
-        db.add_all([foreign_company, foreign_project, foreign_event])
+        # Explicitly persist the FK parents before the child audit record.
+        # The models intentionally have no ORM relationship between them, so
+        # add_all does not guarantee parent-first INSERTs under SQLite FK ON.
+        db.add(foreign_company)
+        db.flush()
+        db.add(foreign_project)
+        db.flush()
+        db.add(foreign_event)
         db.commit()
 
     rejected = client.put(

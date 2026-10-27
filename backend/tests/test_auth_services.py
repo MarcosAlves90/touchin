@@ -8,7 +8,8 @@ from app.config import Settings, get_settings
 from app.crypto import lookup_digest
 from app.db import SessionLocal, ensure_utc, utcnow
 from app.models import AuthSession, UserAccount
-from app.services.auth import change_password, login, reset_password
+from app.services.auth import change_password, login
+from app.services.password_reset import request_password_reset, confirm_password_reset
 from app.services.auth import _resolve_user, _ensure_accounts_active, resolve_context
 from app.schemas.auth import LoginRequest
 from app.errors import DomainError
@@ -52,7 +53,7 @@ def test_ensure_accounts_active_raises_for_inactive_user(client):
             _ensure_accounts_active(user, company)
 
 
-def test_reset_password_sets_must_change_password_flag(client):
+def test_reset_request_does_not_change_password_or_flag(client):
     with SessionLocal() as db:
         user_before = db.query(UserAccount).filter(
             UserAccount.email_hash == lookup_digest(
@@ -62,11 +63,13 @@ def test_reset_password_sets_must_change_password_flag(client):
         ).first()
         assert user_before is not None
         assert not user_before.must_change_password
+        previous_hash = user_before.password_hash
 
-    _, _, _ = reset_password(
-        db=SessionLocal(),
-        email="marina.costa@touchin.com",
-    )
+    with SessionLocal() as db:
+        job = request_password_reset(
+            db=db, email="marina.costa@touchin.com", client_ip="192.0.2.10"
+        )
+    assert job is not None
 
     with SessionLocal() as db:
         user_after = db.query(UserAccount).filter(
@@ -76,7 +79,8 @@ def test_reset_password_sets_must_change_password_flag(client):
             )
         ).first()
         assert user_after is not None
-        assert user_after.must_change_password is True
+        assert user_after.must_change_password is False
+        assert user_after.password_hash == previous_hash
 
 
 def test_change_password_clears_must_change_password_flag(client):
@@ -84,15 +88,16 @@ def test_change_password_clears_must_change_password_flag(client):
     db = SessionLocal()
 
     try:
-        # First reset to set the flag and get temp password
-        _, _, temp_password = reset_password(db=db, email="marina.costa@touchin.com")
+        user = db.query(UserAccount).first()
+        assert user is not None
+        user.must_change_password = True
+        db.commit()
 
-        # Login with the temporary password
         auth_response = login(
             db=db,
             payload=LoginRequest(
                 email="marina.costa@touchin.com",
-                password=temp_password,
+                password=get_settings().seed_admin_password,
                 keep_connected=True,
             ),
         )
@@ -103,7 +108,7 @@ def test_change_password_clears_must_change_password_flag(client):
         _, _ = change_password(
             db=db,
             context=context,
-            current_password=temp_password,
+            current_password=get_settings().seed_admin_password,
             new_password=fresh_password,
         )
 
@@ -152,9 +157,18 @@ def test_password_reset_revokes_all_parallel_sessions(client):
             ),
         )
 
-        _, _, temporary_password = reset_password(
+        job = request_password_reset(
             db=db,
             email="marina.costa@touchin.com",
+            client_ip="192.0.2.10",
+        )
+        assert job is not None
+        for token in (first.access_token, second.access_token):
+            assert resolve_context(db=check_db, token=token)
+        new_password = "NewSecurePassword!123"
+        confirm_password_reset(
+            db=db, token=job[2], new_password=new_password,
+            client_ip="192.0.2.10",
         )
 
         for token in (first.access_token, second.access_token):
@@ -165,11 +179,11 @@ def test_password_reset_revokes_all_parallel_sessions(client):
             db=db,
             payload=LoginRequest(
                 email="marina.costa@touchin.com",
-                password=temporary_password,
+                password=new_password,
                 keep_connected=True,
             ),
         )
-        assert changed_session.must_change_password is True
+        assert changed_session.must_change_password is False
     finally:
         check_db.close()
         db.close()

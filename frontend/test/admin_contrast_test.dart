@@ -233,7 +233,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final eventText = find.text('Funcionário atualizado - Sucesso').first;
+      final eventText = find.text('Funcionário atualizado').first;
       final auditTheme = Theme.of(tester.element(eventText));
       expect(
         _contrast(
@@ -242,13 +242,19 @@ void main() {
         ),
         greaterThanOrEqualTo(4.5),
       );
+
+      final filtersButton =
+          find.byKey(const ValueKey<String>('audit-filters-button'));
+      await tester.ensureVisible(filtersButton);
+      await tester.tap(filtersButton);
+      await tester.pumpAndSettle();
       final filterText = find.text('Filtros da auditoria');
-      final filterCard = tester.widget<Card>(
-        find.ancestor(of: filterText, matching: find.byType(Card)).first,
+      final filterPanel = tester.widget<Container>(
+        find.byKey(const ValueKey<String>('audit-filter-panel')),
       );
-      final filterBackground = filterCard.color ??
-          auditTheme.cardTheme.color ??
-          auditTheme.colorScheme.surface;
+      final filterBackground =
+          (filterPanel.decoration! as BoxDecoration).color ??
+              auditTheme.colorScheme.surface;
       expect(
         _contrast(
           _renderedTextColor(tester, filterText),
@@ -256,8 +262,8 @@ void main() {
         ),
         greaterThanOrEqualTo(4.5),
       );
-      final applyButton = tester.widget<ElevatedButton>(
-        find.widgetWithText(ElevatedButton, 'Aplicar filtros'),
+      final applyButton = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, 'Aplicar filtros'),
       );
       final applyText = find.text('Aplicar filtros');
       expect(
@@ -269,10 +275,12 @@ void main() {
         greaterThanOrEqualTo(4.5),
       );
 
+      await tester.ensureVisible(filtersButton);
+      await tester.tap(filtersButton);
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Carregar mais eventos'));
       await tester.pumpAndSettle();
-      final endText =
-          find.text('Todos os eventos de auditoria foram carregados.');
+      final endText = find.text('Todos os eventos carregados.');
       expect(endText, findsOneWidget);
       final endFocus = tester.widget<Focus>(
         find.ancestor(of: endText, matching: find.byType(Focus)).first,
