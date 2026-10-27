@@ -1,0 +1,111 @@
+diff --git a/backend/tests/test_audit_timestamps.py b/backend/tests/test_audit_timestamps.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..c9b701247ae6cd6f5dc46cdcd2b462cbccfef38c
+--- /dev/null
++++ b/backend/tests/test_audit_timestamps.py
+@@ -0,0 +1,61 @@
++from __future__ import annotations
++
++import csv
++import io
++from datetime import datetime, timedelta, timezone
++
++from app.seed import MARINA_EMAIL
++
++from tests.test_audit import login_headers
++
++
++def _parse_instant(value: str) -> datetime:
++    return datetime.fromisoformat(value.replace("Z", "+00:00"))
++
++
++def _create_audited_project(client, headers) -> str:
++    response = client.post(
++        "/api/v1/projects",
++        headers=headers,
++        json={"name": "Projeto com fuso", "description": "Gera um evento de auditoria."},
++    )
++    assert response.status_code == 201
++    return response.json()["id"]
++
++
++def test_audit_event_list_timestamps_carry_utc_offset(client):
++    headers = login_headers(client, MARINA_EMAIL)
++    started_at = datetime.now(timezone.utc).replace(microsecond=0)
++    project_id = _create_audited_project(client, headers)
++    finished_at = datetime.now(timezone.utc) + timedelta(seconds=1)
++
++    response = client.get(
++        "/api/v1/audit-events",
++        headers=headers,
++        params={"project_id": project_id},
++    )
++
++    assert response.status_code == 200
++    events = response.json()
++    assert events
++    for event in events:
++        instant = _parse_instant(event["timestamp"])
++        assert instant.utcoffset() == timedelta(0), event["timestamp"]
++        assert started_at <= instant <= finished_at, event["timestamp"]
++
++
++def test_audit_export_timestamp_matches_list_instant(client):
++    headers = login_headers(client, MARINA_EMAIL)
++    project_id = _create_audited_project(client, headers)
++    params = {"project_id": project_id, "action": "project.created"}
++
++    listed = client.get("/api/v1/audit-events", headers=headers, params=params)
++    exported = client.get("/api/v1/audit-events/export", headers=headers, params=params)
++
++    assert listed.status_code == 200
++    assert exported.status_code == 200
++    [event] = listed.json()
++    header, row = list(csv.reader(io.StringIO(exported.content.decode("utf-8-sig"))))
++    exported_value = row[header.index("timestamp_utc")]
++    assert exported_value.endswith("Z")
++    assert _parse_instant(exported_value) == _parse_instant(event["timestamp"])
+diff --git a/frontend/test/contracts/audit_timestamp_test.dart b/frontend/test/contracts/audit_timestamp_test.dart
+new file mode 100644
+index 0000000000000000000000000000000000000000..df1c52d52dbe0c2c1d8b27d0614e98b7399e04b9
+--- /dev/null
++++ b/frontend/test/contracts/audit_timestamp_test.dart
+@@ -0,0 +1,38 @@
++import 'package:flutter_test/flutter_test.dart';
++import 'package:touchin_flutter/contracts/audit.dart';
++import 'package:touchin_flutter/features/admin/presentation/admin_audit_page_widgets.dart';
++
++String _two(int value) => value.toString().padLeft(2, '0');
++
++void main() {
++  test('audit timestamps with UTC offset render in local time', () {
++    final instant = DateTime.utc(2026, 10, 27, 22, 34, 21, 527, 917);
++    final event = AuditEventResponse.fromJson(<String, dynamic>{
++      'id': 'evt-utc',
++      'timestamp': '2026-10-27T22:34:21.527917Z',
++      'company_id': 'company-touchin',
++      'actor_user_id': 'user-marina',
++      'project_id': null,
++      'action': 'project.created',
++      'entity_type': 'project',
++      'entity_id': 'project-utc',
++      'result': 'success',
++      'metadata_payload': null,
++      'correlation_id': null,
++    });
++
++    expect(event.timestamp.isAtSameMomentAs(instant), isTrue);
++    expect(event.timestamp.isUtc, isFalse);
++
++    final local = instant.toLocal();
++    expect(
++      auditLocalDateTime(event.timestamp),
++      '${_two(local.day)}/${_two(local.month)}/${local.year} '
++      '${_two(local.hour)}:${_two(local.minute)}:${_two(local.second)}',
++    );
++    expect(auditUtcTimestamp(event.timestamp), '2026-10-27T22:34:21Z');
++    if (local.timeZoneOffset != Duration.zero) {
++      expect(auditLocalTime(event.timestamp), isNot('22:34:21'));
++    }
++  });
++}

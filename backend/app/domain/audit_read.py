@@ -6,6 +6,7 @@ from typing import Iterator, Sequence
 from sqlalchemy import Select, select
 from sqlalchemy.orm import Session
 
+from app.db import ensure_utc
 from app.models import AuditEvent
 from app.schemas.audit import AuditEventResponse
 
@@ -20,7 +21,7 @@ def serialize_audit_event(event: AuditEvent) -> AuditEventResponse:
 
     return AuditEventResponse(
         id=event.id,
-        timestamp=event.timestamp,
+        timestamp=ensure_utc(event.timestamp),
         company_id=event.company_id,
         actor_user_id=event.actor_user_id,
         project_id=event.project_id,

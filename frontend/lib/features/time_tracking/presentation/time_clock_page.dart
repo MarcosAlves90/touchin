@@ -780,7 +780,7 @@ class _TimeClockPageState extends State<TimeClockPage> {
             SizedBox(
               width: width,
               child: WorkspaceMetricCard(
-                label: 'Útimo evento',
+                label: 'Último evento',
                 value:
                     _lastPunchAt == null ? '--:--' : _formatTime(_lastPunchAt!),
                 helper: _lastPunchAt == null
