@@ -233,7 +233,8 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
                                           ?.copyWith(color: colors.primary),
                                     )),
                                     DataCell(SizedBox(
-                                      width: 330,
+                                      width: _titleCellWidth(
+                                          row.column, row.depth),
                                       child: Row(children: <Widget>[
                                         Expanded(
                                           child: Padding(
@@ -653,14 +654,28 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
         _ => '',
       };
 
+  bool get _canReorder =>
+      widget.canMoveCards &&
+      _sort == 'kanban' &&
+      _sortAscending &&
+      _query.isEmpty &&
+      _status.isEmpty &&
+      _assignee.isEmpty &&
+      _columnFilters.isEmpty;
+
+  double _titleCellWidth(KanbanColumn column, int depth) {
+    final actionCount = 1 +
+        (_canReorder && column.cards.length > 1 ? 2 : 0) +
+        (widget.canManageCards ? 2 : 0) +
+        (widget.canManageAssignees ? 1 : 0);
+    final requiredWidth = 160.0 +
+        actionCount * 48.0 +
+        depth.clamp(0, 5) * 8.0 +
+        (depth > 0 ? 23.0 : 0.0);
+    return requiredWidth < 330 ? 330 : requiredWidth.toDouble();
+  }
+
   Widget _cardActions(KanbanCard card, KanbanColumn column, int position) {
-    final canReorder = widget.canMoveCards &&
-        _sort == 'kanban' &&
-        _sortAscending &&
-        _query.isEmpty &&
-        _status.isEmpty &&
-        _assignee.isEmpty &&
-        _columnFilters.isEmpty;
     final actionButtons = <Widget>[
       IconButton(
         tooltip: 'Detalhes de #${card.cardNumber}',
@@ -668,7 +683,7 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
         onPressed: () => widget.onOpenDetails(card),
         icon: const Icon(Icons.open_in_new_rounded, size: 18),
       ),
-      if (canReorder && column.cards.length > 1) ...<Widget>[
+      if (_canReorder && column.cards.length > 1) ...<Widget>[
         IconButton(
           tooltip: 'Mover #${card.cardNumber} para cima no Kanban',
           visualDensity: VisualDensity.standard,

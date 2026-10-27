@@ -82,6 +82,11 @@ void main() {
         expect(tester.getSize(rowAction).width, greaterThanOrEqualTo(48));
         expect(tester.getSize(rowAction).height, greaterThanOrEqualTo(48));
         if (size.width >= 1440) {
+          expect(
+            tester.getSize(find.text('Preparar proposta')).width,
+            greaterThanOrEqualTo(160),
+            reason: 'backlog_title_minimum_width',
+          );
           final toolbar =
               tester.getRect(find.byKey(const ValueKey('backlog-toolbar')));
           final lastAction = tester.getRect(find.ancestor(
