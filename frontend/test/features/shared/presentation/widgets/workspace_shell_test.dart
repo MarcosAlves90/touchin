@@ -14,108 +14,16 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('navigation visual review captures desktop and mobile themes', (
-    tester,
-  ) async {
-    final fontBytes = await tester.runAsync(() async {
-      var directory = Directory(Platform.resolvedExecutable).parent;
-      while (directory.path != directory.parent.path) {
-        final candidate = File(
-          '${directory.path}/bin/cache/artifacts/material_fonts/Roboto-Regular.ttf',
-        );
-        if (await candidate.exists()) {
-          return candidate.readAsBytes();
-        }
-        directory = directory.parent;
-      }
-      throw StateError('Roboto was not found in the active Flutter SDK.');
-    });
-    expect(fontBytes, isNotNull);
-    await (FontLoader('Roboto')
-          ..addFont(Future<ByteData>.value(
-            ByteData.sublistView(fontBytes!),
-          )))
-        .load();
-
-    final cases = <({String name, Size size, ThemeData theme, bool mobile})>[
-      (
-        name: 'desktop-light',
-        size: const Size(1440, 900),
-        theme: _visualLightTheme,
-        mobile: false,
-      ),
-      (
-        name: 'desktop-dark',
-        size: const Size(1440, 900),
-        theme: _visualDarkTheme,
-        mobile: false,
-      ),
-      (
-        name: 'mobile-light',
-        size: const Size(390, 844),
-        theme: _visualLightTheme,
-        mobile: true,
-      ),
-      (
-        name: 'mobile-dark',
-        size: const Size(390, 844),
-        theme: _visualDarkTheme,
-        mobile: true,
-      ),
-    ];
-
-    for (final visualCase in cases) {
-      await tester.binding.setSurfaceSize(visualCase.size);
-      await tester.pumpWidget(MaterialApp(
-        theme: visualCase.theme,
-        initialRoute: '/admin/audit',
-        onGenerateRoute: (settings) => MaterialPageRoute<void>(
-          settings: settings,
-          builder: (_) => WorkspaceScaffold(
-            contextualContent: const WorkspaceSidebar(
-              summaryChildren: <Widget>[
-                Text('Resumo do projeto'),
-                Text('12 tarefas abertas'),
-                Text('Atualizado hoje'),
-              ],
-              highlightChips: <Widget>[
-                Chip(label: Text('3 atrasadas')),
-                Chip(label: Text('9 em andamento')),
-              ],
-            ),
-            contentBuilder: (context, _) => const Padding(
-              padding: EdgeInsets.all(32),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text('Trilha de Auditoria'),
-                  SizedBox(height: 8),
-                  Text('Acompanhe as alterações recentes da equipe.'),
-                  SizedBox(height: 24),
-                  Card(child: ListTile(title: Text('Registro de atividade'))),
-                  Card(child: ListTile(title: Text('Alteração de projeto'))),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ));
-      await tester.pumpAndSettle();
-      if (visualCase.mobile) {
-        tester.state<ScaffoldState>(find.byType(Scaffold)).openDrawer();
-        await tester.pumpAndSettle();
-      }
-
-      expect(tester.takeException(), isNull, reason: visualCase.name);
-      await expectLater(
-        find.byType(WorkspaceScaffold),
-        matchesGoldenFile(
-          '../../../../../../docs/validation/issue-119/${visualCase.name}.png',
-        ),
-      );
-    }
-    await tester.binding.setSurfaceSize(null);
-  }, tags: <String>{'canonical-golden'});
+  for (final visualCase in _visualCases) {
+    testWidgets(
+      'navigation visual review captures ${visualCase.name}',
+      (tester) async {
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        await _captureVisualCase(tester, visualCase);
+      },
+      tags: <String>{'canonical-golden'},
+    );
+  }
 
   test('workspace destinations are the unique ordered navigation source', () {
     expect(
@@ -585,6 +493,107 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(LoginPage), findsOneWidget);
     },
+  );
+}
+
+final _visualCases = <({String name, Size size, ThemeData theme, bool mobile})>[
+  (
+    name: 'desktop-light',
+    size: const Size(1440, 900),
+    theme: _visualLightTheme,
+    mobile: false,
+  ),
+  (
+    name: 'desktop-dark',
+    size: const Size(1440, 900),
+    theme: _visualDarkTheme,
+    mobile: false,
+  ),
+  (
+    name: 'mobile-light',
+    size: const Size(390, 844),
+    theme: _visualLightTheme,
+    mobile: true,
+  ),
+  (
+    name: 'mobile-dark',
+    size: const Size(390, 844),
+    theme: _visualDarkTheme,
+    mobile: true,
+  ),
+];
+
+Future<void> _captureVisualCase(
+  WidgetTester tester,
+  ({String name, Size size, ThemeData theme, bool mobile}) visualCase,
+) async {
+  final fontBytes = await tester.runAsync(() async {
+    var directory = Directory(Platform.resolvedExecutable).parent;
+    while (directory.path != directory.parent.path) {
+      final candidate = File(
+        '${directory.path}/bin/cache/artifacts/material_fonts/Roboto-Regular.ttf',
+      );
+      if (await candidate.exists()) {
+        return candidate.readAsBytes();
+      }
+      directory = directory.parent;
+    }
+    throw StateError('Roboto was not found in the active Flutter SDK.');
+  });
+  expect(fontBytes, isNotNull);
+  await (FontLoader('Roboto')
+        ..addFont(Future<ByteData>.value(
+          ByteData.sublistView(fontBytes!),
+        )))
+      .load();
+
+  await tester.binding.setSurfaceSize(visualCase.size);
+  await tester.pumpWidget(MaterialApp(
+    theme: visualCase.theme,
+    initialRoute: '/admin/audit',
+    onGenerateRoute: (settings) => MaterialPageRoute<void>(
+      settings: settings,
+      builder: (_) => WorkspaceScaffold(
+        contextualContent: const WorkspaceSidebar(
+          summaryChildren: <Widget>[
+            Text('Resumo do projeto'),
+            Text('12 tarefas abertas'),
+            Text('Atualizado hoje'),
+          ],
+          highlightChips: <Widget>[
+            Chip(label: Text('3 atrasadas')),
+            Chip(label: Text('9 em andamento')),
+          ],
+        ),
+        contentBuilder: (context, _) => const Padding(
+          padding: EdgeInsets.all(32),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text('Trilha de Auditoria'),
+              SizedBox(height: 8),
+              Text('Acompanhe as alterações recentes da equipe.'),
+              SizedBox(height: 24),
+              Card(child: ListTile(title: Text('Registro de atividade'))),
+              Card(child: ListTile(title: Text('Alteração de projeto'))),
+            ],
+          ),
+        ),
+      ),
+    ),
+  ));
+  await tester.pumpAndSettle();
+  if (visualCase.mobile) {
+    tester.state<ScaffoldState>(find.byType(Scaffold)).openDrawer();
+    await tester.pumpAndSettle();
+  }
+
+  expect(tester.takeException(), isNull, reason: visualCase.name);
+  await expectLater(
+    find.byType(WorkspaceScaffold),
+    matchesGoldenFile(
+      '../../../../../../docs/validation/issue-119/${visualCase.name}.png',
+    ),
   );
 }
 
