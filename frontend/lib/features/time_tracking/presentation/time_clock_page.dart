@@ -4,6 +4,7 @@ import 'package:touchin_flutter/contracts/location.dart';
 import 'package:touchin_flutter/contracts/punch.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/pagination_controls.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_skeleton.dart';
 import 'package:touchin_flutter/features/time_tracking/presentation/time_clock_controller.dart';
 import 'package:touchin_flutter/features/time_tracking/presentation/work_log_dialog.dart';
 import 'package:touchin_flutter/theme/app_theme.dart';
@@ -387,105 +388,92 @@ class _TimeClockPageState extends State<TimeClockPage> {
 
     if (_isLoadingState) {
       return WorkspaceSectionCard(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 58,
-                  height: 58,
-                  decoration: BoxDecoration(
-                    color: AppTheme.accent.withValues(alpha: 0.10),
-                    border: Border.all(
-                      color: AppTheme.accent.withValues(alpha: 0.20),
-                    ),
-                  ),
-                  child: const Center(
-                    child: SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 18),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const _LoadingBar(width: 120, height: 24),
-                      const SizedBox(height: 16),
-                      const _LoadingBar(width: 180, height: 56),
-                      const SizedBox(height: 10),
-                      const _LoadingBar(width: 160, height: 18),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            const _LoadingBar(width: double.infinity, height: 18),
-            const SizedBox(height: 10),
-            const _LoadingBar(width: 280, height: 18),
-            const SizedBox(height: 20),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: colorScheme.surface.withValues(alpha: 0.8),
-                border: Border.all(color: colorScheme.outlineVariant),
-              ),
-              child: Row(
+        child: WorkspaceSkeletonRegion(
+          key: const ValueKey<String>('time-clock-state-skeleton'),
+          label: 'Carregando estado do ponto',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        colorScheme.onSurfaceVariant,
+                  Container(
+                    width: 58,
+                    height: 58,
+                    decoration: BoxDecoration(
+                      color: AppTheme.accent.withValues(alpha: 0.10),
+                      border: Border.all(
+                        color: AppTheme.accent.withValues(alpha: 0.20),
+                      ),
+                    ),
+                    child: const Center(
+                      child: WorkspaceSkeleton(
+                        width: 20,
+                        height: 20,
+                        tone: WorkspaceSkeletonTone.strong,
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 18),
                   Expanded(
-                    child: Text(
-                      'Carregando estado do ponto...',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        height: 1.45,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const WorkspaceSkeleton(width: 120, height: 24),
+                        const SizedBox(height: 16),
+                        const WorkspaceSkeleton(width: 180, height: 56),
+                        const SizedBox(height: 10),
+                        const WorkspaceSkeleton(width: 160, height: 18),
+                      ],
                     ),
                   ),
                 ],
               ),
-            ),
-            const SizedBox(height: 24),
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: [
-                SizedBox(
-                  width: isWide ? 240 : double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: null,
-                    icon: const Icon(Icons.login_rounded),
-                    label: const Text('Carregando...'),
+              const SizedBox(height: 24),
+              const WorkspaceSkeleton(height: 18),
+              const SizedBox(height: 10),
+              const WorkspaceSkeleton(width: 280, height: 18),
+              const SizedBox(height: 20),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: colorScheme.surface.withValues(alpha: 0.8),
+                  border: Border.all(color: colorScheme.outlineVariant),
+                ),
+                child: Text(
+                  'Carregando estado do ponto...',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    height: 1.45,
                   ),
                 ),
-                SizedBox(
-                  width: isWide ? 220 : double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: null,
-                    icon: const Icon(Icons.logout_rounded),
-                    label: const Text('Carregando...'),
+              ),
+              const SizedBox(height: 24),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  SizedBox(
+                    width: isWide ? 240 : double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: null,
+                      icon: const Icon(Icons.login_rounded),
+                      label: const Text('Carregando...'),
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ],
+                  SizedBox(
+                    width: isWide ? 220 : double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: null,
+                      icon: const Icon(Icons.logout_rounded),
+                      label: const Text('Carregando...'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -599,13 +587,10 @@ class _TimeClockPageState extends State<TimeClockPage> {
                 ),
               ),
               if (_isSubmittingPunch)
-                SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(color),
-                  ),
+                Semantics(
+                  liveRegion: true,
+                  label: 'Registrando ponto',
+                  child: const Text('Registrando ponto…'),
                 ),
             ],
           ),
@@ -830,35 +815,27 @@ class _TimeClockPageState extends State<TimeClockPage> {
               ),
             ),
             const SizedBox(height: 20),
-            Row(
-              children: [
-                SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Carregando histórico do dia...',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-              ],
+            Text(
+              'Carregando histórico do dia...',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
             ),
             const SizedBox(height: 20),
-            const _LoadingTimelineItem(),
-            const SizedBox(height: 12),
-            const _LoadingTimelineItem(),
-            const SizedBox(height: 12),
-            const _LoadingTimelineItem(),
+            const WorkspaceSkeletonRegion(
+              key: ValueKey<String>('time-clock-history-skeleton'),
+              label: 'Carregando histórico do dia',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  _LoadingTimelineItem(),
+                  SizedBox(height: 12),
+                  _LoadingTimelineItem(),
+                  SizedBox(height: 12),
+                  _LoadingTimelineItem(),
+                ],
+              ),
+            ),
           ],
         ),
       );
@@ -1146,61 +1123,30 @@ class _TimelineTile extends StatelessWidget {
   }
 }
 
-class _LoadingBar extends StatelessWidget {
-  const _LoadingBar({this.width, this.height = 12});
-
-  final double? width;
-  final double height;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Container(
-      width: width,
-      height: height,
-      decoration: BoxDecoration(
-        color: colorScheme.outlineVariant.withValues(alpha: 0.35),
-      ),
-    );
-  }
-}
-
 class _LoadingTimelineItem extends StatelessWidget {
   const _LoadingTimelineItem();
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Row(
+    return const Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          width: 42,
-          height: 42,
-          decoration: BoxDecoration(
-            color: colorScheme.outlineVariant.withValues(alpha: 0.25),
-            border: Border.all(
-              color: colorScheme.outlineVariant.withValues(alpha: 0.4),
-            ),
-          ),
-        ),
-        const SizedBox(width: 14),
-        const Expanded(
+        WorkspaceSkeleton(width: 42, height: 42),
+        SizedBox(width: 14),
+        Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _LoadingBar(width: 150, height: 16),
+              WorkspaceSkeleton(width: 150, height: 16),
               SizedBox(height: 8),
-              _LoadingBar(width: double.infinity, height: 12),
+              WorkspaceSkeleton(height: 12),
               SizedBox(height: 6),
-              _LoadingBar(width: 220, height: 12),
+              WorkspaceSkeleton(width: 220, height: 12),
             ],
           ),
         ),
-        const SizedBox(width: 12),
-        const _LoadingBar(width: 40, height: 16),
+        SizedBox(width: 12),
+        WorkspaceSkeleton(width: 40, height: 16),
       ],
     );
   }

@@ -170,6 +170,15 @@ void main() {
     expect(find.text('Bater ponto'), findsOneWidget);
     expect(find.text('Carregando estado do ponto...'), findsOneWidget);
     expect(find.text('Carregando...'), findsWidgets);
+    expect(
+      find.byKey(const ValueKey<String>('time-clock-state-skeleton')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('time-clock-history-skeleton')),
+      findsOneWidget,
+    );
+    expect(find.byType(CircularProgressIndicator), findsNothing);
   });
 
   testWidgets('tap on register entry calls punch handler',

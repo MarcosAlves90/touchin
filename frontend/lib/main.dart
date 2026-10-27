@@ -9,6 +9,7 @@ import 'package:touchin_flutter/core/theme/theme_mode_controller.dart';
 import 'package:touchin_flutter/features/auth/presentation/auth_session_navigation.dart';
 import 'package:touchin_flutter/features/auth/presentation/login_page.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_skeleton.dart';
 import 'package:touchin_flutter/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -259,83 +260,65 @@ class _RouteSessionSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final skeletonColor = colorScheme.onSurface.withValues(alpha: 0.08);
 
     return WorkspaceScaffold(
-      contentBuilder: (context, _) => Semantics(
-        liveRegion: true,
+      contentBuilder: (context, _) => WorkspaceSkeletonRegion(
         label: 'Carregando conteúdo da página',
-        child: ExcludeSemantics(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              key: const ValueKey<String>('route-session-skeleton'),
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: <Widget>[
-                _SkeletonBlock(color: skeletonColor, width: 240, height: 32),
-                const SizedBox(height: 12),
-                _SkeletonBlock(color: skeletonColor, width: 360, height: 16),
-                const SizedBox(height: 28),
-                for (var index = 0; index < 3; index++) ...<Widget>[
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: colorScheme.surface,
-                      borderRadius: BorderRadius.zero,
-                      border: Border.all(color: colorScheme.outlineVariant),
-                    ),
-                    child: Row(
-                      children: <Widget>[
-                        _SkeletonBlock(
-                          color: skeletonColor,
-                          width: 44,
-                          height: 44,
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: <Widget>[
-                              _SkeletonBlock(
-                                  color: skeletonColor, width: 180, height: 16),
-                              const SizedBox(height: 10),
-                              _SkeletonBlock(
-                                  color: skeletonColor, width: 280, height: 12),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            key: const ValueKey<String>('route-session-skeleton'),
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              const WorkspaceSkeleton(width: 240, height: 32),
+              const SizedBox(height: 12),
+              const WorkspaceSkeleton(width: 360, height: 16),
+              const SizedBox(height: 28),
+              for (var index = 0; index < 3; index++) ...<Widget>[
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surface,
+                    borderRadius: BorderRadius.zero,
+                    border: Border.all(color: colorScheme.outlineVariant),
                   ),
-                  const SizedBox(height: 14),
-                ],
+                  child: Row(
+                    children: <Widget>[
+                      const WorkspaceSkeleton(
+                        width: 44,
+                        height: 44,
+                        shape: WorkspaceSkeletonShape.circle,
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            const FractionallySizedBox(
+                              widthFactor: 0.6,
+                              alignment: Alignment.centerLeft,
+                              child: WorkspaceSkeleton(height: 16),
+                            ),
+                            const SizedBox(height: 10),
+                            const FractionallySizedBox(
+                              widthFactor: 0.85,
+                              alignment: Alignment.centerLeft,
+                              child: WorkspaceSkeleton(height: 12),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
               ],
-            ),
+            ],
           ),
         ),
       ),
     );
   }
-}
-
-class _SkeletonBlock extends StatelessWidget {
-  const _SkeletonBlock({
-    required this.color,
-    required this.width,
-    required this.height,
-  });
-
-  final Color color;
-  final double width;
-  final double height;
-
-  @override
-  Widget build(BuildContext context) => Container(
-        width: width,
-        height: height,
-        decoration:
-            BoxDecoration(color: color, borderRadius: BorderRadius.zero),
-      );
 }
 
 class _RouteSessionVerificationError extends StatelessWidget {
