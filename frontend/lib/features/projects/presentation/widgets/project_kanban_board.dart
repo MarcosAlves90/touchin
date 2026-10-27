@@ -48,7 +48,7 @@ class ProjectKanbanBoard extends StatefulWidget {
 class _ProjectKanbanBoardState extends State<ProjectKanbanBoard> {
   static const double _laneWidth = 320;
   static const double _laneGap = 12;
-  static const double _cardExtent = 144;
+  static const double _cardExtent = 154;
 
   final ScrollController _boardScrollController = ScrollController();
   final Map<String, ScrollController> _laneScrollControllers =
@@ -699,12 +699,12 @@ class _LaneHeader extends StatelessWidget {
           if (canManageCards)
             IconButton(
               tooltip: 'Adicionar card em ${column.name}',
-              visualDensity: VisualDensity.compact,
+              visualDensity: VisualDensity.standard,
               style: IconButton.styleFrom(
-                minimumSize: const Size(32, 32),
-                maximumSize: const Size(32, 32),
+                minimumSize: const Size(48, 48),
+                maximumSize: const Size(48, 48),
                 padding: EdgeInsets.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                tapTargetSize: MaterialTapTargetSize.padded,
               ),
               onPressed: isBusy ? null : () => onCreateCard(column),
               icon: const Icon(Icons.add_task_outlined, size: 18),
@@ -713,6 +713,12 @@ class _LaneHeader extends StatelessWidget {
             PopupMenuButton<String>(
               popUpAnimationStyle: AnimationStyle.noAnimation,
               tooltip: 'Opções da coluna',
+              style: IconButton.styleFrom(
+                minimumSize: const Size(48, 48),
+                maximumSize: const Size(48, 48),
+                padding: EdgeInsets.zero,
+                tapTargetSize: MaterialTapTargetSize.padded,
+              ),
               enabled: !isBusy,
               onSelected: (value) {
                 if (value == 'left') {
@@ -855,7 +861,7 @@ class _KanbanCardTileState extends State<_KanbanCardTile> {
           child: Material(
             color: Colors.transparent,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(9, 8, 7, 7),
+              padding: const EdgeInsets.fromLTRB(9, 4, 7, 4),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
@@ -904,10 +910,11 @@ class _KanbanCardTileState extends State<_KanbanCardTile> {
                           padding: EdgeInsets.zero,
                           iconSize: 18,
                           style: IconButton.styleFrom(
-                            minimumSize: const Size(32, 32),
-                            maximumSize: const Size(32, 32),
+                            minimumSize: const Size(48, 48),
+                            maximumSize: const Size(48, 48),
                             padding: EdgeInsets.zero,
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            tapTargetSize: MaterialTapTargetSize.padded,
+                            visualDensity: VisualDensity.standard,
                           ),
                           enabled: !widget.isBusy,
                           onSelected: (value) {
@@ -976,7 +983,7 @@ class _KanbanCardTileState extends State<_KanbanCardTile> {
                         ),
                     ],
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 2),
                   Text(
                     widget.card.name,
                     maxLines: 1,
@@ -987,7 +994,7 @@ class _KanbanCardTileState extends State<_KanbanCardTile> {
                     ),
                   ),
                   if (widget.card.description.trim().isNotEmpty) ...<Widget>[
-                    const SizedBox(height: 3),
+                    const SizedBox(height: 2),
                     Text(
                       widget.card.description,
                       maxLines: 1,
@@ -1009,12 +1016,12 @@ class _KanbanCardTileState extends State<_KanbanCardTile> {
                       if (widget.canManageAssignees)
                         IconButton(
                           tooltip: 'Gerenciar responsáveis',
-                          visualDensity: VisualDensity.compact,
+                          visualDensity: VisualDensity.standard,
                           style: IconButton.styleFrom(
-                            minimumSize: const Size(32, 32),
-                            maximumSize: const Size(32, 32),
+                            minimumSize: const Size(48, 48),
+                            maximumSize: const Size(48, 48),
                             padding: EdgeInsets.zero,
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            tapTargetSize: MaterialTapTargetSize.padded,
                           ),
                           onPressed:
                               widget.isBusy ? null : widget.onManageAssignees,

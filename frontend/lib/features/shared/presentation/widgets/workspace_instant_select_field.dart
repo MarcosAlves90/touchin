@@ -125,7 +125,7 @@ class _WorkspaceInstantSelectFieldState<T>
           .map(
             (option) => PopupMenuItem<T>(
               value: option.value,
-              height: 44,
+              height: 48,
               child: Row(
                 children: <Widget>[
                   Expanded(

@@ -144,16 +144,18 @@ class _EmployeeEditorDialogState extends State<_EmployeeEditorDialog> {
                 children: <Widget>[
                   Text(
                     _isEditing ? 'Editar funcionário' : 'Novo funcionário',
-                    style: Theme.of(context).textTheme.headlineSmall
+                    style: Theme.of(context)
+                        .textTheme
+                        .headlineSmall
                         ?.copyWith(fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     'Preencha o payload do backend: dados principais, jornada, acesso, políticas e observações.',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      height: 1.45,
-                    ),
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          height: 1.45,
+                        ),
                   ),
                   const SizedBox(height: 24),
                   _buildTextField(
@@ -377,8 +379,7 @@ class _EmployeeEditorDialogState extends State<_EmployeeEditorDialog> {
         hintText: hintText,
         prefixIcon: Icon(icon),
       ),
-      validator:
-          validator ??
+      validator: validator ??
           (value) {
             if (value == null || value.trim().length < minLength) {
               return validatorMessage;
@@ -799,56 +800,6 @@ class _EmployeeListTile extends StatelessWidget {
       if (needsAttention) 'Acompanhamento',
     ];
     return labels.join(' • ');
-  }
-}
-
-class _AdminMetricItem extends StatelessWidget {
-  const _AdminMetricItem({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        border: Border.all(color: colorScheme.outline),
-      ),
-      child: Row(
-        children: <Widget>[
-          Icon(icon, size: 16, color: colorScheme.onSurfaceVariant),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Text(
-            value,
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }
 

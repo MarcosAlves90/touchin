@@ -228,12 +228,14 @@ class WorkspaceHeader extends StatelessWidget {
     required this.description,
     this.maxContentWidth = 560,
     this.actions = const <Widget>[],
+    this.compact = false,
   });
 
   final String title;
   final String description;
   final double maxContentWidth;
   final List<Widget> actions;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -254,19 +256,27 @@ class WorkspaceHeader extends StatelessWidget {
                 header: true,
                 child: Text(
                   title,
-                  style: theme.textTheme.headlineMedium?.copyWith(
+                  style: (compact
+                          ? theme.textTheme.headlineSmall
+                          : theme.textTheme.headlineMedium)
+                      ?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                description,
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                  height: 1.45,
+              if (description.trim().isNotEmpty) ...<Widget>[
+                const SizedBox(height: 8),
+                Text(
+                  description,
+                  style: (compact
+                          ? theme.textTheme.bodyMedium
+                          : theme.textTheme.bodyLarge)
+                      ?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    height: 1.45,
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
         ),
@@ -302,11 +312,13 @@ class WorkspaceSectionCard extends StatelessWidget {
 class WorkspaceMetricCard extends StatelessWidget {
   const WorkspaceMetricCard({
     super.key,
+    required this.icon,
     required this.label,
     required this.value,
     required this.helper,
   });
 
+  final IconData icon;
   final String label;
   final String value;
   final String helper;
@@ -328,6 +340,8 @@ class WorkspaceMetricCard extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
+              Icon(icon, size: 18, color: colorScheme.onSurfaceVariant),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   label,
@@ -340,10 +354,15 @@ class WorkspaceMetricCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              Text(
-                value,
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
+              Flexible(
+                child: Text(
+                  value,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.end,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
             ],

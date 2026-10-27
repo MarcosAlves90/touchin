@@ -198,7 +198,7 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
                             columnSpacing: 16,
                             dataRowMinHeight: 48,
                             dataRowMaxHeight: 52,
-                            headingRowHeight: 42,
+                            headingRowHeight: 48,
                             headingRowColor: WidgetStatePropertyAll(
                                 colors.surfaceContainerHighest),
                             headingTextStyle:
@@ -239,7 +239,7 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
                                           child: Padding(
                                             padding: EdgeInsets.only(
                                                 left: row.depth.clamp(0, 5) *
-                                                    14.0),
+                                                    8.0),
                                             child: Row(children: <Widget>[
                                               if (row.depth > 0)
                                                 Padding(
@@ -347,10 +347,10 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final buttonStyle = ButtonStyle(
-      minimumSize: const WidgetStatePropertyAll(Size(0, 40)),
+      minimumSize: const WidgetStatePropertyAll(Size(0, 48)),
       padding:
           const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 10)),
-      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      tapTargetSize: MaterialTapTargetSize.padded,
       iconSize: const WidgetStatePropertyAll(16),
       textStyle: WidgetStatePropertyAll(
         theme.textTheme.labelMedium
@@ -368,7 +368,7 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
             hintText: 'Buscar por título ou #número',
             prefixIcon: Icon(Icons.search_rounded, size: 18),
             isDense: true,
-            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
           ),
           onChanged: (value) => setState(() {
             _query = value.trim();
@@ -504,7 +504,7 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
                 else
                   SizedBox(
                     width: controls[index].width,
-                    height: 40,
+                    height: 48,
                     child: controls[index].child,
                   ),
                 if (index != controls.length - 1) const SizedBox(width: 8),
@@ -515,11 +515,11 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
               if (fillsWidth)
-                SizedBox(height: 40, child: row)
+                SizedBox(height: 48, child: row)
               else
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
-                  child: SizedBox(height: 40, child: row),
+                  child: SizedBox(height: 48, child: row),
                 ),
               const SizedBox(height: 8),
               Row(children: <Widget>[
@@ -534,7 +534,7 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
                   IconButton(
                     key: const ValueKey<String>('backlog-page-previous'),
                     tooltip: 'Página anterior',
-                    visualDensity: VisualDensity.compact,
+                    visualDensity: VisualDensity.standard,
                     onPressed: page == 0 ? null : () => _changePage(page - 1),
                     icon: const Icon(Icons.chevron_left_rounded),
                   ),
@@ -543,7 +543,7 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
                   IconButton(
                     key: const ValueKey<String>('backlog-page-next'),
                     tooltip: 'Próxima página',
-                    visualDensity: VisualDensity.compact,
+                    visualDensity: VisualDensity.standard,
                     onPressed: page == pageCount - 1
                         ? null
                         : () => _changePage(page + 1),
@@ -560,12 +560,12 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
 
   InputDecoration _filterDecoration(IconData icon) => InputDecoration(
         isDense: true,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
         prefixIcon: Icon(icon, size: 17),
         prefixIconConstraints:
-            const BoxConstraints(minWidth: 36, minHeight: 40),
+            const BoxConstraints(minWidth: 36, minHeight: 48),
         suffixIconConstraints:
-            const BoxConstraints(minWidth: 36, minHeight: 40),
+            const BoxConstraints(minWidth: 36, minHeight: 48),
       );
 
   Widget _header(String field, String label) => PopupMenuButton<String>(
@@ -664,14 +664,14 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
     final actionButtons = <Widget>[
       IconButton(
         tooltip: 'Detalhes de #${card.cardNumber}',
-        visualDensity: VisualDensity.compact,
+        visualDensity: VisualDensity.standard,
         onPressed: () => widget.onOpenDetails(card),
         icon: const Icon(Icons.open_in_new_rounded, size: 18),
       ),
       if (canReorder && column.cards.length > 1) ...<Widget>[
         IconButton(
           tooltip: 'Mover #${card.cardNumber} para cima no Kanban',
-          visualDensity: VisualDensity.compact,
+          visualDensity: VisualDensity.standard,
           onPressed: widget.isBusy || position == 0
               ? null
               : () => widget.onMoveCard(card.id, column.id, position - 1),
@@ -679,7 +679,7 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
         ),
         IconButton(
           tooltip: 'Mover #${card.cardNumber} para baixo no Kanban',
-          visualDensity: VisualDensity.compact,
+          visualDensity: VisualDensity.standard,
           onPressed: widget.isBusy || position == column.cards.length - 1
               ? null
               : () => widget.onMoveCard(card.id, column.id, position + 2),
@@ -689,13 +689,13 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
       if (widget.canManageCards) ...<Widget>[
         IconButton(
           tooltip: 'Editar #${card.cardNumber}',
-          visualDensity: VisualDensity.compact,
+          visualDensity: VisualDensity.standard,
           onPressed: widget.isBusy ? null : () => widget.onEditCard(card),
           icon: const Icon(Icons.edit_outlined, size: 18),
         ),
         IconButton(
           tooltip: 'Excluir #${card.cardNumber}',
-          visualDensity: VisualDensity.compact,
+          visualDensity: VisualDensity.standard,
           onPressed: widget.isBusy ? null : () => widget.onDeleteCard(card),
           icon: const Icon(Icons.delete_outline_rounded, size: 18),
         ),
@@ -703,7 +703,7 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
       if (widget.canManageAssignees)
         IconButton(
           tooltip: 'Responsáveis de #${card.cardNumber}',
-          visualDensity: VisualDensity.compact,
+          visualDensity: VisualDensity.standard,
           onPressed:
               widget.isBusy ? null : () => widget.onManageAssignees(card),
           icon: const Icon(Icons.people_outline_rounded, size: 18),
@@ -712,9 +712,10 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
     return IconButtonTheme(
       data: IconButtonThemeData(
           style: IconButton.styleFrom(
-        minimumSize: const Size(32, 32),
+        minimumSize: const Size(48, 48),
+        maximumSize: const Size(48, 48),
         padding: const EdgeInsets.all(6),
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        tapTargetSize: MaterialTapTargetSize.padded,
         foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
         shape: const RoundedRectangleBorder(),
       )),

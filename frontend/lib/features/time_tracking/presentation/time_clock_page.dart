@@ -699,6 +699,7 @@ class _TimeClockPageState extends State<TimeClockPage> {
               SizedBox(
                 width: width,
                 child: WorkspaceMetricCard(
+                  icon: Icons.access_time_rounded,
                   label: 'Horas hoje',
                   value: '--h --m',
                   helper: 'Carregando jornada do dia',
@@ -707,6 +708,7 @@ class _TimeClockPageState extends State<TimeClockPage> {
               SizedBox(
                 width: width,
                 child: WorkspaceMetricCard(
+                  icon: Icons.coffee_outlined,
                   label: 'Pausa acumulada',
                   value: '--h --m',
                   helper: 'Carregando intervalo do dia',
@@ -715,6 +717,7 @@ class _TimeClockPageState extends State<TimeClockPage> {
               SizedBox(
                 width: width,
                 child: WorkspaceMetricCard(
+                  icon: Icons.login_rounded,
                   label: 'Primeira entrada',
                   value: '--:--',
                   helper: 'Aguardando resposta da API',
@@ -723,7 +726,8 @@ class _TimeClockPageState extends State<TimeClockPage> {
               SizedBox(
                 width: width,
                 child: WorkspaceMetricCard(
-                  label: 'Último evento',
+                  icon: Icons.history_rounded,
+                  label: 'Útimo evento',
                   value: '--:--',
                   helper: 'Aguardando resposta da API',
                 ),
@@ -746,6 +750,7 @@ class _TimeClockPageState extends State<TimeClockPage> {
             SizedBox(
               width: width,
               child: WorkspaceMetricCard(
+                icon: Icons.access_time_rounded,
                 label: 'Horas hoje',
                 value: _formatDuration(
                   Duration(minutes: _todayWorkedMinutes),
@@ -756,6 +761,7 @@ class _TimeClockPageState extends State<TimeClockPage> {
             SizedBox(
               width: width,
               child: WorkspaceMetricCard(
+                icon: Icons.coffee_outlined,
                 label: 'Pausa acumulada',
                 value: _formatDuration(
                   Duration(minutes: _todayBreakMinutes),
@@ -766,6 +772,7 @@ class _TimeClockPageState extends State<TimeClockPage> {
             SizedBox(
               width: width,
               child: WorkspaceMetricCard(
+                icon: Icons.login_rounded,
                 label: 'Primeira entrada',
                 value: _firstCheckInAt == null
                     ? '--:--'
@@ -776,6 +783,7 @@ class _TimeClockPageState extends State<TimeClockPage> {
             SizedBox(
               width: width,
               child: WorkspaceMetricCard(
+                icon: Icons.history_rounded,
                 label: 'Útimo evento',
                 value:
                     _lastPunchAt == null ? '--:--' : _formatTime(_lastPunchAt!),

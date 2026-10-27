@@ -659,13 +659,11 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
   }
 
   Widget _buildHeader({required bool compact}) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
     final actions = <Widget>[
       OutlinedButton.icon(
         key: const ValueKey<String>('audit-filters-button'),
         style: OutlinedButton.styleFrom(
-          minimumSize: const Size(0, 46),
+          minimumSize: const Size(0, 48),
           padding: const EdgeInsets.symmetric(horizontal: 14),
         ),
         onPressed: () => _openFilters(compact),
@@ -675,7 +673,7 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
       FilledButton.icon(
         key: const ValueKey<String>('audit-export-button'),
         style: FilledButton.styleFrom(
-          minimumSize: const Size(0, 46),
+          minimumSize: const Size(0, 48),
           padding: const EdgeInsets.symmetric(horizontal: 16),
         ),
         onPressed: _isExporting ? null : _exportEvents,
@@ -686,43 +684,14 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
       ),
     ];
 
-    return Wrap(
-      alignment: WrapAlignment.spaceBetween,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      spacing: 18,
-      runSpacing: 12,
-      children: [
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 570),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Semantics(
-                header: true,
-                child: Text(
-                  'Eventos de auditoria',
-                  key: const ValueKey<String>('audit-title'),
-                  style: (compact
-                          ? theme.textTheme.headlineSmall
-                          : theme.textTheme.headlineMedium)
-                      ?.copyWith(fontWeight: FontWeight.w800),
-                ),
-              ),
-              const SizedBox(height: 5),
-              Text(
-                compact
-                    ? 'Consulte e exporte os eventos registrados da empresa.'
-                    : 'Consulte, compare e exporte os eventos registrados para a sua empresa.',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                  height: 1.4,
-                ),
-              ),
-            ],
-          ),
-        ),
-        Wrap(spacing: 8, runSpacing: 8, children: actions),
-      ],
+    return WorkspaceHeader(
+      title: 'Eventos de auditoria',
+      description: compact
+          ? 'Consulte e exporte os eventos registrados da empresa.'
+          : 'Consulte, compare e exporte os eventos registrados para a sua empresa.',
+      maxContentWidth: 570,
+      actions: actions,
+      compact: compact,
     );
   }
 

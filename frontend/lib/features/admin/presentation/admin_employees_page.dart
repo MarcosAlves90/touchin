@@ -416,34 +416,12 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
   }
 
   Widget _buildWorkspaceHeader(bool isWide) {
-    if (!isWide) {
-      return WorkspaceHeader(
-        title: 'Administrar equipe',
-        description: '',
-        maxContentWidth: 620,
-        actions: _buildHeaderActions(false),
-      );
-    }
-
-    final theme = Theme.of(context);
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Expanded(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 620),
-            child: Text(
-              'Administrar equipe',
-              style: theme.textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        ..._buildHeaderActions(true),
-      ],
+    return WorkspaceHeader(
+      title: 'Administrar equipe',
+      description: '',
+      maxContentWidth: 620,
+      actions: _buildHeaderActions(isWide),
+      compact: !isWide,
     );
   }
 
@@ -469,25 +447,29 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
             ? (constraints.maxWidth - 8) / 2
             : constraints.maxWidth;
         final metricItems = <Widget>[
-          _AdminMetricItem(
+          WorkspaceMetricCard(
             icon: Icons.groups_2_rounded,
             label: 'Colaboradores',
             value: _employees.length.toString(),
+            helper: 'Perfis cadastrados na empresa.',
           ),
-          _AdminMetricItem(
+          WorkspaceMetricCard(
             icon: Icons.verified_user_rounded,
             label: 'Ativos',
             value: _activeEmployees.toString(),
+            helper: 'Perfis com vínculo ativo.',
           ),
-          _AdminMetricItem(
+          WorkspaceMetricCard(
             icon: Icons.location_on_rounded,
             label: 'Com geolocalização',
             value: _locationTrackedEmployees.toString(),
+            helper: 'Perfis com localização habilitada.',
           ),
-          _AdminMetricItem(
+          WorkspaceMetricCard(
             icon: Icons.warning_amber_rounded,
             label: 'Em atenção',
             value: _attentionEmployees.toString(),
+            helper: 'Perfis com pendências operacionais.',
           ),
         ];
 

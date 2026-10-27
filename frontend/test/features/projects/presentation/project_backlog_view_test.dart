@@ -53,7 +53,7 @@ void main() {
                 find.byWidgetPredicate((widget) => widget is ButtonStyleButton),
           );
           expect(tester.getSize(button).width, lessThan(210));
-          expect(tester.getSize(button).height, lessThanOrEqualTo(40));
+          expect(tester.getSize(button).height, greaterThanOrEqualTo(48));
           expect(tester.getRect(button).top,
               tester.getRect(find.byKey(const ValueKey('backlog-search'))).top);
         }
@@ -65,7 +65,7 @@ void main() {
           'backlog-sort',
         ]) {
           final field = find.byKey(ValueKey<String>(key));
-          expect(tester.getSize(field).height, 40);
+          expect(tester.getSize(field).height, greaterThanOrEqualTo(48));
           final select =
               tester.widget<WorkspaceInstantSelectField<String>>(field);
           expect(select.decoration.labelText, isNull);
@@ -77,6 +77,10 @@ void main() {
         expect(
             tester.getSize(find.byKey(const ValueKey('backlog-table'))).width,
             greaterThanOrEqualTo(size.width - 2));
+        final rowAction = find.byTooltip('Editar #1');
+        expect(rowAction, findsOneWidget);
+        expect(tester.getSize(rowAction).width, greaterThanOrEqualTo(48));
+        expect(tester.getSize(rowAction).height, greaterThanOrEqualTo(48));
         if (size.width >= 1440) {
           final toolbar =
               tester.getRect(find.byKey(const ValueKey('backlog-toolbar')));

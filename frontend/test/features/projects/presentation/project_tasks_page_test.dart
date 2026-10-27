@@ -8,6 +8,7 @@ import 'package:touchin_flutter/core/network/api_client.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
 import 'package:touchin_flutter/features/projects/presentation/project_tasks_page.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_editor_dialog.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
 import 'package:touchin_flutter/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -311,6 +312,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Administrar projetos'), findsOneWidget);
+    expect(find.byType(WorkspaceHeader), findsAtLeastNWidgets(1));
+    expect(find.byType(WorkspaceMetricCard), findsNWidgets(4));
     expect(find.text('Projetos'), findsWidgets);
     expect(find.text('Tarefas'), findsWidgets);
     expect(find.text('Acessos'), findsWidgets);

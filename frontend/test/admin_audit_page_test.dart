@@ -8,6 +8,7 @@ import 'package:touchin_flutter/contracts/audit.dart';
 import 'package:touchin_flutter/core/network/api_client.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_skeleton.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
 import 'package:touchin_flutter/theme/app_theme.dart';
 
 class FakeTouchInApi extends TouchInApi {
@@ -131,6 +132,7 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: AdminAuditPage(api: api)));
     await tester.pumpAndSettle();
 
+    expect(find.byType(WorkspaceHeader), findsOneWidget);
     expect(find.text('Tarefa reordenada'), findsOneWidget);
     expect(find.text('Sucesso'), findsOneWidget);
     expect(find.text('card.reordered'), findsOneWidget);

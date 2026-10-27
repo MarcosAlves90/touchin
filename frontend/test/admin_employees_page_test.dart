@@ -4,6 +4,7 @@ import 'package:touchin_flutter/contracts/punch.dart';
 import 'package:touchin_flutter/contracts/time_clock.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
 import 'package:touchin_flutter/features/admin/presentation/admin_employees_page.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -63,6 +64,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Administrar equipe'), findsOneWidget);
+    expect(find.byType(WorkspaceHeader), findsOneWidget);
+    expect(find.byType(WorkspaceMetricCard), findsNWidgets(4));
     expect(find.text('Novo funcionário'), findsOneWidget);
     expect(find.text('Editar selecionado'), findsNothing);
     expect(find.byTooltip('Editar funcionário'), findsOneWidget);
