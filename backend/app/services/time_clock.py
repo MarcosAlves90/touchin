@@ -442,7 +442,7 @@ def delete_managed_punch(
     )
     predecessor = _previous_punch(db, record=record)
     successor = _next_punch(db, record=record)
-    if predecessor is not None and successor is not None:
+    if successor is not None:
         _validate_adjacent_punches(predecessor, successor)
     # Keep the accounted work (including its original duration and task
     # snapshots), but release its link to the deleted live punch.

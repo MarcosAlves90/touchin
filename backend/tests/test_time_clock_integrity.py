@@ -279,6 +279,98 @@ def test_deleting_intermediate_punch_rejects_invalid_remaining_sequence(
 
 
 @pytest.mark.parametrize("database_fixture", ["sqlite_fk", "pg_read_committed"])
+@pytest.mark.parametrize("types", [
+    ("checkIn", "breakStart", "breakEnd", "checkOut"),
+    ("checkIn", "checkOut"),
+])
+def test_deleting_first_checkin_rejects_invalid_opening_and_preserves_history(
+    request, database_fixture, types,
+):
+    factory, engine = request.getfixturevalue(database_fixture)
+    start = datetime(2026, 6, 1, 10, tzinfo=timezone.utc)
+    with factory() as db:
+        db.execute(delete(Punch).where(Punch.employee_id == "emp-04"))
+        db.commit()
+        offsets = (0, 2, 3, 5) if len(types) == 4 else (0, 5)
+        records = [
+            Punch(company_id="company-touchin", employee_id="emp-04", type=punch_type,
+                  timestamp=start + timedelta(hours=hour), detail_ciphertext="test")
+            for hour, punch_type in zip(offsets, types)
+        ]
+        db.add_all(records)
+        db.flush()
+        intervals = ([(records[0], records[1]), (records[2], records[3])]
+                     if len(records) == 4 else [(records[0], records[1])])
+        logs = [
+            WorkLog(
+                company_id="company-touchin", employee_id="emp-04", punch_id=end.id,
+                start_time=begin.timestamp, end_time=end.timestamp,
+                duration_seconds=int((end.timestamp - begin.timestamp).total_seconds()),
+                description_ciphertext="historical activity",
+                task_snapshots_ciphertext="[]",
+            ) for begin, end in intervals
+        ]
+        db.add_all(logs)
+        db.commit()
+
+        with pytest.raises(DomainError) as wrong_company:
+            delete_managed_punch(
+                db, company_id="another-company", employee_id="emp-04",
+                punch_id=records[0].id,
+            )
+        assert wrong_company.value.kind.value == "not_found"
+        db.rollback()
+
+        with pytest.raises(DomainError) as failure:
+            delete_managed_punch(
+                db, company_id="company-touchin", employee_id="emp-04",
+                punch_id=records[0].id,
+            )
+        assert failure.value.kind.value == "conflict"
+        db.rollback()
+        db.expire_all()
+        assert [(item.id, item.type) for item in db.scalars(
+            select(Punch).where(Punch.employee_id == "emp-04").order_by(Punch.timestamp, Punch.id)
+        )] == [(record.id, record.type) for record in records]
+        for log, (begin, end) in zip(logs, intervals):
+            historical = db.get(WorkLog, log.id)
+            assert historical.punch_id == end.id
+            assert historical.employee_id == "emp-04"
+            assert historical.company_id == "company-touchin"
+            assert historical.duration_seconds == int((end.timestamp - begin.timestamp).total_seconds())
+            assert (ensure_utc(historical.start_time), ensure_utc(historical.end_time)) == (
+                ensure_utc(begin.timestamp), ensure_utc(end.timestamp),
+            )
+            assert historical.description_ciphertext == "historical activity"
+
+    if engine.dialect.name == "sqlite":
+        with engine.connect() as connection:
+            assert connection.exec_driver_sql("PRAGMA foreign_keys").scalar() == 1
+            assert connection.exec_driver_sql("PRAGMA foreign_key_check").all() == []
+
+
+@pytest.mark.parametrize("database_fixture", ["sqlite_fk", "pg_read_committed"])
+def test_deleting_only_checkin_leaves_empty_history(request, database_fixture):
+    factory, _ = request.getfixturevalue(database_fixture)
+    with factory() as db:
+        db.execute(delete(Punch).where(Punch.employee_id == "emp-04"))
+        db.commit()
+        record = Punch(
+            company_id="company-touchin", employee_id="emp-04", type="checkIn",
+            timestamp=datetime(2026, 6, 1, 10, tzinfo=timezone.utc),
+            detail_ciphertext="single open shift",
+        )
+        db.add(record)
+        db.commit()
+
+        delete_managed_punch(
+            db, company_id="company-touchin", employee_id="emp-04", punch_id=record.id,
+        )
+        db.expire_all()
+        assert db.scalar(select(Punch).where(Punch.employee_id == "emp-04")) is None
+
+
+@pytest.mark.parametrize("database_fixture", ["sqlite_fk", "pg_read_committed"])
 def test_deleting_intermediate_punch_allows_valid_bridge_and_retains_history(
     request, database_fixture,
 ):
@@ -605,15 +697,19 @@ def test_manual_changes_that_would_count_break_as_work_are_rejected_atomically(s
         assert db.get(Punch, punch_id) is not None
 
 
-def test_deleting_opening_punch_detaches_preserved_work_log(sqlite_fk):
+def test_deleting_opening_punch_before_checkout_rejects_and_preserves_work_log(sqlite_fk):
     factory, _ = sqlite_fk
     with factory() as db:
         first_id, punch_id, log_id = _punch_with_log(db)
-        delete_managed_punch(db, company_id="company-touchin", employee_id="emp-04", punch_id=first_id)
+        with pytest.raises(DomainError) as failure:
+            delete_managed_punch(db, company_id="company-touchin", employee_id="emp-04", punch_id=first_id)
+        assert failure.value.kind.value == "conflict"
+        db.rollback()
         db.expire_all()
         log = db.get(WorkLog, log_id)
-        assert log.punch_id is None
+        assert log.punch_id == punch_id
         assert log.duration_seconds == 7200
+        assert db.get(Punch, first_id) is not None
         assert db.get(Punch, punch_id) is not None
 
 
