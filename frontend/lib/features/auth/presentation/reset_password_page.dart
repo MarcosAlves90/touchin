@@ -73,7 +73,9 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
           token: widget.token,
           newPassword: _newPassword.text,
         );
-        if (mounted && router != null && generation != null) {
+        // Revoking the authenticated router is independent of this page's
+        // lifecycle: Back may dispose it while the server reset is in flight.
+        if (router != null && generation != null) {
           router.passwordResetConfirmed(
             expectedGeneration: generation,
             expectedToken: currentToken,
