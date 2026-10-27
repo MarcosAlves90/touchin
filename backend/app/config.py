@@ -9,6 +9,8 @@ except Exception:
 import os
 from functools import lru_cache
 
+AUDIT_EXPORT_HARD_MAX_BYTES = 1024 * 1024
+
 
 def _parse_bool(value: str | None, *, default: bool) -> bool:
     if value is None:
@@ -31,6 +33,17 @@ class Settings:
             "sqlite:///./touchin.db",
         )
         self.timezone = os.getenv("TOUCHIN_TIMEZONE", "America/Sao_Paulo")
+        configured_audit_export_max_bytes = int(
+            os.getenv("TOUCHIN_AUDIT_EXPORT_MAX_BYTES", str(1024 * 1024))
+        )
+        if configured_audit_export_max_bytes < 1:
+            raise ValueError("TOUCHIN_AUDIT_EXPORT_MAX_BYTES must be positive")
+        # Lower operational limits are supported, but deployment config can
+        # never expand the approved 1 MiB browser-buffering ceiling.
+        self.audit_export_max_bytes = min(
+            configured_audit_export_max_bytes,
+            AUDIT_EXPORT_HARD_MAX_BYTES,
+        )
         self.token_secret = os.getenv("TOUCHIN_TOKEN_SECRET")
         self.encryption_secret = os.getenv("TOUCHIN_ENCRYPTION_SECRET")
         self.token_ttl_hours = int(os.getenv("TOUCHIN_TOKEN_TTL_HOURS", "12"))

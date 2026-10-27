@@ -7,6 +7,7 @@ import 'package:touchin_flutter/features/admin/presentation/admin_audit_page.dar
 import 'package:touchin_flutter/contracts/audit.dart';
 import 'package:touchin_flutter/core/network/api_client.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_skeleton.dart';
 import 'package:touchin_flutter/theme/app_theme.dart';
 
 class FakeTouchInApi extends TouchInApi {
@@ -57,17 +58,42 @@ class FakeTouchInApi extends TouchInApi {
       throw error;
     }
 
-    // Simulate pagination
-    int start = (page - 1) * limit;
+    final start = (page - 1) * limit;
     if (start >= mockEvents.length) {
       return [];
     }
-    int end = start + limit;
+    var end = start + limit;
     if (end > mockEvents.length) {
       end = mockEvents.length;
     }
     return mockEvents.sublist(start, end);
   }
+}
+
+Future<void> openAuditFilters(WidgetTester tester) async {
+  final button = find.byKey(const ValueKey<String>('audit-filters-button'));
+  await tester.ensureVisible(button);
+  await tester.tap(button);
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 400));
+}
+
+Future<void> enterAuditFilter(
+  WidgetTester tester,
+  String label,
+  String value,
+) async {
+  final field = find.widgetWithText(TextField, label);
+  await tester.ensureVisible(field);
+  await tester.enterText(field, value);
+  await tester.pump();
+}
+
+Future<void> applyAuditFilters(WidgetTester tester) async {
+  final button = find.byKey(const ValueKey<String>('audit-apply-filters'));
+  await tester.ensureVisible(button);
+  await tester.tap(button);
+  await tester.pumpAndSettle();
 }
 
 void main() {
@@ -105,7 +131,13 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: AdminAuditPage(api: api)));
     await tester.pumpAndSettle();
 
-    expect(find.text('ID do usuário responsável'), findsOneWidget);
+    expect(find.text('Tarefa reordenada'), findsOneWidget);
+    expect(find.text('Sucesso'), findsOneWidget);
+    expect(find.text('card.reordered'), findsOneWidget);
+    expect(find.text('success'), findsNothing);
+
+    await openAuditFilters(tester);
+    expect(find.text('ID do usuário (ator)'), findsOneWidget);
     expect(find.text('Ação'), findsOneWidget);
     expect(find.text('Tipo de entidade'), findsOneWidget);
     expect(find.text('ID da entidade'), findsOneWidget);
@@ -113,17 +145,15 @@ void main() {
     expect(find.text('Resultado'), findsOneWidget);
     expect(find.text('Aplicar filtros'), findsOneWidget);
     expect(find.text('Limpar filtros'), findsOneWidget);
-    expect(find.textContaining('card.reordered'), findsNothing);
-    expect(find.textContaining('success'), findsNothing);
 
-    await tester.enterText(
-        find.widgetWithText(TextField, 'Ação'), 'card.reordered');
-    await tester.enterText(
-        find.widgetWithText(TextField, 'Resultado'), 'success');
-    await tester.tap(find.text('Aplicar filtros'));
-    await tester.pumpAndSettle();
+    await enterAuditFilter(tester, 'Ação', 'card.reordered');
+    await enterAuditFilter(tester, 'Resultado', 'success');
+    await applyAuditFilters(tester);
+
     expect(api.lastParams['action'], 'card.reordered');
     expect(api.lastParams['result'], 'success');
+    expect(find.text('Ação: card.reordered'), findsOneWidget);
+    expect(find.text('Resultado: Sucesso'), findsOneWidget);
   });
 
   testWidgets(
@@ -159,25 +189,36 @@ void main() {
 
     for (final size in [const Size(1280, 800), const Size(360, 760)]) {
       await tester.binding.setSurfaceSize(size);
-      await tester.pumpWidget(MaterialApp(home: AdminAuditPage(api: api)));
+      await tester.pumpWidget(
+        MaterialApp(home: AdminAuditPage(key: UniqueKey(), api: api)),
+      );
       await tester.pumpAndSettle();
 
-      final known = find.text('Tarefa reordenada - Sucesso');
-      final unknown = find.text(
-        'Ação desconhecida (future.action) - Resultado desconhecido (future_result)',
-      );
+      final known = find.text('Tarefa reordenada');
+      final knownStatus = find.text('Sucesso');
+      final unknown = find.text('Ação desconhecida (future.action)');
+      final unknownStatus = find.text('Resultado desconhecido (future_result)');
       await tester.ensureVisible(known);
       expect(known, findsOneWidget);
+      expect(knownStatus, findsOneWidget);
+
+      final scrollable = size.width >= 860
+          ? find.descendant(
+              of: find.byKey(const ValueKey<String>('audit-events-table')),
+              matching: find.byType(Scrollable),
+            )
+          : find.descendant(
+              of: find.byKey(const ValueKey<String>('audit-events-cards')),
+              matching: find.byType(Scrollable),
+            );
       await tester.scrollUntilVisible(
         unknown,
         200,
-        scrollable: find.descendant(
-          of: find.byType(ListView),
-          matching: find.byType(Scrollable),
-        ),
+        scrollable: scrollable,
       );
       await tester.pumpAndSettle();
       expect(unknown, findsOneWidget);
+      expect(unknownStatus, findsOneWidget);
       expect(tester.takeException(), isNull);
     }
     await tester.binding.setSurfaceSize(null);
@@ -190,10 +231,11 @@ void main() {
       await tester.binding.setSurfaceSize(size);
       await tester.pumpWidget(MaterialApp(
         theme: AppTheme.darkTheme,
-        home: AdminAuditPage(api: FakeTouchInApi()),
+        home: AdminAuditPage(key: UniqueKey(), api: FakeTouchInApi()),
       ));
       await tester.pumpAndSettle();
-      for (final label in ['Data Inicial', 'Data Final']) {
+      await openAuditFilters(tester);
+      for (final label in ['Data inicial', 'Data final']) {
         await tester.ensureVisible(find.text(label));
         await tester.tap(find.text(label));
         await tester.pumpAndSettle();
@@ -211,6 +253,18 @@ void main() {
         await tester.tap(find.text('Cancel'));
         await tester.pumpAndSettle();
       }
+      if (size.width >= 860) {
+        await tester.ensureVisible(
+          find.byKey(const ValueKey<String>('audit-filters-button')),
+        );
+        await tester.tap(
+          find.byKey(const ValueKey<String>('audit-filters-button')),
+        );
+      } else {
+        await tester.ensureVisible(find.text('Cancelar'));
+        await tester.tap(find.text('Cancelar'));
+      }
+      await tester.pumpAndSettle();
     }
     await tester.binding.setSurfaceSize(null);
   });
@@ -229,8 +283,9 @@ void main() {
       home: AdminAuditPage(api: api),
     ));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Data Inicial'));
-    await tester.tap(find.text('Data Inicial'));
+    await openAuditFilters(tester);
+    await tester.ensureVisible(find.text('Data inicial'));
+    await tester.tap(find.text('Data inicial'));
     await tester.pumpAndSettle();
 
     await tester.tap(find.byTooltip('Next month'));
@@ -240,10 +295,11 @@ void main() {
     await tester.tap(find.text('OK'));
     await tester.pumpAndSettle();
 
-    final dateLabel = expectedDate.toIso8601String().split('T').first;
+    final dateLabel = '${expectedDate.day.toString().padLeft(2, '0')}/'
+        '${expectedDate.month.toString().padLeft(2, '0')}/'
+        '${expectedDate.year}';
     expect(find.text(dateLabel), findsOneWidget);
-    await tester.tap(find.text('Aplicar filtros'));
-    await tester.pumpAndSettle();
+    await applyAuditFilters(tester);
     expect(api.lastParams['startDate']?.year, expectedDate.year);
     expect(api.lastParams['startDate']?.month, expectedDate.month);
     expect(api.lastParams['startDate']?.day, expectedDate.day);
@@ -251,6 +307,8 @@ void main() {
 
   testWidgets('page 2 HTTP 503 shows accessible error and retries page 2',
       (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     final api = FakeTouchInApi()
       ..mockEvents = List.generate(51, pageEvent)
       ..secondPageError = ApiException('Upstream error', statusCode: 503);
@@ -269,7 +327,7 @@ void main() {
     );
     expect(liveRegion, findsWidgets);
     expect(
-      find.text('Ação desconhecida (task.action_0) - Sucesso'),
+      find.text('Ação desconhecida (task.action_0)'),
       findsOneWidget,
     );
     await tester.tap(find.text('Tentar novamente'));
@@ -279,12 +337,17 @@ void main() {
     final list = tester.widget<ListView>(find.byType(ListView));
     final delegate = list.childrenDelegate as SliverChildBuilderDelegate;
     expect(delegate.estimatedChildCount, 51);
-    expect(find.text('Todos os eventos de auditoria foram carregados.'),
-        findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('audit-end-of-list')),
+      findsOneWidget,
+    );
+    expect(find.text('Todos os eventos carregados.'), findsOneWidget);
   });
 
   testWidgets('refresh discards pending page 2 failure and resets loading',
       (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     final pending = Completer<List<AuditEventResponse>>();
     final api = FakeTouchInApi()
       ..mockEvents = List.generate(100, pageEvent)
@@ -293,21 +356,21 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Carregar mais eventos'));
     await tester.pump();
-    expect(find.text('Carregando mais eventos'), findsOneWidget);
+    expect(find.text('Carregando mais eventos...'), findsOneWidget);
     api.mockEvents = [pageEvent(999)];
-    await tester.tap(find.text('Aplicar filtros'));
-    await tester.pumpAndSettle();
+    await openAuditFilters(tester);
+    await applyAuditFilters(tester);
     expect(
-      find.text('Ação desconhecida (task.action_999) - Sucesso'),
+      find.text('Ação desconhecida (task.action_999)'),
       findsOneWidget,
     );
-    expect(find.text('Carregando mais eventos'), findsNothing);
+    expect(find.text('Carregando mais eventos...'), findsNothing);
     pending
         .completeError(ApiException('Stale upstream error', statusCode: 503));
     await tester.pumpAndSettle();
     expect(api.requestedPages, [1, 2, 1]);
     expect(
-      find.text('Ação desconhecida (task.action_999) - Sucesso'),
+      find.text('Ação desconhecida (task.action_999)'),
       findsOneWidget,
     );
     expect(find.textContaining('Stale upstream error'), findsNothing);
@@ -317,6 +380,8 @@ void main() {
   testWidgets(
       'refresh discards successful page 2 response from obsolete filters',
       (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     final pending = Completer<List<AuditEventResponse>>();
     final api = FakeTouchInApi()
       ..mockEvents = List.generate(100, pageEvent)
@@ -339,14 +404,14 @@ void main() {
       metadataPayload: null,
     );
     api.mockEvents = [latestEvent];
-    await tester.tap(find.text('Aplicar filtros'));
-    await tester.pumpAndSettle();
-    expect(find.text('Ação desconhecida (task.latest) - Sucesso'), findsOneWidget);
+    await openAuditFilters(tester);
+    await applyAuditFilters(tester);
+    expect(find.text('Ação desconhecida (task.latest)'), findsOneWidget);
 
     pending.complete([pageEvent(999)]);
     await tester.pumpAndSettle();
-    expect(find.text('Ação desconhecida (task.latest) - Sucesso'), findsOneWidget);
-    expect(find.text('Ação desconhecida (task.action_999) - Sucesso'), findsNothing);
+    expect(find.text('Ação desconhecida (task.latest)'), findsOneWidget);
+    expect(find.text('Ação desconhecida (task.action_999)'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -370,8 +435,8 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: AdminAuditPage(api: api)));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
-    expect(find.text('Tarefa criada - Sucesso'), findsOneWidget);
-    expect(find.byType(ListTile), findsWidgets);
+    expect(find.text('Tarefa criada'), findsOneWidget);
+    expect(find.byType(Material), findsWidgets);
   });
 
   testWidgets('filter button keeps finite width with production button style',
@@ -381,22 +446,23 @@ void main() {
     final api = FakeTouchInApi();
     await tester.pumpWidget(MaterialApp(
       theme: ThemeData(
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
+        filledButtonTheme: FilledButtonThemeData(
+          style: FilledButton.styleFrom(
             minimumSize: const Size.fromHeight(52),
           ),
         ),
       ),
       home: AdminAuditPage(api: api),
     ));
-    await tester.pump();
+    await tester.pumpAndSettle();
+    await openAuditFilters(tester);
     expect(tester.takeException(), isNull);
-    final button = find.widgetWithText(ElevatedButton, 'Aplicar filtros');
+    final button = find.widgetWithText(FilledButton, 'Aplicar filtros');
     expect(button, findsOneWidget);
     expect(tester.getSize(button).width, lessThan(1280));
     await tester.ensureVisible(button);
     await tester.tap(button);
-    await tester.pump();
+    await tester.pumpAndSettle();
     expect(api.requestedPages, [1, 1]);
     expect(tester.takeException(), isNull);
   });
@@ -467,7 +533,7 @@ void main() {
       await tester.pump();
       expect(mockApi.requestedPages, [1, 2]);
       expect(loadMoreFocus.hasFocus, isTrue);
-      expect(find.text('Carregando mais eventos'), findsOneWidget);
+      expect(find.text('Carregando mais eventos...'), findsOneWidget);
 
       mockApi.secondPageResponse!.complete(
         mockApi.mockEvents.skip(50).toList(),
@@ -480,12 +546,13 @@ void main() {
       if (additionalEvents == 50) {
         expect(loadMoreFinder, findsOneWidget);
         expect(loadMoreFocus.hasFocus, isTrue);
-        expect(find.text('Todos os eventos de auditoria foram carregados.'),
-            findsNothing);
+        expect(
+          find.byKey(const ValueKey<String>('audit-end-of-list')),
+          findsNothing,
+        );
       } else {
         expect(loadMoreFinder, findsNothing);
-        final endLabel =
-            find.text('Todos os eventos de auditoria foram carregados.');
+        final endLabel = find.text('Todos os eventos carregados.');
         expect(endLabel, findsOneWidget);
         expect(Focus.of(tester.element(endLabel)).hasFocus, isTrue);
         final focusedDecoration = tester
@@ -522,7 +589,8 @@ void main() {
         .pumpWidget(MaterialApp(home: AdminAuditPage(api: FakeTouchInApi())));
     await tester.pumpAndSettle();
 
-    final actor = find.widgetWithText(TextField, 'ID do usuário responsável');
+    await openAuditFilters(tester);
+    final actor = find.widgetWithText(TextField, 'ID do usuário (ator)');
     final action = find.widgetWithText(TextField, 'Ação');
     expect(actor, findsOneWidget);
     expect(action, findsOneWidget);
@@ -530,11 +598,16 @@ void main() {
     await tester.ensureVisible(find.widgetWithText(TextField, 'Resultado'));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
+    await tester.ensureVisible(find.text('Cancelar'));
+    await tester.tap(find.text('Cancelar'));
+    await tester.pumpAndSettle();
     expect(find.byTooltip('Abrir menu'), findsOneWidget);
   });
 
   testWidgets('AdminAuditPage loads events and shows filters',
       (WidgetTester tester) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     final mockApi = FakeTouchInApi();
 
     mockApi.mockEvents = [
@@ -570,28 +643,41 @@ void main() {
       ),
     ));
 
-    expect(find.byType(CircularProgressIndicator), findsNothing);
     expect(
-      find.byKey(const ValueKey<String>('audit-events-skeleton')),
+      find.byKey(const ValueKey<String>('audit-loading-skeleton')),
       findsOneWidget,
     );
+    final auditSkeleton = find.byKey(
+      const ValueKey<String>('audit-loading-skeleton'),
+    );
+    final auditRegion = find.ancestor(
+      of: auditSkeleton,
+      matching: find.byType(WorkspaceSkeletonRegion),
+    );
+    expect(auditRegion, findsOneWidget);
+    expect(
+      find.descendant(
+        of: auditRegion,
+        matching: find.byType(WorkspaceSkeleton),
+      ),
+      findsAtLeastNWidgets(1),
+    );
+    expect(find.byType(CircularProgressIndicator), findsNothing);
     await tester.pumpAndSettle();
 
-    expect(find.text('Tarefa criada - Sucesso'), findsOneWidget);
-    expect(find.text('Tarefa excluída - Falha'), findsOneWidget);
+    expect(find.text('Tarefa criada'), findsOneWidget);
+    expect(find.text('Tarefa excluída'), findsOneWidget);
+    expect(find.text('Sucesso'), findsOneWidget);
+    expect(find.text('Falha'), findsOneWidget);
 
-    await tester.enterText(
-        find.widgetWithText(TextField, 'ID do usuário responsável'), 'user_1');
-    await tester.enterText(
-        find.widgetWithText(TextField, 'Ação'), 'task.created');
-    await tester.enterText(
-        find.widgetWithText(TextField, 'ID da entidade'), 'task_1');
-    await tester.enterText(
-        find.widgetWithText(TextField, 'Resultado'), 'success');
+    await openAuditFilters(tester);
+    await enterAuditFilter(tester, 'ID do usuário (ator)', 'user_1');
+    await enterAuditFilter(tester, 'Ação', 'task.created');
+    await enterAuditFilter(tester, 'ID da entidade', 'task_1');
+    await enterAuditFilter(tester, 'Resultado', 'success');
 
     mockApi.requestedPages.clear();
-    await tester.tap(find.text('Aplicar filtros'));
-    await tester.pump();
+    await applyAuditFilters(tester);
 
     expect(mockApi.requestedPages, [1]);
     expect(mockApi.lastParams['actorUserId'], 'user_1');
@@ -603,9 +689,10 @@ void main() {
   testWidgets(
       'AdminAuditPage paginates correctly without gaps or duplicates and stops on short page',
       (WidgetTester tester) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     final mockApi = FakeTouchInApi();
 
-    // Create 60 items
     mockApi.mockEvents = List.generate(
         60,
         (index) => AuditEventResponse(
@@ -630,60 +717,49 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(mockApi.requestedPages, [1]);
+    final list = find.byType(ListView);
 
-    // Scroll through the list to force loading page 2.
-    int drags = 0;
+    var drags = 0;
     while (mockApi.requestedPages.length < 2 && drags < 40) {
-      await tester.drag(find.byType(ListView), const Offset(0, -500));
+      await tester.drag(list, const Offset(0, -500));
       await tester.pumpAndSettle();
       drags++;
     }
 
     expect(mockApi.requestedPages, [1, 2]);
 
-    // Rewind and scan in small steps: localized event rows can be taller.
-    await tester.drag(find.byType(ListView), const Offset(0, 10000));
+    await tester.drag(list, const Offset(0, 20000));
     await tester.pumpAndSettle();
-    while (
-        find.text('Ação desconhecida (task.action_50) - Sucesso')
-                .evaluate()
-                .isEmpty &&
-            drags < 100) {
-      await tester.drag(find.byType(ListView), const Offset(0, -100));
+    drags = 0;
+    while (find.text('Ação desconhecida (task.action_50)').evaluate().isEmpty &&
+        drags < 40) {
+      await tester.drag(list, const Offset(0, -500));
       await tester.pumpAndSettle();
       drags++;
     }
     expect(
-      find.text('Ação desconhecida (task.action_50) - Sucesso'),
+      find.text('Ação desconhecida (task.action_50)'),
       findsOneWidget,
     );
     drags = 0;
 
-    // Continue scrolling to 59
-    while (
-        find.text('Ação desconhecida (task.action_59) - Sucesso')
-                .evaluate()
-                .isEmpty &&
-            drags < 40) {
-      await tester.drag(find.byType(ListView), const Offset(0, -500));
+    while (find.text('Ação desconhecida (task.action_59)').evaluate().isEmpty &&
+        drags < 40) {
+      await tester.drag(list, const Offset(0, -500));
       await tester.pumpAndSettle();
       drags++;
     }
     expect(
-      find.text('Ação desconhecida (task.action_59) - Sucesso'),
+      find.text('Ação desconhecida (task.action_59)'),
       findsOneWidget,
     );
 
-    // Attempt another scroll past the end to ensure it DOES NOT request page 3
-    await tester.drag(find.byType(ListView), const Offset(0, -500));
+    await tester.drag(list, const Offset(0, -500));
     await tester.pumpAndSettle();
 
-    expect(mockApi.requestedPages,
-        [1, 2]); // Should still only have requested pages 1 and 2
+    expect(mockApi.requestedPages, [1, 2]);
 
-    // Validate explicitly that the collection has exactly 60 events loaded
-    // Since _hasMore becomes false, the itemCount should be exactly 60
-    final listView = tester.widget<ListView>(find.byType(ListView));
+    final listView = tester.widget<ListView>(list);
     final delegate = listView.childrenDelegate as SliverChildBuilderDelegate;
     expect(delegate.estimatedChildCount, 60);
   });

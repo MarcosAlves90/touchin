@@ -65,6 +65,30 @@ class ApiClient {
     return _decodeResponse(response);
   }
 
+  Future<http.Response> getRaw(
+    String path, {
+    bool withAuth = false,
+    Map<String, Object?>? queryParameters,
+    String? accept,
+  }) async {
+    final headers = await _headers(withAuth: withAuth);
+    if (accept != null) {
+      headers['Accept'] = accept;
+    }
+    final response = await _client.get(
+      _uri(path).replace(
+        queryParameters: queryParameters?.map(
+          (key, value) => MapEntry(key, value?.toString()),
+        ),
+      ),
+      headers: headers,
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _decodeResponse(response);
+    }
+    return response;
+  }
+
   Future<dynamic> post(
     String path, {
     Object? body,

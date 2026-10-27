@@ -672,10 +672,84 @@ class TouchInApi {
     int page = 1,
     int limit = 50,
   }) async {
-    final queryParameters = <String, dynamic>{
-      'page': page.toString(),
-      'limit': limit.toString(),
-    };
+    final queryParameters = _auditQueryParameters(
+      startDate: startDate,
+      endDate: endDate,
+      actorUserId: actorUserId,
+      action: action,
+      entityType: entityType,
+      entityId: entityId,
+      projectId: projectId,
+      result: result,
+    )
+      ..addAll({
+        'page': page.toString(),
+        'limit': limit.toString(),
+      });
+
+    final response = await _client.get(
+      '/audit-events',
+      withAuth: true,
+      queryParameters: queryParameters.isNotEmpty ? queryParameters : null,
+    );
+    return _parseContract('audit events', () {
+      final payload = requireJsonList(response, 'audit events response');
+      return payload
+          .map(
+            (item) => AuditEventResponse.fromJson(
+              requireJsonMap(item, 'audit events[]'),
+            ),
+          )
+          .toList();
+    });
+  }
+
+  Future<AuditCsvExport> exportAuditEvents({
+    DateTime? startDate,
+    DateTime? endDate,
+    String? actorUserId,
+    String? action,
+    String? entityType,
+    String? entityId,
+    String? projectId,
+    String? result,
+  }) async {
+    final queryParameters = _auditQueryParameters(
+      startDate: startDate,
+      endDate: endDate,
+      actorUserId: actorUserId,
+      action: action,
+      entityType: entityType,
+      entityId: entityId,
+      projectId: projectId,
+      result: result,
+    );
+
+    final response = await _client.getRaw(
+      '/audit-events/export',
+      withAuth: true,
+      accept: 'text/csv',
+      queryParameters: queryParameters.isNotEmpty ? queryParameters : null,
+    );
+
+    return AuditCsvExport(
+      filename: _exportFilename(response.headers['content-disposition']),
+      bytes: response.bodyBytes,
+      rowCount: int.tryParse(response.headers['x-audit-export-rows'] ?? ''),
+    );
+  }
+
+  Map<String, dynamic> _auditQueryParameters({
+    DateTime? startDate,
+    DateTime? endDate,
+    String? actorUserId,
+    String? action,
+    String? entityType,
+    String? entityId,
+    String? projectId,
+    String? result,
+  }) {
+    final queryParameters = <String, dynamic>{};
     if (startDate != null) {
       queryParameters['start_date'] = DateTime.utc(
         startDate.year,
@@ -696,22 +770,18 @@ class TouchInApi {
     if (entityId != null) queryParameters['entity_id'] = entityId;
     if (projectId != null) queryParameters['project_id'] = projectId;
     if (result != null) queryParameters['result'] = result;
+    return queryParameters;
+  }
 
-    final response = await _client.get(
-      '/audit-events',
-      withAuth: true,
-      queryParameters: queryParameters.isNotEmpty ? queryParameters : null,
-    );
-    return _parseContract('audit events', () {
-      final payload = requireJsonList(response, 'audit events response');
-      return payload
-          .map(
-            (item) => AuditEventResponse.fromJson(
-              requireJsonMap(item, 'audit events[]'),
-            ),
-          )
-          .toList();
-    });
+  String _exportFilename(String? contentDisposition) {
+    final match = contentDisposition == null
+        ? null
+        : RegExp(r'filename="?([^";]+)"?').firstMatch(contentDisposition);
+    final filename = match?.group(1)?.trim();
+    if (filename == null || filename.isEmpty) {
+      return 'audit-events.csv';
+    }
+    return filename.split(RegExp(r'[/\\]')).last;
   }
 
   Future<AuthSession> _persistSession(AuthSession session) async {
