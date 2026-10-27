@@ -521,6 +521,8 @@ void main() {
 
   testWidgets('reset succeeds after leaving page and revokes old workspace',
       (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     final storage = _InMemoryTokenStorage()
       ..savedSession = AuthSession(
         accessToken: 'revoked-token',
@@ -559,11 +561,25 @@ void main() {
     await tester.pump(const Duration(milliseconds: 600));
     expect(find.byType(ResetPasswordPage, skipOffstage: false), findsNothing);
     expect(find.byType(AdminEmployeesPage), findsOneWidget);
+    final delayedSessionRead = Completer<AuthSession?>();
+    storage.authSessionReadCompleter = delayedSessionRead;
     pendingReset.complete();
+    await tester.pump();
+    expect(find.byKey(const ValueKey<String>('route-session-skeleton')),
+        findsOneWidget);
+    expect(
+      find.text('Administrar Equipe'),
+      findsNothing,
+      reason: 'former-user destination remains visible after reset revocation',
+    );
+    expect(find.text('Trilha de Auditoria'), findsNothing);
+    delayedSessionRead.complete(null);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 600));
     expect(router.sessionRevoked, isTrue);
     expect(router.verifiedSession, isNull);
+    expect(router.navigationUser.value, isNull,
+        reason: 'former-user destination remains visible after reset revocation');
     expect(storage.savedSession, isNull);
     expect(find.byType(AdminEmployeesPage), findsNothing);
     expect(find.byType(LoginPage), findsOneWidget);
@@ -1797,6 +1813,7 @@ class _FakeTouchInApi extends TouchInApi {
 
 class _InMemoryTokenStorage extends TokenStorage {
   AuthSession? savedSession;
+  Completer<AuthSession?>? authSessionReadCompleter;
 
   @override
   Future<void> saveAuthSession(AuthSession session) async {
@@ -1810,6 +1827,8 @@ class _InMemoryTokenStorage extends TokenStorage {
 
   @override
   Future<AuthSession?> readAuthSession() async {
+    final completer = authSessionReadCompleter;
+    if (completer != null) return completer.future;
     return savedSession;
   }
 

@@ -255,6 +255,7 @@ class WorkspaceRouter extends RouterDelegate<WorkspaceLocation>
     if (activeToken != null && activeToken != expectedToken) return;
     _sessionGeneration++;
     _sessionRevoked = true;
+    _navigationUser.value = null;
     _verifiedSession = null;
     _verifyingSession = false;
     _verificationUnavailable = false;
