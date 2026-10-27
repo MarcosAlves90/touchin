@@ -1,5 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:touchin_flutter/contracts/auth.dart';
 import 'package:touchin_flutter/core/navigation/workspace_router.dart';
+import 'package:touchin_flutter/core/network/api_client.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
 import 'package:touchin_flutter/core/storage/token_storage.dart';
 import 'package:touchin_flutter/features/auth/presentation/auth_submission_mixin.dart';
@@ -67,24 +71,49 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
     final currentToken = router?.verifiedSession?.accessToken ??
         await _tokenStorage.readAccessToken();
     if (!mounted) return;
+    final api = _api;
+    final tokenStorage = _tokenStorage;
     await submitAuthAction<void>(
       action: () async {
-        await _api.confirmPasswordReset(
+        await api.confirmPasswordReset(
           token: widget.token,
           newPassword: _newPassword.text,
         );
         // Revoking the authenticated router is independent of this page's
         // lifecycle: Back may dispose it while the server reset is in flight.
         if (router != null && generation != null) {
-          router.passwordResetConfirmed(
-            expectedGeneration: generation,
-            expectedToken: currentToken,
-          );
+          final activeToken = router.verifiedSession?.accessToken;
+          if (router.sessionGeneration == generation &&
+              (activeToken == null || activeToken == currentToken)) {
+            router.passwordResetConfirmed(
+              expectedGeneration: generation,
+              expectedToken: currentToken,
+            );
+          } else {
+            // A login completed during the request. The server may have
+            // revoked its token before returning this reset confirmation.
+            // Conceal it synchronously, then consult /auth/me to determine
+            // whether it was issued before or after the reset committed.
+            final newer = router.verifiedSession;
+            if (newer != null) {
+              final checkGeneration =
+                  router.beginPasswordResetVerification(newer);
+              if (checkGeneration != null) {
+                unawaited(_verifyConcurrentResetSession(
+                  api: api,
+                  tokenStorage: tokenStorage,
+                  router: router,
+                  session: newer,
+                  generation: checkGeneration,
+                ));
+              }
+            }
+          }
         }
         if (currentToken != null) {
           TouchInApi.invalidateAuthContext(token: currentToken);
           try {
-            await _tokenStorage.clearSessionIfTokenMatches(currentToken);
+            await tokenStorage.clearSessionIfTokenMatches(currentToken);
           } catch (_) {
             // Backend reset already succeeded. Do not turn success into a
             // misleading error; the router still blocks the revoked session.
@@ -183,4 +212,42 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
         validator: (value) =>
             value != _newPassword.text ? 'As senhas não conferem.' : null,
       );
+}
+
+/// Deliberately independent of ResetPasswordPage's mounted State: the user
+/// can leave the form while either reset or /auth/me is still in flight.
+Future<void> _verifyConcurrentResetSession({
+  required TouchInApi api,
+  required TokenStorage tokenStorage,
+  required WorkspaceRouter router,
+  required AuthSession session,
+  required int generation,
+}) async {
+  final token = session.accessToken;
+  TouchInApi.invalidateAuthContext(token: token);
+  try {
+    final context = await api.getAuthContextForToken(token);
+    if (!router.isCurrentPasswordResetVerification(generation, token)) return;
+    TouchInApi.rememberAuthContext(token, context);
+    router.acceptPasswordResetVerification(
+      generation,
+      session.copyWith(company: context.company, user: context.user),
+    );
+  } on ApiException catch (error) {
+    if (!router.isCurrentPasswordResetVerification(generation, token)) return;
+    // This is the response to /auth/me itself, not a resource-level 403.
+    if (error.statusCode == 401 || error.statusCode == 403) {
+      if (router.revokePasswordResetVerification(generation, token)) {
+        try {
+          await tokenStorage.clearSessionIfTokenMatches(token);
+        } catch (_) {
+          // The revoked session stays inaccessible even if storage fails.
+        }
+      }
+    } else {
+      router.failPasswordResetVerification(generation, token);
+    }
+  } catch (_) {
+    router.failPasswordResetVerification(generation, token);
+  }
 }

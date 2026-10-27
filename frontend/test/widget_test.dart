@@ -628,6 +628,245 @@ void main() {
     expect(find.byType(AdminEmployeesPage), findsOneWidget);
   });
 
+  testWidgets('login before reset commit must recheck and revoke new token',
+      (tester) async {
+    final oldSession = AuthSession(
+      accessToken: 'old-token',
+      tokenType: 'bearer',
+      expiresAt: DateTime.parse('2099-04-26T18:00:00Z'),
+      company: company,
+      user: user,
+    );
+    final storage = _InMemoryTokenStorage()..savedSession = oldSession;
+    final reset = Completer<void>();
+    final api = _FakeTouchInApi(
+      tokenStorage: storage,
+      authContextResults: <Object>[
+        const AuthContext(company: company, user: user),
+        ApiException('Sessão revogada pelo reset', statusCode: 401),
+      ],
+      resetConfirmCompleter: reset,
+    );
+    await tester.pumpWidget(MyApp(api: api, tokenStorage: storage));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    final router = WorkspaceRouterScope.maybeOf(
+      tester.element(find.byType(AdminEmployeesPage)),
+    )!;
+    final earlierWorkspace = router.currentConfiguration;
+    router.navigate(
+        '/reset-password?token=rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.enterText(find.byType(TextFormField).at(0), 'NovaSenha123!');
+    await tester.enterText(find.byType(TextFormField).at(1), 'NovaSenha123!');
+    await tester.tap(find.text('Salvar nova senha'));
+    await tester.pump();
+    expect(api.resetConfirmRequests, 1);
+
+    final loginSession =
+        oldSession.copyWith(accessToken: 'issued-before-reset-commit');
+    await storage.saveAuthSession(loginSession);
+    router.authenticate(loginSession);
+    await tester.pump();
+    reset.complete();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(api.authContextRequests, 2,
+        reason: 'Changed login must be rechecked against auth/me');
+    expect(router.sessionRevoked, isTrue);
+    expect(router.verifiedSession, isNull);
+    expect(storage.savedSession, isNull);
+    expect(find.byType(AdminEmployeesPage), findsNothing);
+    await router.setNewRoutePath(earlierWorkspace);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byType(AdminEmployeesPage), findsNothing);
+  });
+
+  testWidgets('login after reset stays concealed until auth/me confirms it',
+      (tester) async {
+    final original = AuthSession(
+      accessToken: 'original-token',
+      tokenType: 'bearer',
+      expiresAt: DateTime.parse('2099-04-26T18:00:00Z'),
+      company: company,
+      user: user,
+    );
+    final storage = _InMemoryTokenStorage()..savedSession = original;
+    final reset = Completer<void>();
+    final serverCheck = Completer<AuthContext>();
+    const validContext = AuthContext(company: company, user: user);
+    final api = _FakeTouchInApi(
+      tokenStorage: storage,
+      authContext: validContext,
+      authContextRequestCompleters: {2: serverCheck},
+      resetConfirmCompleter: reset,
+    );
+    await tester.pumpWidget(MyApp(api: api, tokenStorage: storage));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    final router = WorkspaceRouterScope.maybeOf(
+      tester.element(find.byType(AdminEmployeesPage)),
+    )!;
+    router.navigate(
+        '/reset-password?token=rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.enterText(find.byType(TextFormField).at(0), 'NovaSenha123!');
+    await tester.enterText(find.byType(TextFormField).at(1), 'NovaSenha123!');
+    await tester.tap(find.text('Salvar nova senha'));
+    await tester.pump();
+
+    // Models a login made with the new password after reset committed,
+    // before the reset response reaches the previous form.
+    final newer = original.copyWith(accessToken: 'issued-after-reset');
+    await storage.saveAuthSession(newer);
+    router.authenticate(newer);
+    reset.complete();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    expect(api.authContextRequests, 2);
+    expect(router.passwordResetVerificationPending, isTrue);
+    expect(find.byType(AdminEmployeesPage), findsNothing);
+    expect(
+        find.byType(AdminEmployeesPage, skipOffstage: false), findsOneWidget);
+    expect(find.byKey(const ValueKey<String>('route-session-skeleton')),
+        findsOneWidget);
+    expect(storage.savedSession?.accessToken, 'issued-after-reset');
+
+    router.navigate('/');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    expect(router.passwordResetVerificationPending, isTrue,
+        reason: 'The root route must not reauthenticate an unverified token');
+    expect(find.byType(AdminEmployeesPage), findsNothing);
+
+    serverCheck.complete(validContext);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    expect(router.passwordResetVerificationPending, isFalse);
+    expect(router.sessionRevoked, isFalse);
+    expect(router.verifiedSession?.accessToken, 'issued-after-reset');
+    expect(storage.savedSession?.accessToken, 'issued-after-reset');
+    expect(find.byType(AdminEmployeesPage), findsWidgets);
+  });
+
+  testWidgets(
+      'ambiguous reset login survives network outage without showing workspace',
+      (tester) async {
+    final original = AuthSession(
+      accessToken: 'old-token',
+      tokenType: 'bearer',
+      expiresAt: DateTime.parse('2099-04-26T18:00:00Z'),
+      company: company,
+      user: user,
+    );
+    final storage = _InMemoryTokenStorage()..savedSession = original;
+    final reset = Completer<void>();
+    final serverCheck = Completer<AuthContext>();
+    final api = _FakeTouchInApi(
+      tokenStorage: storage,
+      authContext: const AuthContext(company: company, user: user),
+      authContextRequestCompleters: {2: serverCheck},
+      resetConfirmCompleter: reset,
+    );
+    await tester.pumpWidget(MyApp(api: api, tokenStorage: storage));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    final router = WorkspaceRouterScope.maybeOf(
+      tester.element(find.byType(AdminEmployeesPage)),
+    )!;
+    router.navigate(
+        '/reset-password?token=rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.enterText(find.byType(TextFormField).at(0), 'NovaSenha123!');
+    await tester.enterText(find.byType(TextFormField).at(1), 'NovaSenha123!');
+    await tester.tap(find.text('Salvar nova senha'));
+    await tester.pump();
+
+    final newer = original.copyWith(accessToken: 'unknown-token');
+    await storage.saveAuthSession(newer);
+    router.authenticate(newer);
+    reset.complete();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    expect(router.passwordResetVerificationPending, isTrue);
+    expect(find.byType(AdminEmployeesPage), findsNothing);
+    serverCheck.completeError(const SocketException('offline'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    expect(router.verificationUnavailable, isTrue);
+    expect(find.byType(AdminEmployeesPage), findsNothing);
+    expect(find.text('Não foi possível validar sua sessão'), findsOneWidget);
+    expect(storage.savedSession?.accessToken, 'unknown-token');
+
+    await tester.tap(find.text('Tentar novamente'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    expect(api.authContextRequests, 3);
+    expect(router.verificationUnavailable, isFalse);
+    expect(find.byType(AdminEmployeesPage), findsOneWidget);
+    expect(storage.savedSession?.accessToken, 'unknown-token');
+  });
+
+  testWidgets('stale auth/me rejection cannot revoke a later replacement login',
+      (tester) async {
+    final original = AuthSession(
+      accessToken: 'old-token',
+      tokenType: 'bearer',
+      expiresAt: DateTime.parse('2099-04-26T18:00:00Z'),
+      company: company,
+      user: user,
+    );
+    final storage = _InMemoryTokenStorage()..savedSession = original;
+    final reset = Completer<void>();
+    final serverCheck = Completer<AuthContext>();
+    final api = _FakeTouchInApi(
+      tokenStorage: storage,
+      authContext: const AuthContext(company: company, user: user),
+      authContextRequestCompleters: {2: serverCheck},
+      resetConfirmCompleter: reset,
+    );
+    await tester.pumpWidget(MyApp(api: api, tokenStorage: storage));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    final router = WorkspaceRouterScope.maybeOf(
+      tester.element(find.byType(AdminEmployeesPage)),
+    )!;
+    router.navigate(
+        '/reset-password?token=rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.enterText(find.byType(TextFormField).at(0), 'NovaSenha123!');
+    await tester.enterText(find.byType(TextFormField).at(1), 'NovaSenha123!');
+    await tester.tap(find.text('Salvar nova senha'));
+    await tester.pump();
+
+    final intermediate = original.copyWith(accessToken: 'intermediate-token');
+    await storage.saveAuthSession(intermediate);
+    router.authenticate(intermediate);
+    reset.complete();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    expect(router.passwordResetVerificationPending, isTrue);
+
+    final finalSession =
+        original.copyWith(accessToken: 'confirmed-later-token');
+    await storage.saveAuthSession(finalSession);
+    router.authenticate(finalSession);
+    await tester.pump();
+    serverCheck.completeError(
+        ApiException('Intermediate session revoked', statusCode: 401));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    expect(router.sessionRevoked, isFalse);
+    expect(router.verifiedSession?.accessToken, 'confirmed-later-token');
+    expect(storage.savedSession?.accessToken, 'confirmed-later-token');
+    expect(find.byType(AdminEmployeesPage), findsOneWidget);
+  });
+
   testWidgets('failed reset after page disposal never revokes the workspace',
       (tester) async {
     final storage = _InMemoryTokenStorage()
@@ -1204,6 +1443,7 @@ class _FakeTouchInApi extends TouchInApi {
   final ApiException? resetConfirmError;
   int authContextRequests = 0;
   int resetConfirmRequests = 0;
+  final List<String> resetVerifiedTokens = <String>[];
 
   @override
   Future<void> confirmPasswordReset({
@@ -1243,6 +1483,12 @@ class _FakeTouchInApi extends TouchInApi {
       throw StateError('No auth context registered.');
     }
     return context;
+  }
+
+  @override
+  Future<AuthContext> getAuthContextForToken(String token) async {
+    resetVerifiedTokens.add(token);
+    return getAuthContext();
   }
 }
 

@@ -73,11 +73,14 @@ class WorkspaceRouter extends RouterDelegate<WorkspaceLocation>
   AuthSession? _verifiedSession;
   bool _verifyingSession = false;
   bool _verificationUnavailable = false;
+  bool _passwordResetVerificationPending = false;
   int get sessionGeneration => _sessionGeneration;
   bool get sessionRevoked => _sessionRevoked;
   AuthSession? get verifiedSession => _verifiedSession;
   bool get verifyingSession => _verifyingSession;
   bool get verificationUnavailable => _verificationUnavailable;
+  bool get passwordResetVerificationPending =>
+      _passwordResetVerificationPending;
 
   void restoreVerifiedSession(AuthSession session) {
     if (_sessionRevoked) return;
@@ -206,6 +209,7 @@ class WorkspaceRouter extends RouterDelegate<WorkspaceLocation>
     _verifiedSession = session;
     _verifyingSession = false;
     _verificationUnavailable = false;
+    _passwordResetVerificationPending = false;
     final route = buildAuthenticatedWorkspaceRoute(session).settings.name!;
     _replaceHistory(route, session);
     notifyListeners();
@@ -217,6 +221,7 @@ class WorkspaceRouter extends RouterDelegate<WorkspaceLocation>
     _verifiedSession = null;
     _verifyingSession = false;
     _verificationUnavailable = false;
+    _passwordResetVerificationPending = false;
     _replaceHistory('/');
     notifyListeners();
   }
@@ -237,10 +242,51 @@ class WorkspaceRouter extends RouterDelegate<WorkspaceLocation>
     _verifiedSession = null;
     _verifyingSession = false;
     _verificationUnavailable = false;
+    _passwordResetVerificationPending = false;
     for (var index = 0; index < _entrySessions.length; index++) {
       _entrySessions[index] = null;
     }
     notifyListeners();
+  }
+
+  /// Hold an ambiguous concurrent login out of view until /auth/me proves it
+  /// survived the reset. Advancing the generation also invalidates older
+  /// in-flight /auth/me results from ordinary background revalidation.
+  int? beginPasswordResetVerification(AuthSession session) {
+    if (_sessionRevoked ||
+        _verifiedSession?.accessToken != session.accessToken) {
+      return null;
+    }
+    _sessionGeneration++;
+    _passwordResetVerificationPending = true;
+    _verificationUnavailable = false;
+    notifyListeners();
+    return _sessionGeneration;
+  }
+
+  bool isCurrentPasswordResetVerification(int generation, String token) =>
+      _passwordResetVerificationPending &&
+      !_sessionRevoked &&
+      _sessionGeneration == generation &&
+      _verifiedSession?.accessToken == token;
+
+  void acceptPasswordResetVerification(int generation, AuthSession session) {
+    if (!isCurrentPasswordResetVerification(generation, session.accessToken))
+      return;
+    _passwordResetVerificationPending = false;
+    restoreVerifiedSession(session);
+  }
+
+  void failPasswordResetVerification(int generation, String token) {
+    if (!isCurrentPasswordResetVerification(generation, token)) return;
+    _passwordResetVerificationPending = false;
+    failRevalidation();
+  }
+
+  bool revokePasswordResetVerification(int generation, String token) {
+    if (!isCurrentPasswordResetVerification(generation, token)) return false;
+    signedOut();
+    return true;
   }
 
   void revokeSession() {

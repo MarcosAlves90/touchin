@@ -114,6 +114,17 @@ class TouchInApi {
     }
   }
 
+  /// Verify exactly the token captured by a concurrent reset/login race.
+  /// Normal getAuthContext() reads the current storage token again, which may
+  /// change between the initial snapshot and the outgoing HTTP request.
+  Future<AuthContext> getAuthContextForToken(String token) async {
+    final response = await _client.get('/auth/me', authToken: token);
+    return _parseContract(
+        'auth/me',
+        () =>
+            AuthContext.fromJson(requireJsonMap(response, 'auth/me response')));
+  }
+
   Future<AuthContext> _loadAuthContext() async {
     final response = await _client.get('/auth/me', withAuth: true);
     return _parseContract(

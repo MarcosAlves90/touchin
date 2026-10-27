@@ -59,9 +59,13 @@ class ApiClient {
   Future<dynamic> get(
     String path, {
     bool withAuth = false,
+    String? authToken,
     Map<String, Object?>? queryParameters,
   }) async {
-    final headers = await _headers(withAuth: withAuth);
+    final headers = await _headers(withAuth: withAuth && authToken == null);
+    if (authToken != null) {
+      headers['Authorization'] = 'Bearer $authToken';
+    }
     final response = await _client.get(
       _uri(path).replace(
         queryParameters: queryParameters?.map(

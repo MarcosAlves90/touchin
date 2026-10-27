@@ -8,7 +8,8 @@ import 'package:touchin_flutter/core/network/touchin_api.dart';
 import 'package:touchin_flutter/core/storage/token_storage.dart';
 
 void main() {
-  test('verified auth context is reused across API instances by token', () async {
+  test('verified auth context is reused across API instances by token',
+      () async {
     final storage = _TokenStorage();
     var requests = 0;
     final client = ApiClient(
@@ -45,7 +46,8 @@ void main() {
     expect(requests, 3, reason: 'explicit revocation checks must reach server');
   });
 
-  test('resource 403 signals revalidation with its originating token', () async {
+  test('resource 403 signals revalidation with its originating token',
+      () async {
     final storage = _TokenStorage();
     String? rejectedToken;
     AuthRejectionEvents.onRejected = (token) => rejectedToken = token;
@@ -59,9 +61,32 @@ void main() {
           )),
     );
 
-    await expectLater(client.get('/projects', withAuth: true),
-        throwsA(isA<ApiException>()));
+    await expectLater(
+        client.get('/projects', withAuth: true), throwsA(isA<ApiException>()));
     expect(rejectedToken, 'initial-session');
+  });
+
+  test(
+      'reset verification binds auth/me to captured token despite a later login',
+      () async {
+    final storage = _TokenStorage();
+    final bearerTokens = <String?>[];
+    final api = TouchInApi(
+      tokenStorage: storage,
+      client: ApiClient(
+        tokenStorage: storage,
+        baseUrl: 'https://example.test/api/v1',
+        client: MockClient((request) async {
+          expect(request.url.path, '/api/v1/auth/me');
+          bearerTokens.add(request.headers['Authorization']);
+          return http.Response(jsonEncode(_authContext), 200);
+        }),
+      ),
+    );
+    storage.token = 'newer-login';
+    final context = await api.getAuthContextForToken('login-before-reset');
+    expect(context.user.id, 'usr-1');
+    expect(bearerTokens, ['Bearer login-before-reset']);
   });
 }
 

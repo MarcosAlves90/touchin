@@ -338,6 +338,10 @@ class _SessionGateState extends State<_SessionGate> {
   }
 
   void _redirectIfRequired(AuthSession session) {
+    if (widget.router.passwordResetVerificationPending ||
+        widget.router.verificationUnavailable) {
+      return;
+    }
     if (widget.routeName != '/' &&
         (!session.mustChangePassword ||
             widget.routeName == '/must-change-password')) {
@@ -347,7 +351,9 @@ class _SessionGateState extends State<_SessionGate> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted &&
           generation == widget.router.sessionGeneration &&
-          !widget.router.sessionRevoked) {
+          !widget.router.sessionRevoked &&
+          !widget.router.passwordResetVerificationPending &&
+          !widget.router.verificationUnavailable) {
         Router.neglect(context, () => widget.router.authenticate(session));
       }
     });
@@ -420,6 +426,8 @@ class _SessionGateState extends State<_SessionGate> {
 
   Widget _authenticatedContent(AuthSession session) {
     final unavailable = widget.router.verificationUnavailable;
+    final checkingReset = widget.router.passwordResetVerificationPending;
+    final concealed = unavailable || checkingReset;
     return Stack(
       fit: StackFit.expand,
       children: <Widget>[
@@ -427,16 +435,18 @@ class _SessionGateState extends State<_SessionGate> {
         // check, but hide their content and prevent interactions until /auth/me
         // can be verified again.
         Offstage(
-          offstage: unavailable,
+          offstage: concealed,
           child: TickerMode(
-            enabled: !unavailable,
+            enabled: !concealed,
             child: _BootstrapSessionView(
               session: session,
               routeName: widget.routeName,
             ),
           ),
         ),
-        if (unavailable)
+        if (checkingReset)
+          const _RouteSessionSkeleton()
+        else if (unavailable)
           _RouteSessionVerificationError(onRetry: widget.revalidate),
       ],
     );
