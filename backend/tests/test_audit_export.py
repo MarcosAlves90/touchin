@@ -8,7 +8,7 @@ import pytest
 
 from app.db import SessionLocal
 from app.config import Settings
-from app.models import AuditEvent, Company
+from app.models import AuditEvent, Company, Project
 from app.seed import CAIO_EMAIL, JOAO_EMAIL, MARINA_EMAIL
 from app.services.audit_export import CSV_COLUMNS
 
@@ -42,6 +42,35 @@ def _company_id() -> str:
 
 def _add_events(events: list[AuditEvent]) -> None:
     with SessionLocal() as db:
+        # The application enforces SQLite foreign keys. Synthetic cross-tenant
+        # audit rows and project identifiers need real parent rows so tests
+        # exercise export isolation, not invalid fixture inserts.
+        template = db.query(Company).first()
+        assert template is not None
+        for company_id in {event.company_id for event in events}:
+            if db.get(Company, company_id) is None:
+                db.add(Company(
+                    id=company_id,
+                    legal_name_ciphertext=template.legal_name_ciphertext,
+                    trade_name_ciphertext=template.trade_name_ciphertext,
+                    cnpj_ciphertext=template.cnpj_ciphertext,
+                    cnpj_hash=f"audit-export-{company_id}-cnpj",
+                    contact_email_ciphertext=template.contact_email_ciphertext,
+                    contact_email_hash=f"audit-export-{company_id}-email",
+                    contact_phone_ciphertext=template.contact_phone_ciphertext,
+                    consented_at=template.consented_at,
+                ))
+        db.flush()
+        for project_id, company_id in {
+            (event.project_id, event.company_id)
+            for event in events if event.project_id is not None
+        }:
+            if db.get(Project, project_id) is None:
+                db.add(Project(
+                    id=project_id, company_id=company_id,
+                    name_ciphertext="audit-export test project",
+                ))
+        db.flush()
         db.add_all(events)
         db.commit()
 

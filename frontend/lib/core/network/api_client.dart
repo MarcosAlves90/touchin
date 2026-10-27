@@ -17,11 +17,18 @@ class ApiException implements Exception {
   }
 }
 
+/// A rejected authenticated request triggers an authoritative /auth/me check.
+/// A resource-level 403 alone cannot prove that the session was revoked.
+class AuthRejectionEvents {
+  static void Function(String token)? onRejected;
+}
+
 class ApiClient {
   ApiClient({http.Client? client, TokenStorage? tokenStorage, String? baseUrl})
       : _client = client ?? http.Client(),
         _tokenStorage = tokenStorage ?? TokenStorage(),
-        _baseUrl = (baseUrl ?? AppConfig.apiBaseUrl).replaceFirst(RegExp(r'/+$'), '');
+        _baseUrl =
+            (baseUrl ?? AppConfig.apiBaseUrl).replaceFirst(RegExp(r'/+$'), '');
 
   final http.Client _client;
   final TokenStorage _tokenStorage;
@@ -54,15 +61,32 @@ class ApiClient {
     bool withAuth = false,
     Map<String, Object?>? queryParameters,
   }) async {
+    final headers = await _headers(withAuth: withAuth);
+    return _getWithHeaders(path, headers, queryParameters);
+  }
+
+  /// Read using a captured token without changing the existing GET contract.
+  Future<dynamic> getWithAuthToken(String path, String token) async {
+    final headers = await _headers();
+    headers['Authorization'] = 'Bearer $token';
+    return _getWithHeaders(path, headers, null);
+  }
+
+  Future<dynamic> _getWithHeaders(
+    String path,
+    Map<String, String> headers,
+    Map<String, Object?>? queryParameters,
+  ) async {
     final response = await _client.get(
       _uri(path).replace(
         queryParameters: queryParameters?.map(
           (key, value) => MapEntry(key, value?.toString()),
         ),
       ),
-      headers: await _headers(withAuth: withAuth),
+      headers: headers,
     );
-    return _decodeResponse(response);
+    return _decodeResponse(response,
+        authToken: path == '/auth/me' ? null : headers['Authorization']);
   }
 
   Future<http.Response> getRaw(
@@ -94,12 +118,13 @@ class ApiClient {
     Object? body,
     bool withAuth = false,
   }) async {
+    final headers = await _headers(withAuth: withAuth);
     final response = await _client.post(
       _uri(path),
-      headers: await _headers(withAuth: withAuth),
+      headers: headers,
       body: body == null ? null : jsonEncode(body),
     );
-    return _decodeResponse(response);
+    return _decodeResponse(response, authToken: headers['Authorization']);
   }
 
   Future<dynamic> put(
@@ -107,23 +132,25 @@ class ApiClient {
     Object? body,
     bool withAuth = false,
   }) async {
+    final headers = await _headers(withAuth: withAuth);
     final response = await _client.put(
       _uri(path),
-      headers: await _headers(withAuth: withAuth),
+      headers: headers,
       body: body == null ? null : jsonEncode(body),
     );
-    return _decodeResponse(response);
+    return _decodeResponse(response, authToken: headers['Authorization']);
   }
 
   Future<dynamic> delete(String path, {bool withAuth = false}) async {
+    final headers = await _headers(withAuth: withAuth);
     final response = await _client.delete(
       _uri(path),
-      headers: await _headers(withAuth: withAuth),
+      headers: headers,
     );
-    return _decodeResponse(response);
+    return _decodeResponse(response, authToken: headers['Authorization']);
   }
 
-  dynamic _decodeResponse(http.Response response) {
+  dynamic _decodeResponse(http.Response response, {String? authToken}) {
     final isSuccess = response.statusCode >= 200 && response.statusCode < 300;
     dynamic parsedBody;
     if (response.body.trim().isNotEmpty) {
@@ -140,6 +167,12 @@ class ApiClient {
 
     if (isSuccess) {
       return parsedBody;
+    }
+
+    if ((response.statusCode == 401 || response.statusCode == 403) &&
+        authToken != null &&
+        authToken.startsWith('Bearer ')) {
+      AuthRejectionEvents.onRejected?.call(authToken.substring(7));
     }
 
     final code =
@@ -195,7 +228,8 @@ class ApiClient {
         'A sessão autenticada não está mais disponível.',
       'The company account is inactive.' => 'A conta da empresa está inativa.',
       'This account is inactive.' => 'Esta conta está inativa.',
-      'Permission denied.' => 'Você não tem permissão para acessar este recurso.',
+      'Permission denied.' =>
+        'Você não tem permissão para acessar este recurso.',
       'Admin privileges are required for this operation.' =>
         'Privilégios de administrador são necessários para esta operação.',
       'Project task employee limit is below current task membership.' =>

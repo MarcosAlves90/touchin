@@ -1,20 +1,18 @@
 from __future__ import annotations
 
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select, update
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.crypto import FieldCipher
-from app.db import ensure_utc, utcnow
+from app.db import begin_serialized_write, ensure_utc, utcnow
 from app.domain.project_policy import validate_project_for_punch
-from app.domain.time_clock import derive_shift_status
 from app.domain.time_clock_read import (
-    get_employee_records,
     serialize_managed_record,
     serialize_record,
 )
 from app.errors import DomainError, ErrorKind
-from app.models import Employee, Punch
+from app.models import Employee, Punch, WorkLog
 from app.schemas.punch import (
     CreatePunchRequest,
     ManagePunchRequest,
@@ -35,6 +33,131 @@ def _get_company_employee(db: Session, *, company_id: str, employee_id: str) -> 
     if employee is None:
         raise DomainError(ErrorKind.not_found, "Funcionário não encontrado.")
     return employee
+
+
+def _lock_employee_for_punch_write(db: Session, *, company_id: str, employee_id: str) -> Employee:
+    # SQLite requires a write reservation before reading the state; PostgreSQL
+    # serializes all four punch writers on the same employee row.
+    begin_serialized_write(db)
+    statement = select(Employee).where(
+        Employee.company_id == company_id, Employee.id == employee_id,
+    )
+    if db.bind is not None and db.bind.dialect.name != "sqlite":
+        statement = statement.with_for_update()
+    employee = db.scalar(statement)
+    if employee is None:
+        raise DomainError(ErrorKind.not_found, "Funcionário não encontrado.")
+    return employee
+
+
+def _latest_punch(db: Session, *, employee_id: str) -> Punch | None:
+    return db.scalar(
+        select(Punch).where(Punch.employee_id == employee_id)
+        .order_by(Punch.timestamp.desc(), Punch.id.desc()).limit(1)
+    )
+
+
+def _next_punch(db: Session, *, record: Punch) -> Punch | None:
+    return db.scalar(select(Punch).where(
+        Punch.employee_id == record.employee_id,
+        or_(Punch.timestamp > record.timestamp,
+            and_(Punch.timestamp == record.timestamp, Punch.id > record.id)),
+    ).order_by(Punch.timestamp, Punch.id).limit(1))
+
+
+def _previous_punch(db: Session, *, record: Punch) -> Punch | None:
+    return db.scalar(select(Punch).where(
+        Punch.employee_id == record.employee_id,
+        or_(Punch.timestamp < record.timestamp,
+            and_(Punch.timestamp == record.timestamp, Punch.id < record.id)),
+    ).order_by(Punch.timestamp.desc(), Punch.id.desc()).limit(1))
+
+
+_ALLOWED_FOLLOWING_PUNCH_TYPES = {
+    None: {PunchType.check_in.value},
+    PunchType.check_in.value: {PunchType.break_start.value, PunchType.check_out.value},
+    PunchType.break_start.value: {PunchType.break_end.value, PunchType.check_out.value},
+    PunchType.break_end.value: {PunchType.break_start.value, PunchType.check_out.value},
+    PunchType.check_out.value: {PunchType.check_in.value},
+}
+
+
+def _ensure_work_interval_not_already_accounted(
+    db: Session, *, company_id: str, employee_id: str,
+    start, end, exclude_log_id: str | None = None,
+) -> None:
+    """Prevent a replacement punch from billing preserved historical work again.
+
+    All punch writers hold the employee's row lock (or SQLite write reservation)
+    before calling this check. Include detached rows and pre-snapshot legacy rows;
+    WorkLog.punch_id is not an indicator of whether time was accounted.
+    """
+    query = select(WorkLog.id).where(
+        WorkLog.company_id == company_id,
+        or_(WorkLog.employee_id == employee_id,
+            WorkLog.employee_id_snapshot == employee_id),
+        WorkLog.start_time < end,
+        WorkLog.end_time > start,
+    )
+    if exclude_log_id is not None:
+        query = query.where(WorkLog.id != exclude_log_id)
+    if db.scalar(query.limit(1)) is not None:
+        raise DomainError(
+            ErrorKind.conflict,
+            "Este período já possui atividades contabilizadas. "
+            "Solicite um ajuste de ponto sem sobrepor o histórico preservado.",
+        )
+
+
+def _validate_adjacent_punches(previous: Punch | None, following: Punch | None) -> None:
+    """Prevent administrative writes from corrupting a whole shift sequence."""
+    if following is None:
+        return  # A shift is allowed to remain open.
+    preceding_type = previous.type if previous is not None else None
+    if following.type not in _ALLOWED_FOLLOWING_PUNCH_TYPES.get(preceding_type, set()):
+        raise DomainError(
+            ErrorKind.conflict,
+            "A alteração produziria uma sequência inválida de registros de ponto.",
+        )
+
+
+def _reconcile_linked_work_log(
+    db: Session, *, punch_id: str, detach_if_invalid: bool = False,
+) -> None:
+    """Recalculate only the existing work log of a directly affected punch.
+
+    Activity description, task snapshots and original project attribution stay
+    historical; changing a punch's project cannot silently reassign work.
+    """
+    log = db.scalar(select(WorkLog).where(WorkLog.punch_id == punch_id))
+    if log is None:
+        return
+    punch = db.get(Punch, punch_id)
+    if punch is None:
+        return
+    previous = _previous_punch(db, record=punch)
+    if (previous is None
+            or previous.type not in {PunchType.check_in.value, PunchType.break_end.value}
+            or punch.type not in {PunchType.break_start.value, PunchType.check_out.value}):
+        if detach_if_invalid:
+            # The original evidence remains intact even when an admin removes
+            # the opening punch needed to reconstruct its duration.
+            log.punch_id = None
+            return
+        raise DomainError(
+            ErrorKind.conflict,
+            "A alteração produziria uma sequência inconsistente com o apontamento histórico.",
+        )
+    end = ensure_utc(punch.timestamp)
+    start = ensure_utc(previous.timestamp)
+    _ensure_work_interval_not_already_accounted(
+        db, company_id=log.company_id,
+        employee_id=log.employee_id_snapshot or log.employee_id or punch.employee_id,
+        start=start, end=end, exclude_log_id=log.id,
+    )
+    log.start_time = start
+    log.end_time = end
+    log.duration_seconds = max(int((end - start).total_seconds()), 0)
 
 
 def _get_employee_punch(
@@ -63,21 +186,30 @@ def create_punch(
     payload: CreatePunchRequest,
     timezone_name: str,
 ):
+    employee = _lock_employee_for_punch_write(
+        db, company_id=employee.company_id, employee_id=employee.id,
+    )
     cipher = _cipher()
     punch_type = PunchType(payload.type)
-    all_records = get_employee_records(db, employee_id=employee.id)
-    current_status = derive_shift_status(all_records)
+    last_punch = _latest_punch(db, employee_id=employee.id)
+    current_status = {
+        None: "checkedOut",
+        PunchType.check_in.value: "working",
+        PunchType.break_end.value: "working",
+        PunchType.break_start.value: "onBreak",
+        PunchType.check_out.value: "checkedOut",
+    }[last_punch.type if last_punch is not None else None]
     allowed_types = {
         "checkedOut": {PunchType.check_in},
         "working": {PunchType.break_start, PunchType.check_out},
         "onBreak": {PunchType.break_end, PunchType.check_out},
     }
-    if punch_type not in allowed_types[current_status.value]:
+    if punch_type not in allowed_types[current_status]:
         raise DomainError(
             ErrorKind.conflict,
             (
                 "Transição de ponto inválida para o estado atual. "
-                f"Estado atual: {current_status.value}."
+                f"Estado atual: {current_status}."
             ),
         )
 
@@ -95,15 +227,14 @@ def create_punch(
             project_id=payload.project_id,
         )
 
-    last_punch = all_records[-1] if all_records else None
     active_project_id = payload.project_id or (last_punch.project_id if last_punch else None)
 
     if active_project_id or payload.work_log:
-        if punch_type == PunchType.check_out and current_status.value == "onBreak":
+        if punch_type == PunchType.check_out and current_status == "onBreak":
             raise DomainError(ErrorKind.bad_request, "Não é possível encerrar a jornada durante uma pausa ao usar apontamento de tarefas. Encerre a pausa primeiro.")
 
     tasks_for_log = []
-    if punch_type in (PunchType.break_start, PunchType.check_out) and current_status.value == "working":
+    if punch_type in (PunchType.break_start, PunchType.check_out) and current_status == "working":
         if not payload.work_log:
             raise DomainError(ErrorKind.bad_request, "O registro de atividades é obrigatório ao sair para o almoço ou encerrar a jornada.")
         
@@ -157,9 +288,13 @@ def create_punch(
     
     if tasks_for_log:
         import json
-        last_punch = all_records[-1]
+        assert last_punch is not None
         start_time = ensure_utc(last_punch.timestamp)
         end_time = ensure_utc(record.timestamp)
+        _ensure_work_interval_not_already_accounted(
+            db, company_id=employee.company_id, employee_id=employee.id,
+            start=start_time, end=end_time,
+        )
         duration_seconds = int((end_time - start_time).total_seconds())
         if duration_seconds < 0:
             duration_seconds = 0
@@ -170,6 +305,7 @@ def create_punch(
         work_log = WorkLog(
             company_id=employee.company_id,
             employee_id=employee.id,
+            employee_id_snapshot=employee.id,
             project_id=active_project_id,
             punch_id=record.id,
             start_time=start_time,
@@ -195,7 +331,7 @@ def create_managed_punch(
     payload: ManagePunchRequest,
 ):
     cipher = _cipher()
-    employee = _get_company_employee(db, company_id=company_id, employee_id=employee_id)
+    employee = _lock_employee_for_punch_write(db, company_id=company_id, employee_id=employee_id)
     if payload.project_id is not None:
         validate_project_for_punch(
             db,
@@ -218,6 +354,13 @@ def create_managed_punch(
         ),
     )
     db.add(record)
+    db.flush()
+    previous = _previous_punch(db, record=record)
+    subsequent = _next_punch(db, record=record)
+    _validate_adjacent_punches(previous, record)
+    _validate_adjacent_punches(record, subsequent)
+    if subsequent is not None:
+        _reconcile_linked_work_log(db, punch_id=subsequent.id)
     db.commit()
     db.refresh(record)
     return serialize_managed_record(record, cipher=cipher)
@@ -232,12 +375,15 @@ def update_managed_punch(
     payload: UpdateManagedPunchRequest,
 ):
     cipher = _cipher()
+    _lock_employee_for_punch_write(db, company_id=company_id, employee_id=employee_id)
     record = _get_employee_punch(
         db,
         company_id=company_id,
         employee_id=employee_id,
         punch_id=punch_id,
     )
+    previous_predecessor = _previous_punch(db, record=record)
+    previous_successor = _next_punch(db, record=record)
 
     if "type" in payload.model_fields_set and payload.type is not None:
         record.type = PunchType(payload.type).value
@@ -261,6 +407,20 @@ def update_managed_punch(
             else None,
         )
 
+    db.flush()
+    predecessor = _previous_punch(db, record=record)
+    successor = _next_punch(db, record=record)
+    # A moved punch must not leave an invalid edge behind at its old slot.
+    if ((previous_predecessor.id if previous_predecessor else None) !=
+            (predecessor.id if predecessor else None) or
+            (previous_successor.id if previous_successor else None) !=
+            (successor.id if successor else None)):
+        _validate_adjacent_punches(previous_predecessor, previous_successor)
+    _validate_adjacent_punches(predecessor, record)
+    _validate_adjacent_punches(record, successor)
+    for affected_id in {record.id, previous_successor.id if previous_successor else None,
+                        successor.id if successor else None} - {None}:
+        _reconcile_linked_work_log(db, punch_id=affected_id)
     db.commit()
     db.refresh(record)
     return serialize_managed_record(record, cipher=cipher)
@@ -273,11 +433,22 @@ def delete_managed_punch(
     employee_id: str,
     punch_id: str,
 ) -> None:
+    _lock_employee_for_punch_write(db, company_id=company_id, employee_id=employee_id)
     record = _get_employee_punch(
         db,
         company_id=company_id,
         employee_id=employee_id,
         punch_id=punch_id,
     )
+    predecessor = _previous_punch(db, record=record)
+    successor = _next_punch(db, record=record)
+    if successor is not None:
+        _validate_adjacent_punches(predecessor, successor)
+    # Keep the accounted work (including its original duration and task
+    # snapshots), but release its link to the deleted live punch.
+    db.execute(update(WorkLog).where(WorkLog.punch_id == punch_id).values(punch_id=None))
     db.delete(record)
+    db.flush()
+    if successor is not None:
+        _reconcile_linked_work_log(db, punch_id=successor.id, detach_if_invalid=True)
     db.commit()

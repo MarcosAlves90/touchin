@@ -8,6 +8,7 @@ import 'package:touchin_flutter/core/navigation/workspace_router.dart';
 import 'package:touchin_flutter/core/theme/theme_mode_controller.dart';
 import 'package:touchin_flutter/features/auth/presentation/auth_session_navigation.dart';
 import 'package:touchin_flutter/features/auth/presentation/login_page.dart';
+import 'package:touchin_flutter/features/auth/presentation/reset_password_page.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_skeleton.dart';
 import 'package:touchin_flutter/theme/app_theme.dart';
@@ -30,9 +31,14 @@ class MyApp extends StatefulWidget {
   State<MyApp> createState() => _MyAppState();
 }
 
-class _MyAppState extends State<MyApp> {
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  static const _revalidationInterval = Duration(minutes: 5);
+  Timer? _revalidationTimer;
+  String? _scheduledSessionToken;
+  Future<void>? _revalidationInFlight;
+  String? _revalidatingToken;
+  Future<_SessionBootstrapResult>? _bootstrapInFlight;
   bool _startupResolved = false;
-
   late final WorkspaceRouter _router = WorkspaceRouter(
     initialPath: WidgetsBinding.instance.platformDispatcher.defaultRouteName,
     buildRoute: (context, path, session) => _SessionGate(
@@ -42,6 +48,9 @@ class _MyAppState extends State<MyApp> {
       isStartup: !_startupResolved,
       onStartupResolved: _markStartupResolved,
       bootstrap: _bootstrapSession,
+      revalidate: _revalidateActiveSession,
+      api: _api,
+      tokenStorage: _tokenStorage,
       router: _router,
     ),
   );
@@ -50,12 +59,128 @@ class _MyAppState extends State<MyApp> {
 
   TokenStorage get _tokenStorage => widget.tokenStorage ?? TokenStorage();
 
-  void _markStartupResolved() {
-    if (!mounted || _startupResolved) return;
-    setState(() => _startupResolved = true);
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _router.addListener(_onRouterChanged);
+    AuthRejectionEvents.onRejected = _onProtectedRequestRejected;
   }
 
-  Future<_SessionBootstrapResult> _bootstrapSession() async {
+  void _onRouterChanged() {
+    final session = _router.verifiedSession;
+    if (session == null) {
+      _revalidationTimer?.cancel();
+      _revalidationTimer = null;
+      _scheduledSessionToken = null;
+      TouchInApi.invalidateAuthContext();
+      return;
+    }
+    if (_scheduledSessionToken == session.accessToken) return;
+    _scheduleRevalidation(session);
+  }
+
+  void _scheduleRevalidation(AuthSession session) {
+    _revalidationTimer?.cancel();
+    _scheduledSessionToken = session.accessToken;
+    final remaining = session.expiresAt.difference(DateTime.now().toUtc());
+    final delay = remaining < _revalidationInterval
+        ? (remaining.isNegative ? Duration.zero : remaining)
+        : _revalidationInterval;
+    _revalidationTimer = Timer(delay, () {
+      _scheduledSessionToken = null;
+      unawaited(_revalidateActiveSession());
+    });
+  }
+
+  void _onProtectedRequestRejected(String token) {
+    if (_router.verifiedSession?.accessToken == token) {
+      unawaited(_revalidateActiveSession());
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _router.verifiedSession != null) {
+      unawaited(_revalidateActiveSession());
+    }
+  }
+
+  Future<void> _revalidateActiveSession() {
+    final token = _router.verifiedSession?.accessToken;
+    final pending = _revalidationInFlight;
+    if (pending != null && token == _revalidatingToken) return pending;
+    final request = _performRevalidation();
+    _revalidatingToken = token;
+    _revalidationInFlight = request;
+    request.whenComplete(() {
+      if (identical(_revalidationInFlight, request)) {
+        _revalidationInFlight = null;
+        _revalidatingToken = null;
+      }
+    });
+    return request;
+  }
+
+  Future<void> _performRevalidation() async {
+    final session = _router.verifiedSession;
+    if (session == null || _router.sessionRevoked) return;
+    final generation = _router.sessionGeneration;
+    final token = session.accessToken;
+    if (!session.expiresAt.isAfter(DateTime.now().toUtc())) {
+      _router.revokeSession();
+      await _clearRejectedSession(token);
+      return;
+    }
+    // Every explicit validation reaches the server, even if a page reused its
+    // session context. Concurrent page loads share the same in-flight read.
+    TouchInApi.invalidateAuthContext(token: token);
+    try {
+      final context = await _api.getAuthContext();
+      if (generation != _router.sessionGeneration ||
+          _router.verifiedSession?.accessToken != token) {
+        return;
+      }
+      TouchInApi.rememberAuthContext(token, context);
+      _router.restoreVerifiedSession(session.copyWith(
+        company: context.company,
+        user: context.user,
+      ));
+      _scheduleRevalidation(session);
+    } on ApiException catch (error) {
+      if (generation != _router.sessionGeneration ||
+          _router.verifiedSession?.accessToken != token) {
+        return;
+      }
+      if (error.statusCode == 401 || error.statusCode == 403) {
+        _router.revokeSession();
+        await _clearRejectedSession(token);
+      } else {
+        _router.failRevalidation();
+      }
+    } catch (_) {
+      if (generation == _router.sessionGeneration &&
+          _router.verifiedSession?.accessToken == token) {
+        _router.failRevalidation();
+      }
+    }
+  }
+
+  Future<void> _clearRejectedSession(String rejectedToken) async {
+    try {
+      await _tokenStorage.clearSessionIfTokenMatches(rejectedToken);
+    } catch (_) {
+      // Keep protected content inaccessible if local storage cannot be cleared.
+    }
+  }
+
+  Future<_SessionBootstrapResult> _bootstrapSession() {
+    return _bootstrapInFlight ??= _performBootstrap().whenComplete(() {
+      _bootstrapInFlight = null;
+    });
+  }
+
+  Future<_SessionBootstrapResult> _performBootstrap() async {
     final generation = _router.sessionGeneration;
     AuthSession? persistedSession;
     try {
@@ -86,16 +211,18 @@ class _MyAppState extends State<MyApp> {
     }
 
     try {
+      TouchInApi.invalidateAuthContext(token: persistedSession.accessToken);
       final authContext = await _api.getAuthContext();
       if (generation != _router.sessionGeneration) {
         return const _SessionBootstrapResult.unauthenticated();
       }
-      return _SessionBootstrapResult.authenticated(
-        persistedSession.copyWith(
-          company: authContext.company,
-          user: authContext.user,
-        ),
+      final verified = persistedSession.copyWith(
+        company: authContext.company,
+        user: authContext.user,
       );
+      TouchInApi.rememberAuthContext(verified.accessToken, authContext);
+      _router.restoreVerifiedSession(verified);
+      return _SessionBootstrapResult.authenticated(verified);
     } on ApiException catch (error) {
       if (error.statusCode == 401 || error.statusCode == 403) {
         if (generation != _router.sessionGeneration) {
@@ -115,6 +242,11 @@ class _MyAppState extends State<MyApp> {
     } catch (_) {
       return const _SessionBootstrapResult.unavailable();
     }
+  }
+
+  void _markStartupResolved() {
+    if (!mounted || _startupResolved) return;
+    setState(() => _startupResolved = true);
   }
 
   @override
@@ -149,6 +281,12 @@ class _MyAppState extends State<MyApp> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _router.removeListener(_onRouterChanged);
+    _revalidationTimer?.cancel();
+    if (AuthRejectionEvents.onRejected == _onProtectedRequestRejected) {
+      AuthRejectionEvents.onRejected = null;
+    }
     _router.dispose();
     super.dispose();
   }
@@ -162,6 +300,9 @@ class _SessionGate extends StatefulWidget {
     required this.isStartup,
     required this.onStartupResolved,
     required this.bootstrap,
+    required this.revalidate,
+    required this.api,
+    required this.tokenStorage,
     required this.router,
   });
 
@@ -170,6 +311,9 @@ class _SessionGate extends StatefulWidget {
   final bool isStartup;
   final VoidCallback onStartupResolved;
   final Future<_SessionBootstrapResult> Function() bootstrap;
+  final Future<void> Function() revalidate;
+  final TouchInApi api;
+  final TokenStorage tokenStorage;
   final WorkspaceRouter router;
 
   @override
@@ -193,7 +337,32 @@ class _SessionGateState extends State<_SessionGate> {
     }
   }
 
+  void _redirectIfRequired(AuthSession session) {
+    if (widget.router.passwordResetVerificationPending ||
+        widget.router.verificationUnavailable) {
+      return;
+    }
+    if (widget.routeName != '/' &&
+        (!session.mustChangePassword ||
+            widget.routeName == '/must-change-password')) {
+      return;
+    }
+    final generation = widget.router.sessionGeneration;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted &&
+          generation == widget.router.sessionGeneration &&
+          !widget.router.sessionRevoked &&
+          !widget.router.passwordResetVerificationPending &&
+          !widget.router.verificationUnavailable) {
+        Router.neglect(context, () => widget.router.authenticate(session));
+      }
+    });
+  }
+
   Future<_SessionBootstrapResult> _resolveSession() async {
+    if (Uri.parse(widget.routeName).path == '/reset-password') {
+      return const _SessionBootstrapResult.unauthenticated();
+    }
     final isStartup = widget.isStartup;
     final result = widget.initialSession == null || widget.router.sessionRevoked
         ? await widget.bootstrap()
@@ -206,6 +375,23 @@ class _SessionGateState extends State<_SessionGate> {
 
   @override
   Widget build(BuildContext context) {
+    if (Uri.parse(widget.routeName).path == '/reset-password') {
+      final token = Uri.parse(widget.routeName).queryParameters['token'] ??
+          Uri.parse(Uri.base.fragment).queryParameters['token'] ??
+          '';
+      return ResetPasswordPage(
+        token: token,
+        api: widget.api,
+        tokenStorage: widget.tokenStorage,
+      );
+    }
+    final existing = widget.initialSession;
+    if (!widget.router.sessionRevoked &&
+        existing != null &&
+        existing.expiresAt.isAfter(DateTime.now().toUtc())) {
+      _redirectIfRequired(existing);
+      return _authenticatedContent(existing);
+    }
     return FutureBuilder<_SessionBootstrapResult>(
       future: _future,
       builder: (context, snapshot) {
@@ -223,32 +409,46 @@ class _SessionGateState extends State<_SessionGate> {
               _future = _resolveSession();
             });
           }
+
           return widget.isStartup
               ? _SessionVerificationError(onRetry: onRetry)
               : _RouteSessionVerificationError(onRetry: onRetry);
         }
         final session = result.session;
         if (session != null) {
-          if (widget.routeName == '/' ||
-              (session.mustChangePassword &&
-                  widget.routeName != '/must-change-password')) {
-            final generation = widget.router.sessionGeneration;
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted &&
-                  generation == widget.router.sessionGeneration &&
-                  !widget.router.sessionRevoked) {
-                Router.neglect(
-                    context, () => widget.router.authenticate(session));
-              }
-            });
-          }
-          return _BootstrapSessionView(
-            session: session,
-            routeName: widget.routeName,
-          );
+          _redirectIfRequired(session);
+          return _authenticatedContent(session);
         }
         return const LoginPage();
       },
+    );
+  }
+
+  Widget _authenticatedContent(AuthSession session) {
+    final unavailable = widget.router.verificationUnavailable;
+    final checkingReset = widget.router.passwordResetVerificationPending;
+    final concealed = unavailable || checkingReset;
+    return Stack(
+      fit: StackFit.expand,
+      children: <Widget>[
+        // Preserve mounted forms and dialogs during an unsuccessful background
+        // check, but hide their content and prevent interactions until /auth/me
+        // can be verified again.
+        Offstage(
+          offstage: concealed,
+          child: TickerMode(
+            enabled: !concealed,
+            child: _BootstrapSessionView(
+              session: session,
+              routeName: widget.routeName,
+            ),
+          ),
+        ),
+        if (checkingReset)
+          const _RouteSessionSkeleton()
+        else if (unavailable)
+          _RouteSessionVerificationError(onRetry: widget.revalidate),
+      ],
     );
   }
 }

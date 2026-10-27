@@ -83,6 +83,30 @@ class Settings:
             os.getenv("TOUCHIN_BREVO_WELCOME_ENABLED"),
             default=True,
         )
+        self.password_reset_url = os.getenv(
+            "TOUCHIN_PASSWORD_RESET_URL",
+            "http://localhost:8080/#/reset-password" if self.environment != "production" else "",
+        ).strip()
+        if self.password_reset_url:
+            from urllib.parse import urlsplit, urlunsplit
+
+            parsed = urlsplit(self.password_reset_url)
+            if (
+                parsed.scheme not in {"https", "http"}
+                or not parsed.netloc
+                or parsed.query
+                or parsed.fragment not in {"", "/reset-password"}
+                or (
+                    parsed.scheme == "http"
+                    and parsed.hostname not in {"localhost", "127.0.0.1"}
+                )
+            ):
+                raise RuntimeError("TOUCHIN_PASSWORD_RESET_URL must be HTTPS (HTTP only for localhost), with no query and optional #/reset-password fragment.")
+            # Flutter Web reads the route from the URL fragment. A bare origin,
+            # trailing slash, or empty fragment must still open the reset page.
+            self.password_reset_url = urlunsplit(
+                (parsed.scheme, parsed.netloc, parsed.path or "/", "", "/reset-password")
+            )
 
         required_secrets = {
             "TOUCHIN_TOKEN_SECRET": self.token_secret,

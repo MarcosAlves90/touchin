@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
@@ -14,7 +14,7 @@ from app.domain.employee_read import (
 )
 from app.domain.identity import normalize_email
 from app.errors import DomainError, ErrorKind
-from app.models import Employee, Project, Task, TaskEmployee, UserAccount
+from app.models import Employee, Project, Task, TaskEmployee, UserAccount, WorkLog
 from app.schemas.employee import EmployeeDraftPayload, EmployeeProfileResponse
 from app.security import generate_temp_password, hash_password
 from app.services.auth import AuthenticatedContext
@@ -274,7 +274,14 @@ def delete_employee(
         .join(TaskEmployee, TaskEmployee.task_id == Task.id)
         .where(TaskEmployee.employee_id == employee_id)
     ).all())
-    employee = employee_or_404(db, company_id=company_id, employee_id=employee_id)
+    employee_query = select(Employee).where(
+        Employee.company_id == company_id, Employee.id == employee_id,
+    )
+    if db.bind is not None and db.bind.dialect.name != "sqlite":
+        employee_query = employee_query.with_for_update()
+    employee = db.scalar(employee_query)
+    if employee is None:
+        raise DomainError(ErrorKind.not_found, "Employee not found.")
     for project_id in affected_ids:
         projects[project_id].kanban_version += 1
 
@@ -287,6 +294,17 @@ def delete_employee(
     for account in linked_accounts:
         db.delete(account)
 
+    # Work logs represent completed, accountable work; retain their encrypted
+    # description, task snapshot, project and duration when removing live staff.
+    # This detachment is in the SAME transaction as account/punch deletion.
+    db.execute(update(WorkLog).where(
+        WorkLog.company_id == company_id,
+        WorkLog.employee_id == employee_id,
+    ).values(
+        employee_id_snapshot=func.coalesce(WorkLog.employee_id_snapshot, WorkLog.employee_id),
+        employee_id=None,
+        punch_id=None,
+    ))
     db.delete(employee)
     AuditService.log_action(
         db,

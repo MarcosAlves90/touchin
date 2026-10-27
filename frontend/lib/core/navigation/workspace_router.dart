@@ -26,7 +26,8 @@ class WorkspaceRouteParser extends RouteInformationParser<WorkspaceLocation> {
   @override
   Future<WorkspaceLocation> parseRouteInformation(
       RouteInformation routeInformation) async {
-    final path = routeInformation.uri.path;
+    final uri = routeInformation.uri;
+    final path = uri.path + (uri.hasQuery ? '?${uri.query}' : '');
     return WorkspaceLocation(
       path.startsWith('/') && path.isNotEmpty ? path : '/',
       routeInformation.state is String
@@ -38,7 +39,7 @@ class WorkspaceRouteParser extends RouteInformationParser<WorkspaceLocation> {
   @override
   RouteInformation restoreRouteInformation(WorkspaceLocation configuration) {
     return RouteInformation(
-      uri: Uri(path: configuration.path),
+      uri: Uri.parse(configuration.path),
       state: configuration.entryId,
     );
   }
@@ -69,8 +70,42 @@ class WorkspaceRouter extends RouterDelegate<WorkspaceLocation>
   int _currentIndex = 0;
   int _sessionGeneration = 0;
   bool _sessionRevoked = false;
+  AuthSession? _verifiedSession;
+  bool _verifyingSession = false;
+  bool _verificationUnavailable = false;
+  bool _passwordResetVerificationPending = false;
   int get sessionGeneration => _sessionGeneration;
   bool get sessionRevoked => _sessionRevoked;
+  AuthSession? get verifiedSession => _verifiedSession;
+  bool get verifyingSession => _verifyingSession;
+  bool get verificationUnavailable => _verificationUnavailable;
+  bool get passwordResetVerificationPending =>
+      _passwordResetVerificationPending;
+
+  void restoreVerifiedSession(AuthSession session) {
+    if (_sessionRevoked) return;
+    _verifiedSession = session;
+    _verifyingSession = false;
+    _verificationUnavailable = false;
+    for (var index = 0; index < _entrySessions.length; index++) {
+      _entrySessions[index] = session;
+    }
+    notifyListeners();
+  }
+
+  void beginRevalidation() {
+    if (_verifiedSession == null || _sessionRevoked) return;
+    _verifyingSession = true;
+    _verificationUnavailable = false;
+    notifyListeners();
+  }
+
+  void failRevalidation() {
+    if (_sessionRevoked) return;
+    _verifyingSession = false;
+    _verificationUnavailable = true;
+    notifyListeners();
+  }
 
   String get _path => _history[_currentIndex];
 
@@ -151,7 +186,7 @@ class WorkspaceRouter extends RouterDelegate<WorkspaceLocation>
     _entrySessions.removeRange(_currentIndex + 1, _entrySessions.length);
     _history.add(path);
     _entryIds.add(entryId ?? _newEntryId());
-    _entrySessions.add(null);
+    _entrySessions.add(_verifiedSession);
     _currentIndex++;
   }
 
@@ -171,6 +206,10 @@ class WorkspaceRouter extends RouterDelegate<WorkspaceLocation>
   void authenticate(AuthSession session) {
     _sessionRevoked = false;
     _sessionGeneration++;
+    _verifiedSession = session;
+    _verifyingSession = false;
+    _verificationUnavailable = false;
+    _passwordResetVerificationPending = false;
     final route = buildAuthenticatedWorkspaceRoute(session).settings.name!;
     _replaceHistory(route, session);
     notifyListeners();
@@ -179,8 +218,76 @@ class WorkspaceRouter extends RouterDelegate<WorkspaceLocation>
   void signedOut() {
     _sessionGeneration++;
     _sessionRevoked = true;
+    _verifiedSession = null;
+    _verifyingSession = false;
+    _verificationUnavailable = false;
+    _passwordResetVerificationPending = false;
     _replaceHistory('/');
     notifyListeners();
+  }
+
+  /// Revoke the session invalidated by a successful password reset without
+  /// replacing the current reset page, so its success confirmation stays on
+  /// screen. Historical protected pages remain in browser history, but no
+  /// longer carry an authenticated session or render protected content.
+  void passwordResetConfirmed({
+    required int expectedGeneration,
+    required String? expectedToken,
+  }) {
+    if (_sessionGeneration != expectedGeneration) return;
+    final activeToken = _verifiedSession?.accessToken;
+    if (activeToken != null && activeToken != expectedToken) return;
+    _sessionGeneration++;
+    _sessionRevoked = true;
+    _verifiedSession = null;
+    _verifyingSession = false;
+    _verificationUnavailable = false;
+    _passwordResetVerificationPending = false;
+    for (var index = 0; index < _entrySessions.length; index++) {
+      _entrySessions[index] = null;
+    }
+    notifyListeners();
+  }
+
+  /// Hold an ambiguous concurrent login out of view until /auth/me proves it
+  /// survived the reset. Advancing the generation also invalidates older
+  /// in-flight /auth/me results from ordinary background revalidation.
+  int? beginPasswordResetVerification(AuthSession session) {
+    if (_sessionRevoked ||
+        _verifiedSession?.accessToken != session.accessToken) {
+      return null;
+    }
+    _sessionGeneration++;
+    _passwordResetVerificationPending = true;
+    _verificationUnavailable = false;
+    notifyListeners();
+    return _sessionGeneration;
+  }
+
+  bool isCurrentPasswordResetVerification(int generation, String token) =>
+      _passwordResetVerificationPending &&
+      !_sessionRevoked &&
+      _sessionGeneration == generation &&
+      _verifiedSession?.accessToken == token;
+
+  void acceptPasswordResetVerification(int generation, AuthSession session) {
+    if (!isCurrentPasswordResetVerification(generation, session.accessToken)) {
+      return;
+    }
+    _passwordResetVerificationPending = false;
+    restoreVerifiedSession(session);
+  }
+
+  void failPasswordResetVerification(int generation, String token) {
+    if (!isCurrentPasswordResetVerification(generation, token)) return;
+    _passwordResetVerificationPending = false;
+    failRevalidation();
+  }
+
+  bool revokePasswordResetVerification(int generation, String token) {
+    if (!isCurrentPasswordResetVerification(generation, token)) return false;
+    signedOut();
+    return true;
   }
 
   void revokeSession() {

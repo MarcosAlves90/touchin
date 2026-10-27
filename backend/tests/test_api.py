@@ -805,12 +805,17 @@ def test_manager_paginates_employee_punches(client):
     _clear_employee_punches("emp-02")
 
     for index in range(5):
+        # Exercise pagination with a valid alternating shift timeline.
+        # Five consecutive check-ins would correctly be rejected with 409.
+        is_check_in = index % 2 == 0
+        day = 20 + index // 2
+        hour = "09" if is_check_in else "18"
         response = client.post(
             "/api/v1/time-clock/employees/emp-02/punches",
             headers=headers,
             json={
-                "type": "checkIn",
-                "timestamp": f"2026-05-2{index}T09:00:00-03:00",
+                "type": "checkIn" if is_check_in else "checkOut",
+                "timestamp": f"2026-05-{day:02d}T{hour}:00:00-03:00",
                 "detail": f"Batch {index + 1}",
             },
         )
@@ -928,13 +933,13 @@ def test_reset_password_triggers_email_task(client, monkeypatch):
         *,
         recipient_email: str,
         display_name: str,
-        temp_password: str,
+        token: str,
     ) -> None:
         calls.append(
             {
                 "recipient_email": recipient_email,
                 "display_name": display_name,
-                "temp_password": temp_password,
+                "token": token,
             },
         )
 
@@ -952,13 +957,17 @@ def test_reset_password_triggers_email_task(client, monkeypatch):
     assert response.status_code == 200
     assert len(calls) == 1
     assert calls[0]["recipient_email"] == "marina.costa@touchin.com"
-    assert len(calls[0]["temp_password"]) >= 12
+    assert len(calls[0]["token"]) >= 32
+
+    confirmation = {"token": calls[0]["token"], "newPassword": "ConfirmedPassword@123"}
+    completed = client.post("/api/v1/auth/reset-password/confirm", json=confirmation)
+    assert completed.status_code == 200
 
     login_response = client.post(
         "/api/v1/auth/login",
         json={
             "email": "marina.costa@touchin.com",
-            "password": calls[0]["temp_password"],
+            "password": "ConfirmedPassword@123",
             "keepConnected": True,
         },
     )
