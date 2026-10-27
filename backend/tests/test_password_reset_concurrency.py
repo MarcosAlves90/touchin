@@ -5,6 +5,7 @@ from threading import Barrier, Event
 from os import getenv
 
 import pytest
+from fastapi.testclient import TestClient
 
 from sqlalchemy import create_engine, select, text
 from sqlalchemy.orm import sessionmaker
@@ -12,7 +13,9 @@ from sqlalchemy.orm import sessionmaker
 from app.config import get_settings
 from app.crypto import FieldCipher, lookup_digest
 from app.db import Base, utcnow
+from app.dependencies import get_db
 from app.errors import DomainError
+from app.main import create_app
 from app.models import AuthSession, Company, PasswordResetToken, UserAccount
 from app.schemas.auth import LoginRequest
 from app.seed import seed_database
@@ -148,7 +151,17 @@ def test_pg_login_cannot_issue_old_password_session_after_reset(monkeypatch):
             login_response = login_future.result(timeout=15)
             reset_future.result(timeout=15)
 
+        assert not reset_completed_during_login, "Reset bypassed the login user-row lock"
         monkeypatch.setattr(auth_service, "verify_password", real_verify)
+        # Exercise the HTTP contract consumed by the frontend against the
+        # same real PostgreSQL sessions, not a mocked authentication result.
+        app = create_app()
+
+        def isolated_pg_session():
+            with factory() as db:
+                yield db
+
+        app.dependency_overrides[get_db] = isolated_pg_session
         with factory() as db:
             token_hash = lookup_digest(login_response.access_token,
                                        get_settings().token_secret or "")
@@ -166,9 +179,27 @@ def test_pg_login_cannot_issue_old_password_session_after_reset(monkeypatch):
                                        password=get_settings().seed_admin_password,
                                        keep_connected=True))
             db.rollback()
-            fresh = login(db, LoginRequest(email="marina.costa@touchin.com",
-                                           password="RaceSafeNewPassword!123",
-                                           keep_connected=True))
-            assert resolve_context(db, fresh.access_token).user is not None
+
+        client = TestClient(app)
+        try:
+            old_me = client.get(
+                "/api/v1/auth/me",
+                headers={"Authorization": f"Bearer {login_response.access_token}"},
+            )
+            assert old_me.status_code == 401, old_me.text
+            fresh_login = client.post(
+                "/api/v1/auth/login",
+                json={"email": "marina.costa@touchin.com", "password": "RaceSafeNewPassword!123"},
+            )
+            assert fresh_login.status_code == 200, fresh_login.text
+            fresh_token = fresh_login.json()["accessToken"]
+            fresh_me = client.get(
+                "/api/v1/auth/me",
+                headers={"Authorization": f"Bearer {fresh_token}"},
+            )
+            assert fresh_me.status_code == 200, fresh_me.text
+            assert fresh_me.json()["user"]["email"] == "marina.costa@touchin.com"
+        finally:
+            client.close()
     finally:
         engine.dispose()

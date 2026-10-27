@@ -271,8 +271,9 @@ class WorkspaceRouter extends RouterDelegate<WorkspaceLocation>
       _verifiedSession?.accessToken == token;
 
   void acceptPasswordResetVerification(int generation, AuthSession session) {
-    if (!isCurrentPasswordResetVerification(generation, session.accessToken))
+    if (!isCurrentPasswordResetVerification(generation, session.accessToken)) {
       return;
+    }
     _passwordResetVerificationPending = false;
     restoreVerifiedSession(session);
   }

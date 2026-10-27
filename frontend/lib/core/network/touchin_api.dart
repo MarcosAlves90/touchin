@@ -118,7 +118,7 @@ class TouchInApi {
   /// Normal getAuthContext() reads the current storage token again, which may
   /// change between the initial snapshot and the outgoing HTTP request.
   Future<AuthContext> getAuthContextForToken(String token) async {
-    final response = await _client.get('/auth/me', authToken: token);
+    final response = await _client.getWithAuthToken('/auth/me', token);
     return _parseContract(
         'auth/me',
         () =>

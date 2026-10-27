@@ -59,13 +59,24 @@ class ApiClient {
   Future<dynamic> get(
     String path, {
     bool withAuth = false,
-    String? authToken,
     Map<String, Object?>? queryParameters,
   }) async {
-    final headers = await _headers(withAuth: withAuth && authToken == null);
-    if (authToken != null) {
-      headers['Authorization'] = 'Bearer $authToken';
-    }
+    final headers = await _headers(withAuth: withAuth);
+    return _getWithHeaders(path, headers, queryParameters);
+  }
+
+  /// Read using a captured token without changing the existing GET contract.
+  Future<dynamic> getWithAuthToken(String path, String token) async {
+    final headers = await _headers();
+    headers['Authorization'] = 'Bearer $token';
+    return _getWithHeaders(path, headers, null);
+  }
+
+  Future<dynamic> _getWithHeaders(
+    String path,
+    Map<String, String> headers,
+    Map<String, Object?>? queryParameters,
+  ) async {
     final response = await _client.get(
       _uri(path).replace(
         queryParameters: queryParameters?.map(
