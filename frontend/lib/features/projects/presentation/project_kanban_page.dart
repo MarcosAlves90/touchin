@@ -49,9 +49,9 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
   Widget build(BuildContext context) {
     return WorkspaceScaffold(
       contentScrollable: false,
-      contentBuilder: (context, _) => Column(
+      contentBuilder: (context, isWide) => Column(
         children: <Widget>[
-          _KanbanTopBar(controller: _controller),
+          if (!isWide) _KanbanTopBar(controller: _controller),
           Expanded(
             child: AnimatedBuilder(
               animation: _controller,

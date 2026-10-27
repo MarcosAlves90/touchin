@@ -29,6 +29,8 @@ void main() {
       findsNothing,
     );
     expect(find.byTooltip('Abrir menu'), findsOneWidget);
+    expect(find.byKey(const ValueKey('kanban-topbar')), findsOneWidget);
+    expect(find.text('Sincronizado'), findsOneWidget);
 
     await tester.binding.setSurfaceSize(const Size(1080, 760));
     await tester.pumpAndSettle();
@@ -43,7 +45,8 @@ void main() {
     ]) {
       expect(find.text(label), findsOneWidget);
     }
-    expect(find.byKey(const ValueKey<String>('kanban-topbar')), findsOneWidget);
+    expect(find.byKey(const ValueKey<String>('kanban-topbar')), findsNothing);
+    expect(find.text('Sincronizado'), findsNothing);
     await tester.binding.setSurfaceSize(null);
   });
 
@@ -811,12 +814,10 @@ void main() {
 
     expect(find.byType(AppBar), findsNothing);
     final topBar = find.byKey(const ValueKey<String>('kanban-topbar'));
-    expect(topBar, findsOneWidget);
-    expect(find.descendant(of: topBar, matching: find.text('Kanban')),
-        findsNothing);
     expect(
-      find.descendant(of: topBar, matching: find.text('Projeto principal')),
+      topBar,
       findsNothing,
+      reason: 'desktop_kanban_topbar_hidden',
     );
     expect(find.text('Kanban do projeto'), findsNothing);
     expect(
@@ -1109,9 +1110,7 @@ void main() {
     await tester.pumpAndSettle();
 
     final topBar = find.byKey(const ValueKey<String>('kanban-topbar'));
-    expect(topBar, findsOneWidget);
-    expect(find.descendant(of: topBar, matching: find.text('TOUCHIN')),
-        findsNothing);
+    expect(topBar, findsNothing);
     expect(find.text('TOUCHIN'), findsOneWidget);
     expect(find.descendant(of: topBar, matching: find.text('Kanban')),
         findsNothing);
@@ -1134,11 +1133,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final topBar = find.byKey(const ValueKey<String>('kanban-topbar'));
-    expect(
-      find.descendant(of: topBar, matching: find.text('Sincronizado')),
-      findsOneWidget,
-    );
+    expect(find.byKey(const ValueKey<String>('kanban-topbar')), findsNothing);
+    expect(find.text('Sincronizado'), findsNothing);
     expect(find.text('Arraste pelo ícone para mover cards entre etapas.'),
         findsNothing);
     expect(find.byTooltip('Adicionar card em A fazer'), findsOneWidget);
