@@ -4,6 +4,7 @@ import 'package:touchin_flutter/features/auth/presentation/forgot_password_page.
 import 'package:touchin_flutter/features/auth/presentation/login_page.dart';
 import 'package:touchin_flutter/features/auth/presentation/must_change_password_page.dart';
 import 'package:touchin_flutter/features/auth/presentation/register_page.dart';
+import 'package:touchin_flutter/features/auth/presentation/reset_password_page.dart';
 
 void main() {
   const cloudinaryAssets = <String, String>{
@@ -11,6 +12,7 @@ void main() {
     'register': 'cadastro_q0zfus.jpg',
     'forgot_password': 'recuperacao-de-senha_snzc6m.jpg',
     'change_password': 'troca-obrigatoria-de-senha_apzwxa.jpg',
+    'reset_password': 'recuperacao-de-senha_snzc6m.jpg',
   };
 
   final pages = <String, Widget>{
@@ -18,6 +20,8 @@ void main() {
     'register': const RegisterPage(),
     'forgot_password': const ForgotPasswordPage(),
     'change_password': const MustChangePasswordPage(),
+    'reset_password': const ResetPasswordPage(
+        token: 'fixture-token-of-sufficient-length-for-test'),
   };
 
   for (final entry in pages.entries) {

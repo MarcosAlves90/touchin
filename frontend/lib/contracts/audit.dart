@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 import 'contract_parsing.dart';
@@ -36,4 +38,16 @@ abstract class AuditEventResponse with _$AuditEventResponse {
       correlationId: optionalString(json, 'correlation_id'),
     );
   }
+}
+
+class AuditCsvExport {
+  const AuditCsvExport({
+    required this.filename,
+    required this.bytes,
+    required this.rowCount,
+  });
+
+  final String filename;
+  final Uint8List bytes;
+  final int? rowCount;
 }

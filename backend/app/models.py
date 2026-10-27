@@ -304,6 +304,9 @@ class UserAccount(Base):
 
 class Punch(Base):
     __tablename__ = "punches"
+    __table_args__ = (
+        Index("ix_punches_employee_timestamp_id", "employee_id", "timestamp", "id"),
+    )
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=generate_id)
     company_id: Mapped[str] = mapped_column(ForeignKey(_COL_COMPANIES_ID), index=True)
@@ -335,9 +338,18 @@ class WorkLog(Base):
     
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=generate_id)
     company_id: Mapped[str] = mapped_column(ForeignKey(_COL_COMPANIES_ID), index=True)
-    employee_id: Mapped[str] = mapped_column(ForeignKey(_COL_EMPLOYEES_ID), index=True)
+    # A WorkLog is an immutable historical fact. Deleting a live employee or
+    # punch detaches the source reference without deleting accounted work.
+    employee_id: Mapped[str | None] = mapped_column(
+        ForeignKey(_COL_EMPLOYEES_ID, ondelete="SET NULL"), nullable=True, index=True,
+    )
+    # Stable pseudonymous reference for historical employee-filtered reports.
+    # It is deliberately not a foreign key, so retention survives deletion.
+    employee_id_snapshot: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     project_id: Mapped[str | None] = mapped_column(ForeignKey(_COL_PROJECTS_ID), nullable=True, index=True)
-    punch_id: Mapped[str] = mapped_column(ForeignKey("punches.id"), index=True)
+    punch_id: Mapped[str | None] = mapped_column(
+        ForeignKey("punches.id", ondelete="SET NULL"), nullable=True, index=True,
+    )
 
     start_time: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     end_time: Mapped[datetime] = mapped_column(DateTime(timezone=True))
@@ -346,7 +358,7 @@ class WorkLog(Base):
     task_snapshots_ciphertext: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
-    punch: Mapped[Punch] = relationship()
+    punch: Mapped[Punch | None] = relationship()
     tasks: Mapped[list[Task]] = relationship(secondary="work_log_tasks")
 
 
@@ -377,6 +389,30 @@ class AuthSession(Base):
     last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     user: Mapped[UserAccount] = relationship(back_populates="sessions")
+
+
+class PasswordResetToken(Base):
+    __tablename__ = "password_reset_tokens"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=generate_id)
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("user_accounts.id", ondelete="CASCADE"), index=True
+    )
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class PasswordResetThrottle(Base):
+    __tablename__ = "password_reset_throttles"
+
+    # HMAC(scope, identifier, hour). Never persist email/IP in cleartext.
+    bucket_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    bucket_hour: Mapped[int] = mapped_column(Integer, index=True)
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
 
 @event.listens_for(Project, "init")
 def _initialize_project_kanban_column(

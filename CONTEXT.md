@@ -58,6 +58,9 @@ Consulte os diretórios atuais antes de assumir que este mapa enumera todos os m
 - O frontend consulta a API em `/api/v1`; endereço local e configuração web estão em `frontend/lib/core/config/app_config.dart` e [docs/DEVELOPMENT.md](./docs/DEVELOPMENT.md).
 - O módulo de ponto expõe ações `checkIn`, `breakStart`, `breakEnd` e `checkOut`; a API e suas regras atuais são a fonte de verdade.
 - Setup de build web e limites de deploy estão em [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md). O repositório não define URLs de produção.
+- Recuperação pública de senha utiliza solicitação indistinguível, token com prazo de 30 minutos, confirmação de uso único e revogação transacional de sessões. O link é gerado pelo serviço Brevo conforme `TOUCHIN_PASSWORD_RESET_URL`.
+- Os históricos `WorkLog` sobrevivem à exclusão de batidas e funcionários por referência histórica independente. Operações de ponto e edições administrativas usam as regras de serialização e integridade em `backend/app/services/time_clock.py`.
+- O frontend reutiliza o contexto autenticado entre rotas e revalida o token ao voltar ao aplicativo, periodicamente e após rejeição autenticada, sem perder os contratos de skeletons de conteúdo introduzidos nas issues #112 e #121.
 
 ## 7. Decisões Arquiteturais
 

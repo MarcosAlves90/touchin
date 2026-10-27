@@ -9,6 +9,7 @@ import 'package:touchin_flutter/core/network/touchin_api.dart';
 import 'package:touchin_flutter/core/storage/token_storage.dart';
 import 'package:touchin_flutter/core/navigation/workspace_router.dart';
 import 'package:touchin_flutter/features/admin/presentation/admin_employees_page.dart';
+import 'package:touchin_flutter/features/auth/presentation/reset_password_page.dart';
 import 'package:touchin_flutter/features/projects/presentation/project_tasks_page.dart';
 import 'package:touchin_flutter/features/settings/presentation/settings_page.dart';
 import 'package:touchin_flutter/main.dart';
@@ -59,12 +60,33 @@ void main() {
         Duration.zero,
         reason: 'workspace_route_transition_missing',
       );
-      final destination = ModalRoute.of(tester.element(find.text('/projects')))!;
+      final destination =
+          ModalRoute.of(tester.element(find.text('/projects')))!;
       expect(destination.animation!.value, 1);
       expect(find.text('/time-clock'), findsNothing);
     },
   );
 
+  testWidgets(
+      'public password reset deep link does not require session bootstrap',
+      (tester) async {
+    const token = 'aaaabbbbccccddddeeeeffffgggghhhhiiiijjjjkkkkllllmmmmnnnn';
+    tester.binding.platformDispatcher.defaultRouteNameTestValue =
+        '/reset-password?token=$token';
+    addTearDown(() {
+      tester.binding.platformDispatcher.defaultRouteNameTestValue = '/';
+    });
+    final storage = _MemoryStorage();
+    final api = _SessionApi(tokenStorage: storage);
+    await tester.pumpWidget(MyApp(api: api, tokenStorage: storage));
+    await tester.pump();
+    expect(find.byType(ResetPasswordPage), findsOneWidget);
+    expect(
+        tester.widget<ResetPasswordPage>(find.byType(ResetPasswordPage)).token,
+        token);
+    expect(api.authContextRequests, 0);
+    expect(find.byType(AdminEmployeesPage), findsNothing);
+  });
   testWidgets('obsolete auth check cannot revoke a newer login',
       (tester) async {
     tester.binding.platformDispatcher.defaultRouteNameTestValue =
@@ -82,6 +104,9 @@ void main() {
       tester.element(find.byType(AdminEmployeesPage)),
     )!;
     router.navigate('/projects');
+    await tester.pump();
+    expect(api.authContextRequests, 1);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     await tester.pump();
     expect(api.authContextRequests, 2);
 
@@ -139,6 +164,47 @@ void main() {
   });
 
   testWidgets(
+      'network failure on resume hides workspace without revoking token',
+      (tester) async {
+    tester.binding.platformDispatcher.defaultRouteNameTestValue =
+        '/admin/employees';
+    addTearDown(() {
+      tester.binding.platformDispatcher.defaultRouteNameTestValue = '/';
+    });
+    final storage = _MemoryStorage()..session = _session;
+    final api = _RecoverableSessionApi(tokenStorage: storage);
+    await tester.pumpWidget(MyApp(api: api, tokenStorage: storage));
+    await tester.pump();
+    await tester.pump();
+    expect(find.byType(AdminEmployeesPage), findsOneWidget);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('Administrar equipe'), findsNothing);
+    expect(find.text('Não foi possível validar sua sessão'), findsOneWidget);
+    expect(storage.session?.accessToken, _session.accessToken);
+
+    api.offline = false;
+    await tester.tap(find.text('Tentar novamente'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byType(AdminEmployeesPage), findsOneWidget);
+    expect(api.authContextRequests, 3);
+  });
+
+  test('route parsing retains a reset token inside the browser hash route',
+      () async {
+    final parser = WorkspaceRouteParser();
+    final location = await parser.parseRouteInformation(
+        RouteInformation(uri: Uri.parse('/reset-password?token=abc%2Bdef')));
+    expect(location.path, '/reset-password?token=abc%2Bdef');
+    expect(
+        parser.restoreRouteInformation(location).uri.queryParameters['token'],
+        'abc+def');
+  });
+
+  testWidgets(
       'revoked session cannot restore a cached page via Back or Forward',
       (tester) async {
     tester.binding.platformDispatcher.defaultRouteNameTestValue =
@@ -159,6 +225,11 @@ void main() {
     final first = router.currentConfiguration;
     router.navigate('/projects');
     final second = router.currentConfiguration;
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(api.authContextRequests, 1);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
@@ -320,6 +391,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
     expect(router.currentConfiguration.path, '/projects');
     expect(find.byType(ProjectTasksPage), findsOneWidget);
+    expect(api.authContextRequests, 1,
+        reason: 'internal route changes must reuse the verified session');
 
     router.navigate('/settings');
     await tester.pump();
@@ -327,6 +400,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
     expect(router.currentConfiguration.path, '/settings');
     expect(find.byType(ThemeSettingsPage), findsOneWidget);
+    expect(api.authContextRequests, 1);
 
     // Popstate-style updates must move through A-B-C-Back-Back-Forward-Forward
     // without adding entries or leaving a different screen mounted.
@@ -348,6 +422,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 500));
       expect(router.currentConfiguration.path, path);
       expect(find.byType(screen), findsOneWidget);
+      expect(api.authContextRequests, 1);
     }
   });
 }
@@ -359,7 +434,6 @@ final _session = AuthSession(
   company: _company,
   user: _user,
 );
-
 
 const _company = AuthCompanySummary(
   id: 'cmp-01',
@@ -378,9 +452,13 @@ const _user = AuthUserSummary(
 class _SessionApi extends TouchInApi {
   _SessionApi({required super.tokenStorage});
 
+  int authContextRequests = 0;
+
   @override
-  Future<AuthContext> getAuthContext() async =>
-      const AuthContext(company: _company, user: _user);
+  Future<AuthContext> getAuthContext() async {
+    authContextRequests++;
+    return const AuthContext(company: _company, user: _user);
+  }
 }
 
 class _RevokingSessionApi extends TouchInApi {
@@ -395,6 +473,22 @@ class _RevokingSessionApi extends TouchInApi {
       return const AuthContext(company: _company, user: _user);
     }
     throw ApiException('Sessão revogada', statusCode: 401);
+  }
+}
+
+class _RecoverableSessionApi extends TouchInApi {
+  _RecoverableSessionApi({required super.tokenStorage});
+
+  bool offline = true;
+  int authContextRequests = 0;
+
+  @override
+  Future<AuthContext> getAuthContext() async {
+    authContextRequests++;
+    if (authContextRequests > 1 && offline) {
+      throw StateError('network unavailable');
+    }
+    return const AuthContext(company: _company, user: _user);
   }
 }
 

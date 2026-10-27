@@ -16,6 +16,20 @@ const _validCredentialFixture = 'fixture-auth-value';
 const _invalidCredentialFixture = 'invalid-auth-value';
 
 void main() {
+  test('public reset confirmation posts without authentication', () async {
+    final client = _FakeApiClient(postResponses: {
+      '/auth/reset-password/confirm': null,
+    });
+    final api =
+        TouchInApi(client: client, tokenStorage: _InMemoryTokenStorage());
+    await api.confirmPasswordReset(
+        token: 'fixture-token', newPassword: 'fixture-password');
+    expect(client.lastPath, '/auth/reset-password/confirm');
+    expect(client.lastWithAuth, isFalse);
+    expect(client.lastBody,
+        {'token': 'fixture-token', 'newPassword': 'fixture-password'});
+  });
+
   test('HTTP 409 retains structured version code independent of message',
       () async {
     final apiClient = ApiClient(
@@ -102,6 +116,8 @@ void main() {
   });
 
   test('auth context expired token is translated to pt-BR', () async {
+    TouchInApi.invalidateAuthContext();
+    addTearDown(TouchInApi.invalidateAuthContext);
     final tokenStorage = _InMemoryTokenStorage()..savedToken = 'token-123';
     final apiClient = ApiClient(
       tokenStorage: tokenStorage,

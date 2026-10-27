@@ -17,6 +17,32 @@ class TouchInApi {
 
   final ApiClient _client;
   final TokenStorage _tokenStorage;
+  static String? _contextToken;
+  static AuthContext? _contextCache;
+  static String? _pendingContextToken;
+  static Future<AuthContext>? _pendingContext;
+  static int _contextGeneration = 0;
+
+  static void invalidateAuthContext({String? token}) {
+    if (token != null &&
+        _contextToken != token &&
+        _pendingContextToken != token) {
+      return;
+    }
+    _contextGeneration++;
+    _contextToken = null;
+    _contextCache = null;
+    _pendingContextToken = null;
+    _pendingContext = null;
+  }
+
+  static void rememberAuthContext(String token, AuthContext context) {
+    _contextGeneration++;
+    _contextToken = token;
+    _contextCache = context;
+    _pendingContextToken = null;
+    _pendingContext = null;
+  }
 
   Future<AuthSession> login({
     required LoginCredentials credentials,
@@ -53,17 +79,65 @@ class TouchInApi {
   }
 
   Future<AuthContext> getAuthContext() async {
+    final token = await _tokenStorage.readAccessToken();
+    if (token != null && token == _contextToken && _contextCache != null) {
+      return _contextCache!;
+    }
+    if (token != null &&
+        token == _pendingContextToken &&
+        _pendingContext != null) {
+      return _pendingContext!;
+    }
+    final generation = _contextGeneration;
+    final request = _loadAuthContext();
+    if (token != null) {
+      _pendingContextToken = token;
+      _pendingContext = request;
+    }
+    try {
+      final context = await request;
+      if (token != null && generation == _contextGeneration) {
+        _contextToken = token;
+        _contextCache = context;
+      }
+      return context;
+    } catch (_) {
+      if (token != null && _contextToken == token) {
+        invalidateAuthContext(token: token);
+      }
+      rethrow;
+    } finally {
+      if (identical(_pendingContext, request)) {
+        _pendingContextToken = null;
+        _pendingContext = null;
+      }
+    }
+  }
+
+  /// Verify exactly the token captured by a concurrent reset/login race.
+  /// Normal getAuthContext() reads the current storage token again, which may
+  /// change between the initial snapshot and the outgoing HTTP request.
+  Future<AuthContext> getAuthContextForToken(String token) async {
+    final response = await _client.getWithAuthToken('/auth/me', token);
+    return _parseContract(
+        'auth/me',
+        () =>
+            AuthContext.fromJson(requireJsonMap(response, 'auth/me response')));
+  }
+
+  Future<AuthContext> _loadAuthContext() async {
     final response = await _client.get('/auth/me', withAuth: true);
     return _parseContract(
-      'auth/me',
-      () => AuthContext.fromJson(requireJsonMap(response, 'auth/me response')),
-    );
+        'auth/me',
+        () =>
+            AuthContext.fromJson(requireJsonMap(response, 'auth/me response')));
   }
 
   Future<void> logout() async {
     try {
       await _client.post('/auth/logout', withAuth: true);
     } finally {
+      invalidateAuthContext();
       await _tokenStorage.clearAccessToken();
     }
   }
@@ -76,6 +150,19 @@ class TouchInApi {
 
     final map = requireJsonMap(response, 'reset-password response');
     return requireString(map, 'message');
+  }
+
+  Future<void> confirmPasswordReset({
+    required String token,
+    required String newPassword,
+  }) async {
+    await _client.post(
+      '/auth/reset-password/confirm',
+      body: <String, dynamic>{
+        'token': token,
+        'newPassword': newPassword,
+      },
+    );
   }
 
   Future<void> changePassword({
@@ -672,10 +759,84 @@ class TouchInApi {
     int page = 1,
     int limit = 50,
   }) async {
-    final queryParameters = <String, dynamic>{
-      'page': page.toString(),
-      'limit': limit.toString(),
-    };
+    final queryParameters = _auditQueryParameters(
+      startDate: startDate,
+      endDate: endDate,
+      actorUserId: actorUserId,
+      action: action,
+      entityType: entityType,
+      entityId: entityId,
+      projectId: projectId,
+      result: result,
+    )
+      ..addAll({
+        'page': page.toString(),
+        'limit': limit.toString(),
+      });
+
+    final response = await _client.get(
+      '/audit-events',
+      withAuth: true,
+      queryParameters: queryParameters.isNotEmpty ? queryParameters : null,
+    );
+    return _parseContract('audit events', () {
+      final payload = requireJsonList(response, 'audit events response');
+      return payload
+          .map(
+            (item) => AuditEventResponse.fromJson(
+              requireJsonMap(item, 'audit events[]'),
+            ),
+          )
+          .toList();
+    });
+  }
+
+  Future<AuditCsvExport> exportAuditEvents({
+    DateTime? startDate,
+    DateTime? endDate,
+    String? actorUserId,
+    String? action,
+    String? entityType,
+    String? entityId,
+    String? projectId,
+    String? result,
+  }) async {
+    final queryParameters = _auditQueryParameters(
+      startDate: startDate,
+      endDate: endDate,
+      actorUserId: actorUserId,
+      action: action,
+      entityType: entityType,
+      entityId: entityId,
+      projectId: projectId,
+      result: result,
+    );
+
+    final response = await _client.getRaw(
+      '/audit-events/export',
+      withAuth: true,
+      accept: 'text/csv',
+      queryParameters: queryParameters.isNotEmpty ? queryParameters : null,
+    );
+
+    return AuditCsvExport(
+      filename: _exportFilename(response.headers['content-disposition']),
+      bytes: response.bodyBytes,
+      rowCount: int.tryParse(response.headers['x-audit-export-rows'] ?? ''),
+    );
+  }
+
+  Map<String, dynamic> _auditQueryParameters({
+    DateTime? startDate,
+    DateTime? endDate,
+    String? actorUserId,
+    String? action,
+    String? entityType,
+    String? entityId,
+    String? projectId,
+    String? result,
+  }) {
+    final queryParameters = <String, dynamic>{};
     if (startDate != null) {
       queryParameters['start_date'] = DateTime.utc(
         startDate.year,
@@ -696,26 +857,26 @@ class TouchInApi {
     if (entityId != null) queryParameters['entity_id'] = entityId;
     if (projectId != null) queryParameters['project_id'] = projectId;
     if (result != null) queryParameters['result'] = result;
+    return queryParameters;
+  }
 
-    final response = await _client.get(
-      '/audit-events',
-      withAuth: true,
-      queryParameters: queryParameters.isNotEmpty ? queryParameters : null,
-    );
-    return _parseContract('audit events', () {
-      final payload = requireJsonList(response, 'audit events response');
-      return payload
-          .map(
-            (item) => AuditEventResponse.fromJson(
-              requireJsonMap(item, 'audit events[]'),
-            ),
-          )
-          .toList();
-    });
+  String _exportFilename(String? contentDisposition) {
+    final match = contentDisposition == null
+        ? null
+        : RegExp(r'filename="?([^";]+)"?').firstMatch(contentDisposition);
+    final filename = match?.group(1)?.trim();
+    if (filename == null || filename.isEmpty) {
+      return 'audit-events.csv';
+    }
+    return filename.split(RegExp(r'[/\\]')).last;
   }
 
   Future<AuthSession> _persistSession(AuthSession session) async {
     await _tokenStorage.saveAuthSession(session);
+    rememberAuthContext(
+      session.accessToken,
+      AuthContext(company: session.company, user: session.user),
+    );
     return session;
   }
 
