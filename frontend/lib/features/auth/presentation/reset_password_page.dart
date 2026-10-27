@@ -40,12 +40,15 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
   Future<void> _backToLogin() async {
     final router = WorkspaceRouterScope.maybeOf(context);
     if (_completed) {
-      // Only a successful confirmation revokes stored credentials.
-      TouchInApi.invalidateAuthContext();
-      await _tokenStorage.clearAccessToken();
-      if (!mounted) return;
       if (router != null) {
-        Router.neglect(context, router.signedOut);
+        Router.neglect(context, () {
+          if (router.verifiedSession == null) {
+            router.signedOut();
+          } else {
+            // A new login may have taken place after this reset completed.
+            router.navigate('/');
+          }
+        });
         return;
       }
     }
@@ -59,11 +62,33 @@ class _ResetPasswordPageState extends State<ResetPasswordPage>
   Future<void> _submit() async {
     if (isSubmitting || !_formKey.currentState!.validate()) return;
     FocusScope.of(context).unfocus();
+    final router = WorkspaceRouterScope.maybeOf(context);
+    final generation = router?.sessionGeneration;
+    final currentToken = router?.verifiedSession?.accessToken ??
+        await _tokenStorage.readAccessToken();
+    if (!mounted) return;
     await submitAuthAction<void>(
-      action: () => _api.confirmPasswordReset(
-        token: widget.token,
-        newPassword: _newPassword.text,
-      ),
+      action: () async {
+        await _api.confirmPasswordReset(
+          token: widget.token,
+          newPassword: _newPassword.text,
+        );
+        if (mounted && router != null && generation != null) {
+          router.passwordResetConfirmed(
+            expectedGeneration: generation,
+            expectedToken: currentToken,
+          );
+        }
+        if (currentToken != null) {
+          TouchInApi.invalidateAuthContext(token: currentToken);
+          try {
+            await _tokenStorage.clearSessionIfTokenMatches(currentToken);
+          } catch (_) {
+            // Backend reset already succeeded. Do not turn success into a
+            // misleading error; the router still blocks the revoked session.
+          }
+        }
+      },
       onSuccess: (_) => setState(() => _completed = true),
     );
   }

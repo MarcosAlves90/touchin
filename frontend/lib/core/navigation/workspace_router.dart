@@ -221,6 +221,28 @@ class WorkspaceRouter extends RouterDelegate<WorkspaceLocation>
     notifyListeners();
   }
 
+  /// Revoke the session invalidated by a successful password reset without
+  /// replacing the current reset page, so its success confirmation stays on
+  /// screen. Historical protected pages remain in browser history, but no
+  /// longer carry an authenticated session or render protected content.
+  void passwordResetConfirmed({
+    required int expectedGeneration,
+    required String? expectedToken,
+  }) {
+    if (_sessionGeneration != expectedGeneration) return;
+    final activeToken = _verifiedSession?.accessToken;
+    if (activeToken != null && activeToken != expectedToken) return;
+    _sessionGeneration++;
+    _sessionRevoked = true;
+    _verifiedSession = null;
+    _verifyingSession = false;
+    _verificationUnavailable = false;
+    for (var index = 0; index < _entrySessions.length; index++) {
+      _entrySessions[index] = null;
+    }
+    notifyListeners();
+  }
+
   void revokeSession() {
     if (_sessionRevoked) return;
     signedOut();
