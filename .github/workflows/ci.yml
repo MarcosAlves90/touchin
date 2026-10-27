@@ -141,7 +141,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: canonical-navigation-golden-failure-images
-          path: frontend/test/failures/
+          path: frontend/test/features/shared/presentation/widgets/failures/
           if-no-files-found: warn
 
   windows-polis-gates:

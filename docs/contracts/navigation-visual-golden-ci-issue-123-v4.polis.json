@@ -1,0 +1,166 @@
+{
+  "schema_version": 6,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      ".github/workflows/ci.yml",
+      "docs/contracts/navigation-visual-golden-ci-issue-123-v4.polis.json",
+      "scripts/tests/test_ci_flutter_golden_setup.py"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "scripts/tests/test_ci_flutter_golden_setup.py"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Make the canonical Ubuntu golden job upload the failure images produced by the existing workspace shell test, so a failing comparison remains reviewable without changing the canonical snapshots or allowing the gate to pass.",
+    "requirements": [
+      {
+        "id": "REQ-123-V4-01",
+        "statement": "The canonical Ubuntu golden upload path includes the actual, expected and diff files emitted beside workspace_shell_test.dart under frontend/test/features/shared/presentation/widgets/failures/."
+      },
+      {
+        "id": "REQ-123-V4-02",
+        "statement": "The golden comparison remains blocking and the upload remains guarded by failure(); artifact collection cannot hide or downgrade the golden failure."
+      },
+      {
+        "id": "REQ-123-V4-03",
+        "statement": "All four canonical issue-119 snapshots and historical v1/v2/v3 contracts remain byte-identical."
+      },
+      {
+        "id": "REQ-123-V4-04",
+        "statement": "The unknown cause of the existing 1.09% Ubuntu pixel mismatch is investigated from uploaded actual/expected/diff images before any visual code or snapshot change."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-123-V4-01",
+        "statement": "A regression test fails on the baseline workflow because its failure artifact path does not include the generated nested failures directory.",
+        "requirements": [
+          "REQ-123-V4-01"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-123-V4-02",
+        "statement": "The updated workflow test passes and the upload step points to the directory observed in the CI failure output, while the golden command remains blocking and upload runs only on failure.",
+        "requirements": [
+          "REQ-123-V4-01",
+          "REQ-123-V4-02"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-123-V4-03",
+        "statement": "SHA-256 comparison confirms all four issue-119 PNGs and v1/v2/v3 contracts are unchanged.",
+        "requirements": [
+          "REQ-123-V4-03"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-123-V4-04",
+        "statement": "The next GitHub Actions run uploads actual/expected/diff files if the canonical comparison still fails; no visual correction is claimed before those images are reviewed.",
+        "requirements": [
+          "REQ-123-V4-04"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-123-V4-01",
+        "statement": "Keep the canonical golden test required and blocking; do not change Flutter 3.47.2 pin or Linux/Windows non-golden test coverage."
+      },
+      {
+        "id": "INV-123-V4-02",
+        "statement": "Do not change production UI or any canonical PNG in this artifact-path correction."
+      },
+      {
+        "id": "INV-123-V4-03",
+        "statement": "Preserve all prior versioned #123 contracts and evidence unchanged."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-123-V4-01",
+        "statement": "Golden mismatch is ignored, skipped, marked continue-on-error, or allowed to pass."
+      },
+      {
+        "id": "FORB-123-V4-02",
+        "statement": "The upload path points only to frontend/test/failures/ when files are emitted in the nested test-directory failures folder."
+      },
+      {
+        "id": "FORB-123-V4-03",
+        "statement": "Any canonical PNG or production layout is edited to make this artifact-path test pass."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-123-V4-01",
+        "statement": "Clean integration baseline 15c1f6d8304957f5af93493e02e39d2bb0ef310f and the run 40413777121 failure output locating generated images under the nested workspace widget test directory."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-123-V4-01",
+        "statement": "A workflow upload path bound to the actual generated failure image directory and a passing static regression test."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-123-V4-01",
+        "statement": "A missing/mislocated failure artifact path or disabled/ignored golden comparison blocks validation; the underlying pixel mismatch remains unresolved until the next run's images are reviewed."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "15c1f6d8304957f5af93493e02e39d2bb0ef310f",
+    "base_tree": "d646507f1a0beee8e13a7ee8542d2a6d23db833f",
+    "policy_sha256": "5563facc34ae2a1a07cf7ec7ec2f115cb8d250c49dd6e2bd5c7a3de4c977d450",
+    "specification_sha256": "4ee0cfa678fafc3083e966d03e8231e9e950469230672fd7fb65a6a30e1891aa"
+  },
+  "behavior": {
+    "argv": [
+      "python",
+      "scripts/polis_tests.py"
+    ],
+    "cwd": ".",
+    "timeout_seconds": 1200,
+    "environment": {
+      "mode": "inherit"
+    }
+  },
+  "affected": {
+    "argv": [
+      "python",
+      "scripts/polis_tests.py"
+    ],
+    "cwd": ".",
+    "timeout_seconds": 1200,
+    "environment": {
+      "mode": "inherit"
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "python",
+        "scripts/polis_tests.py"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 1200,
+      "environment": {
+        "mode": "inherit"
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "issue123_golden_failure_artifact_missing"
+    ]
+  }
+}

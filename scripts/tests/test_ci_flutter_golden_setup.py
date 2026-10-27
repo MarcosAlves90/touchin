@@ -58,7 +58,11 @@ class FlutterGoldenCiContractTest(unittest.TestCase):
         self.assertRegex(golden, r"(?m)^\s*run:\s*flutter test --tags canonical-golden\s*$", "issue123_golden_job_contract_missing")
         self.assertRegex(upload, r"(?m)^\s*if:\s*failure\(\)\s*$", "issue123_golden_failure_artifact_missing")
         self.assertIn("uses: actions/upload-artifact@v4", upload, "issue123_golden_failure_artifact_missing")
-        self.assertRegex(upload, r"(?m)^\s*path:\s*frontend/test/failures/?\s*$", "issue123_golden_failure_artifact_missing")
+        self.assertRegex(
+            upload,
+            r"(?m)^\s*path:\s*frontend/test/features/shared/presentation/widgets/failures/?\s*$",
+            "issue123_golden_failure_artifact_missing",
+        )
 
 
 if __name__ == "__main__":
