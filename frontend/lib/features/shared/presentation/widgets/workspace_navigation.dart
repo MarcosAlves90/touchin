@@ -52,9 +52,14 @@ WorkspaceDestination? workspaceDestinationFor(String? route) {
 }
 
 class WorkspaceNavigationBrand extends StatelessWidget {
-  const WorkspaceNavigationBrand({super.key, this.compact = false});
+  const WorkspaceNavigationBrand({
+    super.key,
+    this.compact = false,
+    this.onOpenDrawer,
+  });
 
   final bool compact;
+  final VoidCallback? onOpenDrawer;
 
   @override
   Widget build(BuildContext context) {
@@ -89,41 +94,59 @@ class WorkspaceNavigationBrand extends StatelessWidget {
       ),
     );
 
-    return ColoredBox(
-      color: AppTheme.accent,
-      child: Padding(
-        padding: compact
-            ? const EdgeInsets.symmetric(horizontal: 8, vertical: 6)
-            : const EdgeInsets.fromLTRB(20, 18, 20, 18),
-        child: Row(
-          mainAxisSize: compact ? MainAxisSize.min : MainAxisSize.max,
-          children: <Widget>[
-            mark,
-            SizedBox(width: compact ? 7 : 12),
-            if (compact)
-              wordmark
-            else
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    wordmark,
-                    const SizedBox(height: 2),
-                    Text(
-                      'CONTROLE DE PONTO',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: colors.onPrimary.withValues(alpha: 0.82),
-                        letterSpacing: 0.9,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+    return Container(
+      key: compact && onOpenDrawer != null
+          ? const ValueKey<String>('workspace-mobile-brand-block')
+          : null,
+      decoration: BoxDecoration(
+        color: AppTheme.accent,
+        borderRadius: compact
+            ? const BorderRadius.only(
+                topRight: Radius.circular(12),
+                bottomRight: Radius.circular(12),
+              )
+            : BorderRadius.zero,
+      ),
+      padding: compact
+          ? const EdgeInsets.symmetric(horizontal: 8, vertical: 6)
+          : const EdgeInsets.fromLTRB(20, 18, 20, 18),
+      child: Row(
+        mainAxisSize: compact ? MainAxisSize.min : MainAxisSize.max,
+        children: <Widget>[
+          if (compact && onOpenDrawer != null) ...<Widget>[
+            IconButton(
+              onPressed: onOpenDrawer,
+              tooltip: 'Abrir menu',
+              icon: Icon(Icons.menu_rounded, color: colors.onPrimary),
+              visualDensity: VisualDensity.compact,
+            ),
+            const SizedBox(width: 4),
           ],
-        ),
+          mark,
+          SizedBox(width: compact ? 7 : 12),
+          if (compact)
+            wordmark
+          else
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  wordmark,
+                  const SizedBox(height: 2),
+                  Text(
+                    'CONTROLE DE PONTO',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: colors.onPrimary.withValues(alpha: 0.82),
+                      letterSpacing: 0.9,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -435,20 +458,16 @@ class WorkspaceMobileHeader extends StatelessWidget {
         bottom: false,
         child: Container(
           key: const ValueKey<String>('workspace-mobile-header'),
-          padding: const EdgeInsets.fromLTRB(8, 8, 12, 8),
+          padding: const EdgeInsets.fromLTRB(0, 8, 16, 8),
           decoration: BoxDecoration(
             border: Border(bottom: BorderSide(color: colors.outlineVariant)),
           ),
           child: Row(
             children: <Widget>[
-              IconButton(
-                onPressed: onOpenDrawer,
-                tooltip: 'Abrir menu',
-                icon: Icon(Icons.menu_rounded, color: colors.onSurface),
-                visualDensity: VisualDensity.compact,
+              WorkspaceNavigationBrand(
+                compact: true,
+                onOpenDrawer: onOpenDrawer,
               ),
-              const SizedBox(width: 4),
-              const WorkspaceNavigationBrand(compact: true),
               const SizedBox(width: 8),
               const Spacer(),
               if (active != null)

@@ -101,6 +101,74 @@ void main() {
     );
   });
 
+  testWidgets(
+    'mobile header puts the contrasting menu inside the rounded brand block',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      var menuOpened = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: Scaffold(
+            body: WorkspaceMobileHeader(
+              currentRoute: '/time-clock',
+              onOpenDrawer: () => menuOpened = true,
+            ),
+          ),
+        ),
+      );
+
+      const brandKey = ValueKey<String>('workspace-mobile-brand-block');
+      final brand = find.byKey(brandKey);
+      final menu = find.byTooltip('Abrir menu');
+      expect(
+        find.descendant(of: brand, matching: menu),
+        findsOneWidget,
+        reason: 'mobile_brand_contains_menu',
+      );
+
+      final decoration =
+          tester.widget<Container>(brand).decoration! as BoxDecoration;
+      expect(decoration.color, AppTheme.accent);
+      expect(
+        decoration.borderRadius,
+        const BorderRadius.only(
+          topRight: Radius.circular(12),
+          bottomRight: Radius.circular(12),
+        ),
+      );
+      final header = tester.widget<Container>(
+        find.byKey(const ValueKey<String>('workspace-mobile-header')),
+      );
+      expect(header.padding, const EdgeInsets.fromLTRB(0, 8, 16, 8));
+      expect(tester.getRect(brand).left, 0);
+
+      final menuButton = find.ancestor(
+        of: menu,
+        matching: find.byType(IconButton),
+      );
+      expect(menuButton, findsOneWidget);
+      final menuIcon = tester.widget<IconButton>(menuButton).icon as Icon;
+      expect(
+        menuIcon.color,
+        Theme.of(tester.element(menu)).colorScheme.onPrimary,
+      );
+      final mark = find.descendant(
+        of: brand,
+        matching: find.byIcon(Icons.fingerprint_rounded),
+      );
+      final wordmark =
+          find.descendant(of: brand, matching: find.text('TOUCHIN'));
+      expect(mark, findsOneWidget);
+      expect(wordmark, findsOneWidget);
+      expect(tester.getTopLeft(menu).dx, lessThan(tester.getTopLeft(mark).dx));
+
+      await tester.tap(menu);
+      expect(menuOpened, isTrue);
+    },
+  );
+
   testWidgets('desktop panel uses one scroll for destinations and context', (
     tester,
   ) async {
