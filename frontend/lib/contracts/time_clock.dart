@@ -182,6 +182,7 @@ abstract class CreatePunchRequest with _$CreatePunchRequest {
       'type': punchTypeToApi(type),
       if (projectId != null && projectId!.trim().isNotEmpty)
         'projectId': projectId!.trim(),
+      if (projectId == null && workLog != null) 'projectId': null,
       if (location != null) 'location': location!.toApiJson(),
       if (workLog != null) 'workLog': workLog!.toApiJson(),
     };

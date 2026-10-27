@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 from sqlalchemy import and_, or_, select, update
 from sqlalchemy.orm import Session
 
@@ -12,7 +14,7 @@ from app.domain.time_clock_read import (
     serialize_record,
 )
 from app.errors import DomainError, ErrorKind
-from app.models import Employee, Punch, WorkLog
+from app.models import Employee, Punch, Task, WorkLog
 from app.schemas.punch import (
     CreatePunchRequest,
     ManagePunchRequest,
@@ -227,7 +229,25 @@ def create_punch(
             project_id=payload.project_id,
         )
 
-    active_project_id = payload.project_id or (last_punch.project_id if last_punch else None)
+    # Explicit null means "Nenhum"; an omitted key keeps the legacy fallback.
+    active_project_id = (
+        payload.project_id
+        if "project_id" in payload.model_fields_set
+        else (last_punch.project_id if last_punch else None)
+    )
+    if active_project_id and "project_id" not in payload.model_fields_set:
+        try:
+            validate_project_for_punch(
+                db,
+                company_id=employee.company_id,
+                employee_id=employee.id,
+                project_id=active_project_id,
+            )
+        except DomainError as error:
+            if error.kind not in {ErrorKind.forbidden, ErrorKind.not_found}:
+                raise
+            # Revoked or inactive assignments cannot be carried into new punches.
+            active_project_id = None
 
     if active_project_id or payload.work_log:
         if punch_type == PunchType.check_out and current_status == "onBreak":
@@ -238,31 +258,29 @@ def create_punch(
         if not payload.work_log:
             raise DomainError(ErrorKind.bad_request, "O registro de atividades é obrigatório ao sair para o almoço ou encerrar a jornada.")
         
-        from app.models import Task, WorkLog
-        
         task_ids = set(payload.work_log.task_ids)
-        if not task_ids:
+        if active_project_id and not task_ids:
             raise DomainError(ErrorKind.bad_request, "IDs de tarefas não informados.")
-            
-        tasks_for_log = db.scalars(
-            select(Task).where(Task.id.in_(task_ids))
-        ).all()
-        
-        if len(tasks_for_log) != len(task_ids):
-            raise DomainError(ErrorKind.bad_request, "IDs de tarefas inválidos.")
-            
-        if not active_project_id:
-            active_project_id = tasks_for_log[0].project_id
+        if task_ids:
+            if "project_id" in payload.model_fields_set and payload.project_id is None:
+                raise DomainError(ErrorKind.bad_request, "Tarefas não podem ser informadas sem projeto.")
+            tasks_for_log = db.scalars(
+                select(Task).where(Task.id.in_(task_ids))
+            ).all()
+            if len(tasks_for_log) != len(task_ids):
+                raise DomainError(ErrorKind.bad_request, "IDs de tarefas inválidos.")
+            if not active_project_id:
+                active_project_id = tasks_for_log[0].project_id
 
-        for t in tasks_for_log:
-            if t.project_id != active_project_id:
-                raise DomainError(ErrorKind.bad_request, "Tarefas informadas não pertencem ao projeto.")
-            validate_project_for_punch(
-                db,
-                company_id=employee.company_id,
-                employee_id=employee.id,
-                project_id=t.project_id,
-            )
+            for t in tasks_for_log:
+                if t.project_id != active_project_id:
+                    raise DomainError(ErrorKind.bad_request, "Tarefas informadas não pertencem ao projeto.")
+                validate_project_for_punch(
+                    db,
+                    company_id=employee.company_id,
+                    employee_id=employee.id,
+                    project_id=t.project_id,
+                )
 
     detail = {
         PunchType.check_in: "Entrada registrada",
@@ -286,8 +304,7 @@ def create_punch(
     )
     db.add(record)
     
-    if tasks_for_log:
-        import json
+    if punch_type in (PunchType.break_start, PunchType.check_out) and current_status == "working":
         assert last_punch is not None
         start_time = ensure_utc(last_punch.timestamp)
         end_time = ensure_utc(record.timestamp)

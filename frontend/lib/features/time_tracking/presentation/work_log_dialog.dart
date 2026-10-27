@@ -9,7 +9,7 @@ class WorkLogSubmission {
     required this.workLog,
   });
 
-  final String projectId;
+  final String? projectId;
   final WorkLogPayload workLog;
 }
 
@@ -26,6 +26,8 @@ class WorkLogDialog extends StatefulWidget {
 }
 
 class _WorkLogDialogState extends State<WorkLogDialog> {
+  // Only a dropdown value; never sent to the API or persisted.
+  static const String _noProjectOption = '__no_project__';
   final TextEditingController _descriptionController = TextEditingController();
   final Set<String> _selectedTaskIds = <String>{};
   String? _selectedProjectId;
@@ -34,11 +36,14 @@ class _WorkLogDialogState extends State<WorkLogDialog> {
   bool get _canSubmit =>
       _selectedProjectId != null &&
       _descriptionController.text.trim().isNotEmpty &&
-      _selectedTaskIds.isNotEmpty;
+      (_selectedProjectId == _noProjectOption || _selectedTaskIds.isNotEmpty);
 
   @override
   void initState() {
     super.initState();
+    if (widget.controller.workLogProjects.isEmpty) {
+      _selectedProjectId = _noProjectOption;
+    }
     _descriptionController.addListener(_descriptionChanged);
   }
 
@@ -67,8 +72,13 @@ class _WorkLogDialogState extends State<WorkLogDialog> {
       _loadError = null;
     });
 
+    if (projectId == _noProjectOption) {
+      widget.controller.clearWorkLogProjectSelection();
+      return;
+    }
+
     final error = await widget.controller.loadWorkLogTasks(projectId);
-    if (!mounted) {
+    if (!mounted || _selectedProjectId != projectId) {
       return;
     }
     setState(() {
@@ -83,7 +93,9 @@ class _WorkLogDialogState extends State<WorkLogDialog> {
 
     Navigator.of(context).pop(
       WorkLogSubmission(
-        projectId: _selectedProjectId!,
+        projectId: _selectedProjectId == _noProjectOption
+            ? null
+            : _selectedProjectId,
         workLog: WorkLogPayload(
           description: _descriptionController.text.trim(),
           taskIds: _selectedTaskIds.toList(growable: false),
@@ -108,23 +120,26 @@ class _WorkLogDialogState extends State<WorkLogDialog> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Text(
-                'Informe o projeto, descreva o trabalho realizado e selecione ao menos uma tarefa.',
+                'Descreva o trabalho realizado. Se selecionar um projeto, escolha ao menos uma tarefa.',
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
                 key: const Key('work-log-project'),
                 initialValue: _selectedProjectId,
                 decoration: const InputDecoration(labelText: 'Projeto'),
-                items: projects
-                    .map(
-                      (project) => DropdownMenuItem<String>(
-                        value: project.id,
-                        child: Text(project.name),
-                      ),
-                    )
-                    .toList(growable: false),
-                onChanged:
-                    controller.isLoadingWorkLogTasks ? null : _selectProject,
+                items: [
+                  const DropdownMenuItem<String>(
+                    value: _noProjectOption,
+                    child: Text('Nenhum'),
+                  ),
+                  ...projects.map(
+                    (project) => DropdownMenuItem<String>(
+                      value: project.id,
+                      child: Text(project.name),
+                    ),
+                  ),
+                ],
+                onChanged: _selectProject,
               ),
               const SizedBox(height: 16),
               TextField(
@@ -139,7 +154,9 @@ class _WorkLogDialogState extends State<WorkLogDialog> {
               ),
               const SizedBox(height: 16),
               if (_selectedProjectId == null)
-                const Text('Selecione um projeto para carregar as tarefas.')
+                const Text('Selecione um projeto ou Nenhum.')
+              else if (_selectedProjectId == _noProjectOption)
+                const SizedBox.shrink()
               else if (controller.isLoadingWorkLogTasks)
                 const WorkspaceSkeletonRegion(
                   key: ValueKey<String>('work-log-tasks-skeleton'),
@@ -171,11 +188,6 @@ class _WorkLogDialogState extends State<WorkLogDialog> {
                     },
                   ),
                 ),
-              ],
-              if (projects.isEmpty) ...[
-                const SizedBox(height: 12),
-                const Text(
-                    'Nenhum projeto ativo disponível para este usuário.'),
               ],
             ],
           ),

@@ -367,3 +367,135 @@ def test_mandatory_work_log_no_project_id(client: TestClient):
     assert "registro de atividades" in res.json()["detail"].lower()
     res = client.post("/api/v1/time-clock/me/punches", headers=headers, json={"type": "checkOut", "workLog": {"description": "desc", "taskIds": [task["id"]]}})
     assert res.status_code == 200, res.text
+
+
+def test_employee_without_projects_can_record_complete_shift_and_work_logs(client: TestClient):
+    from sqlalchemy import delete, select
+    from app.config import get_settings
+    from app.crypto import FieldCipher
+    from app.db import SessionLocal
+    from app.models import EmployeeProject, Punch, WorkLog
+
+    _clear_employee_punches("emp-04")
+    with SessionLocal() as db:
+        db.execute(delete(EmployeeProject).where(EmployeeProject.employee_id == "emp-04"))
+        db.commit()
+
+    headers = login_headers_for(client, email=JOAO_EMAIL, password=TEST_SEED_SECRET)
+    path = "/api/v1/time-clock/me/punches"
+    for punch_type, work_log in (
+        ("checkIn", None),
+        ("breakStart", {"description": "Atividade sem projeto", "taskIds": []}),
+        ("breakEnd", None),
+        ("checkOut", {"description": "Atividade final", "taskIds": []}),
+    ):
+        payload = {"type": punch_type, "projectId": None}
+        if work_log is not None:
+            payload["workLog"] = work_log
+        response = client.post(path, headers=headers, json=payload)
+        assert response.status_code == 200, response.text
+        assert response.json()["projectId"] is None
+
+    cipher = FieldCipher(get_settings().encryption_secret or "")
+    with SessionLocal() as db:
+        punches = db.scalars(select(Punch).where(Punch.employee_id == "emp-04").order_by(Punch.timestamp)).all()
+        logs = db.scalars(select(WorkLog).where(WorkLog.employee_id == "emp-04").order_by(WorkLog.start_time)).all()
+        assert [record.type for record in punches] == ["checkIn", "breakStart", "breakEnd", "checkOut"]
+        assert all(record.project_id is None for record in punches)
+        assert len(logs) == 2
+        for log, start, end, description in zip(
+            logs, (punches[0], punches[2]), (punches[1], punches[3]),
+            ("Atividade sem projeto", "Atividade final"),
+        ):
+            assert log.project_id is None
+            assert log.employee_id_snapshot == "emp-04"
+            assert log.punch_id == end.id
+            assert cipher.decrypt(log.description_ciphertext) == description
+            assert log.tasks == []
+            assert log.start_time.replace(tzinfo=timezone.utc) == start.timestamp.replace(tzinfo=timezone.utc)
+            assert log.end_time.replace(tzinfo=timezone.utc) == end.timestamp.replace(tzinfo=timezone.utc)
+            assert log.duration_seconds == max(int((end.timestamp - start.timestamp).total_seconds()), 0)
+
+    history = client.get("/api/v1/time-clock/me?page=1&limit=10", headers=headers)
+    assert history.status_code == 200, history.text
+    assert history.json()["recordsTotal"] == 4
+    assert all(record["projectId"] is None for record in history.json()["records"])
+
+
+def test_explicit_null_project_does_not_inherit_previous_project(client: TestClient):
+    from sqlalchemy import select
+    from app.db import SessionLocal
+    from app.models import Punch, WorkLog
+
+    _clear_employee_punches("emp-04")
+    admin_headers = login_headers(client)
+    project = _create_project(client, admin_headers, name="Prior project")
+    assigned = client.post(
+        f"/api/v1/projects/{project['id']}/members",
+        headers=admin_headers, json={"employeeId": "emp-04"},
+    )
+    assert assigned.status_code in (200, 201), assigned.text
+    headers = login_headers_for(client, email=JOAO_EMAIL, password=TEST_SEED_SECRET)
+    path = "/api/v1/time-clock/me/punches"
+
+    check_in = client.post(path, headers=headers, json={"type": "checkIn", "projectId": project["id"]})
+    assert check_in.status_code == 200, check_in.text
+    break_start = client.post(path, headers=headers, json={
+        "type": "breakStart", "projectId": None,
+        "workLog": {"description": "Sem projeto agora", "taskIds": []},
+    })
+    assert break_start.status_code == 200, break_start.text
+    assert break_start.json()["projectId"] is None
+
+    with SessionLocal() as db:
+        punches = db.scalars(select(Punch).where(Punch.employee_id == "emp-04").order_by(Punch.timestamp)).all()
+        log = db.scalar(select(WorkLog).where(WorkLog.employee_id == "emp-04"))
+        assert [punch.project_id for punch in punches] == [project["id"], None]
+        assert log is not None and log.project_id is None and log.tasks == []
+
+
+def test_omitted_project_does_not_restore_revoked_previous_assignment(client: TestClient):
+    _clear_employee_punches("emp-04")
+    admin_headers = login_headers(client)
+    project = _create_project(client, admin_headers, name="Former assignment")
+    member_path = f"/api/v1/projects/{project['id']}/members"
+    assert client.post(member_path, headers=admin_headers, json={"employeeId": "emp-04"}).status_code in (200, 201)
+    headers = login_headers_for(client, email=JOAO_EMAIL, password=TEST_SEED_SECRET)
+    path = "/api/v1/time-clock/me/punches"
+    assert client.post(path, headers=headers, json={"type": "checkIn", "projectId": project["id"]}).status_code == 200
+    assert client.delete(f"{member_path}/emp-04", headers=admin_headers).status_code == 204
+
+    response = client.post(path, headers=headers, json={
+        "type": "breakStart",
+        "workLog": {"description": "Trabalho após desvinculação", "taskIds": []},
+    })
+    assert response.status_code == 200, response.text
+    assert response.json()["projectId"] is None
+
+
+def test_project_work_log_still_requires_tasks_and_authorized_project(client: TestClient):
+    _clear_employee_punches("emp-04")
+    admin_headers = login_headers(client)
+    authorized = _create_project(client, admin_headers, name="Assigned project")
+    unauthorized = _create_project(client, admin_headers, name="Unassigned project")
+    assigned = client.post(
+        f"/api/v1/projects/{authorized['id']}/members", headers=admin_headers,
+        json={"employeeId": "emp-04"},
+    )
+    assert assigned.status_code in (200, 201), assigned.text
+    headers = login_headers_for(client, email=JOAO_EMAIL, password=TEST_SEED_SECRET)
+    path = "/api/v1/time-clock/me/punches"
+    assert client.post(path, headers=headers, json={"type": "checkIn"}).status_code == 200
+
+    for project_id, status_code in ((authorized["id"], 400), (unauthorized["id"], 403)):
+        response = client.post(path, headers=headers, json={
+            "type": "breakStart", "projectId": project_id,
+            "workLog": {"description": "Atividade", "taskIds": []},
+        })
+        assert response.status_code == status_code, response.text
+
+    invalid_description = client.post(path, headers=headers, json={
+        "type": "breakStart", "projectId": None,
+        "workLog": {"description": "   ", "taskIds": []},
+    })
+    assert invalid_description.status_code == 422, invalid_description.text
