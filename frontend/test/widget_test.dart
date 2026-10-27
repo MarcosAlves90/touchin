@@ -811,9 +811,13 @@ void main() {
         user: employeeWithoutProfile,
         expected: const <String>[
           'Projetos e tarefas',
-          'Kanban',
           'Configurações'
         ],
+      ),
+      (
+        name: 'manager without employee profile',
+        user: managerWithoutProfile,
+        expected: administratorDestinations,
       ),
       (
         name: 'manager with employee profile',

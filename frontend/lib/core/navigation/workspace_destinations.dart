@@ -14,6 +14,9 @@ enum WorkspaceDestinationAccess {
   /// Needs `projects.read`/`kanban.read`, granted to every known role.
   knownRole,
 
+  /// Needs Kanban permission and, for employees, a linked employee profile.
+  kanban,
+
   /// Local-only screen that never calls the backend.
   everyone,
 }
@@ -38,6 +41,8 @@ class WorkspaceDestination {
       WorkspaceDestinationAccess.employeeProfile => user.hasEmployeeProfile,
       WorkspaceDestinationAccess.managerial =>
         _managerialRoles.contains(user.role),
+      WorkspaceDestinationAccess.kanban =>
+        _managerialRoles.contains(user.role) || user.hasEmployeeProfile,
       WorkspaceDestinationAccess.knownRole ||
       WorkspaceDestinationAccess.everyone =>
         true,
@@ -78,7 +83,7 @@ const workspaceDestinations = <WorkspaceDestination>[
     icon: Icons.view_kanban_outlined,
     label: 'Kanban',
     route: '/kanban',
-    access: WorkspaceDestinationAccess.knownRole,
+    access: WorkspaceDestinationAccess.kanban,
   ),
   WorkspaceDestination(
     icon: Icons.tune_rounded,
