@@ -33,3 +33,19 @@ production navigation color tokens and light/dark color values, but remains a
 component-level visual check with fixture content, not an authenticated
 end-to-end run of the whole application. Poppins typography and live API data
 are not represented by these captures.
+
+## Canonical baseline provenance
+
+The four updated screenshots are the actual images from CI run
+[40753762985](https://github.com/MarcosAlves90/touchin/actions/runs/40753762985),
+which tested candidate commit `34657a6c751d1e2a571264d6060383a99d07c903` on
+Ubuntu 24.04.5 x64 with Flutter 3.47.2. The actuals and diffs were reviewed at
+native size; the informational sidebar chips are absent in desktop and mobile,
+light and dark captures.
+
+| Snapshot | SHA-256 |
+| --- | --- |
+| `desktop-light.png` | `0fbd81206cbda83be64b857cd49b911f8d1e4b2301d57a3ef8e27d32cea5555e` |
+| `desktop-dark.png` | `affba68411d49357cbb55e6d5d098d4ee8061f40f936eee99a7e54031999dd57` |
+| `mobile-light.png` | `5a65a125d970da5d2fec327cbc6a4bb2f1bda9367450e5d0b8e324269653a87d` |
+| `mobile-dark.png` | `b437624ec8b3cd1f552907a7e7465cc0e6edfdbcc5d5a9bf7dfddb2a5c3018f5` |
