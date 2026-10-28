@@ -54,9 +54,14 @@ def register_company_route(
 @router.post("/login", response_model=AuthSessionResponse)
 def login_route(
     payload: LoginRequest,
+    request: Request,
     db: Session = Depends(get_db),
 ) -> AuthSessionResponse:
-    return login(db, payload)
+    return login(
+        db,
+        payload,
+        client_ip=request.client.host if request.client else "unknown",
+    )
 
 
 @router.post("/reset-password", response_model=MessageResponse)

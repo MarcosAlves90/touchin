@@ -30,10 +30,23 @@ for name, command, directory in (
         [sys.executable, "-B", "-m", "unittest", "discover", "-s", "scripts/tests", "-v"],
         ROOT,
     ),
-    ("backend", [backend_python, "-B", "-m", "pytest"], BACKEND),
+    (
+        "backend",
+        [
+            backend_python,
+            "-B",
+            "-m",
+            "pytest",
+            "--cov=app",
+            "--cov-report=term-missing",
+            "--cov-report=xml:coverage/coverage.xml",
+            "--cov-report=html:coverage/html",
+        ],
+        BACKEND,
+    ),
     (
         "frontend",
-        [flutter_executable, "test", "--exclude-tags", "canonical-golden"],
+        [flutter_executable, "test", "--coverage", "--exclude-tags", "canonical-golden"],
         FRONTEND,
     ),
 ):

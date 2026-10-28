@@ -414,6 +414,16 @@ class PasswordResetThrottle(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class LoginAttemptThrottle(Base):
+    __tablename__ = "login_attempt_throttles"
+
+    # HMAC(scope, identifier, UTC hour). Never persist email/IP in cleartext.
+    bucket_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    bucket_hour: Mapped[int] = mapped_column(Integer, index=True)
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 @event.listens_for(Project, "init")
 def _initialize_project_kanban_column(
     project: Project,

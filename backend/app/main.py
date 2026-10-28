@@ -16,6 +16,7 @@ ERROR_STATUS_CODES = {
     ErrorKind.forbidden: 403,
     ErrorKind.not_found: 404,
     ErrorKind.conflict: 409,
+    ErrorKind.too_many_requests: 429,
 }
 
 def create_app() -> FastAPI:

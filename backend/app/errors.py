@@ -9,6 +9,7 @@ class ErrorKind(str, Enum):
     forbidden = "forbidden"
     not_found = "not_found"
     conflict = "conflict"
+    too_many_requests = "too_many_requests"
 
 
 class DomainError(Exception):

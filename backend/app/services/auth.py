@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from sqlalchemy import or_, select, update
+from datetime import datetime
+from sqlalchemy import delete, or_, select, text, update
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
@@ -18,7 +19,14 @@ from app.domain.auth_session import build_auth_response, issue_session
 from app.domain.identity import normalize_email as _normalize_email
 from app.db import begin_serialized_write, utcnow
 from app.errors import DomainError, ErrorKind
-from app.models import AuthSession, Company, Employee, PasswordResetToken, UserAccount
+from app.models import (
+    AuthSession,
+    Company,
+    Employee,
+    LoginAttemptThrottle,
+    PasswordResetToken,
+    UserAccount,
+)
 from app.schemas.auth import (
     AuthContextResponse,
     AuthSessionResponse,
@@ -27,6 +35,10 @@ from app.schemas.auth import (
 )
 from app.security import hash_password, verify_password
 from app.services.brevo import send_company_welcome_email
+
+LOGIN_ACCOUNT_MAX_FAILURES_PER_HOUR = 5
+LOGIN_SOURCE_MAX_ATTEMPTS_PER_HOUR = 100
+LOGIN_RATE_LIMIT_MESSAGE = "Too many login attempts. Please try again later."
 
 
 @dataclass(slots=True)
@@ -75,6 +87,65 @@ def mask_phone(value: str) -> str:
 def mask_cnpj(value: str) -> str:
     digits = digits_only(value)
     return f"{digits[:2]}.***.***/****-{digits[-2:]}"
+
+
+def _login_bucket_key(scope: str, identifier: str, now: datetime) -> tuple[str, int]:
+    hour = int(now.timestamp()) // 3600
+    digest = lookup_digest(
+        f"login-rate:{scope}:{identifier}:{hour}",
+        get_settings().token_secret or "",
+    )
+    return digest, hour
+
+
+def _consume_login_bucket(
+    db: Session,
+    *,
+    scope: str,
+    identifier: str,
+    now: datetime,
+    limit: int,
+) -> tuple[str, int, bool]:
+    digest, hour = _login_bucket_key(scope, identifier, now)
+    result = db.execute(
+        text(
+            "INSERT INTO login_attempt_throttles "
+            "(bucket_hash, bucket_hour, attempts, updated_at) "
+            "VALUES (:digest, :hour, 1, :now) "
+            "ON CONFLICT (bucket_hash) DO UPDATE "
+            "SET attempts = login_attempt_throttles.attempts + 1, "
+            "updated_at = :now "
+            "WHERE login_attempt_throttles.attempts < :limit"
+        ),
+        {"digest": digest, "hour": hour, "now": now, "limit": limit},
+    )
+    return digest, hour, result.rowcount == 1
+
+
+def _lock_login_bucket(
+    db: Session,
+    *,
+    scope: str,
+    identifier: str,
+    now: datetime,
+) -> tuple[str, int, int]:
+    digest, hour = _login_bucket_key(scope, identifier, now)
+    db.execute(
+        text(
+            "INSERT INTO login_attempt_throttles "
+            "(bucket_hash, bucket_hour, attempts, updated_at) "
+            "VALUES (:digest, :hour, 0, :now) "
+            "ON CONFLICT (bucket_hash) DO NOTHING"
+        ),
+        {"digest": digest, "hour": hour, "now": now},
+    )
+    statement = select(LoginAttemptThrottle.attempts).where(
+        LoginAttemptThrottle.bucket_hash == digest
+    )
+    if db.bind is not None and db.bind.dialect.name != "sqlite":
+        statement = statement.with_for_update()
+    attempts = db.scalar(statement) or 0
+    return digest, hour, attempts
 
 
 def summarize_company(company: Company, cipher: FieldCipher | None = None) -> CompanySummary:
@@ -156,13 +227,42 @@ def register_company(
     return build_auth_response(token, auth_session, user, company, cipher)
 
 
-def login(db: Session, payload: LoginRequest) -> AuthSessionResponse:
+def login(
+    db: Session,
+    payload: LoginRequest,
+    *,
+    client_ip: str = "unknown",
+) -> AuthSessionResponse:
     cipher = _cipher()
+    now = utcnow()
+    normalized_email = normalize_email(str(payload.email))
     # Credential verification and creation of the resulting AuthSession must
     # hold the same user lock used by password reset and password change.
     # Otherwise a stale login can commit a valid session after reset revoked
     # every session that existed at its commit.
     begin_serialized_write(db)
+
+    _, _, source_allowed = _consume_login_bucket(
+        db,
+        scope="source",
+        identifier=client_ip or "unknown",
+        now=now,
+        limit=LOGIN_SOURCE_MAX_ATTEMPTS_PER_HOUR,
+    )
+    if not source_allowed:
+        db.commit()
+        raise DomainError(ErrorKind.too_many_requests, LOGIN_RATE_LIMIT_MESSAGE)
+
+    account_digest, account_hour, account_attempts = _lock_login_bucket(
+        db,
+        scope="account",
+        identifier=normalized_email,
+        now=now,
+    )
+    if account_attempts >= LOGIN_ACCOUNT_MAX_FAILURES_PER_HOUR:
+        db.commit()
+        raise DomainError(ErrorKind.too_many_requests, LOGIN_RATE_LIMIT_MESSAGE)
+
     user, _, _ = _resolve_user(db, str(payload.email))
     if user is not None:
         user = db.scalar(
@@ -170,14 +270,39 @@ def login(db: Session, payload: LoginRequest) -> AuthSessionResponse:
             .with_for_update().execution_options(populate_existing=True)
         )
     if user is None or not verify_password(payload.password, user.password_hash):
+        _, _, account_allowed = _consume_login_bucket(
+            db,
+            scope="account",
+            identifier=normalized_email,
+            now=now,
+            limit=LOGIN_ACCOUNT_MAX_FAILURES_PER_HOUR,
+        )
+        db.execute(
+            delete(LoginAttemptThrottle).where(
+                LoginAttemptThrottle.bucket_hour < account_hour - 48
+            )
+        )
+        db.commit()
+        if not account_allowed:
+            raise DomainError(ErrorKind.too_many_requests, LOGIN_RATE_LIMIT_MESSAGE)
         raise DomainError(ErrorKind.unauthorized, "Invalid email or password.")
 
     company = db.get(Company, user.company_id)
     if company is None:
+        db.commit()
         raise DomainError(ErrorKind.forbidden, "The company account is inactive.")
-    _ensure_accounts_active(user, company)
+    try:
+        _ensure_accounts_active(user, company)
+    except DomainError:
+        db.commit()
+        raise
 
-    user.last_login_at = utcnow()
+    user.last_login_at = now
+    db.execute(
+        delete(LoginAttemptThrottle).where(
+            LoginAttemptThrottle.bucket_hash == account_digest
+        )
+    )
     token, auth_session = issue_session(
         db,
         user=user,
