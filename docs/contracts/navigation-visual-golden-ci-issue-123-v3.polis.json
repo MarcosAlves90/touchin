@@ -1,0 +1,189 @@
+{
+  "schema_version": 6,
+  "kind": "behavior_preserving",
+  "scope": {
+    "allowed_paths": [
+      "docs/contracts/workspace-skeletons-issue-121-v2.polis.json",
+      "docs/contracts/navigation-visual-golden-ci-issue-123-v3.polis.json",
+      "docs/validation/issue-121/README.md",
+      "docs/validation/issue-121/project-tasks-responsive.webm",
+      "frontend/lib/features/admin/presentation/admin_audit_page.dart",
+      "frontend/lib/features/admin/presentation/admin_employees_page.dart",
+      "frontend/lib/features/auth/presentation/widgets/auth_form_widgets.dart",
+      "frontend/lib/features/projects/presentation/project_kanban_page.dart",
+      "frontend/lib/features/projects/presentation/project_tasks_page.dart",
+      "frontend/lib/features/shared/presentation/widgets/workspace_editor_dialog.dart",
+      "frontend/lib/features/shared/presentation/widgets/workspace_skeleton.dart",
+      "frontend/lib/features/time_tracking/presentation/time_clock_page.dart",
+      "frontend/lib/features/time_tracking/presentation/work_log_dialog.dart",
+      "frontend/lib/main.dart",
+      "frontend/test/admin_audit_page_test.dart",
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart",
+      "frontend/test/features/projects/presentation/project_tasks_page_test.dart",
+      "frontend/test/features/shared/presentation/widgets/workspace_skeleton_test.dart",
+      "frontend/test/features/time_tracking/presentation/time_clock_page_test.dart",
+      "frontend/test/issue121_visual_entrypoint.dart",
+      "frontend/test/loading_spinner_audit_test.dart"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/admin_audit_page_test.dart",
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart",
+      "frontend/test/features/projects/presentation/project_tasks_page_test.dart",
+      "frontend/test/features/shared/presentation/widgets/workspace_skeleton_test.dart",
+      "frontend/test/features/time_tracking/presentation/time_clock_page_test.dart",
+      "frontend/test/issue121_visual_entrypoint.dart",
+      "frontend/test/loading_spinner_audit_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Integrate origin/main commit 1024189266d6cdbcb70a231e87d6c1a366e1147a into PR #123 head f1591b10e4ce5d1d988f45b120a90d1539b67fd9 while preserving the PR navigation behavior and canonical historical evidence.",
+    "requirements": [
+      {
+        "id": "REQ-123-V3-01",
+        "statement": "The merged frontend shell retains PR #123 workspace routing, navigation, and login-to-workspace behavior while incorporating upstream WorkspaceSkeleton and WorkspaceSkeletonRegion loading behavior."
+      },
+      {
+        "id": "REQ-123-V3-02",
+        "statement": "All four docs/validation/issue-119 PNG snapshots and the versioned #123 v1/v2 contracts remain byte-identical to the clean PR-head baseline."
+      },
+      {
+        "id": "REQ-123-V3-03",
+        "statement": "The same configured functional characterization passes on the clean baseline and integrated target; the target also passes every enabled Project Policy command gate."
+      },
+      {
+        "id": "REQ-123-V3-04",
+        "statement": "No visual snapshot or application layout is changed to mask the outstanding canonical Ubuntu golden difference."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-123-V3-01",
+        "statement": "The integrated shell composes the PR navigation/session flow with the upstream skeleton interfaces and focused navigation/skeleton tests pass.",
+        "requirements": [
+          "REQ-123-V3-01"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-123-V3-02",
+        "statement": "SHA-256 comparisons against the locked PR-head tree confirm the four issue-119 PNG files and v1/v2 contract files are byte-identical.",
+        "requirements": [
+          "REQ-123-V3-02"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-123-V3-03",
+        "statement": "The exact behavior command passes against both the locked baseline and integrated target; all effective command gates in .polis/policy.json pass on target.",
+        "requirements": [
+          "REQ-123-V3-03"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-123-V3-04",
+        "statement": "The canonical snapshots and production layout have no changes in the integration diff; the unresolved image mismatch remains subject to actual/expected/diff review.",
+        "requirements": [
+          "REQ-123-V3-04"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-123-V3-01",
+        "statement": "Keep the four issue-119 PNG snapshots and #123 v1/v2 contract/proof history byte-identical; add only the new versioned v3 contract."
+      },
+      {
+        "id": "INV-123-V3-02",
+        "statement": "Preserve authentication/session revocation, API contracts, and navigation routes already present at the locked PR baseline."
+      },
+      {
+        "id": "INV-123-V3-03",
+        "statement": "Retain all upstream #121 changes and their regression tests; do not resolve the conflict by restoring APIs removed upstream."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-123-V3-01",
+        "statement": "Any of the four issue-119 PNGs or historical #123 v1/v2 contracts are rewritten or omitted."
+      },
+      {
+        "id": "FORB-123-V3-02",
+        "statement": "The merge drops PR navigation/session behavior or the upstream skeleton behavior/tests."
+      },
+      {
+        "id": "FORB-123-V3-03",
+        "statement": "Application layout or snapshots are modified to conceal the failing canonical Ubuntu comparison."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-123-V3-01",
+        "statement": "Clean PR baseline f1591b10e4ce5d1d988f45b120a90d1539b67fd9 and fetched origin/main 1024189266d6cdbcb70a231e87d6c1a366e1147a."
+      },
+      {
+        "id": "IN-123-V3-02",
+        "statement": "Existing #123 v1/v2 locks, tests and four canonical issue-119 snapshots."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-123-V3-01",
+        "statement": "A conflict-resolved local integration commit and immutable #123 v3 POLIS contract with validation evidence."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-123-V3-01",
+        "statement": "A failed characterization, changed historical artifact hash, omitted upstream behavior, or failed effective command gate blocks publication."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "f1591b10e4ce5d1d988f45b120a90d1539b67fd9",
+    "base_tree": "4c86b214055876037b86bafaa7aae967925d2700",
+    "policy_sha256": "5563facc34ae2a1a07cf7ec7ec2f115cb8d250c49dd6e2bd5c7a3de4c977d450",
+    "specification_sha256": "d7f24ea8734ec8dfa0c18066a578226cf965f179a51ac130ac1b3de6ce721851"
+  },
+  "behavior": {
+    "argv": [
+      "python",
+      "scripts/polis_tests.py"
+    ],
+    "cwd": ".",
+    "timeout_seconds": 1200,
+    "environment": {
+      "mode": "inherit"
+    }
+  },
+  "affected": {
+    "argv": [
+      "python",
+      "scripts/polis_tests.py"
+    ],
+    "cwd": ".",
+    "timeout_seconds": 1200,
+    "environment": {
+      "mode": "inherit"
+    }
+  },
+  "regression": {
+    "mode": "green_green",
+    "command": {
+      "argv": [
+        "python",
+        "scripts/polis_tests.py"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 1200,
+      "environment": {
+        "mode": "inherit"
+      }
+    }
+  }
+}

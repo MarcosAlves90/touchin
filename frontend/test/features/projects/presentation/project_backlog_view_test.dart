@@ -42,6 +42,59 @@ void main() {
           ),
         ));
         await tester.pumpAndSettle();
+        final toolbar = find.byKey(const ValueKey('backlog-toolbar'));
+        expect(toolbar, findsOneWidget);
+        final toolbarMaterial = tester.widget<Material>(toolbar);
+        expect(toolbarMaterial.color, theme.colorScheme.surface);
+        final toolbarPadding = tester.widget<Padding>(
+          find
+              .descendant(
+                of: toolbar,
+                matching: find.byType(Padding),
+              )
+              .first,
+        );
+        expect(toolbarPadding.padding, const EdgeInsets.all(12));
+        expect(
+          tester.getSize(find.byKey(const ValueKey('backlog-search'))).height,
+          48,
+          reason: 'workspace_search_control_height',
+        );
+        expect(
+          tester
+              .widget<TextField>(
+                find.byKey(const ValueKey('backlog-search')),
+              )
+              .decoration
+              ?.constraints
+              ?.minHeight,
+          48,
+          reason: 'workspace_search_control_height',
+        );
+        expect(
+          tester
+              .widget<TextField>(
+                find.byKey(const ValueKey('backlog-search')),
+              )
+              .decoration
+              ?.constraints
+              ?.maxHeight,
+          48,
+          reason: 'workspace_search_control_height',
+        );
+        expect(
+          tester
+              .getSize(find
+                  .descendant(
+                    of: find.byKey(const ValueKey('backlog-search')),
+                    matching: find.byType(InputDecorator),
+                  )
+                  .first)
+              .height,
+          48,
+          reason: 'workspace_search_control_height',
+        );
+
         for (final label in <String>[
           'Gerenciar colunas',
           'Novo status',
@@ -53,7 +106,7 @@ void main() {
                 find.byWidgetPredicate((widget) => widget is ButtonStyleButton),
           );
           expect(tester.getSize(button).width, lessThan(210));
-          expect(tester.getSize(button).height, lessThanOrEqualTo(40));
+          expect(tester.getSize(button).height, greaterThanOrEqualTo(48));
           expect(tester.getRect(button).top,
               tester.getRect(find.byKey(const ValueKey('backlog-search'))).top);
         }
@@ -65,7 +118,42 @@ void main() {
           'backlog-sort',
         ]) {
           final field = find.byKey(ValueKey<String>(key));
-          expect(tester.getSize(field).height, 40);
+          expect(
+            tester.getSize(field).height,
+            48,
+            reason: 'workspace_search_control_height',
+          );
+          expect(
+            tester
+                .widget<WorkspaceInstantSelectField<String>>(field)
+                .decoration
+                .constraints
+                ?.minHeight,
+            48,
+            reason: 'workspace_search_control_height',
+          );
+          expect(
+            tester
+                .widget<WorkspaceInstantSelectField<String>>(field)
+                .decoration
+                .constraints
+                ?.maxHeight,
+            48,
+            reason: 'workspace_search_control_height',
+          );
+          expect(
+            tester
+                .getSize(find
+                    .descendant(
+                      of: field,
+                      matching: find.byType(InputDecorator),
+                    )
+                    .first)
+                .height,
+            48,
+            reason: 'workspace_search_control_height',
+          );
+
           final select =
               tester.widget<WorkspaceInstantSelectField<String>>(field);
           expect(select.decoration.labelText, isNull);
@@ -77,7 +165,16 @@ void main() {
         expect(
             tester.getSize(find.byKey(const ValueKey('backlog-table'))).width,
             greaterThanOrEqualTo(size.width - 2));
+        final rowAction = find.byTooltip('Editar #1');
+        expect(rowAction, findsOneWidget);
+        expect(tester.getSize(rowAction).width, greaterThanOrEqualTo(48));
+        expect(tester.getSize(rowAction).height, greaterThanOrEqualTo(48));
         if (size.width >= 1440) {
+          expect(
+            tester.getSize(find.text('Preparar proposta')).width,
+            greaterThanOrEqualTo(160),
+            reason: 'backlog_title_minimum_width',
+          );
           final toolbar =
               tester.getRect(find.byKey(const ValueKey('backlog-toolbar')));
           final lastAction = tester.getRect(find.ancestor(

@@ -74,6 +74,29 @@ void main() {
     expect(moves.last, ('task-2', 'todo', 0));
   });
 
+  testWidgets('board actions use accessible 48 pixel targets', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1000, 700));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(_boardHost(
+      _board(),
+      canManageAssignees: true,
+    ));
+
+    for (final tooltip in <String>[
+      'Adicionar card em A fazer',
+      'Ações do card #1',
+      'Gerenciar responsáveis',
+    ]) {
+      final target = find.byTooltip(tooltip);
+      expect(target, findsOneWidget);
+      final size = tester.getSize(target);
+      expect(size.width, greaterThanOrEqualTo(48),
+          reason: 'board_target_minimum_48px');
+      expect(size.height, greaterThanOrEqualTo(48),
+          reason: 'board_target_minimum_48px');
+    }
+  });
+
   testWidgets('non-moving viewer gets no misleading move controls',
       (tester) async {
     await tester.binding.setSurfaceSize(const Size(1000, 700));
@@ -94,6 +117,7 @@ Widget _boardHost(
   KanbanBoard board, {
   bool canMove = true,
   bool canManageCards = true,
+  bool canManageAssignees = false,
   Future<void> Function(String, String, int)? onMove,
 }) =>
     MaterialApp(
@@ -105,7 +129,7 @@ Widget _boardHost(
             canMoveCards: canMove,
             canManageStructure: false,
             canManageCards: canManageCards,
-            canManageAssignees: false,
+            canManageAssignees: canManageAssignees,
             onMoveCard: onMove ?? (_, __, ___) async {},
             onMoveColumn: (_, __) async {},
             onCreateColumn: () {},

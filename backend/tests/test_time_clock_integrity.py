@@ -769,12 +769,19 @@ def pg_read_committed():
     engine.dispose()
 
 
-def test_postgres_parallel_checkins_are_serialized(pg_read_committed):
+def test_postgres_parallel_checkins_are_serialized(pg_read_committed, monkeypatch):
     factory, _ = pg_read_committed
     with factory() as db:
         initial_ids = set(db.scalars(select(Punch.id).where(
             Punch.employee_id == "emp-04", Punch.type == "checkIn",
         )).all())
+        latest_seeded_timestamp = db.scalar(
+            select(Punch.timestamp).where(Punch.employee_id == "emp-04")
+            .order_by(Punch.timestamp.desc(), Punch.id.desc()).limit(1)
+        )
+    assert latest_seeded_timestamp is not None
+    frozen_time = ensure_utc(latest_seeded_timestamp) + timedelta(seconds=1)
+    monkeypatch.setattr("app.services.time_clock.utcnow", lambda: frozen_time)
     barrier = Barrier(2)
 
     def attempt():

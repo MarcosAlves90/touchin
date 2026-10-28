@@ -103,14 +103,14 @@ void main() {
         (tester) async {
       await tester.binding.setSurfaceSize(const Size(1400, 1800));
       addTearDown(() => tester.binding.setSurfaceSize(null));
-      final onPrimary = brightness == Brightness.dark
-          ? const Color(0xFF412B00)
-          : const Color(0xFF2C1800);
       final theme = ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFFFFB020),
           brightness: brightness,
-          onPrimary: onPrimary,
+          surface:
+              Color(brightness == Brightness.dark ? 0xFF1F1F1F : 0xFFFFFFFF),
+          surfaceContainerHighest:
+              Color(brightness == Brightness.dark ? 0xFF2A2A2A : 0xFFF1EFE8),
         ),
       );
       await tester.pumpWidget(MaterialApp(
@@ -118,21 +118,16 @@ void main() {
         home: Scaffold(
           body: MediaQuery(
             data: const MediaQueryData(size: Size(1400, 1800)),
-            child: WorkspaceSidebar(
-              title: 'Bater ponto',
-              description: 'Descrição',
-              summaryChildren: const [Text('Informação do resumo')],
-              highlightChips: const [],
+            child: const WorkspaceSidebar(
+              summaryChildren: [Text('Informação do resumo')],
+              highlightChips: [],
             ),
           ),
         ),
       ));
       final summary = tester.widget<Text>(find.text('RESUMO'));
-      final foreground = Color.alphaBlend(
-        summary.style!.color!,
-        const Color(0xFFFFB020),
-      );
-      expect(_contrast(foreground, const Color(0xFFFFB020)),
+      final foreground = summary.style!.color!;
+      expect(_contrast(foreground, theme.colorScheme.surface),
           greaterThanOrEqualTo(4.5));
     });
   }

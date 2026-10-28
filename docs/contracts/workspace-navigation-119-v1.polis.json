@@ -1,0 +1,383 @@
+{
+  "schema_version": 6,
+  "kind": "feature",
+  "scope": {
+    "allowed_paths": [
+      "frontend/lib/features/shared/presentation/widgets/workspace_navigation.dart",
+      "frontend/lib/features/shared/presentation/widgets/workspace_shell.dart",
+      "frontend/lib/theme/app_theme.dart",
+      "frontend/lib/core/navigation/workspace_router.dart",
+      "frontend/lib/features/projects/presentation/project_kanban_page.dart",
+      "frontend/lib/main.dart",
+      "frontend/lib/features/settings/presentation/settings_page.dart",
+      "frontend/lib/features/time_tracking/presentation/time_clock_page.dart",
+      "frontend/lib/features/projects/presentation/project_tasks_page.dart",
+      "frontend/lib/features/admin/presentation/admin_employees_page.dart",
+      "frontend/lib/features/admin/presentation/admin_audit_page.dart",
+      "frontend/test/accessibility_shared_test.dart",
+      "frontend/test/core/navigation/browser_history_test.dart",
+      "frontend/test/core/navigation/workspace_route_transition_test.dart",
+      "frontend/test/features/settings/presentation/theme_settings_page_test.dart",
+      "frontend/test/features/shared/presentation/widgets/workspace_shell_test.dart",
+      "frontend/test/features/shared/presentation/workspace_navigation_contrast_test.dart",
+      "frontend/test/features/time_tracking/presentation/time_clock_accessibility_test.dart",
+      "frontend/test/features/time_tracking/presentation/time_clock_page_test.dart",
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart",
+      "frontend/test/admin_audit_page_test.dart",
+      "frontend/test/admin_employees_page_test.dart",
+      "frontend/test/browser/navigation_history_smoke.mjs",
+      "docs/contracts/workspace-navigation-119-v1.polis.json",
+      "docs/validation/issue-119/README.md",
+      "docs/validation/issue-119/desktop-light.png",
+      "docs/validation/issue-119/desktop-dark.png",
+      "docs/validation/issue-119/mobile-light.png",
+      "docs/validation/issue-119/mobile-dark.png"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/accessibility_shared_test.dart",
+      "frontend/test/core/navigation/browser_history_test.dart",
+      "frontend/test/core/navigation/workspace_route_transition_test.dart",
+      "frontend/test/features/settings/presentation/theme_settings_page_test.dart",
+      "frontend/test/features/shared/presentation/widgets/workspace_shell_test.dart",
+      "frontend/test/features/shared/presentation/workspace_navigation_contrast_test.dart",
+      "frontend/test/features/time_tracking/presentation/time_clock_accessibility_test.dart",
+      "frontend/test/features/time_tracking/presentation/time_clock_page_test.dart",
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart",
+      "frontend/test/admin_audit_page_test.dart",
+      "frontend/test/admin_employees_page_test.dart",
+      "frontend/test/browser/navigation_history_smoke.mjs"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Make desktop workspace navigation and mobile drawer one consistent, accessible navigation system and remove animations only between workspace routes for TouchIn issue #119, preserving auth and history behavior and excluding #120.",
+    "requirements": [
+      {
+        "id": "REQ-119-01",
+        "statement": "Define the six workspace destinations and logout once and consume them in desktop and drawer navigation."
+      },
+      {
+        "id": "REQ-119-02",
+        "statement": "Render the same navigation item component and interaction states in desktop and drawer layouts."
+      },
+      {
+        "id": "REQ-119-03",
+        "statement": "Render the same navigation brand component and color treatment in desktop and drawer layouts."
+      },
+      {
+        "id": "REQ-119-04",
+        "statement": "Use colorScheme.surface for the desktop panel and restrict accent color to the brand block; preserve 360 px expanded width."
+      },
+      {
+        "id": "REQ-119-05",
+        "statement": "Mark the current route visually and with Semantics.selected in both layouts from one shell-owned route source."
+      },
+      {
+        "id": "REQ-119-06",
+        "statement": "Meet WCAG AA contrast in light and dark themes for normal, selected, hover, and focus states."
+      },
+      {
+        "id": "REQ-119-07",
+        "statement": "Keep desktop contextual content subordinate in a single scroll flow and legible at short viewport heights."
+      },
+      {
+        "id": "REQ-119-08",
+        "statement": "Do not repeat page title or description in the contextual panel."
+      },
+      {
+        "id": "REQ-119-09",
+        "statement": "Make 1080 px the single navigation breakpoint decision owned by the shell."
+      },
+      {
+        "id": "REQ-119-10",
+        "statement": "Show persistent desktop navigation at widths \u003e=1080 px and a menu-triggered drawer below 1080 px."
+      },
+      {
+        "id": "REQ-119-11",
+        "statement": "Render Kanban within the shared workspace shell without its own navigation or brand bar."
+      },
+      {
+        "id": "REQ-119-12",
+        "statement": "Remove transitions between workspace routes while preserving the login-to-workspace transition and drawer open/close animation."
+      },
+      {
+        "id": "REQ-119-13",
+        "statement": "Preserve routes, deep links, browser history, active-route deduplication, forward-branch truncation, logout, and canonical redirects."
+      },
+      {
+        "id": "REQ-119-14",
+        "statement": "Preserve #112 route-session skeleton behavior during session revalidation."
+      },
+      {
+        "id": "REQ-119-15",
+        "statement": "Do not add dependencies or alter backend, authentication, authorization, session, API, or data behavior."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-119-01",
+        "statement": "Desktop and drawer expose the same six destinations and logout in the same order, through shared item and brand widgets.",
+        "requirements": [
+          "REQ-119-01",
+          "REQ-119-02",
+          "REQ-119-03"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-119-02",
+        "statement": "The current destination is visually selected and Semantics.selected in both layouts.",
+        "requirements": [
+          "REQ-119-05"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-119-03",
+        "statement": "Rendered navigation colors meet 4.5:1 text and 3:1 icon/focus contrast in both themes and tested states.",
+        "requirements": [
+          "REQ-119-06"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-119-04",
+        "statement": "The desktop panel uses surface background with accent only on brand, remains 360 px expanded, and has one scroll flow.",
+        "requirements": [
+          "REQ-119-04",
+          "REQ-119-07"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-119-05",
+        "statement": "The panel omits duplicate page title and description while page content retains them.",
+        "requirements": [
+          "REQ-119-08"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-119-06",
+        "statement": "Breakpoint behavior is desktop persistent at 1080 and drawer-only at 1079; no nested widget recalculates navigation breakpoint.",
+        "requirements": [
+          "REQ-119-09",
+          "REQ-119-10"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-119-07",
+        "statement": "Kanban uses shared shell navigation and preserves board scrolling/content.",
+        "requirements": [
+          "REQ-119-11"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-119-08",
+        "statement": "After one pump, navigation to another workspace route has zero transition duration, animation value 1, and previous route removed.",
+        "requirements": [
+          "REQ-119-12"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-119-09",
+        "statement": "Login-to-first-workspace transition and mobile drawer open/close animation remain enabled.",
+        "requirements": [
+          "REQ-119-12"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-119-10",
+        "statement": "Back/Forward, direct links, reload, deduplication, branch truncation and logout behavior pass widget and browser history smoke tests.",
+        "requirements": [
+          "REQ-119-13"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-119-11",
+        "statement": "Session revalidation continues showing the #112 route-local skeleton and auth redirects.",
+        "requirements": [
+          "REQ-119-14"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-119-12",
+        "statement": "No new pubspec dependencies, auth/session/API/backend/data changes, or #120 rail behavior appear in the diff.",
+        "requirements": [
+          "REQ-119-15"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-119-13",
+        "statement": "POLIS strict validation gates and responsive visual inspection are recorded for this implementation.",
+        "requirements": [
+          "REQ-119-01",
+          "REQ-119-06",
+          "REQ-119-10"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-119-01",
+        "statement": "Opaque token storage and all authentication/session flows are unchanged."
+      },
+      {
+        "id": "INV-119-02",
+        "statement": "Role authorization remains enforced by existing pages and APIs; navigation destination visibility is unchanged."
+      },
+      {
+        "id": "INV-119-03",
+        "statement": "ModalRoute.settings.name, route keys, canonical URLs, and existing accessibility/smoke selectors remain available."
+      },
+      {
+        "id": "INV-119-04",
+        "statement": "Only duplicate panel title/description is removed; page content retains its labels and descriptions."
+      },
+      {
+        "id": "INV-119-05",
+        "statement": "No backend, migration, data, API, or existing POLIS contract changes."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-119-01",
+        "statement": "Desktop and drawer destination order, labels, route, active semantics, or item styling diverge."
+      },
+      {
+        "id": "FORB-119-02",
+        "statement": "Navigation text contrast falls below 4.5:1 or icon/focus contrast below 3:1 in either theme."
+      },
+      {
+        "id": "FORB-119-03",
+        "statement": "Panel uses multiple independently scrolling areas or duplicates page title/description."
+      },
+      {
+        "id": "FORB-119-04",
+        "statement": "Hamburger appears at \u003e=1080 px or desktop navigation remains at \u003c1080 px."
+      },
+      {
+        "id": "FORB-119-05",
+        "statement": "Any workspace-to-workspace route animates, or login-to-workspace/drawer animation is removed."
+      },
+      {
+        "id": "FORB-119-06",
+        "statement": "Back/Forward, authentication guards, logout, or #112 route skeleton behavior regresses."
+      },
+      {
+        "id": "FORB-119-07",
+        "statement": "Issue #120 rail/collapse/persistence behavior is implemented in this change."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-119-01",
+        "statement": "Workspace route navigation from menu, Back/Forward and programmatic navigation; responsive viewport and light/dark theme."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-119-01",
+        "statement": "Shared desktop and mobile workspace navigation with contrast-safe states and zero workspace route transitions."
+      },
+      {
+        "id": "OUT-119-02",
+        "statement": "Automated and visual validation evidence for issue #119."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-119-01",
+        "statement": "On the locked base, the transition regression fails with workspace_route_transition_missing because MaterialPage uses a nonzero default transition."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "c887d0dbaf299555327555dae53b3a59c57af8b0",
+    "base_tree": "de33b96d7e4f8fb1f4b3285bc4784e35a985acc4",
+    "policy_sha256": "5563facc34ae2a1a07cf7ec7ec2f115cb8d250c49dd6e2bd5c7a3de4c977d450",
+    "specification_sha256": "d6e0d06216296e32284b07515e136a8c5642cabd6b90aea91a2c3e2e41584d1a"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/core/navigation/workspace_route_transition_test.dart",
+      "--plain-name",
+      "workspace route transitions are zero after the first workspace route"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 360,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/core/navigation/workspace_route_transition_test.dart",
+      "test/core/navigation/browser_history_test.dart",
+      "test/features/shared/presentation/widgets/workspace_shell_test.dart",
+      "test/features/shared/presentation/workspace_navigation_contrast_test.dart",
+      "test/features/projects/presentation/project_kanban_page_test.dart",
+      "test/features/time_tracking/presentation/time_clock_accessibility_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 900,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "python3",
+        "-c",
+        "import subprocess,sys; p=subprocess.run(['flutter','test','test/core/navigation/workspace_route_transition_test.dart','--plain-name','workspace route transitions are zero after the first workspace route'],cwd='frontend'); print('workspace_route_transition_missing' if p.returncode else 'workspace_route_transition_present'); sys.exit(p.returncode)"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 420,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "workspace_route_transition_missing"
+    ]
+  }
+}

@@ -461,12 +461,6 @@ class _RouteSessionSkeleton extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return WorkspaceScaffold(
-      sidebar: const WorkspaceSidebar(
-        title: 'Carregando página',
-        description: 'Estamos validando sua sessão para abrir este espaço.',
-        summaryChildren: <Widget>[],
-        highlightChips: <Widget>[],
-      ),
       contentBuilder: (context, _) => WorkspaceSkeletonRegion(
         label: 'Carregando conteúdo da página',
         child: Padding(
@@ -535,13 +529,6 @@ class _RouteSessionVerificationError extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return WorkspaceScaffold(
-      sidebar: const WorkspaceSidebar(
-        title: 'Página indisponível',
-        description:
-            'A navegação continua disponível enquanto você tenta de novo.',
-        summaryChildren: <Widget>[],
-        highlightChips: <Widget>[],
-      ),
       contentBuilder: (context, _) => Center(
         child: Padding(
           padding: const EdgeInsets.all(24),

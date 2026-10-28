@@ -11,7 +11,6 @@ import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_e
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_instant_select_field.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_skeleton.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
-import 'package:touchin_flutter/theme/app_theme.dart';
 
 class ProjectKanbanPage extends StatefulWidget {
   const ProjectKanbanPage({super.key, this.api, this.controller});
@@ -48,44 +47,18 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      drawer: const WorkspaceNavigationDrawer(),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final isWide = constraints.maxWidth >= 1080;
-          return Row(
-            children: <Widget>[
-              if (isWide)
-                SizedBox(
-                  width: 280,
-                  child: WorkspaceDesktopNavigation(currentRoute: '/kanban'),
-                ),
-              Expanded(
-                child: Builder(
-                  builder: (scaffoldContext) => SafeArea(
-                    child: Column(
-                      children: <Widget>[
-                        _KanbanTopBar(
-                          controller: _controller,
-                          onMenuPressed: isWide
-                              ? null
-                              : () => Scaffold.of(scaffoldContext).openDrawer(),
-                          showBrand: !isWide,
-                        ),
-                        Expanded(
-                          child: AnimatedBuilder(
-                            animation: _controller,
-                            builder: (context, _) => _buildPageBody(),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          );
-        },
+    return WorkspaceScaffold(
+      contentScrollable: false,
+      contentBuilder: (context, isWide) => Column(
+        children: <Widget>[
+          if (!isWide) _KanbanTopBar(controller: _controller),
+          Expanded(
+            child: AnimatedBuilder(
+              animation: _controller,
+              builder: (context, _) => _buildPageBody(),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -148,29 +121,33 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
         ) ??
         0;
 
-    final selector = WorkspaceInstantSelectField<String>(
-      key: ValueKey<String?>(_controller.selectedProjectId),
-      value: _controller.selectedProjectId,
-      decoration: const InputDecoration(
-        labelText: 'Projeto',
-        isDense: true,
+    // TODO: Match the selector's visible height to adjacent controls on mobile and desktop.
+    final selector = SizedBox(
+      height: 52,
+      child: WorkspaceInstantSelectField<String>(
+        key: ValueKey<String?>(_controller.selectedProjectId),
+        value: _controller.selectedProjectId,
+        decoration: const InputDecoration(
+          labelText: 'Projeto',
+          constraints: BoxConstraints.tightFor(height: 52),
+        ),
+        options: _controller.projects
+            .map(
+              (project) => WorkspaceSelectOption<String>(
+                value: project.id,
+                label: project.name,
+              ),
+            )
+            .toList(),
+        onChanged: _controller.isMutating
+            ? null
+            : (projectId) {
+                if (projectId != null &&
+                    projectId != _controller.selectedProjectId) {
+                  _controller.selectProject(projectId);
+                }
+              },
       ),
-      options: _controller.projects
-          .map(
-            (project) => WorkspaceSelectOption<String>(
-              value: project.id,
-              label: project.name,
-            ),
-          )
-          .toList(),
-      onChanged: _controller.isMutating
-          ? null
-          : (projectId) {
-              if (projectId != null &&
-                  projectId != _controller.selectedProjectId) {
-                _controller.selectProject(projectId);
-              }
-            },
     );
 
     final metrics = _KanbanMetricsStrip(
@@ -181,7 +158,8 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
 
     final refresh = IconButton(
       tooltip: 'Atualizar quadro',
-      visualDensity: VisualDensity.compact,
+      constraints: const BoxConstraints.tightFor(width: 52, height: 52),
+      visualDensity: VisualDensity.standard,
       onPressed: _controller.isMutating || _controller.isLoadingBoard
           ? null
           : () => _controller.reload(),
@@ -199,7 +177,7 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
         padding: EdgeInsets.all(compact ? 7 : 8),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            if (!compact && constraints.maxWidth >= 1080) {
+            if (!compact && constraints.maxWidth >= 980) {
               return Row(
                 children: <Widget>[
                   Expanded(child: selector),
@@ -241,7 +219,7 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
       key: const ValueKey<String>('project-view-switch'),
       borderRadius: BorderRadius.zero,
       constraints: BoxConstraints(
-        minWidth: compact ? 40 : 86,
+        minWidth: compact ? 48 : 94,
         minHeight: 50,
       ),
       color: colors.onSurfaceVariant,
@@ -951,57 +929,47 @@ class _KanbanMutationStatus extends StatelessWidget {
 }
 
 class _KanbanTopBar extends StatelessWidget {
-  const _KanbanTopBar({
-    required this.controller,
-    required this.onMenuPressed,
-    required this.showBrand,
-  });
+  const _KanbanTopBar({required this.controller});
 
   final ProjectKanbanController controller;
-  final VoidCallback? onMenuPressed;
-  final bool showBrand;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    return Material(
-      key: const ValueKey<String>('kanban-topbar'),
-      color: AppTheme.accent,
-      child: SizedBox(
-        height: 54,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: Row(
-            children: <Widget>[
-              if (onMenuPressed != null) ...<Widget>[
-                IconButton(
-                  tooltip: 'Abrir menu',
-                  onPressed: onMenuPressed,
-                  icon: Icon(Icons.menu_rounded, color: colorScheme.onPrimary),
-                ),
-                const SizedBox(width: 6),
-              ],
-              if (showBrand)
-                Text(
-                  'TOUCHIN',
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    color: colorScheme.onPrimary.withValues(alpha: 0.82),
-                    letterSpacing: 1.8,
-                    fontWeight: FontWeight.w900,
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) {
+        final isIdle = !controller.isMutating &&
+            !controller.isLoading &&
+            !controller.isLoadingBoard &&
+            controller.loadError == null &&
+            controller.boardError == null;
+        if (isIdle) return const SizedBox.shrink();
+        return Material(
+          key: const ValueKey<String>('kanban-topbar'),
+          color: colorScheme.surface,
+          child: Container(
+            height: 54,
+            padding: const EdgeInsets.fromLTRB(16, 0, 12, 0),
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: colorScheme.outlineVariant),
+              ),
+            ),
+            child: Row(
+              children: <Widget>[
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: _KanbanSyncStatus(controller: controller),
                   ),
                 ),
-              Expanded(
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: _KanbanSyncStatus(controller: controller),
-                ),
-              ),
-              const SizedBox(width: 4),
-            ],
+                const SizedBox(width: 4),
+              ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
@@ -1025,7 +993,7 @@ class _KanbanSyncStatus extends StatelessWidget {
                 ? ('Sincronizando', Icons.sync_rounded)
                 : controller.loadError != null || controller.boardError != null
                     ? ('Atenção', Icons.cloud_off_outlined)
-                    : ('Sincronizado', Icons.cloud_done_outlined);
+                    : ('Atenção', Icons.cloud_off_outlined);
         return Container(
           key: const ValueKey<String>('kanban-navbar-sync-status'),
           padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),

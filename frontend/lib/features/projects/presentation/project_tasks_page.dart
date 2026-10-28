@@ -55,7 +55,7 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
       animation: _controller,
       builder: (context, _) {
         return WorkspaceScaffold(
-          sidebar: _buildSidebar(),
+          contextualContent: _buildSidebar(),
           contentBuilder: (context, isWide) => _buildContent(isWide),
         );
       },
@@ -66,9 +66,6 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
     final project = _controller.selectedProject;
     final task = _controller.selectedTask;
     return WorkspaceSidebar(
-      title: 'Painel de projetos da empresa.',
-      description:
-          'Acompanhe projetos, tarefas, acessos e capacidade em um só lugar.',
       summaryChildren: <Widget>[
         WorkspaceSummaryStripe(
           label: 'Projetos',
@@ -203,33 +200,12 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
   }
 
   Widget _buildWorkspaceHeader(bool isWide) {
-    if (!isWide) {
-      return WorkspaceHeader(
-        title: 'Administrar projetos',
-        description: '',
-        maxContentWidth: 620,
-        actions: _buildHeaderActions(false),
-      );
-    }
-
-    final theme = Theme.of(context);
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Expanded(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 620),
-            child: Text(
-              'Administrar projetos',
-              style: theme.textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        ..._buildHeaderActions(true),
-      ],
+    return WorkspaceHeader(
+      title: 'Administrar projetos',
+      description: '',
+      maxContentWidth: 620,
+      actions: _buildHeaderActions(isWide),
+      compact: !isWide,
     );
   }
 
@@ -269,11 +245,13 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
             icon: Icons.folder_copy_outlined,
             label: 'Projetos',
             value: _controller.projects.length.toString(),
+            helper: 'Projetos disponíveis para a empresa atual.',
           ),
           _ProjectMetricItem(
             icon: Icons.account_tree_outlined,
             label: 'Tarefas',
             value: project == null ? '—' : _controller.tasks.length.toString(),
+            helper: 'Tarefas do projeto selecionado.',
           ),
           _ProjectMetricItem(
             icon: Icons.groups_2_outlined,
@@ -281,11 +259,13 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
             value: project == null
                 ? '—'
                 : _controller.projectMembers.length.toString(),
+            helper: 'Membros com acesso ao projeto.',
           ),
           _ProjectMetricItem(
             icon: Icons.group_work_outlined,
             label: 'Ocupação',
             value: occupancy,
+            helper: 'Participantes e limite da tarefa selecionada.',
           ),
         ];
 
@@ -1020,49 +1000,21 @@ class _ProjectMetricItem extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.value,
+    required this.helper,
   });
 
   final IconData icon;
   final String label;
   final String value;
+  final String helper;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: colorScheme.surface.withValues(alpha: 0.58),
-        border: Border.all(color: colorScheme.outlineVariant),
-      ),
-      child: Row(
-        children: <Widget>[
-          Icon(icon, size: 16, color: colorScheme.onSurfaceVariant),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Text(
-            value,
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) => WorkspaceMetricCard(
+        icon: icon,
+        label: label,
+        value: value,
+        helper: helper,
+      );
 }
 
 class _ProjectListTile extends StatelessWidget {

@@ -157,6 +157,25 @@ Future<void> enterFilter(
   await tester.pump();
 }
 
+Future<void> selectFilterOption(
+  WidgetTester tester,
+  String key,
+  String optionLabel,
+) async {
+  final field = find.byKey(ValueKey<String>(key));
+  await tester.ensureVisible(field);
+  await tester.tap(field);
+  await tester.pumpAndSettle();
+  final option = find.text(optionLabel).last;
+  await tester.scrollUntilVisible(
+    option,
+    200,
+    scrollable: find.byType(Scrollable).last,
+  );
+  await tester.tap(option);
+  await tester.pumpAndSettle();
+}
+
 void main() {
   testWidgets('desktop renders an aligned table and opens event details', (
     tester,
@@ -336,11 +355,11 @@ void main() {
 
     await openFilters(tester);
     await enterFilter(tester, 'ID do usuário (ator)', 'applied-user');
-    await enterFilter(tester, 'Ação', 'card.moved');
-    await enterFilter(tester, 'Tipo de entidade', 'card');
+    await selectFilterOption(tester, 'audit-action-filter', 'Tarefa movida');
+    await selectFilterOption(tester, 'audit-entity-type-filter', 'Tarefa');
     await enterFilter(tester, 'ID da entidade', 'card-9');
     await enterFilter(tester, 'ID do projeto', 'proj-9');
-    await enterFilter(tester, 'Resultado', 'success');
+    await selectFilterOption(tester, 'audit-result-filter', 'Sucesso');
     await tester.tap(find.text('Data inicial'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('15').last);
@@ -350,6 +369,9 @@ void main() {
     await applyFilters(tester);
 
     final listParams = Map<String, dynamic>.from(api.listParams!);
+    expect(listParams['action'], 'card.moved');
+    expect(listParams['entityType'], 'card');
+    expect(listParams['result'], 'success');
     expect(find.text('Ator: applied-user'), findsOneWidget);
 
     await tester.ensureVisible(

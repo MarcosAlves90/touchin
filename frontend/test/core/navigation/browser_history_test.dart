@@ -16,6 +16,58 @@ import 'package:touchin_flutter/main.dart';
 
 void main() {
   testWidgets(
+    'workspace page entrance remains animated while later routes are instant',
+    (tester) async {
+      final router = WorkspaceRouter(
+        initialPath: '/time-clock',
+        buildRoute: (_, path, __) => Scaffold(body: Text(path)),
+      );
+      addTearDown(router.dispose);
+
+      await tester.pumpWidget(
+        MaterialApp.router(
+          routerDelegate: router,
+          routeInformationParser: WorkspaceRouteParser(),
+          routeInformationProvider: PlatformRouteInformationProvider(
+            initialRouteInformation: RouteInformation(
+              uri: Uri(path: '/time-clock'),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      var navigator = tester.widget<Navigator>(find.byKey(router.navigatorKey));
+      final firstPageRoute = navigator.pages.single.createRoute(
+        tester.element(find.byKey(router.navigatorKey)),
+      );
+      expect(firstPageRoute, isA<PageRouteBuilder<void>>());
+      expect(
+        (firstPageRoute as PageRouteBuilder<void>).transitionDuration,
+        const Duration(milliseconds: 450),
+      );
+
+      router.navigate('/projects');
+      await tester.pump();
+
+      navigator = tester.widget<Navigator>(find.byKey(router.navigatorKey));
+      final destinationPageRoute = navigator.pages.last.createRoute(
+        tester.element(find.byKey(router.navigatorKey)),
+      );
+      expect(destinationPageRoute, isA<PageRouteBuilder<void>>());
+      expect(
+        (destinationPageRoute as PageRouteBuilder<void>).transitionDuration,
+        Duration.zero,
+        reason: 'workspace_route_transition_missing',
+      );
+      final destination =
+          ModalRoute.of(tester.element(find.text('/projects')))!;
+      expect(destination.animation!.value, 1);
+      expect(find.text('/time-clock'), findsNothing);
+    },
+  );
+
+  testWidgets(
       'public password reset deep link does not require session bootstrap',
       (tester) async {
     const token = 'aaaabbbbccccddddeeeeffffgggghhhhiiiijjjjkkkkllllmmmmnnnn';
@@ -129,7 +181,7 @@ void main() {
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
-    expect(find.byType(AdminEmployeesPage), findsNothing);
+    expect(find.text('Administrar equipe'), findsNothing);
     expect(find.text('Não foi possível validar sua sessão'), findsOneWidget);
     expect(storage.session?.accessToken, _session.accessToken);
 

@@ -1,0 +1,210 @@
+{
+  "schema_version": 6,
+  "kind": "feature",
+  "scope": {
+    "allowed_paths": [
+      "docs/contracts/workspace-toolbar-parity-followup.polis.json",
+      "frontend/lib/features/projects/presentation/project_kanban_page.dart",
+      "frontend/lib/features/projects/presentation/widgets/project_backlog_view.dart",
+      "frontend/lib/features/projects/presentation/widgets/project_kanban_board.dart",
+      "frontend/lib/features/shared/presentation/widgets/workspace_toolbar.dart",
+      "frontend/test/features/projects/presentation/project_backlog_view_test.dart",
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/features/projects/presentation/project_backlog_view_test.dart",
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Finish standardizing the Kanban and Backlog toolbars and remove the idle mobile sync badge without changing workflow behavior.",
+    "requirements": [
+      {
+        "id": "REQ-WORKSPACE-OVERVIEW-01",
+        "statement": "The selector, view switch, metrics strip, and refresh control are 52 logical pixels high; on desktop, each view-switch segment is the width of one equal metric cell, while compact segments remain at least 48 logical pixels wide."
+      },
+      {
+        "id": "REQ-WORKSPACE-SEARCH-01",
+        "statement": "Backlog search, status filter, and sort controls have equal 48-logical-pixel heights in compact and desktop layouts."
+      },
+      {
+        "id": "REQ-KANBAN-ACTION-01",
+        "statement": "The Kanban create-column button uses the same primary toolbar button style, color, text size, and icon size as the Backlog create-card button."
+      },
+      {
+        "id": "REQ-KANBAN-MOBILE-01",
+        "statement": "The idle Sincronizado badge and its empty mobile strip are not rendered; transient saving, syncing, and error statuses remain available."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-WORKSPACE-OVERVIEW-01",
+        "statement": "Widget tests at compact and desktop widths measure 52 logical pixels for selector, view switch, metrics strip, and refresh control; desktop view segments match metric-cell widths within 2 logical pixels, and compact segments are at least 48 pixels wide.",
+        "requirements": [
+          "REQ-WORKSPACE-OVERVIEW-01"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-WORKSPACE-SEARCH-01",
+        "statement": "Widget tests at compact and desktop widths measure equal 48-logical-pixel heights for backlog search, status filter, and sort controls.",
+        "requirements": [
+          "REQ-WORKSPACE-SEARCH-01"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-KANBAN-ACTION-01",
+        "statement": "Kanban column creation and Backlog card creation render the same primary color, typography, padding, height, and icon size.",
+        "requirements": [
+          "REQ-KANBAN-ACTION-01"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-KANBAN-MOBILE-01",
+        "statement": "At rest on a narrow viewport, neither the Sincronizado label nor the empty mobile sync bar is present; transient status messages remain available while active.",
+        "requirements": [
+          "REQ-KANBAN-MOBILE-01"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-WORKSPACE-DOC-01",
+        "statement": "docs/contracts/workspace-toolbar-parity-followup.polis.json is byte-for-byte identical to the locked contract.",
+        "requirements": [
+          "REQ-WORKSPACE-OVERVIEW-01",
+          "REQ-WORKSPACE-SEARCH-01",
+          "REQ-KANBAN-ACTION-01",
+          "REQ-KANBAN-MOBILE-01"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-WORKSPACE-01",
+        "statement": "Preserve project selection, view navigation, metric values, refresh, all filtering/search behavior, callbacks, permissions, and data persistence."
+      },
+      {
+        "id": "INV-KANBAN-STATUS-01",
+        "statement": "Retain transient saving, syncing, and error feedback; hide only the idle Sincronizado state and its otherwise empty strip."
+      },
+      {
+        "id": "INV-ACCESSIBILITY-01",
+        "statement": "Do not reduce any interactive target below 48 by 48 logical pixels and keep narrow layouts free of overflow or layout exceptions."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-WORKSPACE-SIZES-01",
+        "statement": "Overview controls have mismatched heights, desktop view segments differ from metric-cell widths, or Backlog search/filter controls have mismatched heights."
+      },
+      {
+        "id": "FORB-KANBAN-STYLE-01",
+        "statement": "Kanban create-column button differs in primary color, typography, padding, height, or icon size from the Backlog create-card button."
+      },
+      {
+        "id": "FORB-KANBAN-MOBILE-01",
+        "statement": "The idle Sincronizado badge or an empty sync strip is visible on a narrow viewport, or transient statuses are lost."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-WORKSPACE-01",
+        "statement": "Viewport width, current project and board state, existing action permissions, and search/filter values."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-WORKSPACE-01",
+        "statement": "A consistent responsive toolbar experience for project overview, Kanban, and Backlog."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-WORKSPACE-01",
+        "statement": "Flutter widget tests fail with workspace_overview_control_height, workspace_overview_control_width, workspace_search_control_height, workspace_toolbar_button_style, or kanban_idle_sync_badge markers when requirements are violated."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "72daeb820b7a079951d61090d931db6e588c3e99",
+    "base_tree": "91b5e738588d42a4d0cd8efb32a9ff4fb362f3e5",
+    "policy_sha256": "7714a10ab2b65f58941086f500de93fa62fc6acb6fd59d8b39292980364774dd",
+    "specification_sha256": "45ff2c55e088181181468943b51219c2c209cdd588f937304f7cc11336630606"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/features/projects/presentation/project_kanban_page_test.dart",
+      "--plain-name",
+      "Kanban primary action matches Backlog toolbar style"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 360,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/features/projects/presentation/project_backlog_view_test.dart",
+      "test/features/projects/presentation/project_kanban_page_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "test/features/projects/presentation/project_kanban_page_test.dart",
+        "--plain-name",
+        "Kanban primary action matches Backlog toolbar style"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 360,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "Some tests failed."
+    ]
+  }
+}

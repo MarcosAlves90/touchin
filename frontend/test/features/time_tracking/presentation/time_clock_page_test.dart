@@ -129,17 +129,22 @@ void main() {
       (WidgetTester tester) async {
     final controller = _FakeTimeClockController(<int, TimeClockState>{
       1: _timelineState(page: 1, records: const <PunchRecord>[], totalPages: 1),
-    })..isLoadingState = false;
+    })
+      ..isLoadingState = false;
     tester.view.physicalSize = const Size(1400, 1800);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
-    await tester.pumpWidget(MaterialApp(home: TimeClockPage(controller: controller)));
+    await tester
+        .pumpWidget(MaterialApp(home: TimeClockPage(controller: controller)));
     await tester.pump();
 
-    final sidebarChips = tester.widgetList<WorkspaceHighlightChip>(
-      find.byType(WorkspaceHighlightChip, skipOffstage: false),
-    ).map((chip) => chip.label).toList();
+    final sidebarChips = tester
+        .widgetList<WorkspaceHighlightChip>(
+          find.byType(WorkspaceHighlightChip, skipOffstage: false),
+        )
+        .map((chip) => chip.label)
+        .toList();
     expect(sidebarChips, contains('Jornada auditável'));
     expect(sidebarChips, isNot(contains('Dispositivo confiável')));
     controller.dispose();
@@ -178,7 +183,7 @@ void main() {
 
     await tester.pump();
 
-    expect(find.text('Ponto digital em tempo real.'), findsOneWidget);
+    expect(find.text('RESUMO'), findsOneWidget);
     expect(find.text('Bater ponto'), findsOneWidget);
     expect(find.text('Carregando estado do ponto...'), findsOneWidget);
     expect(find.text('Carregando...'), findsWidgets);

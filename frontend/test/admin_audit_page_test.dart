@@ -8,6 +8,7 @@ import 'package:touchin_flutter/contracts/audit.dart';
 import 'package:touchin_flutter/core/network/api_client.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_skeleton.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
 import 'package:touchin_flutter/theme/app_theme.dart';
 
 class FakeTouchInApi extends TouchInApi {
@@ -96,6 +97,21 @@ Future<void> applyAuditFilters(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
+Future<void> selectAuditFilter(
+  WidgetTester tester,
+  String key,
+  String optionLabel,
+) async {
+  final field = find.byKey(ValueKey<String>(key));
+  await tester.ensureVisible(field);
+  await tester.tap(field);
+  await tester.pumpAndSettle();
+  final option = find.text(optionLabel).last;
+  await tester.ensureVisible(option);
+  await tester.tap(option);
+  await tester.pumpAndSettle();
+}
+
 void main() {
   AuditEventResponse pageEvent(int index) => AuditEventResponse(
         id: 'evt_$index',
@@ -120,7 +136,7 @@ void main() {
           timestamp: DateTime.utc(2026, 10, 20),
           companyId: 'company_1',
           actorUserId: 'user_1',
-          projectId: null,
+          projectId: 'project_1',
           action: 'card.reordered',
           entityType: 'card',
           entityId: 'card_1',
@@ -131,6 +147,7 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: AdminAuditPage(api: api)));
     await tester.pumpAndSettle();
 
+    expect(find.byType(WorkspaceHeader), findsOneWidget);
     expect(find.text('Tarefa reordenada'), findsOneWidget);
     expect(find.text('Sucesso'), findsOneWidget);
     expect(find.text('card.reordered'), findsOneWidget);
@@ -145,14 +162,38 @@ void main() {
     expect(find.text('Resultado'), findsOneWidget);
     expect(find.text('Aplicar filtros'), findsOneWidget);
     expect(find.text('Limpar filtros'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('audit-action-filter')),
+      findsOneWidget,
+      reason: 'audit_filter_dropdowns_pt_br',
+    );
+    expect(
+      find.byKey(const ValueKey<String>('audit-entity-type-filter')),
+      findsOneWidget,
+      reason: 'audit_filter_dropdowns_pt_br',
+    );
+    expect(
+      find.byKey(const ValueKey<String>('audit-result-filter')),
+      findsOneWidget,
+      reason: 'audit_filter_dropdowns_pt_br',
+    );
 
-    await enterAuditFilter(tester, 'Ação', 'card.reordered');
-    await enterAuditFilter(tester, 'Resultado', 'success');
+    await selectAuditFilter(tester, 'audit-action-filter', 'Projeto criado');
+    await selectAuditFilter(tester, 'audit-entity-type-filter', 'Projeto');
+    await selectAuditFilter(tester, 'audit-result-filter', 'Sucesso');
+    await enterAuditFilter(tester, 'ID do usuário (ator)', 'ser_');
+    await enterAuditFilter(tester, 'ID da entidade', 'ard_');
+    await enterAuditFilter(tester, 'ID do projeto', 'roject_');
     await applyAuditFilters(tester);
 
-    expect(api.lastParams['action'], 'card.reordered');
+    expect(api.lastParams['actorUserId'], 'ser_');
+    expect(api.lastParams['entityId'], 'ard_');
+    expect(api.lastParams['projectId'], 'roject_');
+    expect(api.lastParams['action'], 'project.created');
+    expect(api.lastParams['entityType'], 'project');
     expect(api.lastParams['result'], 'success');
-    expect(find.text('Ação: card.reordered'), findsOneWidget);
+    expect(find.text('Ação: Projeto criado'), findsOneWidget);
+    expect(find.text('Tipo: Projeto'), findsOneWidget);
     expect(find.text('Resultado: Sucesso'), findsOneWidget);
   });
 
@@ -591,11 +632,17 @@ void main() {
 
     await openAuditFilters(tester);
     final actor = find.widgetWithText(TextField, 'ID do usuário (ator)');
-    final action = find.widgetWithText(TextField, 'Ação');
+    final action = find.byKey(const ValueKey<String>('audit-action-filter'));
     expect(actor, findsOneWidget);
     expect(action, findsOneWidget);
+    expect(
+      tester.widget<DropdownButtonFormField<String>>(action),
+      isA<DropdownButtonFormField<String>>(),
+    );
     expect(tester.getTopLeft(actor).dx, tester.getTopLeft(action).dx);
-    await tester.ensureVisible(find.widgetWithText(TextField, 'Resultado'));
+    await tester.ensureVisible(
+      find.byKey(const ValueKey<String>('audit-result-filter')),
+    );
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     await tester.ensureVisible(find.text('Cancelar'));
@@ -617,8 +664,8 @@ void main() {
         companyId: 'company_1',
         actorUserId: 'user_1',
         projectId: 'proj_1',
-        action: 'task.created',
-        entityType: 'task',
+        action: 'card.created',
+        entityType: 'card',
         entityId: 'task_1',
         result: 'success',
         metadataPayload: null,
@@ -629,8 +676,8 @@ void main() {
         companyId: 'company_1',
         actorUserId: 'user_2',
         projectId: 'proj_1',
-        action: 'task.deleted',
-        entityType: 'task',
+        action: 'card.deleted',
+        entityType: 'card',
         entityId: 'task_1',
         result: 'failed',
         metadataPayload: null,
@@ -672,16 +719,26 @@ void main() {
 
     await openAuditFilters(tester);
     await enterAuditFilter(tester, 'ID do usuário (ator)', 'user_1');
-    await enterAuditFilter(tester, 'Ação', 'task.created');
+    await selectAuditFilter(
+      tester,
+      'audit-action-filter',
+      'Tarefa criada',
+    );
+    await selectAuditFilter(
+      tester,
+      'audit-entity-type-filter',
+      'Tarefa',
+    );
     await enterAuditFilter(tester, 'ID da entidade', 'task_1');
-    await enterAuditFilter(tester, 'Resultado', 'success');
+    await selectAuditFilter(tester, 'audit-result-filter', 'Sucesso');
 
     mockApi.requestedPages.clear();
     await applyAuditFilters(tester);
 
     expect(mockApi.requestedPages, [1]);
     expect(mockApi.lastParams['actorUserId'], 'user_1');
-    expect(mockApi.lastParams['action'], 'task.created');
+    expect(mockApi.lastParams['action'], 'card.created');
+    expect(mockApi.lastParams['entityType'], 'card');
     expect(mockApi.lastParams['entityId'], 'task_1');
     expect(mockApi.lastParams['result'], 'success');
   });

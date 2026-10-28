@@ -29,6 +29,7 @@ String auditUtcTimestamp(DateTime value) {
 String auditEntityLabel(String value) {
   return const <String, String>{
         'card': 'Tarefa',
+        'task': 'Tarefa',
         'project': 'Projeto',
         'employee': 'Funcionário',
         'kanban_column': 'Coluna do Kanban',
@@ -177,13 +178,13 @@ class AuditTechnicalId extends StatelessWidget {
       children: [
         Flexible(child: text),
         SizedBox(
-          width: 44,
-          height: 44,
+          width: 48,
+          height: 48,
           child: IconButton(
             onPressed: () => _copy(context),
             tooltip: 'Copiar $copyLabel',
             padding: EdgeInsets.zero,
-            constraints: const BoxConstraints.tightFor(width: 44, height: 44),
+            constraints: const BoxConstraints.tightFor(width: 48, height: 48),
             icon: const Icon(Icons.copy_rounded, size: 18),
           ),
         ),

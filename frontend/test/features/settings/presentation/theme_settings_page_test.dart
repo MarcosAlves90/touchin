@@ -1,9 +1,42 @@
 import 'package:touchin_flutter/core/theme/theme_mode_controller.dart';
 import 'package:touchin_flutter/features/settings/presentation/settings_page.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('keeps page copy in the content and out of the summary panel', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final store = _InMemoryThemeStore();
+    final controller = ThemeModeController(store: store);
+    await controller.load();
+
+    await tester.pumpWidget(
+      MaterialApp(home: ThemeSettingsPage(controller: controller)),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.descendant(
+        of: find.byType(WorkspaceHeader),
+        matching: find.text('Configurações'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Aparência e tema.'), findsNothing);
+    expect(find.text('Tema atual'), findsOneWidget);
+    expect(
+      find.text(
+        'Ajuste preferências globais da interface e mantenha a experiência do jeito que preferir.',
+      ),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('switches between light, dark and system themes', (tester) async {
     final store = _InMemoryThemeStore();
     final controller = ThemeModeController(store: store);

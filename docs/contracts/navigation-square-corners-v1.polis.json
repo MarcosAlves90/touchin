@@ -1,0 +1,164 @@
+{
+  "schema_version": 6,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      "docs/contracts/navigation-square-corners-v1.polis.json",
+      "frontend/lib/features/shared/presentation/widgets/workspace_navigation.dart",
+      "frontend/test/features/shared/presentation/widgets/workspace_shell_test.dart",
+      "frontend/test/features/shared/presentation/workspace_navigation_contrast_test.dart"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/features/shared/presentation/widgets/workspace_shell_test.dart",
+      "frontend/test/features/shared/presentation/workspace_navigation_contrast_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Remove rounded corners from workspace navigation surfaces, including the mobile hamburger brand block.",
+    "requirements": [
+      {
+        "id": "REQ-NAV-SQUARE-01",
+        "statement": "Workspace navigation items and mobile navigation elements must render with square corners rather than rounded corners."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-NAV-SQUARE-01",
+        "statement": "Widget tests verify the sidebar navigation item backgrounds and InkWell hit/splash regions have no rounded border radius.",
+        "requirements": [
+          "REQ-NAV-SQUARE-01"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-NAV-SQUARE-02",
+        "statement": "Widget tests verify the mobile hamburger brand block, its logo mark, and the active-route badge have no rounded corners; menu interaction remains functional.",
+        "requirements": [
+          "REQ-NAV-SQUARE-01"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-NAV-SQUARE-DOC-01",
+        "statement": "docs/contracts/navigation-square-corners-v1.polis.json is byte-for-byte identical to the locked contract.",
+        "requirements": [
+          "REQ-NAV-SQUARE-01"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-NAV-SQUARE-01",
+        "statement": "Preserve navigation destinations and callbacks, selection and contrast styling, accessible labels, and mobile header layout."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-NAV-SQUARE-01",
+        "statement": "Any workspace navigation background, hamburger brand block, or active-route surface retains rounded corners, or menu interaction/selection behavior regresses."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-NAV-SQUARE-01",
+        "statement": "Workspace navigation layout, selected destination, and viewport mode."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-NAV-SQUARE-01",
+        "statement": "Square-cornered workspace navigation surfaces in desktop and mobile layouts."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-NAV-SQUARE-01",
+        "statement": "The focused widget regressions in workspace_navigation_contrast_test.dart and workspace_shell_test.dart fail with navigation_square_corners when a targeted navigation surface retains a border radius."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "1a21961a1a052ebfd0c39cbd844f5510943f710c",
+    "base_tree": "68f0c70d8a72b3d70871860eee446366ad87cc8e",
+    "policy_sha256": "7714a10ab2b65f58941086f500de93fa62fc6acb6fd59d8b39292980364774dd",
+    "specification_sha256": "5bcae4cc6395803ae50c8a4181355c2a9e88a56f87775d8dcfcbcbe244c6787d"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "--exclude-tags",
+      "canonical-golden",
+      "test/features/shared/presentation/widgets/workspace_shell_test.dart",
+      "test/features/shared/presentation/workspace_navigation_contrast_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "--exclude-tags",
+      "canonical-golden",
+      "test/features/shared/presentation/widgets/workspace_shell_test.dart",
+      "test/features/shared/presentation/workspace_navigation_contrast_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "--exclude-tags",
+        "canonical-golden",
+        "test/features/shared/presentation/widgets/workspace_shell_test.dart",
+        "test/features/shared/presentation/workspace_navigation_contrast_test.dart"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 600,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "navigation_square_corners"
+    ]
+  }
+}

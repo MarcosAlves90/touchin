@@ -28,7 +28,77 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Run backend tests
-        run: pytest
+        run: >-
+          pytest --cov=app --cov-report=term-missing
+          --cov-report=xml:coverage/coverage.xml
+          --cov-report=html:coverage/html
+
+      - name: Upload backend coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: backend/coverage/
+          if-no-files-found: warn
+          retention-days: 7
+
+  postgres-concurrency-tests:
+    name: PostgreSQL concurrency tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: touchin_ci
+          POSTGRES_PASSWORD: touchin_ci_test_password
+          POSTGRES_DB: touchin_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U touchin_ci -d touchin_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    defaults:
+      run:
+        working-directory: backend
+
+    env:
+      PGPASSWORD: touchin_ci_test_password
+      TOUCHIN_TIME_CLOCK_PG_URL: postgresql+psycopg2://touchin_ci:touchin_ci_test_password@127.0.0.1:5432/touchin_time_clock_test_ci
+      TOUCHIN_PR67_PG_URL: postgresql+psycopg2://touchin_ci:touchin_ci_test_password@127.0.0.1:5432/touchin_pr67_adversarial_ci
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install backend dependencies
+        run: pip install -r requirements.txt
+
+      - name: Create disposable concurrency databases
+        run: |
+          psql -h 127.0.0.1 -U touchin_ci -d touchin_ci -v ON_ERROR_STOP=1 \
+            -c 'CREATE DATABASE touchin_time_clock_test_ci'
+          psql -h 127.0.0.1 -U touchin_ci -d touchin_ci -v ON_ERROR_STOP=1 \
+            -c 'CREATE DATABASE touchin_pr67_adversarial_ci'
+
+      - name: Run PostgreSQL Kanban concurrency and adversarial tests
+        run: pytest -q tests/test_postgres_kanban_adversarial.py
+
+      - name: Run PostgreSQL time-clock concurrency tests
+        run: pytest -q tests/test_time_clock_integrity.py -k postgres
+
+      - name: Run PostgreSQL password-reset and login concurrency tests
+        run: pytest -q tests/test_password_reset_concurrency.py -k pg_login
 
   frontend-tests:
     name: Frontend tests
@@ -56,8 +126,23 @@ jobs:
       - name: Install frontend dependencies
         run: flutter pub get
 
+      - name: Install LCOV report generator
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends --yes lcov
+
       - name: Run frontend tests
-        run: flutter test
+        run: flutter test --coverage --exclude-tags canonical-golden
+
+      - name: Generate frontend HTML coverage report
+        run: genhtml coverage/lcov.info --output-directory coverage/html --title "TouchIn Flutter coverage" --legend
+
+      - name: Upload frontend coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage
+          path: frontend/coverage/
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Test POLIS CI gate runner
         working-directory: .
@@ -108,6 +193,41 @@ jobs:
           TOUCHIN_CHROME: ${{ steps.chrome.outputs.chrome-path }}
           TOUCHIN_CHROME_NO_SANDBOX: '1'
         run: node test/browser/navigation_history_smoke.mjs
+
+  frontend-golden-ubuntu:
+    name: Frontend visual goldens (Ubuntu, Flutter 3.47.2)
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter 3.47.2 for canonical goldens
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.2'
+          cache: true
+
+      - name: Confirm canonical Flutter runtime
+        run: flutter --version
+
+      - name: Install frontend dependencies
+        run: flutter pub get
+
+      - name: Compare canonical navigation goldens
+        run: flutter test --tags canonical-golden
+
+      - name: Upload canonical golden failure images
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: canonical-navigation-golden-failure-images
+          path: frontend/test/features/shared/presentation/widgets/failures/
+          if-no-files-found: warn
 
   windows-polis-gates:
     name: POLIS gates (Windows)

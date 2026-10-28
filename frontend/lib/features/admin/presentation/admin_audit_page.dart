@@ -74,6 +74,17 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
     'success': 'Sucesso',
     'failed': 'Falha',
   };
+  static const _entityTypeFilterValues = [
+    'project',
+    'card',
+    'employee',
+    'kanban_column',
+    'task',
+    'user',
+    'company',
+    'time_clock',
+    'punch',
+  ];
 
   bool _isLoading = false;
   bool _isLoadingMore = false;
@@ -374,6 +385,13 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
   String _eventActionLabel(String value) =>
       _actionLabels[value] ?? 'Ação desconhecida ($value)';
 
+  String _actionFilterLabel(String value) {
+    final label = _eventActionLabel(value);
+    return value.startsWith('task.') && _actionLabels.containsKey(value)
+        ? '$label (versão anterior)'
+        : label;
+  }
+
   String _eventResultLabel(String value) =>
       _resultLabels[value] ?? 'Resultado desconhecido ($value)';
 
@@ -548,7 +566,12 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
       );
     }
     if (filters.action != null) {
-      chips.add(_filterChip(Icons.bolt_outlined, 'Ação: ${filters.action}'));
+      chips.add(
+        _filterChip(
+          Icons.bolt_outlined,
+          'Ação: ${_actionFilterLabel(filters.action!)}',
+        ),
+      );
     }
     if (filters.entityType != null) {
       chips.add(
@@ -608,10 +631,7 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
 
   Widget _buildScaffold() {
     return WorkspaceScaffold(
-      sidebar: const WorkspaceSidebar(
-        title: 'Auditoria',
-        description:
-            'Consulte, filtre e exporte eventos por recurso, ator e período.',
+      contextualContent: const WorkspaceSidebar(
         summaryChildren: [],
         highlightChips: [],
       ),
@@ -662,13 +682,11 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
   }
 
   Widget _buildHeader({required bool compact}) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
     final actions = <Widget>[
       OutlinedButton.icon(
         key: const ValueKey<String>('audit-filters-button'),
         style: OutlinedButton.styleFrom(
-          minimumSize: const Size(0, 46),
+          minimumSize: const Size(0, 48),
           padding: const EdgeInsets.symmetric(horizontal: 14),
         ),
         onPressed: () => _openFilters(compact),
@@ -678,7 +696,7 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
       FilledButton.icon(
         key: const ValueKey<String>('audit-export-button'),
         style: FilledButton.styleFrom(
-          minimumSize: const Size(0, 46),
+          minimumSize: const Size(0, 48),
           padding: const EdgeInsets.symmetric(horizontal: 16),
         ),
         onPressed: _isExporting ? null : _exportEvents,
@@ -689,43 +707,14 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
       ),
     ];
 
-    return Wrap(
-      alignment: WrapAlignment.spaceBetween,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      spacing: 18,
-      runSpacing: 12,
-      children: [
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 570),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Semantics(
-                header: true,
-                child: Text(
-                  'Eventos de auditoria',
-                  key: const ValueKey<String>('audit-title'),
-                  style: (compact
-                          ? theme.textTheme.headlineSmall
-                          : theme.textTheme.headlineMedium)
-                      ?.copyWith(fontWeight: FontWeight.w800),
-                ),
-              ),
-              const SizedBox(height: 5),
-              Text(
-                compact
-                    ? 'Consulte e exporte os eventos registrados da empresa.'
-                    : 'Consulte, compare e exporte os eventos registrados para a sua empresa.',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                  height: 1.4,
-                ),
-              ),
-            ],
-          ),
-        ),
-        Wrap(spacing: 8, runSpacing: 8, children: actions),
-      ],
+    return WorkspaceHeader(
+      title: 'Eventos de auditoria',
+      description: compact
+          ? 'Consulte e exporte os eventos registrados da empresa.'
+          : 'Consulte, compare e exporte os eventos registrados para a sua empresa.',
+      maxContentWidth: 570,
+      actions: actions,
+      compact: compact,
     );
   }
 
@@ -965,6 +954,30 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
           );
         }
 
+        Widget dropdown(
+          String label,
+          String key,
+          String hint,
+          TextEditingController controller,
+          List<DropdownMenuItem<String>> items,
+        ) {
+          return SizedBox(
+            width: fieldWidth,
+            child: DropdownButtonFormField<String>(
+              key: ValueKey<String>(key),
+              initialValue: controller.text.isEmpty ? null : controller.text,
+              isExpanded: true,
+              decoration: InputDecoration(labelText: label, isDense: true),
+              hint: Text(hint),
+              items: items,
+              onChanged: (value) {
+                controller.text = value ?? '';
+                _onDraftChanged(value ?? '');
+              },
+            ),
+          );
+        }
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -974,13 +987,54 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
               children: [
                 field('ID do usuário (ator)', _actorUserIdController,
                     hint: 'ID técnico do ator'),
-                field('Ação', _actionController, hint: 'card.moved'),
-                field('Tipo de entidade', _entityTypeController,
-                    hint: 'card, project ou employee'),
+                dropdown(
+                  'Ação',
+                  'audit-action-filter',
+                  'Todas as ações',
+                  _actionController,
+                  _actionLabels.entries
+                      .map(
+                        (entry) => DropdownMenuItem<String>(
+                          value: entry.key,
+                          child: Text(_actionFilterLabel(entry.key)),
+                        ),
+                      )
+                      .toList(),
+                ),
+                dropdown(
+                  'Tipo de entidade',
+                  'audit-entity-type-filter',
+                  'Todos os tipos',
+                  _entityTypeController,
+                  _entityTypeFilterValues
+                      .map(
+                        (value) => DropdownMenuItem<String>(
+                          value: value,
+                          child: Text(
+                            value == 'task'
+                                ? 'Tarefa (versão anterior)'
+                                : auditEntityLabel(value),
+                          ),
+                        ),
+                      )
+                      .toList(),
+                ),
                 field('ID da entidade', _entityIdController),
                 field('ID do projeto', _projectIdController),
-                field('Resultado', _resultController,
-                    hint: 'success ou failed'),
+                dropdown(
+                  'Resultado',
+                  'audit-result-filter',
+                  'Todos os resultados',
+                  _resultController,
+                  _resultLabels.entries
+                      .map(
+                        (entry) => DropdownMenuItem<String>(
+                          value: entry.key,
+                          child: Text(entry.value),
+                        ),
+                      )
+                      .toList(),
+                ),
               ],
             ),
             const SizedBox(height: 12),

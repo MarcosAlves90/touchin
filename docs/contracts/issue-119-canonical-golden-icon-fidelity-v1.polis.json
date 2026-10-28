@@ -1,0 +1,201 @@
+{
+  "schema_version": 6,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      "frontend/test/features/shared/presentation/widgets/workspace_shell_test.dart",
+      "docs/validation/issue-119/README.md",
+      "docs/validation/issue-119/desktop-light.png",
+      "docs/validation/issue-119/desktop-dark.png",
+      "docs/validation/issue-119/mobile-light.png",
+      "docs/validation/issue-119/mobile-dark.png",
+      "docs/contracts/issue-119-canonical-golden-icon-fidelity-v1.polis.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/features/shared/presentation/widgets/workspace_shell_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Correct the canonical navigation golden harness so Flutter Material icons render as real glyphs, regenerate all four snapshots on the same Ubuntu Flutter 3.47.2 runtime used by CI, and document a command that actually selects those four tests.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "Load both Roboto and the Flutter SDK's MaterialIcons font before pumping each canonical navigation visual case."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "Regenerate desktop-light, desktop-dark, mobile-light, and mobile-dark PNGs under the pinned Ubuntu Flutter 3.47.2 runtime so the navigation, logout, fingerprint, and selected-route icons appear as their distinct glyphs."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "Update the visual validation README to state the pinned Ubuntu Flutter 3.47.2 requirement and use --tags canonical-golden rather than the unmatched plain-name filter."
+      },
+      {
+        "id": "REQ-004",
+        "statement": "Keep production UI and runtime behavior unchanged; this is a visual-test fidelity and documentation correction."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "The visual test loads the MaterialIcons family from the active Flutter SDK before widget pumping and fails if the font is unavailable.",
+        "requirements": [
+          "REQ-001"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "All four canonical golden tests pass on Ubuntu with Flutter 3.47.2, and the four committed PNGs show distinct actual icon glyphs rather than missing-glyph squares.",
+        "requirements": [
+          "REQ-002"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-003",
+        "statement": "The documented update command selects and updates all four tagged visual cases, with the pinned runtime requirement stated next to it.",
+        "requirements": [
+          "REQ-003"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-004",
+        "statement": "No production application files change.",
+        "requirements": [
+          "REQ-004"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "The golden test continues using the four canonical desktop/mobile light/dark cases and fixture content."
+      },
+      {
+        "id": "INV-002",
+        "statement": "The CI golden job remains pinned to Flutter 3.47.2 on Ubuntu and runs the canonical-golden tag."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "IconData changes can pass the golden suite because all icons render as the same missing-glyph square."
+      },
+      {
+        "id": "FORB-002",
+        "statement": "The documented regeneration command selects zero visual cases or omits the pinned Ubuntu Flutter runtime requirement."
+      },
+      {
+        "id": "FORB-003",
+        "statement": "Production widgets, app behavior, or dependencies change as part of this visual-test correction."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "PR #123 review finding: workspace_shell_test.dart loads Roboto but not MaterialIcons, so all navigation and related icons render as placeholder squares in the four committed screenshots."
+      },
+      {
+        "id": "IN-002",
+        "statement": "PR #123 review finding: docs/validation/issue-119/README.md uses a plain-name filter that matches none of the four canonical-golden test names."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "A canonical golden suite that renders actual Material icon glyphs and detects iconography changes."
+      },
+      {
+        "id": "OUT-002",
+        "statement": "Four refreshed Ubuntu Flutter 3.47.2 navigation screenshots and a valid tagged regeneration command."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "On the locked baseline, loading MaterialIcons with the old placeholder snapshots must fail the canonical golden test with the literal Pixel test failed mismatch; environmental/setup failures are not valid Red."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "fb1c4deb315889fa79939f30b784661d45979899",
+    "base_tree": "0c889f9e8c1092de1ff95a9ad4600a3d5d338f94",
+    "policy_sha256": "7714a10ab2b65f58941086f500de93fa62fc6acb6fd59d8b39292980364774dd",
+    "specification_sha256": "60508e0266e7ec489dfac23e233cdf46c1d37f53863164caa31450a5229861d5"
+  },
+  "behavior": {
+    "argv": [
+      "python3",
+      "-c",
+      "from pathlib import Path; import sys; test=Path('frontend/test/features/shared/presentation/widgets/workspace_shell_test.dart').read_text(); readme=Path('docs/validation/issue-119/README.md').read_text(); ok=\"FontLoader('MaterialIcons')\" in test and '--tags canonical-golden' in readme and '--plain-name' not in readme; print('canonical_golden_font_and_command_ok' if ok else 'canonical_golden_font_or_command_missing'); sys.exit(0 if ok else 1)"
+    ],
+    "cwd": ".",
+    "timeout_seconds": 30,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "--tags",
+      "canonical-golden",
+      "test/features/shared/presentation/widgets/workspace_shell_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "--tags",
+        "canonical-golden",
+        "test/features/shared/presentation/widgets/workspace_shell_test.dart"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 600,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "Pixel test failed"
+    ]
+  }
+}

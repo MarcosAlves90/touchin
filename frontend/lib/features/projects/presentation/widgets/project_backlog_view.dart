@@ -3,6 +3,7 @@ import 'package:touchin_flutter/contracts/kanban.dart';
 import 'package:touchin_flutter/contracts/project.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_editor_dialog.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_instant_select_field.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_toolbar.dart';
 
 class ProjectBacklogView extends StatefulWidget {
   const ProjectBacklogView({
@@ -198,7 +199,7 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
                             columnSpacing: 16,
                             dataRowMinHeight: 48,
                             dataRowMaxHeight: 52,
-                            headingRowHeight: 42,
+                            headingRowHeight: 48,
                             headingRowColor: WidgetStatePropertyAll(
                                 colors.surfaceContainerHighest),
                             headingTextStyle:
@@ -233,13 +234,14 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
                                           ?.copyWith(color: colors.primary),
                                     )),
                                     DataCell(SizedBox(
-                                      width: 330,
+                                      width: _titleCellWidth(
+                                          row.column, row.depth),
                                       child: Row(children: <Widget>[
                                         Expanded(
                                           child: Padding(
                                             padding: EdgeInsets.only(
                                                 left: row.depth.clamp(0, 5) *
-                                                    14.0),
+                                                    8.0),
                                             child: Row(children: <Widget>[
                                               if (row.depth > 0)
                                                 Padding(
@@ -346,17 +348,7 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
   Widget _buildToolbar(int visible, int total, int page, int pageCount) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final buttonStyle = ButtonStyle(
-      minimumSize: const WidgetStatePropertyAll(Size(0, 40)),
-      padding:
-          const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 10)),
-      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      iconSize: const WidgetStatePropertyAll(16),
-      textStyle: WidgetStatePropertyAll(
-        theme.textTheme.labelMedium
-            ?.copyWith(fontSize: 12, fontWeight: FontWeight.w600),
-      ),
-    );
+    final buttonStyle = workspaceToolbarActionStyle(theme);
     final controls = <({int flex, double width, Widget child})>[
       (
         flex: 2,
@@ -367,8 +359,8 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
           decoration: const InputDecoration(
             hintText: 'Buscar por título ou #número',
             prefixIcon: Icon(Icons.search_rounded, size: 18),
-            isDense: true,
-            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            constraints: BoxConstraints.tightFor(height: 48),
+            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
           ),
           onChanged: (value) => setState(() {
             _query = value.trim();
@@ -485,13 +477,10 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
         ),
     ];
 
-    return Material(
-      key: const ValueKey<String>('backlog-toolbar'),
-      color: colors.surface,
-      shape: Border.all(color: colors.outlineVariant),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: LayoutBuilder(builder: (context, constraints) {
+    return WorkspaceToolbar(
+      surfaceKey: const ValueKey<String>('backlog-toolbar'),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
           final fillsWidth = constraints.maxWidth >= 1100;
           final row = Row(
             children: <Widget>[
@@ -499,12 +488,12 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
                 if (fillsWidth)
                   Expanded(
                     flex: controls[index].flex,
-                    child: SizedBox.expand(child: controls[index].child),
+                    child: SizedBox(height: 48, child: controls[index].child),
                   )
                 else
                   SizedBox(
                     width: controls[index].width,
-                    height: 40,
+                    height: 48,
                     child: controls[index].child,
                   ),
                 if (index != controls.length - 1) const SizedBox(width: 8),
@@ -515,11 +504,11 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
               if (fillsWidth)
-                SizedBox(height: 40, child: row)
+                SizedBox(height: 48, child: row)
               else
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
-                  child: SizedBox(height: 40, child: row),
+                  child: SizedBox(height: 48, child: row),
                 ),
               const SizedBox(height: 8),
               Row(children: <Widget>[
@@ -534,7 +523,7 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
                   IconButton(
                     key: const ValueKey<String>('backlog-page-previous'),
                     tooltip: 'Página anterior',
-                    visualDensity: VisualDensity.compact,
+                    visualDensity: VisualDensity.standard,
                     onPressed: page == 0 ? null : () => _changePage(page - 1),
                     icon: const Icon(Icons.chevron_left_rounded),
                   ),
@@ -543,7 +532,7 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
                   IconButton(
                     key: const ValueKey<String>('backlog-page-next'),
                     tooltip: 'Próxima página',
-                    visualDensity: VisualDensity.compact,
+                    visualDensity: VisualDensity.standard,
                     onPressed: page == pageCount - 1
                         ? null
                         : () => _changePage(page + 1),
@@ -553,19 +542,20 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
               ]),
             ],
           );
-        }),
+        },
       ),
     );
   }
 
   InputDecoration _filterDecoration(IconData icon) => InputDecoration(
         isDense: true,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        constraints: const BoxConstraints.tightFor(height: 48),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
         prefixIcon: Icon(icon, size: 17),
         prefixIconConstraints:
-            const BoxConstraints(minWidth: 36, minHeight: 40),
+            const BoxConstraints(minWidth: 36, minHeight: 48),
         suffixIconConstraints:
-            const BoxConstraints(minWidth: 36, minHeight: 40),
+            const BoxConstraints(minWidth: 36, minHeight: 48),
       );
 
   Widget _header(String field, String label) => PopupMenuButton<String>(
@@ -653,25 +643,39 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
         _ => '',
       };
 
+  bool get _canReorder =>
+      widget.canMoveCards &&
+      _sort == 'kanban' &&
+      _sortAscending &&
+      _query.isEmpty &&
+      _status.isEmpty &&
+      _assignee.isEmpty &&
+      _columnFilters.isEmpty;
+
+  double _titleCellWidth(KanbanColumn column, int depth) {
+    final actionCount = 1 +
+        (_canReorder && column.cards.length > 1 ? 2 : 0) +
+        (widget.canManageCards ? 2 : 0) +
+        (widget.canManageAssignees ? 1 : 0);
+    final requiredWidth = 160.0 +
+        actionCount * 48.0 +
+        depth.clamp(0, 5) * 8.0 +
+        (depth > 0 ? 23.0 : 0.0);
+    return requiredWidth < 330 ? 330 : requiredWidth.toDouble();
+  }
+
   Widget _cardActions(KanbanCard card, KanbanColumn column, int position) {
-    final canReorder = widget.canMoveCards &&
-        _sort == 'kanban' &&
-        _sortAscending &&
-        _query.isEmpty &&
-        _status.isEmpty &&
-        _assignee.isEmpty &&
-        _columnFilters.isEmpty;
     final actionButtons = <Widget>[
       IconButton(
         tooltip: 'Detalhes de #${card.cardNumber}',
-        visualDensity: VisualDensity.compact,
+        visualDensity: VisualDensity.standard,
         onPressed: () => widget.onOpenDetails(card),
         icon: const Icon(Icons.open_in_new_rounded, size: 18),
       ),
-      if (canReorder && column.cards.length > 1) ...<Widget>[
+      if (_canReorder && column.cards.length > 1) ...<Widget>[
         IconButton(
           tooltip: 'Mover #${card.cardNumber} para cima no Kanban',
-          visualDensity: VisualDensity.compact,
+          visualDensity: VisualDensity.standard,
           onPressed: widget.isBusy || position == 0
               ? null
               : () => widget.onMoveCard(card.id, column.id, position - 1),
@@ -679,7 +683,7 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
         ),
         IconButton(
           tooltip: 'Mover #${card.cardNumber} para baixo no Kanban',
-          visualDensity: VisualDensity.compact,
+          visualDensity: VisualDensity.standard,
           onPressed: widget.isBusy || position == column.cards.length - 1
               ? null
               : () => widget.onMoveCard(card.id, column.id, position + 2),
@@ -689,13 +693,13 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
       if (widget.canManageCards) ...<Widget>[
         IconButton(
           tooltip: 'Editar #${card.cardNumber}',
-          visualDensity: VisualDensity.compact,
+          visualDensity: VisualDensity.standard,
           onPressed: widget.isBusy ? null : () => widget.onEditCard(card),
           icon: const Icon(Icons.edit_outlined, size: 18),
         ),
         IconButton(
           tooltip: 'Excluir #${card.cardNumber}',
-          visualDensity: VisualDensity.compact,
+          visualDensity: VisualDensity.standard,
           onPressed: widget.isBusy ? null : () => widget.onDeleteCard(card),
           icon: const Icon(Icons.delete_outline_rounded, size: 18),
         ),
@@ -703,7 +707,7 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
       if (widget.canManageAssignees)
         IconButton(
           tooltip: 'Responsáveis de #${card.cardNumber}',
-          visualDensity: VisualDensity.compact,
+          visualDensity: VisualDensity.standard,
           onPressed:
               widget.isBusy ? null : () => widget.onManageAssignees(card),
           icon: const Icon(Icons.people_outline_rounded, size: 18),
@@ -712,9 +716,10 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
     return IconButtonTheme(
       data: IconButtonThemeData(
           style: IconButton.styleFrom(
-        minimumSize: const Size(32, 32),
+        minimumSize: const Size(48, 48),
+        maximumSize: const Size(48, 48),
         padding: const EdgeInsets.all(6),
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        tapTargetSize: MaterialTapTargetSize.padded,
         foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
         shape: const RoundedRectangleBorder(),
       )),

@@ -624,7 +624,8 @@ def upgrade_database_schema(bind) -> None:
     _upgrade_audit_events(bind, inspector)
     # Existing deployments use schema upgrades; CREATE ALL only handles new DBs.
     if "user_accounts" in inspect(bind).get_table_names():
-        from app.models import PasswordResetThrottle, PasswordResetToken
+        from app.models import LoginAttemptThrottle, PasswordResetThrottle, PasswordResetToken
 
         PasswordResetToken.__table__.create(bind, checkfirst=True)
         PasswordResetThrottle.__table__.create(bind, checkfirst=True)
+        LoginAttemptThrottle.__table__.create(bind, checkfirst=True)

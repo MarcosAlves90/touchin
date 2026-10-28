@@ -329,15 +329,36 @@ class WorkspaceRouter extends RouterDelegate<WorkspaceLocation>
       key: navigatorKey,
       pages: <Page<void>>[
         for (var index = 0; index <= _currentIndex; index++)
-          MaterialPage<void>(
-            key: ValueKey<String>('$index:${_history[index]}'),
-            name: _history[index],
-            child: buildRoute(
-              context,
-              _history[index],
-              _entrySessions[index],
+          if (_history[index] == '/')
+            MaterialPage<void>(
+              key: ValueKey<String>('$index:${_history[index]}'),
+              name: _history[index],
+              child: buildRoute(
+                context,
+                _history[index],
+                _entrySessions[index],
+              ),
+            )
+          else if (index == 0)
+            WorkspaceEntryPage<void>(
+              key: ValueKey<String>('$index:${_history[index]}'),
+              name: _history[index],
+              child: buildRoute(
+                context,
+                _history[index],
+                _entrySessions[index],
+              ),
+            )
+          else
+            WorkspaceNoTransitionPage<void>(
+              key: ValueKey<String>('$index:${_history[index]}'),
+              name: _history[index],
+              child: buildRoute(
+                context,
+                _history[index],
+                _entrySessions[index],
+              ),
             ),
-          ),
       ],
       onDidRemovePage: _didRemovePage,
     );
@@ -347,6 +368,60 @@ class WorkspaceRouter extends RouterDelegate<WorkspaceLocation>
   void dispose() {
     _navigationUser.dispose();
     super.dispose();
+  }
+}
+
+/// The first authenticated workspace route keeps the normal forward entrance
+/// from login, while returning to that route from another workspace page is
+/// immediate.
+class WorkspaceEntryPage<T> extends Page<T> {
+  const WorkspaceEntryPage({required this.child, super.key, super.name});
+
+  final Widget child;
+
+  @override
+  Route<T> createRoute(BuildContext context) {
+    late final PageRoute<T> route;
+    route = PageRouteBuilder<T>(
+      settings: this,
+      transitionDuration: const Duration(milliseconds: 450),
+      reverseTransitionDuration: Duration.zero,
+      pageBuilder: (_, __, ___) =>
+          (route.settings as WorkspaceEntryPage<T>).child,
+      transitionsBuilder: (context, animation, secondaryAnimation, child) =>
+          Theme.of(context).pageTransitionsTheme.buildTransitions<T>(
+                route,
+                context,
+                animation,
+                secondaryAnimation,
+                child,
+              ),
+    );
+    return route;
+  }
+}
+
+/// A workspace-only page with no route transition.
+///
+/// The first page remains a [MaterialPage] so login → workspace and a cold
+/// start keep their existing presentation. Workspace → workspace changes use
+/// this page instead.
+class WorkspaceNoTransitionPage<T> extends Page<T> {
+  const WorkspaceNoTransitionPage({required this.child, super.key, super.name});
+
+  final Widget child;
+
+  @override
+  Route<T> createRoute(BuildContext context) {
+    late final PageRouteBuilder<T> route;
+    route = PageRouteBuilder<T>(
+      settings: this,
+      transitionDuration: Duration.zero,
+      reverseTransitionDuration: Duration.zero,
+      pageBuilder: (_, __, ___) =>
+          (route.settings as WorkspaceNoTransitionPage<T>).child,
+    );
+    return route;
   }
 }
 
