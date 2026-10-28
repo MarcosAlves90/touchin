@@ -1357,6 +1357,67 @@ void main() {
     expect(find.text('#1'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+  testWidgets(
+      'mobile Kanban toolbar keeps heading and actions in one scrollable row',
+      (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    for (final size in <Size>[const Size(320, 568), const Size(360, 800)]) {
+      await tester.binding.setSurfaceSize(size);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.darkTheme,
+          home: ProjectKanbanPage(api: _FakeKanbanApi(columnCount: 2)),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final toolbar =
+          find.byKey(const ValueKey<String>('kanban-board-toolbar'));
+      final scrollView = find.descendant(
+        of: toolbar,
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is SingleChildScrollView &&
+              widget.scrollDirection == Axis.horizontal,
+        ),
+      );
+      expect(scrollView, findsOneWidget,
+          reason: 'kanban_mobile_toolbar_single_row');
+      final heading = find.descendant(
+        of: scrollView,
+        matching: find.text('Quadro'),
+      );
+      expect(heading, findsOneWidget,
+          reason: 'kanban_mobile_toolbar_single_row');
+
+      for (final action in <Finder>[
+        find.byTooltip('Ver colunas anteriores'),
+        find.byTooltip('Ver próximas colunas'),
+        find.widgetWithText(FilledButton, 'Coluna'),
+      ]) {
+        final actionScrollView = find.ancestor(
+          of: action,
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is SingleChildScrollView &&
+                widget.scrollDirection == Axis.horizontal,
+          ),
+        );
+        expect(action, findsOneWidget,
+            reason: 'kanban_mobile_toolbar_single_row');
+        expect(actionScrollView, findsOneWidget,
+            reason: 'kanban_mobile_toolbar_single_row');
+        expect(
+          (tester.getCenter(heading).dy - tester.getCenter(action).dy).abs(),
+          lessThanOrEqualTo(1),
+          reason: 'kanban_mobile_toolbar_single_row',
+        );
+      }
+      expect(tester.takeException(), isNull, reason: 'viewport $size');
+    }
+  });
+
   testWidgets('compact cards and responsive chrome remain bounded',
       (tester) async {
     for (final size in <Size>[

@@ -600,17 +600,19 @@ class _BoardHeader extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, constraints) {
           if (constraints.maxWidth < 700) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: <Widget>[
-                heading,
-                const SizedBox(height: 8),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  physics: const ClampingScrollPhysics(),
-                  child: Row(children: actionItems),
+            return SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              physics: const ClampingScrollPhysics(),
+              child: SizedBox(
+                height: 48,
+                child: Row(
+                  children: <Widget>[
+                    heading,
+                    const SizedBox(width: 16),
+                    ...actionItems,
+                  ],
                 ),
-              ],
+              ),
             );
           }
           return Row(
