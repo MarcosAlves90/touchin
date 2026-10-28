@@ -1,0 +1,181 @@
+{
+  "schema_version": 6,
+  "kind": "behavior_preserving",
+  "scope": {
+    "allowed_paths": [
+      "backend/tests/test_auth_rate_limit.py",
+      "docs/contracts/auth-rate-limit-test-fixture-cleanup-v2.polis.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "backend/tests/test_auth_rate_limit.py"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Re-anchor the login-rate-limit test-fixture cleanup evidence to the rewritten PR history while preserving the synthetic invalid test value and existing behavior; supersede v1 for the post-rewrite baseline.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "The login-rate-limit tests continue to use a deterministic synthetic invalid value that satisfies the LoginRequest minimum length and is not a credential-like literal."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "Account/source throttling, response, and persistence assertions remain unchanged."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "The current contract is anchored to the post-rewrite committed baseline and supersedes the v1 contract for current validation; production code and runtime credentials remain unchanged."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "The current test fixture uses a deterministic synthetic invalid value of at least eight characters and contains no credential-like literal.",
+        "requirements": [
+          "REQ-001"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "The focused login-rate-limit test suite passes with existing response codes and assertions.",
+        "requirements": [
+          "REQ-002"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-003",
+        "statement": "Only this v2 contract is added after the rewritten baseline; no test or production source is modified.",
+        "requirements": [
+          "REQ-003"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-004",
+        "statement": "The v2 lock identifies the post-rewrite baseline and explicitly supersedes the v1 lock for current validation.",
+        "requirements": [
+          "REQ-003"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "The synthetic placeholder is rejected by the seeded test account and is never a runtime credential."
+      },
+      {
+        "id": "INV-002",
+        "statement": "Rate-limit semantics and configured thresholds are unchanged."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "A real credential, token, or secret is added to test source."
+      },
+      {
+        "id": "FORB-002",
+        "statement": "Production authentication logic or response behavior changes."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "The post-rewrite branch contains the sanitized login-rate-limit tests and the immutable v1 contract as historical evidence."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "A v2 POLIS contract lock and validation evidence anchored to the rewritten baseline."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "Unexpected changes to source behavior or any test failure cause validation to fail."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "ebfa9fdded154b4a7926151a775b1b0975923ba9",
+    "base_tree": "e7eb037560b839555fd12b63b416b9aa62f17fa4",
+    "policy_sha256": "7714a10ab2b65f58941086f500de93fa62fc6acb6fd59d8b39292980364774dd",
+    "specification_sha256": "0f7916b68f1d934e3d99034fff4836b7407d935bd292bc59ec9195a226d3c5ce"
+  },
+  "behavior": {
+    "argv": [
+      "python",
+      "-B",
+      "-m",
+      "pytest",
+      "-q",
+      "tests/test_auth_rate_limit.py"
+    ],
+    "cwd": "backend",
+    "timeout_seconds": 180,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "python",
+      "-B",
+      "-m",
+      "pytest",
+      "-q",
+      "tests/test_auth_rate_limit.py"
+    ],
+    "cwd": "backend",
+    "timeout_seconds": 180,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "green_green",
+    "command": {
+      "argv": [
+        "python",
+        "-B",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_auth_rate_limit.py"
+      ],
+      "cwd": "backend",
+      "timeout_seconds": 180,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    }
+  }
+}
