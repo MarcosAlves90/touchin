@@ -603,14 +603,21 @@ class _BoardHeader extends StatelessWidget {
             return SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               physics: const ClampingScrollPhysics(),
-              child: SizedBox(
-                height: 48,
-                child: Row(
-                  children: <Widget>[
-                    heading,
-                    const SizedBox(width: 16),
-                    ...actionItems,
-                  ],
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                child: SizedBox(
+                  height: 48,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: <Widget>[
+                      heading,
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: actionItems,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             );

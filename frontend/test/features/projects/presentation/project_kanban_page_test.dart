@@ -1418,6 +1418,55 @@ void main() {
     }
   });
 
+  testWidgets(
+      'mobile Kanban toolbar aligns title left and actions right when they fit',
+      (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    const size = Size(390, 844);
+    await tester.binding.setSurfaceSize(size);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.darkTheme,
+        home: ProjectKanbanPage(api: _FakeKanbanApi(columnCount: 2)),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final toolbar = find.byKey(const ValueKey<String>('kanban-board-toolbar'));
+    final scrollView = find.descendant(
+      of: toolbar,
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is SingleChildScrollView &&
+            widget.scrollDirection == Axis.horizontal,
+      ),
+    );
+    final title = find.descendant(
+      of: scrollView,
+      matching: find.text('Quadro'),
+    );
+    final createAction = find.widgetWithText(FilledButton, 'Coluna');
+    expect(scrollView, findsOneWidget,
+        reason: 'kanban_mobile_toolbar_right_alignment');
+    expect(title, findsOneWidget,
+        reason: 'kanban_mobile_toolbar_right_alignment');
+    expect(createAction, findsOneWidget,
+        reason: 'kanban_mobile_toolbar_right_alignment');
+
+    final toolbarBounds = tester.getRect(scrollView);
+    expect(
+      tester.getRect(title).left,
+      closeTo(toolbarBounds.left, 1),
+      reason: 'kanban_mobile_toolbar_right_alignment',
+    );
+    expect(
+      tester.getRect(createAction).right,
+      closeTo(toolbarBounds.right, 1),
+      reason: 'kanban_mobile_toolbar_right_alignment',
+    );
+    expect(tester.takeException(), isNull, reason: 'viewport $size');
+  });
+
   testWidgets('compact cards and responsive chrome remain bounded',
       (tester) async {
     for (final size in <Size>[
