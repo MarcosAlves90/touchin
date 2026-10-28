@@ -121,6 +121,7 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
         ) ??
         0;
 
+    // TODO: Match the selector's visible height to adjacent controls on mobile and desktop.
     final selector = SizedBox(
       height: 52,
       child: WorkspaceInstantSelectField<String>(
