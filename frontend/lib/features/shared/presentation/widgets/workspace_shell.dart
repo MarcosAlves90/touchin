@@ -123,12 +123,8 @@ class WorkspaceScaffold extends StatelessWidget {
       valueListenable: workspaceSidebarCollapsed,
       builder: (context, collapsed, _) => Row(
         children: <Widget>[
-          AnimatedContainer(
+          SizedBox(
             key: const ValueKey<String>('workspace-navigation-sidebar'),
-            duration: MediaQuery.of(context).disableAnimations
-                ? Duration.zero
-                : const Duration(milliseconds: 200),
-            curve: Curves.easeInOut,
             width: collapsed ? 88 : 360,
             child: WorkspaceNavigationPanel(
               collapsed: collapsed,

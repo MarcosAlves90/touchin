@@ -444,6 +444,65 @@ void main() {
     },
   );
 
+  testWidgets(
+    'desktop sidebar transitions immediately without layout overflow',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1280, 800));
+      workspaceSidebarCollapsed.value = false;
+      addTearDown(() async {
+        workspaceSidebarCollapsed.value = false;
+        await tester.binding.setSurfaceSize(null);
+      });
+
+      const contentKey = ValueKey<String>('transition-content-probe');
+      Route<void> route(RouteSettings settings) => MaterialPageRoute<void>(
+            settings: settings,
+            builder: (_) => WorkspaceScaffold(
+              contentScrollable: false,
+              contentBuilder: (_, __) => LayoutBuilder(
+                builder: (context, constraints) => SizedBox(
+                  key: contentKey,
+                  width: constraints.maxWidth,
+                  height: constraints.maxHeight,
+                  child: const SizedBox.shrink(),
+                ),
+              ),
+            ),
+          );
+
+      await tester.pumpWidget(MaterialApp(
+        theme: AppTheme.lightTheme,
+        initialRoute: '/kanban',
+        onGenerateRoute: route,
+      ));
+      await tester.pumpAndSettle();
+
+      final sidebar = find.byKey(
+        const ValueKey<String>('workspace-navigation-sidebar'),
+      );
+      final content = find.byKey(contentKey);
+      final expandedContentWidth = tester.getSize(content).width;
+      expect(tester.getSize(sidebar).width, 360);
+
+      await tester.tap(find.byTooltip('Recolher navegação'));
+      await tester.pump(const Duration(milliseconds: 50));
+      final collapsingWidth = tester.getSize(sidebar).width;
+      final collapsedContentWidth = tester.getSize(content).width;
+      expect(tester.takeException(), isNull, reason: 'collapsing');
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Expandir navegação'));
+      await tester.pump(const Duration(milliseconds: 50));
+      final expandingWidth = tester.getSize(sidebar).width;
+      expect(tester.takeException(), isNull, reason: 'expanding');
+
+      expect(collapsingWidth, 88);
+      expect(collapsedContentWidth, greaterThan(expandedContentWidth));
+      expect(expandingWidth, 360);
+      expect(tester.getSize(content).width, expandedContentWidth);
+    },
+  );
+
   testWidgets('desktop navigation exposes selected state and keyboard focus',
       (tester) async {
     await tester.binding.setSurfaceSize(const Size(1280, 800));
