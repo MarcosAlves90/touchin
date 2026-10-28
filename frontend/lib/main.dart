@@ -9,6 +9,7 @@ import 'package:touchin_flutter/core/theme/theme_mode_controller.dart';
 import 'package:touchin_flutter/features/auth/presentation/auth_session_navigation.dart';
 import 'package:touchin_flutter/features/auth/presentation/login_page.dart';
 import 'package:touchin_flutter/features/auth/presentation/reset_password_page.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/accessibility_tools.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_skeleton.dart';
 import 'package:touchin_flutter/theme/app_theme.dart';
@@ -270,9 +271,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           routerDelegate: _router,
           routeInformationParser: _routeParser,
           backButtonDispatcher: RootBackButtonDispatcher(),
-          builder: (context, child) => WorkspaceRouterScope(
-            router: _router,
-            child: child!,
+          builder: (context, child) => AccessibilityTools(
+            child: WorkspaceRouterScope(
+              router: _router,
+              child: child!,
+            ),
           ),
         );
       },
