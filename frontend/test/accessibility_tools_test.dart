@@ -62,4 +62,46 @@ void main() {
       lessThanOrEqualTo(320),
     );
   });
+
+  testWidgets('accessibility settings preserve nonlinear platform text scaling',
+      (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MediaQuery(
+          data: const MediaQueryData(textScaler: _NonlinearTextScaler()),
+          child: AccessibilityTools(
+            child: Scaffold(
+              body: Builder(
+                builder: (context) => Text(
+                  '${MediaQuery.textScalerOf(context).scale(10).toStringAsFixed(1)}|'
+                  '${MediaQuery.textScalerOf(context).scale(20).toStringAsFixed(1)}',
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('12.0|30.0'), findsOneWidget);
+    await tester.tap(find.bySemanticsLabel('Acessibilidade'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Aumentar texto'));
+    await tester.pumpAndSettle();
+    expect(find.text('13.2|33.0'), findsOneWidget);
+
+    await tester.tap(find.text('Restaurar padrão'));
+    await tester.pumpAndSettle();
+    expect(find.text('12.0|30.0'), findsOneWidget);
+  });
+}
+
+class _NonlinearTextScaler extends TextScaler {
+  const _NonlinearTextScaler();
+
+  @override
+  double scale(double fontSize) => fontSize * (fontSize < 16 ? 1.2 : 1.5);
+
+  @override
+  double get textScaleFactor => 1.2;
 }

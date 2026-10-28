@@ -19,7 +19,9 @@ class _AccessibilityToolsState extends State<AccessibilityTools> {
     final media = MediaQuery.of(context);
     return MediaQuery(
       data: media.copyWith(
-        textScaler: TextScaler.linear(media.textScaler.scale(1) * _textScale),
+        textScaler: _textScale == 1
+            ? media.textScaler
+            : _AdjustedTextScaler(media.textScaler, _textScale),
         disableAnimations: media.disableAnimations || _reduceAnimations,
       ),
       child: LayoutBuilder(
@@ -143,4 +145,26 @@ class _AccessibilityToolsState extends State<AccessibilityTools> {
   void _updateTextScale(double adjustment) {
     setState(() => _textScale = (_textScale + adjustment).clamp(0.8, 1.4));
   }
+}
+
+class _AdjustedTextScaler extends TextScaler {
+  const _AdjustedTextScaler(this._delegate, this._factor);
+
+  final TextScaler _delegate;
+  final double _factor;
+
+  @override
+  double scale(double fontSize) => _delegate.scale(fontSize) * _factor;
+
+  @override
+  double get textScaleFactor => _delegate.scale(1) * _factor;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _AdjustedTextScaler &&
+      other._delegate == _delegate &&
+      other._factor == _factor;
+
+  @override
+  int get hashCode => Object.hash(_delegate, _factor);
 }
