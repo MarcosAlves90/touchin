@@ -3,6 +3,7 @@ import 'package:touchin_flutter/contracts/kanban.dart';
 import 'package:touchin_flutter/contracts/project.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_editor_dialog.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_instant_select_field.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_toolbar.dart';
 
 class ProjectBacklogView extends StatefulWidget {
   const ProjectBacklogView({
@@ -486,13 +487,10 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
         ),
     ];
 
-    return Material(
-      key: const ValueKey<String>('backlog-toolbar'),
-      color: colors.surface,
-      shape: Border.all(color: colors.outlineVariant),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: LayoutBuilder(builder: (context, constraints) {
+    return WorkspaceToolbar(
+      surfaceKey: const ValueKey<String>('backlog-toolbar'),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
           final fillsWidth = constraints.maxWidth >= 1100;
           final row = Row(
             children: <Widget>[
@@ -554,7 +552,7 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
               ]),
             ],
           );
-        }),
+        },
       ),
     );
   }

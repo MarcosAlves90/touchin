@@ -42,6 +42,22 @@ void main() {
           ),
         ));
         await tester.pumpAndSettle();
+        final toolbar = find.byKey(const ValueKey('backlog-toolbar'));
+        expect(toolbar, findsOneWidget);
+        final toolbarMaterial = tester.widget<Material>(toolbar);
+        expect(toolbarMaterial.color, theme.colorScheme.surface);
+        final toolbarPadding = tester.widget<Padding>(
+          find.descendant(
+            of: toolbar,
+            matching: find.byType(Padding),
+          ).first,
+        );
+        expect(toolbarPadding.padding, const EdgeInsets.all(12));
+        expect(
+          tester.getSize(find.byKey(const ValueKey('backlog-search'))).height,
+          48,
+          reason: 'workspace_toolbar_control_height',
+        );
         for (final label in <String>[
           'Gerenciar colunas',
           'Novo status',

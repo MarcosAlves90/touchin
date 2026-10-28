@@ -154,7 +154,8 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
 
     final refresh = IconButton(
       tooltip: 'Atualizar quadro',
-      visualDensity: VisualDensity.compact,
+      constraints: const BoxConstraints.tightFor(width: 52, height: 52),
+      visualDensity: VisualDensity.standard,
       onPressed: _controller.isMutating || _controller.isLoadingBoard
           ? null
           : () => _controller.reload(),

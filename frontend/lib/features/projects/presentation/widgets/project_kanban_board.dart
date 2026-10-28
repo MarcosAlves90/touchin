@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:touchin_flutter/contracts/kanban.dart';
 import 'package:touchin_flutter/contracts/task.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_toolbar.dart';
 
 class ProjectKanbanBoard extends StatefulWidget {
   const ProjectKanbanBoard({
@@ -570,23 +571,25 @@ class _BoardHeader extends StatelessWidget {
       if (columnCount > 1) ...<Widget>[
         IconButton(
           tooltip: 'Ver colunas anteriores',
-          visualDensity: VisualDensity.compact,
+          constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+          visualDensity: VisualDensity.standard,
           onPressed: onScrollPrevious,
           icon: const Icon(Icons.chevron_left_rounded),
         ),
         IconButton(
           tooltip: 'Ver próximas colunas',
-          visualDensity: VisualDensity.compact,
+          constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+          visualDensity: VisualDensity.standard,
           onPressed: onScrollNext,
           icon: const Icon(Icons.chevron_right_rounded),
         ),
       ],
       if (canManageStructure) ...<Widget>[
-        const SizedBox(width: 6),
+        const SizedBox(width: 8),
         FilledButton.tonalIcon(
           style: FilledButton.styleFrom(
-            minimumSize: const Size(0, 38),
-            padding: const EdgeInsets.symmetric(horizontal: 10),
+            minimumSize: const Size(0, 48),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
           ),
           onPressed: isBusy ? null : onCreateColumn,
           icon: const Icon(Icons.add_rounded, size: 18),
@@ -595,35 +598,38 @@ class _BoardHeader extends StatelessWidget {
       ],
     ];
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth < 700) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+    return WorkspaceToolbar(
+      surfaceKey: const ValueKey<String>('kanban-board-toolbar'),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth < 700) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                heading,
+                const SizedBox(height: 8),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  physics: const ClampingScrollPhysics(),
+                  child: Row(children: actionItems),
+                ),
+              ],
+            );
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: <Widget>[
-              heading,
-              const SizedBox(height: 8),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                physics: const ClampingScrollPhysics(),
-                child: Row(children: actionItems),
+              Expanded(child: heading),
+              const SizedBox(width: 16),
+              Wrap(
+                spacing: 0,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: actionItems,
               ),
             ],
           );
-        }
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: <Widget>[
-            Expanded(child: heading),
-            const SizedBox(width: 16),
-            Wrap(
-              spacing: 0,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: actionItems,
-            ),
-          ],
-        );
-      },
+        },
+      ),
     );
   }
 }

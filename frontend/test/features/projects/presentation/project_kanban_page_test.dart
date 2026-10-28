@@ -980,6 +980,51 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('kanban toolbar shares the surface and 48-pixel control height', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.darkTheme,
+        home: ProjectKanbanPage(api: _FakeKanbanApi(columnCount: 2)),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.getSize(find.byTooltip('Atualizar quadro')).height,
+      52,
+      reason: 'workspace_overview_control_height',
+    );
+    final toolbar = find.byKey(const ValueKey<String>('kanban-board-toolbar'));
+    expect(toolbar, findsOneWidget, reason: 'workspace_toolbar_shared_surface');
+    final toolbarMaterial = tester.widget<Material>(toolbar);
+    expect(toolbarMaterial.color, AppTheme.darkTheme.colorScheme.surface);
+    final toolbarPadding = tester.widget<Padding>(
+      find.descendant(
+        of: toolbar,
+        matching: find.byType(Padding),
+      ).first,
+    );
+    expect(toolbarPadding.padding, const EdgeInsets.all(12));
+
+    for (final tooltip in <String>[
+      'Ver colunas anteriores',
+      'Ver próximas colunas',
+    ]) {
+      expect(tester.getSize(find.byTooltip(tooltip)).height, 48);
+    }
+    final createColumn = find.ancestor(
+      of: find.text('Coluna'),
+      matching: find.byType(FilledButton),
+    );
+    expect(tester.getSize(createColumn).height, 48);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('accepted board updates preserve horizontal and lane scroll', (
     tester,
   ) async {
