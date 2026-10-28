@@ -586,13 +586,10 @@ class _BoardHeader extends StatelessWidget {
       ],
       if (canManageStructure) ...<Widget>[
         const SizedBox(width: 8),
-        FilledButton.tonalIcon(
-          style: FilledButton.styleFrom(
-            minimumSize: const Size(0, 48),
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-          ),
+        FilledButton.icon(
+          style: workspaceToolbarActionStyle(theme),
           onPressed: isBusy ? null : onCreateColumn,
-          icon: const Icon(Icons.add_rounded, size: 18),
+          icon: const Icon(Icons.add_rounded),
           label: const Text('Coluna'),
         ),
       ],

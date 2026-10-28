@@ -29,8 +29,13 @@ void main() {
       findsNothing,
     );
     expect(find.byTooltip('Abrir menu'), findsOneWidget);
-    expect(find.byKey(const ValueKey('kanban-topbar')), findsOneWidget);
-    expect(find.text('Sincronizado'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('kanban-topbar')),
+      findsNothing,
+      reason: 'kanban_idle_sync_badge',
+    );
+    expect(find.text('Sincronizado'), findsNothing,
+        reason: 'kanban_idle_sync_badge');
 
     await tester.binding.setSurfaceSize(const Size(1080, 760));
     await tester.pumpAndSettle();
@@ -40,8 +45,13 @@ void main() {
     );
     expect(find.byTooltip('Abrir menu'), findsNothing);
     for (final label in <String>[
-      'Bater Ponto', 'Administrar Equipe', 'Trilha de Auditoria',
-      'Projetos e tarefas', 'Kanban', 'Configurações', 'Sair do Sistema',
+      'Bater Ponto',
+      'Administrar Equipe',
+      'Trilha de Auditoria',
+      'Projetos e tarefas',
+      'Kanban',
+      'Configurações',
+      'Sair do Sistema',
     ]) {
       expect(find.text(label), findsOneWidget);
     }
@@ -105,8 +115,10 @@ void main() {
       expect(api.drafts.every((draft) => draft.columnId == expectedColumnId),
           isTrue);
       expect(api.drafts.first.creationKey, isNotNull);
-      expect(api.drafts.every(
-          (draft) => draft.creationKey == api.drafts.first.creationKey), isTrue);
+      expect(
+          api.drafts.every(
+              (draft) => draft.creationKey == api.drafts.first.creationKey),
+          isTrue);
       expect(find.byType(ProjectTaskEditorDialog), findsOneWidget);
       api.gates.last.complete();
       await tester.pumpAndSettle();
@@ -1004,10 +1016,12 @@ void main() {
     final toolbarMaterial = tester.widget<Material>(toolbar);
     expect(toolbarMaterial.color, AppTheme.darkTheme.colorScheme.surface);
     final toolbarPadding = tester.widget<Padding>(
-      find.descendant(
-        of: toolbar,
-        matching: find.byType(Padding),
-      ).first,
+      find
+          .descendant(
+            of: toolbar,
+            matching: find.byType(Padding),
+          )
+          .first,
     );
     expect(toolbarPadding.padding, const EdgeInsets.all(12));
 
@@ -1023,6 +1037,238 @@ void main() {
     );
     expect(tester.getSize(createColumn).height, 48);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('project overview controls match at compact and desktop widths',
+      (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    for (final size in <Size>[const Size(360, 800), const Size(1440, 900)]) {
+      await tester.binding.setSurfaceSize(size);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.darkTheme,
+          home: ProjectKanbanPage(api: _FakeKanbanApi()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      for (final control in <Finder>[
+        find.byType(WorkspaceInstantSelectField<String>),
+        find.byKey(const ValueKey<String>('project-view-switch')),
+        find.byKey(const ValueKey<String>('kanban-project-metrics')),
+        find.byTooltip('Atualizar quadro'),
+      ]) {
+        expect(
+          tester.getSize(control).height,
+          52,
+          reason: 'workspace_overview_control_height at $size',
+        );
+      }
+      expect(
+        tester
+            .widget<WorkspaceInstantSelectField<String>>(
+              find.byType(WorkspaceInstantSelectField<String>),
+            )
+            .decoration
+            .constraints
+            ?.minHeight,
+        52,
+        reason: 'workspace_overview_control_height at $size',
+      );
+      expect(
+        tester
+            .widget<WorkspaceInstantSelectField<String>>(
+              find.byType(WorkspaceInstantSelectField<String>),
+            )
+            .decoration
+            .constraints
+            ?.maxHeight,
+        52,
+        reason: 'workspace_overview_control_height at $size',
+      );
+      expect(
+        tester
+            .getSize(find
+                .descendant(
+                  of: find.byType(WorkspaceInstantSelectField<String>),
+                  matching: find.byType(InputDecorator),
+                )
+                .first)
+            .height,
+        52,
+        reason: 'workspace_overview_control_height at $size',
+      );
+
+      final viewSwitch = tester.widget<ToggleButtons>(
+        find.byKey(const ValueKey<String>('project-view-switch')),
+      );
+      expect(
+        viewSwitch.constraints!.minWidth,
+        size.width < 980 ? 48 : 94,
+        reason: 'workspace_overview_control_width at $size',
+      );
+      if (size.width >= 980) {
+        final metricCellWidth = (tester
+                    .getSize(find.byKey(const ValueKey<String>(
+                      'kanban-project-metrics',
+                    )))
+                    .width -
+                2) /
+            3;
+        expect(
+          (tester
+                          .getSize(find.byKey(const ValueKey<String>(
+                            'project-view-switch',
+                          )))
+                          .width /
+                      2 -
+                  metricCellWidth)
+              .abs(),
+          lessThanOrEqualTo(2),
+          reason: 'workspace_overview_control_width at $size',
+        );
+      }
+
+      final metricWidths = <double>[
+        for (final label in <String>['Colunas', 'Cards', 'Equipe'])
+          tester
+              .getSize(find
+                  .ancestor(
+                    of: find.text(label),
+                    matching: find.byType(Row),
+                  )
+                  .first)
+              .width,
+      ];
+      expect(
+        metricWidths.reduce((a, b) => a > b ? a : b) -
+            metricWidths.reduce((a, b) => a < b ? a : b),
+        lessThanOrEqualTo(1),
+        reason: 'workspace_overview_control_height at $size',
+      );
+      expect(tester.takeException(), isNull, reason: 'viewport $size');
+    }
+  });
+
+  testWidgets('Kanban primary action matches Backlog toolbar style',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.darkTheme,
+        home: ProjectKanbanPage(api: _FakeKanbanApi(columnCount: 2)),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final projectSelector =
+        find.byType(WorkspaceInstantSelectField<String>).first;
+    final projectSelectorWidget =
+        tester.widget<WorkspaceInstantSelectField<String>>(projectSelector);
+    expect(
+      projectSelectorWidget.decoration.isDense ?? false,
+      isFalse,
+      reason: 'workspace_overview_control_height',
+    );
+    final projectSelectorBorder = find.descendant(
+      of: projectSelector,
+      matching: find.byWidgetPredicate(
+        (widget) => widget is CustomPaint && widget.foregroundPainter != null,
+      ),
+    );
+    expect(
+      tester.getSize(projectSelectorBorder.first).height,
+      52,
+      reason: 'workspace_overview_control_height',
+    );
+
+    final kanbanButton = find.widgetWithText(FilledButton, 'Coluna');
+    final kanbanWidget = tester.widget<FilledButton>(kanbanButton);
+    final kanbanStyle = kanbanWidget.style!;
+    final kanbanMaterial = tester.widget<Material>(find
+        .descendant(
+          of: kanbanButton,
+          matching: find.byType(Material),
+        )
+        .first);
+    final kanbanTextStyle = tester
+        .element(find.text('Coluna'))
+        .getInheritedWidgetOfExactType<DefaultTextStyle>()!
+        .style;
+    final kanbanIconSize = tester
+        .widget<Icon>(find
+            .descendant(
+              of: kanbanButton,
+              matching: find.byType(Icon),
+            )
+            .first)
+        .size;
+
+    await tester.tap(find.text('Backlog'));
+    await tester.pumpAndSettle();
+    final backlogButton = find.widgetWithText(FilledButton, 'Novo card');
+    final backlogWidget = tester.widget<FilledButton>(backlogButton);
+    final backlogStyle = backlogWidget.style!;
+    final backlogMaterial = tester.widget<Material>(find
+        .descendant(
+          of: backlogButton,
+          matching: find.byType(Material),
+        )
+        .first);
+    final backlogTextStyle = tester
+        .element(find.text('Novo card'))
+        .getInheritedWidgetOfExactType<DefaultTextStyle>()!
+        .style;
+    final backlogIconSize = tester
+        .widget<Icon>(find
+            .descendant(
+              of: backlogButton,
+              matching: find.byType(Icon),
+            )
+            .first)
+        .size;
+
+    final searchField = tester.widget<TextField>(
+      find.byKey(const ValueKey<String>('backlog-search')),
+    );
+    expect(
+      searchField.decoration?.isDense ?? false,
+      isFalse,
+      reason: 'workspace_search_control_height',
+    );
+
+    for (final key in <String>[
+      'backlog-search',
+      'backlog-status-filter',
+      'backlog-assignee-filter',
+      'backlog-sort',
+    ]) {
+      final paintedBorder = find.descendant(
+        of: find.byKey(ValueKey<String>(key)),
+        matching: find.byWidgetPredicate(
+          (widget) => widget is CustomPaint && widget.foregroundPainter != null,
+        ),
+      );
+      expect(
+        tester.getSize(paintedBorder.first).height,
+        48,
+        reason: 'workspace_search_control_height',
+      );
+    }
+
+    expect(kanbanMaterial.color, backlogMaterial.color,
+        reason: 'workspace_toolbar_button_style');
+    expect(kanbanTextStyle, backlogTextStyle,
+        reason: 'workspace_toolbar_button_style');
+    expect(kanbanStyle.minimumSize?.resolve(const <WidgetState>{}),
+        backlogStyle.minimumSize?.resolve(const <WidgetState>{}),
+        reason: 'workspace_toolbar_button_style');
+    expect(kanbanStyle.padding?.resolve(const <WidgetState>{}),
+        backlogStyle.padding?.resolve(const <WidgetState>{}),
+        reason: 'workspace_toolbar_button_style');
+    expect(kanbanIconSize, backlogIconSize,
+        reason: 'workspace_toolbar_button_style');
   });
 
   testWidgets('accepted board updates preserve horizontal and lane scroll', (
@@ -1137,7 +1383,8 @@ void main() {
       expect(tester.getRect(board).width, lessThanOrEqualTo(size.width));
       expect(tester.getRect(card).height, lessThanOrEqualTo(144));
       expect(find.text('Atualizado'), findsNothing);
-      expect(find.text('Sincronizado'), findsOneWidget);
+      expect(find.text('Sincronizado'), findsNothing,
+          reason: 'kanban_idle_sync_badge');
       expect(tester.takeException(), isNull, reason: 'viewport $size');
     }
     await tester.binding.setSurfaceSize(null);

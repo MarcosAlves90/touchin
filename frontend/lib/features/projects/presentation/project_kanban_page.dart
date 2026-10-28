@@ -121,29 +121,32 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
         ) ??
         0;
 
-    final selector = WorkspaceInstantSelectField<String>(
-      key: ValueKey<String?>(_controller.selectedProjectId),
-      value: _controller.selectedProjectId,
-      decoration: const InputDecoration(
-        labelText: 'Projeto',
-        isDense: true,
+    final selector = SizedBox(
+      height: 52,
+      child: WorkspaceInstantSelectField<String>(
+        key: ValueKey<String?>(_controller.selectedProjectId),
+        value: _controller.selectedProjectId,
+        decoration: const InputDecoration(
+          labelText: 'Projeto',
+          constraints: BoxConstraints.tightFor(height: 52),
+        ),
+        options: _controller.projects
+            .map(
+              (project) => WorkspaceSelectOption<String>(
+                value: project.id,
+                label: project.name,
+              ),
+            )
+            .toList(),
+        onChanged: _controller.isMutating
+            ? null
+            : (projectId) {
+                if (projectId != null &&
+                    projectId != _controller.selectedProjectId) {
+                  _controller.selectProject(projectId);
+                }
+              },
       ),
-      options: _controller.projects
-          .map(
-            (project) => WorkspaceSelectOption<String>(
-              value: project.id,
-              label: project.name,
-            ),
-          )
-          .toList(),
-      onChanged: _controller.isMutating
-          ? null
-          : (projectId) {
-              if (projectId != null &&
-                  projectId != _controller.selectedProjectId) {
-                _controller.selectProject(projectId);
-              }
-            },
     );
 
     final metrics = _KanbanMetricsStrip(
@@ -215,7 +218,7 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
       key: const ValueKey<String>('project-view-switch'),
       borderRadius: BorderRadius.zero,
       constraints: BoxConstraints(
-        minWidth: compact ? 40 : 86,
+        minWidth: compact ? 48 : 94,
         minHeight: 50,
       ),
       color: colors.onSurfaceVariant,
@@ -932,29 +935,40 @@ class _KanbanTopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Material(
-      key: const ValueKey<String>('kanban-topbar'),
-      color: colorScheme.surface,
-      child: Container(
-        height: 54,
-        padding: const EdgeInsets.fromLTRB(16, 0, 12, 0),
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(color: colorScheme.outlineVariant),
-          ),
-        ),
-        child: Row(
-          children: <Widget>[
-            Expanded(
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: _KanbanSyncStatus(controller: controller),
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) {
+        final isIdle = !controller.isMutating &&
+            !controller.isLoading &&
+            !controller.isLoadingBoard &&
+            controller.loadError == null &&
+            controller.boardError == null;
+        if (isIdle) return const SizedBox.shrink();
+        return Material(
+          key: const ValueKey<String>('kanban-topbar'),
+          color: colorScheme.surface,
+          child: Container(
+            height: 54,
+            padding: const EdgeInsets.fromLTRB(16, 0, 12, 0),
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: colorScheme.outlineVariant),
               ),
             ),
-            const SizedBox(width: 4),
-          ],
-        ),
-      ),
+            child: Row(
+              children: <Widget>[
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: _KanbanSyncStatus(controller: controller),
+                  ),
+                ),
+                const SizedBox(width: 4),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -978,7 +992,7 @@ class _KanbanSyncStatus extends StatelessWidget {
                 ? ('Sincronizando', Icons.sync_rounded)
                 : controller.loadError != null || controller.boardError != null
                     ? ('Atenção', Icons.cloud_off_outlined)
-                    : ('Sincronizado', Icons.cloud_done_outlined);
+                    : ('Atenção', Icons.cloud_off_outlined);
         return Container(
           key: const ValueKey<String>('kanban-navbar-sync-status'),
           padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),

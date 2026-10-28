@@ -24,3 +24,15 @@ class WorkspaceToolbar extends StatelessWidget {
     );
   }
 }
+
+ButtonStyle workspaceToolbarActionStyle(ThemeData theme) => ButtonStyle(
+      minimumSize: const WidgetStatePropertyAll(Size(0, 48)),
+      padding:
+          const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 10)),
+      tapTargetSize: MaterialTapTargetSize.padded,
+      iconSize: const WidgetStatePropertyAll(16),
+      textStyle: WidgetStatePropertyAll(
+        theme.textTheme.labelMedium
+            ?.copyWith(fontSize: 12, fontWeight: FontWeight.w600),
+      ),
+    );

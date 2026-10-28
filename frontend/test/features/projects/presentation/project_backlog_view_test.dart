@@ -47,17 +47,54 @@ void main() {
         final toolbarMaterial = tester.widget<Material>(toolbar);
         expect(toolbarMaterial.color, theme.colorScheme.surface);
         final toolbarPadding = tester.widget<Padding>(
-          find.descendant(
-            of: toolbar,
-            matching: find.byType(Padding),
-          ).first,
+          find
+              .descendant(
+                of: toolbar,
+                matching: find.byType(Padding),
+              )
+              .first,
         );
         expect(toolbarPadding.padding, const EdgeInsets.all(12));
         expect(
           tester.getSize(find.byKey(const ValueKey('backlog-search'))).height,
           48,
-          reason: 'workspace_toolbar_control_height',
+          reason: 'workspace_search_control_height',
         );
+        expect(
+          tester
+              .widget<TextField>(
+                find.byKey(const ValueKey('backlog-search')),
+              )
+              .decoration
+              ?.constraints
+              ?.minHeight,
+          48,
+          reason: 'workspace_search_control_height',
+        );
+        expect(
+          tester
+              .widget<TextField>(
+                find.byKey(const ValueKey('backlog-search')),
+              )
+              .decoration
+              ?.constraints
+              ?.maxHeight,
+          48,
+          reason: 'workspace_search_control_height',
+        );
+        expect(
+          tester
+              .getSize(find
+                  .descendant(
+                    of: find.byKey(const ValueKey('backlog-search')),
+                    matching: find.byType(InputDecorator),
+                  )
+                  .first)
+              .height,
+          48,
+          reason: 'workspace_search_control_height',
+        );
+
         for (final label in <String>[
           'Gerenciar colunas',
           'Novo status',
@@ -81,7 +118,42 @@ void main() {
           'backlog-sort',
         ]) {
           final field = find.byKey(ValueKey<String>(key));
-          expect(tester.getSize(field).height, greaterThanOrEqualTo(48));
+          expect(
+            tester.getSize(field).height,
+            48,
+            reason: 'workspace_search_control_height',
+          );
+          expect(
+            tester
+                .widget<WorkspaceInstantSelectField<String>>(field)
+                .decoration
+                .constraints
+                ?.minHeight,
+            48,
+            reason: 'workspace_search_control_height',
+          );
+          expect(
+            tester
+                .widget<WorkspaceInstantSelectField<String>>(field)
+                .decoration
+                .constraints
+                ?.maxHeight,
+            48,
+            reason: 'workspace_search_control_height',
+          );
+          expect(
+            tester
+                .getSize(find
+                    .descendant(
+                      of: field,
+                      matching: find.byType(InputDecorator),
+                    )
+                    .first)
+                .height,
+            48,
+            reason: 'workspace_search_control_height',
+          );
+
           final select =
               tester.widget<WorkspaceInstantSelectField<String>>(field);
           expect(select.decoration.labelText, isNull);

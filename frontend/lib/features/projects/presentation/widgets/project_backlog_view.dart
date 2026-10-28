@@ -348,17 +348,7 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
   Widget _buildToolbar(int visible, int total, int page, int pageCount) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final buttonStyle = ButtonStyle(
-      minimumSize: const WidgetStatePropertyAll(Size(0, 48)),
-      padding:
-          const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 10)),
-      tapTargetSize: MaterialTapTargetSize.padded,
-      iconSize: const WidgetStatePropertyAll(16),
-      textStyle: WidgetStatePropertyAll(
-        theme.textTheme.labelMedium
-            ?.copyWith(fontSize: 12, fontWeight: FontWeight.w600),
-      ),
-    );
+    final buttonStyle = workspaceToolbarActionStyle(theme);
     final controls = <({int flex, double width, Widget child})>[
       (
         flex: 2,
@@ -369,7 +359,7 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
           decoration: const InputDecoration(
             hintText: 'Buscar por título ou #número',
             prefixIcon: Icon(Icons.search_rounded, size: 18),
-            isDense: true,
+            constraints: BoxConstraints.tightFor(height: 48),
             contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
           ),
           onChanged: (value) => setState(() {
@@ -498,7 +488,7 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
                 if (fillsWidth)
                   Expanded(
                     flex: controls[index].flex,
-                    child: SizedBox.expand(child: controls[index].child),
+                    child: SizedBox(height: 48, child: controls[index].child),
                   )
                 else
                   SizedBox(
@@ -559,6 +549,7 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
 
   InputDecoration _filterDecoration(IconData icon) => InputDecoration(
         isDense: true,
+        constraints: const BoxConstraints.tightFor(height: 48),
         contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
         prefixIcon: Icon(icon, size: 17),
         prefixIconConstraints:
