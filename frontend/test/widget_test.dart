@@ -521,6 +521,8 @@ void main() {
 
   testWidgets('reset succeeds after leaving page and revokes old workspace',
       (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     final storage = _InMemoryTokenStorage()
       ..savedSession = AuthSession(
         accessToken: 'revoked-token',
@@ -559,11 +561,25 @@ void main() {
     await tester.pump(const Duration(milliseconds: 600));
     expect(find.byType(ResetPasswordPage, skipOffstage: false), findsNothing);
     expect(find.byType(AdminEmployeesPage), findsOneWidget);
+    final delayedSessionRead = Completer<AuthSession?>();
+    storage.authSessionReadCompleter = delayedSessionRead;
     pendingReset.complete();
+    await tester.pump();
+    expect(find.byKey(const ValueKey<String>('route-session-skeleton')),
+        findsOneWidget);
+    expect(
+      find.text('Administrar Equipe'),
+      findsNothing,
+      reason: 'former-user destination remains visible after reset revocation',
+    );
+    expect(find.text('Trilha de Auditoria'), findsNothing);
+    delayedSessionRead.complete(null);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 600));
     expect(router.sessionRevoked, isTrue);
     expect(router.verifiedSession, isNull);
+    expect(router.navigationUser.value, isNull,
+        reason: 'former-user destination remains visible after reset revocation');
     expect(storage.savedSession, isNull);
     expect(find.byType(AdminEmployeesPage), findsNothing);
     expect(find.byType(LoginPage), findsOneWidget);
@@ -1218,6 +1234,7 @@ void main() {
           id: 'usr-01',
           email: 'super.admin@touchin.com',
           role: 'super_admin',
+          employeeId: 'emp-01',
         ),
       );
     final api = _FakeTouchInApi(
@@ -1235,6 +1252,7 @@ void main() {
           id: 'usr-01',
           email: 'super.admin@touchin.com',
           role: 'super_admin',
+          employeeId: 'emp-01',
         ),
       ),
     );
@@ -1293,6 +1311,7 @@ void main() {
       id: 'usr-01',
       email: 'super.admin@touchin.com',
       role: 'super_admin',
+      employeeId: 'emp-01',
     );
     final session = AuthSession(
       accessToken: 'token-123',
@@ -1419,6 +1438,306 @@ void main() {
       expect(api.authContextRequests, 3);
     },
   );
+
+  group('workspace navigation lists only available destinations (#60)', () {
+    const canonicalDestinations = <String>[
+      'Bater Ponto',
+      'Administrar Equipe',
+      'Trilha de Auditoria',
+      'Projetos e tarefas',
+      'Kanban',
+      'Configurações',
+    ];
+    const employeeWithProfile = AuthUserSummary(
+      id: 'usr-employee',
+      email: 'joao.lima@touchin.com',
+      role: 'employee',
+      employeeId: 'emp-04',
+    );
+    const employeeWithoutProfile = AuthUserSummary(
+      id: 'usr-employee-unlinked',
+      email: 'sem.perfil@touchin.com',
+      role: 'employee',
+    );
+    const managerWithProfile = AuthUserSummary(
+      id: 'usr-manager',
+      email: 'caio.martins@touchin.com',
+      role: 'manager',
+      employeeId: 'emp-02',
+    );
+    const managerWithoutProfile = AuthUserSummary(
+      id: 'usr-manager-unlinked',
+      email: 'gestor.sem.perfil@touchin.com',
+      role: 'manager',
+    );
+    const adminWithoutProfile = AuthUserSummary(
+      id: 'usr-admin',
+      email: 'admin@touchin.com',
+      role: 'admin',
+    );
+    const superAdminWithoutProfile = AuthUserSummary(
+      id: 'usr-super-admin',
+      email: 'super.admin@touchin.com',
+      role: 'super_admin',
+    );
+    const unrecognizedRoleWithProfile = AuthUserSummary(
+      id: 'usr-unrecognized',
+      email: 'auditor@touchin.com',
+      role: 'auditor',
+      employeeId: 'emp-09',
+    );
+    const employeeDestinations = <String>[
+      'Bater Ponto',
+      'Projetos e tarefas',
+      'Kanban',
+      'Configurações',
+    ];
+    const administratorDestinations = <String>[
+      'Administrar Equipe',
+      'Trilha de Auditoria',
+      'Projetos e tarefas',
+      'Kanban',
+      'Configurações',
+    ];
+    final roleCases = <({
+      String name,
+      AuthUserSummary user,
+      List<String> expected,
+    })>[
+      (
+        name: 'employee with employee profile',
+        user: employeeWithProfile,
+        expected: employeeDestinations,
+      ),
+      (
+        name: 'employee without employee profile',
+        user: employeeWithoutProfile,
+        expected: const <String>[
+          'Projetos e tarefas',
+          'Configurações'
+        ],
+      ),
+      (
+        name: 'manager without employee profile',
+        user: managerWithoutProfile,
+        expected: administratorDestinations,
+      ),
+      (
+        name: 'manager with employee profile',
+        user: managerWithProfile,
+        expected: canonicalDestinations,
+      ),
+      (
+        name: 'admin without employee profile',
+        user: adminWithoutProfile,
+        expected: administratorDestinations,
+      ),
+      (
+        name: 'super admin without employee profile',
+        user: superAdminWithoutProfile,
+        expected: administratorDestinations,
+      ),
+      (
+        name: 'role the backend does not recognize',
+        user: unrecognizedRoleWithProfile,
+        expected: const <String>['Configurações'],
+      ),
+    ];
+
+    AuthSession sessionFor(AuthUserSummary user) => AuthSession(
+          accessToken: 'token-${user.id}',
+          tokenType: 'bearer',
+          expiresAt: DateTime.parse('2099-04-26T18:00:00Z'),
+          company: company,
+          user: user,
+        );
+
+    List<String> visibleDestinations(WidgetTester tester, Finder container) {
+      expect(container, findsOneWidget);
+      return tester
+          .widgetList<Text>(
+            find.descendant(of: container, matching: find.byType(Text)),
+          )
+          .map((text) => text.data)
+          .whereType<String>()
+          .where(canonicalDestinations.contains)
+          .toList();
+    }
+
+    final desktopDestinations = find.byKey(
+      const ValueKey<String>('workspace-desktop-destinations'),
+    );
+
+    Future<({_FakeTouchInApi api, _InMemoryTokenStorage tokenStorage})>
+        pumpWorkspace(
+      WidgetTester tester,
+      AuthUserSummary user, {
+      String route = '/settings',
+      Size size = const Size(1280, 800),
+      Map<int, Completer<AuthContext>>? pendingVerifications,
+    }) async {
+      await tester.binding.setSurfaceSize(size);
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      tester.binding.platformDispatcher.defaultRouteNameTestValue = route;
+      addTearDown(() {
+        tester.binding.platformDispatcher.defaultRouteNameTestValue = '/';
+      });
+      final tokenStorage = _InMemoryTokenStorage()
+        ..savedSession = sessionFor(user);
+      final api = _FakeTouchInApi(
+        tokenStorage: tokenStorage,
+        authContext: AuthContext(company: company, user: user),
+        authContextRequestCompleters: pendingVerifications,
+      );
+      await tester.pumpWidget(MyApp(api: api, tokenStorage: tokenStorage));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 500));
+      return (api: api, tokenStorage: tokenStorage);
+    }
+
+    for (final roleCase in roleCases) {
+      testWidgets(
+          '${roleCase.name}: desktop sidebar lists only available '
+          'destinations', (tester) async {
+        await pumpWorkspace(tester, roleCase.user);
+
+        expect(find.byType(ThemeSettingsPage), findsOneWidget);
+        expect(
+          visibleDestinations(tester, desktopDestinations),
+          roleCase.expected,
+          reason: '${roleCase.name} on the desktop sidebar',
+        );
+        expect(find.text('Sair do Sistema'), findsOneWidget);
+      });
+
+      testWidgets(
+          '${roleCase.name}: mobile drawer lists only available '
+          'destinations', (tester) async {
+        await pumpWorkspace(tester, roleCase.user, size: const Size(390, 844));
+        expect(find.byType(ThemeSettingsPage), findsOneWidget);
+        expect(desktopDestinations, findsNothing);
+
+        tester.state<ScaffoldState>(find.byType(Scaffold).first).openDrawer();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 500));
+
+        expect(
+          visibleDestinations(tester, find.byType(Drawer)),
+          roleCase.expected,
+          reason: '${roleCase.name} on the mobile drawer',
+        );
+        expect(
+          find.descendant(
+            of: find.byType(Drawer),
+            matching: find.text('Sair do Sistema'),
+          ),
+          findsOneWidget,
+        );
+      });
+    }
+
+    testWidgets(
+        'internal navigation reuses the verified user navigation',
+        (tester) async {
+      final workspace = await pumpWorkspace(tester, employeeWithProfile);
+      expect(workspace.api.authContextRequests, 1);
+      expect(
+        visibleDestinations(tester, desktopDestinations),
+        employeeDestinations,
+      );
+
+      WorkspaceRouterScope.maybeOf(
+        tester.element(find.byType(ThemeSettingsPage)),
+      )!
+          .navigate('/kanban');
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(workspace.api.authContextRequests, 1);
+      expect(find.byKey(const ValueKey<String>('route-session-skeleton')),
+          findsNothing);
+      expect(find.byType(ProjectKanbanPage), findsOneWidget);
+      expect(
+        visibleDestinations(tester, desktopDestinations),
+        employeeDestinations,
+      );
+    });
+
+    testWidgets(
+        'signing out and authenticating as another role replaces navigation',
+        (tester) async {
+      final workspace = await pumpWorkspace(tester, adminWithoutProfile);
+      expect(
+        visibleDestinations(tester, desktopDestinations),
+        administratorDestinations,
+      );
+
+      final router = WorkspaceRouterScope.maybeOf(
+        tester.element(find.byType(ThemeSettingsPage)),
+      )!;
+      router.signedOut();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.byType(LoginPage), findsOneWidget);
+
+      final employeeSession = sessionFor(employeeWithProfile);
+      await workspace.tokenStorage.saveAuthSession(employeeSession);
+      WorkspaceRouterScope.replaceWithAuthenticated(
+        tester.element(find.byType(LoginPage)),
+        employeeSession,
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(find.byType(TimeClockPage), findsOneWidget);
+      expect(
+        visibleDestinations(tester, desktopDestinations),
+        employeeDestinations,
+        reason: 'no destination of the previous administrator may remain',
+      );
+    });
+
+    final landingCases = <({String name, AuthUserSummary user, Type page})>[
+      (
+        name: 'employee without employee profile',
+        user: employeeWithoutProfile,
+        page: ProjectTasksPage,
+      ),
+      (
+        name: 'employee with employee profile',
+        user: employeeWithProfile,
+        page: TimeClockPage,
+      ),
+      (
+        name: 'manager without employee profile',
+        user: managerWithoutProfile,
+        page: AdminEmployeesPage,
+      ),
+      (
+        name: 'admin without employee profile',
+        user: adminWithoutProfile,
+        page: AdminEmployeesPage,
+      ),
+      (
+        name: 'role the backend does not recognize',
+        user: unrecognizedRoleWithProfile,
+        page: ThemeSettingsPage,
+      ),
+    ];
+    for (final landingCase in landingCases) {
+      testWidgets('${landingCase.name} lands on an available destination',
+          (tester) async {
+        await pumpWorkspace(tester, landingCase.user, route: '/');
+        await tester.pump(const Duration(milliseconds: 500));
+
+        expect(find.byType(landingCase.page), findsOneWidget);
+        if (landingCase.page != AdminEmployeesPage) {
+          expect(find.byType(AdminEmployeesPage), findsNothing);
+        }
+      });
+    }
+  });
 }
 
 class _FakeTouchInApi extends TouchInApi {
@@ -1494,6 +1813,7 @@ class _FakeTouchInApi extends TouchInApi {
 
 class _InMemoryTokenStorage extends TokenStorage {
   AuthSession? savedSession;
+  Completer<AuthSession?>? authSessionReadCompleter;
 
   @override
   Future<void> saveAuthSession(AuthSession session) async {
@@ -1507,6 +1827,8 @@ class _InMemoryTokenStorage extends TokenStorage {
 
   @override
   Future<AuthSession?> readAuthSession() async {
+    final completer = authSessionReadCompleter;
+    if (completer != null) return completer.future;
     return savedSession;
   }
 

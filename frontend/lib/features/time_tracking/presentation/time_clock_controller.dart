@@ -268,6 +268,18 @@ class TimeClockController extends ChangeNotifier {
     }
   }
 
+  void clearWorkLogProjectSelection() {
+    if (_isDisposed) {
+      return;
+    }
+    _workLogTaskRequestVersion += 1;
+    selectedWorkLogProjectId = null;
+    workLogTasks = const <TaskRecord>[];
+    isLoadingWorkLogTasks = false;
+    workLogLoadError = null;
+    notifyListeners();
+  }
+
   Future<String?> handlePunch(
     PunchType type, {
     String? projectId,

@@ -396,6 +396,35 @@ void main() {
     controller.dispose();
   });
 
+  test('selecting no project invalidates a pending project task response',
+      () async {
+    final project = _project('project-1', 'Projeto A');
+    final task = _task('task-1', project.id, 'Tarefa A');
+    final pendingTasks = Completer<List<TaskRecord>>();
+    final api = _FakeTouchInApi(
+      _timeClockState(),
+      projects: <ProjectSummary>[project],
+      taskListCompleter: pendingTasks,
+    );
+    final controller = TimeClockController(
+      api: api,
+      punchLocationService: const _FailingPunchLocationService(),
+    );
+
+    await controller.loadWorkLogProjects();
+    final pendingLoad = controller.loadWorkLogTasks(project.id);
+    expect(controller.isLoadingWorkLogTasks, isTrue);
+    controller.clearWorkLogProjectSelection();
+    expect(controller.selectedWorkLogProjectId, isNull);
+    expect(controller.isLoadingWorkLogTasks, isFalse);
+
+    pendingTasks.complete(<TaskRecord>[task]);
+    expect(await pendingLoad, isNull);
+    expect(controller.workLogTasks, isEmpty);
+    expect(controller.workLogLoadError, isNull);
+    controller.dispose();
+  });
+
   test('handlePunch propagates project and work log to the API request',
       () async {
     final api = _FakeTouchInApi(_timeClockState());

@@ -260,6 +260,91 @@ void main() {
     expect(api.lastPunchJson, isNull);
   });
 
+  testWidgets('with projects available the employee must choose a project or Nenhum',
+      (tester) async {
+    await _pumpPage(tester);
+    await tester.tap(find.text('Iniciar pausa'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const Key('work-log-description')),
+      'Descrição sem seleção',
+    );
+    await tester.pump();
+    expect(
+      tester.widget<FilledButton>(find.byKey(const Key('work-log-submit'))).onPressed,
+      isNull,
+    );
+    await _openProject(tester, 'Nenhum');
+    expect(
+      tester.widget<FilledButton>(find.byKey(const Key('work-log-submit'))).onPressed,
+      isNotNull,
+    );
+  });
+
+  testWidgets('employee without projects sees Nenhum selected and can submit only a description',
+      (tester) async {
+    final api = await _pumpPage(tester);
+    api.projects.clear();
+
+    await tester.tap(find.text('Iniciar pausa'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Registrar atividades'), findsOneWidget);
+    expect(find.text('Nenhum'), findsOneWidget);
+    expect(find.byKey(const Key('work-log-task-task-a')), findsNothing);
+    expect(
+      tester.widget<FilledButton>(find.byKey(const Key('work-log-submit'))).onPressed,
+      isNull,
+    );
+
+    await tester.enterText(
+      find.byKey(const Key('work-log-description')),
+      '  Atendimento interno  ',
+    );
+    await tester.pump();
+    expect(
+      tester.widget<FilledButton>(find.byKey(const Key('work-log-submit'))).onPressed,
+      isNotNull,
+    );
+    await tester.tap(find.byKey(const Key('work-log-submit')));
+    await tester.pumpAndSettle();
+
+    expect(api.lastPunchJson?['type'], 'breakStart');
+    expect(api.lastPunchJson?.containsKey('projectId'), isTrue);
+    expect(api.lastPunchJson?['projectId'], isNull);
+    expect(api.lastPunchJson?['workLog'], <String, dynamic>{
+      'description': 'Atendimento interno',
+      'taskIds': <String>[],
+    });
+  });
+
+  testWidgets('Nenhum clears selected project tasks and requires only description',
+      (tester) async {
+    final api = await _pumpPage(tester);
+    await tester.tap(find.text('Registrar saída'));
+    await tester.pumpAndSettle();
+    await _openProject(tester, 'Projeto A');
+    await tester.tap(find.byKey(const Key('work-log-task-task-a')));
+    await tester.pump();
+    await _openProject(tester, 'Nenhum');
+
+    expect(find.byKey(const Key('work-log-task-task-a')), findsNothing);
+    await tester.enterText(
+      find.byKey(const Key('work-log-description')),
+      'Suporte sem projeto',
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('work-log-submit')));
+    await tester.pumpAndSettle();
+
+    expect(api.lastPunchJson?['projectId'], isNull);
+    expect(api.lastPunchJson?['workLog'], <String, dynamic>{
+      'description': 'Suporte sem projeto',
+      'taskIds': <String>[],
+    });
+  });
+
   testWidgets('valid work log reaches punch API with project and tasks',
       (tester) async {
     final api = await _pumpPage(tester);

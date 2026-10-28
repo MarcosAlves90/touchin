@@ -39,7 +39,15 @@ class PunchRecordResponse(CamelModel):
 
 class WorkLogPayload(CamelModel):
     description: str = Field(min_length=1)
-    task_ids: list[str] = Field(min_length=1)
+    task_ids: list[str]
+
+    @field_validator("description")
+    @classmethod
+    def validate_description(cls, value: str) -> str:
+        description = value.strip()
+        if not description:
+            raise ValueError("A descrição da atividade é obrigatória.")
+        return description
 
 
 class CreatePunchRequest(CamelModel):

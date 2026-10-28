@@ -727,7 +727,7 @@ class _TimeClockPageState extends State<TimeClockPage> {
                 width: width,
                 child: WorkspaceMetricCard(
                   icon: Icons.history_rounded,
-                  label: 'Útimo evento',
+                  label: 'Último evento',
                   value: '--:--',
                   helper: 'Aguardando resposta da API',
                 ),
@@ -784,7 +784,7 @@ class _TimeClockPageState extends State<TimeClockPage> {
               width: width,
               child: WorkspaceMetricCard(
                 icon: Icons.history_rounded,
-                label: 'Útimo evento',
+                label: 'Último evento',
                 value:
                     _lastPunchAt == null ? '--:--' : _formatTime(_lastPunchAt!),
                 helper: _lastPunchAt == null

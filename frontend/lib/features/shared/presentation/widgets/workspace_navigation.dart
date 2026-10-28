@@ -1,39 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:touchin_flutter/contracts/auth.dart';
+import 'package:touchin_flutter/core/navigation/workspace_destinations.dart';
 import 'package:touchin_flutter/core/navigation/workspace_router.dart';
 import 'package:touchin_flutter/features/auth/presentation/logout_navigation.dart';
 import 'package:touchin_flutter/theme/app_theme.dart';
 
+export 'package:touchin_flutter/core/navigation/workspace_destinations.dart';
+
 typedef WorkspaceLogoutHandler = Future<void> Function(BuildContext context);
-
-/// The only list of workspace destinations used by both navigation layouts.
-class WorkspaceDestination {
-  const WorkspaceDestination(this.icon, this.label, this.route);
-
-  final IconData icon;
-  final String label;
-  final String route;
-}
-
-const workspaceDestinations = <WorkspaceDestination>[
-  WorkspaceDestination(Icons.timer_outlined, 'Bater Ponto', '/time-clock'),
-  WorkspaceDestination(
-    Icons.groups_2_rounded,
-    'Administrar Equipe',
-    '/admin/employees',
-  ),
-  WorkspaceDestination(
-    Icons.history_edu,
-    'Trilha de Auditoria',
-    '/admin/audit',
-  ),
-  WorkspaceDestination(
-    Icons.account_tree_outlined,
-    'Projetos e tarefas',
-    '/projects',
-  ),
-  WorkspaceDestination(Icons.view_kanban_outlined, 'Kanban', '/kanban'),
-  WorkspaceDestination(Icons.tune_rounded, 'Configurações', '/settings'),
-];
 
 abstract final class WorkspaceBreakpoints {
   static const double wide = 1080;
@@ -247,6 +221,26 @@ class _WorkspaceNavigationItemState extends State<WorkspaceNavigationItem> {
   }
 }
 
+class _AvailableWorkspaceDestinations extends StatelessWidget {
+  const _AvailableWorkspaceDestinations({required this.builder});
+
+  final Widget Function(
+    BuildContext context,
+    List<WorkspaceDestination> destinations,
+  ) builder;
+
+  @override
+  Widget build(BuildContext context) {
+    final router = WorkspaceRouterScope.maybeOf(context);
+    if (router == null) return builder(context, workspaceDestinations);
+    return ValueListenableBuilder<AuthUserSummary?>(
+      valueListenable: router.navigationUser,
+      builder: (context, user, _) =>
+          builder(context, availableWorkspaceDestinations(user)),
+    );
+  }
+}
+
 class WorkspaceNavigationPanel extends StatelessWidget {
   const WorkspaceNavigationPanel({
     super.key,
@@ -280,17 +274,24 @@ class WorkspaceNavigationPanel extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
-                  for (final destination in workspaceDestinations)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 2),
-                      child: WorkspaceNavigationItem(
-                        icon: destination.icon,
-                        label: destination.label,
-                        selected: activeRoute == destination.route,
-                        onPressed: () =>
-                            _navigateTo(context, destination.route),
-                      ),
+                  _AvailableWorkspaceDestinations(
+                    builder: (context, destinations) => Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: <Widget>[
+                        for (final destination in destinations)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 2),
+                            child: WorkspaceNavigationItem(
+                              icon: destination.icon,
+                              label: destination.label,
+                              selected: activeRoute == destination.route,
+                              onPressed: () =>
+                                  _navigateTo(context, destination.route),
+                            ),
+                          ),
+                      ],
                     ),
+                  ),
                   const SizedBox(height: 12),
                   Divider(color: colors.outlineVariant),
                   const SizedBox(height: 10),
@@ -380,16 +381,23 @@ class WorkspaceNavigationDrawer extends StatelessWidget {
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
               children: <Widget>[
-                for (final destination in workspaceDestinations)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 2),
-                    child: WorkspaceNavigationItem(
-                      icon: destination.icon,
-                      label: destination.label,
-                      selected: activeRoute == destination.route,
-                      onPressed: () => _navigateTo(context, destination.route),
-                    ),
+                _AvailableWorkspaceDestinations(
+                  builder: (context, destinations) => Column(
+                    children: <Widget>[
+                      for (final destination in destinations)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 2),
+                          child: WorkspaceNavigationItem(
+                            icon: destination.icon,
+                            label: destination.label,
+                            selected: activeRoute == destination.route,
+                            onPressed: () =>
+                                _navigateTo(context, destination.route),
+                          ),
+                        ),
+                    ],
                   ),
+                ),
                 const SizedBox(height: 12),
                 Divider(color: colors.outlineVariant),
                 const SizedBox(height: 10),

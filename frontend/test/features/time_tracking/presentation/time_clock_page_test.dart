@@ -150,6 +150,23 @@ void main() {
     controller.dispose();
   });
 
+  testWidgets('last punch summary label is spelled correctly',
+      (WidgetTester tester) async {
+    final controller = _FakeTimeClockController(<int, TimeClockState>{
+      1: _timelineState(page: 1, records: const <PunchRecord>[], totalPages: 1),
+    })..isLoadingState = false;
+    tester.view.physicalSize = const Size(1400, 1800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(MaterialApp(home: TimeClockPage(controller: controller)));
+    await tester.pump();
+
+    expect(find.text('Último evento'), findsOneWidget);
+    expect(find.text('Útimo evento'), findsNothing);
+    controller.dispose();
+  });
+
   testWidgets('keeps workspace visible while initial state loads',
       (WidgetTester tester) async {
     final controller = _LoadingTimeClockController();
