@@ -384,19 +384,7 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
           helper: 'Onboarding, afastamentos e ajustes',
         ),
       ],
-      highlightChips: _buildSidebarHighlightChips(),
     );
-  }
-
-  List<Widget> _buildSidebarHighlightChips() {
-    final workspaceAccessLabel =
-        _authContext?.user.workspaceAccessLabel ?? 'Acesso autenticado';
-    return <Widget>[
-      WorkspaceHighlightChip(
-        label: workspaceAccessLabel,
-      ),
-      const WorkspaceHighlightChip(label: 'Dados mascarados'),
-    ];
   }
 
   Widget _buildWorkspace({required bool isWide}) {

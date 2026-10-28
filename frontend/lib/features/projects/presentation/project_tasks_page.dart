@@ -88,12 +88,6 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
               : '${_controller.taskMembers.length} participante(s) na tarefa atual.',
         ),
       ],
-      highlightChips: <Widget>[
-        if (_controller.canManageProjects)
-          const WorkspaceHighlightChip(label: 'Acesso gerencial'),
-        if (_controller.canManageOwnTaskMembership)
-          const WorkspaceHighlightChip(label: 'Participação em tarefas'),
-      ],
     );
   }
 

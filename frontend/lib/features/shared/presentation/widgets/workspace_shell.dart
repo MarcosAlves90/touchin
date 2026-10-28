@@ -183,12 +183,10 @@ class WorkspaceSidebar extends StatelessWidget {
   const WorkspaceSidebar({
     super.key,
     required this.summaryChildren,
-    required this.highlightChips,
     this.heading = 'RESUMO',
   });
 
   final List<Widget> summaryChildren;
-  final List<Widget> highlightChips;
   final String heading;
 
   @override
@@ -196,7 +194,7 @@ class WorkspaceSidebar extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    if (summaryChildren.isEmpty && highlightChips.isEmpty) {
+    if (summaryChildren.isEmpty) {
       return const SizedBox.shrink();
     }
 
@@ -219,10 +217,6 @@ class WorkspaceSidebar extends StatelessWidget {
               (w) =>
                   Padding(padding: const EdgeInsets.only(bottom: 12), child: w),
             ),
-          ],
-          if (highlightChips.isNotEmpty) ...<Widget>[
-            if (summaryChildren.isNotEmpty) const SizedBox(height: 12),
-            Wrap(spacing: 8, runSpacing: 8, children: highlightChips),
           ],
         ],
       ),
@@ -442,33 +436,6 @@ class WorkspaceSummaryStripe extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class WorkspaceHighlightChip extends StatelessWidget {
-  const WorkspaceHighlightChip({super.key, required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.56),
-        border: Border.all(color: colorScheme.outlineVariant),
-      ),
-      child: Text(
-        label,
-        style: theme.textTheme.labelLarge?.copyWith(
-          color: colorScheme.onSurface,
-          fontWeight: FontWeight.w600,
-        ),
       ),
     );
   }

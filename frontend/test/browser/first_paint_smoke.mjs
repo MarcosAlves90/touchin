@@ -85,6 +85,13 @@ async function waitFor(predicate, description, timeoutMs = 20000, intervalMs = 8
 
 async function readCsp() {
   const config = JSON.parse(await readFile(configFile, 'utf8'));
+  const permissionsPolicy = config.headers?.flatMap((rule) => rule.headers ?? [])
+    .find((header) => header.key.toLowerCase() === 'permissions-policy')?.value;
+  assert.equal(
+    permissionsPolicy,
+    'camera=(), microphone=(), geolocation=(self)',
+    'permissions_policy_geolocation_self',
+  );
   const csp = config.headers?.flatMap((rule) => rule.headers ?? [])
     .find((header) => header.key.toLowerCase() === 'content-security-policy')?.value;
   assert.ok(csp, 'Missing production Content-Security-Policy in frontend/vercel.json');

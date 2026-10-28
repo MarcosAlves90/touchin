@@ -265,22 +265,6 @@ class _TimeClockPageState extends State<TimeClockPage> {
     };
   }
 
-  String _locationChipLabel() {
-    if (!_controller.requiresLocationOnPunch &&
-        _locationState.status == PunchLocationStatus.checking) {
-      return 'Localização opcional';
-    }
-    return switch (_locationState.status) {
-      PunchLocationStatus.ready => 'Geolocalização pronta',
-      PunchLocationStatus.checking => 'Validando permissão',
-      PunchLocationStatus.serviceDisabled => 'Ative a localização',
-      PunchLocationStatus.permissionDenied => 'Permissão pendente',
-      PunchLocationStatus.permissionDeniedForever => 'Permissão bloqueada',
-      PunchLocationStatus.unsupported => 'Geolocalização indisponível',
-      PunchLocationStatus.error => 'Falha de localização',
-    };
-  }
-
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
@@ -343,16 +327,6 @@ class _TimeClockPageState extends State<TimeClockPage> {
                       ? 'Nenhum registro no dia'
                       : 'Último evento recebido',
         ),
-      ],
-      highlightChips: <Widget>[
-        WorkspaceHighlightChip(
-          label: isLoading
-              ? 'Sincronizando estado'
-              : hasError
-                  ? 'Dados indisponíveis'
-                  : _locationChipLabel(),
-        ),
-        const WorkspaceHighlightChip(label: 'Jornada auditável'),
       ],
     );
   }

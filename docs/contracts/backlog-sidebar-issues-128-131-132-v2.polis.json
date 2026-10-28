@@ -1,0 +1,231 @@
+{
+  "schema_version": 6,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      "docs/contracts/backlog-sidebar-issues-128-131-132-v2.polis.json",
+      "docs/validation/issue-119/desktop-dark.png",
+      "docs/validation/issue-119/desktop-light.png",
+      "docs/validation/issue-119/mobile-dark.png",
+      "docs/validation/issue-119/mobile-light.png",
+      "frontend/lib/features/projects/presentation/widgets/project_backlog_view.dart",
+      "frontend/lib/features/shared/presentation/widgets/workspace_shell.dart",
+      "frontend/lib/features/admin/presentation/admin_audit_page.dart",
+      "frontend/lib/features/admin/presentation/admin_employees_page.dart",
+      "frontend/lib/features/projects/presentation/project_tasks_page.dart",
+      "frontend/lib/features/settings/presentation/settings_page.dart",
+      "frontend/lib/features/time_tracking/presentation/time_clock_page.dart",
+      "frontend/test/accessibility_shared_test.dart",
+      "frontend/test/admin_employees_page_test.dart",
+      "frontend/test/features/projects/presentation/project_backlog_view_test.dart",
+      "frontend/test/features/shared/presentation/widgets/workspace_shell_test.dart",
+      "frontend/test/features/time_tracking/presentation/time_clock_page_test.dart",
+      "frontend/test/features/time_tracking/presentation/time_clock_accessibility_test.dart"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/accessibility_shared_test.dart",
+      "frontend/test/admin_employees_page_test.dart",
+      "frontend/test/features/projects/presentation/project_backlog_view_test.dart",
+      "frontend/test/features/shared/presentation/widgets/workspace_shell_test.dart",
+      "frontend/test/features/time_tracking/presentation/time_clock_page_test.dart",
+      "frontend/test/features/time_tracking/presentation/time_clock_accessibility_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Resolve the desktop Backlog overflow and crowded row actions, and remove secondary informational chips from workspace sidebars without changing navigation, permissions, or business behavior.",
+    "requirements": [
+      {
+        "id": "REQ-128",
+        "statement": "Backlog columns wider than available desktop content remain reachable through discoverable horizontal scrolling within the table; headers and cells stay aligned and vertical scrolling remains available."
+      },
+      {
+        "id": "REQ-132",
+        "statement": "Backlog row actions occupy a dedicated Ações column; Título contains only title hierarchy/content and retains at least 160 logical pixels for text at a 1440 logical-pixel viewport."
+      },
+      {
+        "id": "REQ-131",
+        "statement": "All secondary informational highlight chips are removed from workspace sidebars; operationally important state remains in appropriate page content and navigation/permissions remain unchanged."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-128",
+        "statement": "The Backlog table exposes a visible horizontal scrollbar for overflowing columns, supports horizontal navigation, and avoids whole-page horizontal overflow.",
+        "requirements": [
+          "REQ-128"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-132",
+        "statement": "Every Backlog row has an aligned Ações cell separate from Título; existing permission-aware action callbacks, tooltips, busy/disabled states, and minimum 48x48 targets remain intact; title text remains at least 160 logical pixels at 1440 width.",
+        "requirements": [
+          "REQ-132"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-131",
+        "statement": "No secondary informational chips, empty wrappers, or chip spacing remain in workspace sidebars across all call sites; navigation, active route, logout, responsive layout, collapse behavior, and page-content status remain intact.",
+        "requirements": [
+          "REQ-131"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-VISUAL",
+        "statement": "Desktop expanded, mobile, light, and dark workspace sidebar visual baselines are updated to show no secondary informational chips.",
+        "requirements": [
+          "REQ-131"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-CONTRACT",
+        "statement": "This versioned contract supersedes the prior Backlog layout contract only for the table columns/actions layout, preserving 160-pixel title and 48x48 action-target requirements.",
+        "requirements": [
+          "REQ-128",
+          "REQ-132"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-01",
+        "statement": "Preserve Backlog data, sorting, filtering, row identity, card ordering, actions, permissions, and backend behavior."
+      },
+      {
+        "id": "INV-02",
+        "statement": "Do not remove functional badges or status labels in main content, or alter geolocation, audit, data masking, or permission behavior."
+      },
+      {
+        "id": "INV-03",
+        "statement": "Do not introduce dependencies or permanently hide table columns or content."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-01",
+        "statement": "Backlog actions share the Título cell or table content is unreachable due to overflow."
+      },
+      {
+        "id": "FORB-02",
+        "statement": "Any secondary informational chip remains in a workspace sidebar or essential page status is lost."
+      },
+      {
+        "id": "FORB-03",
+        "statement": "Navigation, permissions, callbacks, accessibility semantics, responsive behavior, or required visual baselines regress."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-01",
+        "statement": "Backlog columns, card rows, action availability, viewport width, workspace sidebar content, and theme."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-01",
+        "statement": "Scrollable, readable Backlog table with a dedicated actions column and clean workspace sidebars."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-01",
+        "statement": "Regression tests fail with backlog_horizontal_scrollbar, backlog_actions_column, workspace_sidebar_chips_removed, or the named workspace visual case when a requirement is violated."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "ca9b776ddac1920872af36907d9bcbdd5217434e",
+    "base_tree": "4dcd5c171f7482b4e3959c091559d53db4a4417e",
+    "policy_sha256": "5563facc34ae2a1a07cf7ec7ec2f115cb8d250c49dd6e2bd5c7a3de4c977d450",
+    "specification_sha256": "0181bb327a7a3378c6552db797234c878a475bee0d2726a6fd31b14102c261c6"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/features/projects/presentation/project_backlog_view_test.dart",
+      "test/admin_employees_page_test.dart",
+      "test/features/time_tracking/presentation/time_clock_page_test.dart",
+      "test/features/shared/presentation/widgets/workspace_shell_test.dart",
+      "test/accessibility_shared_test.dart",
+      "test/features/time_tracking/presentation/time_clock_accessibility_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/features/projects/presentation/project_backlog_view_test.dart",
+      "test/admin_employees_page_test.dart",
+      "test/features/time_tracking/presentation/time_clock_page_test.dart",
+      "test/features/shared/presentation/widgets/workspace_shell_test.dart",
+      "test/accessibility_shared_test.dart",
+      "test/features/time_tracking/presentation/time_clock_accessibility_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "test/features/projects/presentation/project_backlog_view_test.dart",
+        "test/admin_employees_page_test.dart",
+        "test/features/time_tracking/presentation/time_clock_page_test.dart",
+        "test/features/shared/presentation/widgets/workspace_shell_test.dart",
+        "test/accessibility_shared_test.dart",
+        "test/features/time_tracking/presentation/time_clock_accessibility_test.dart"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 600,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "backlog_horizontal_scrollbar",
+      "backlog_actions_column",
+      "workspace_sidebar_chips_removed"
+    ]
+  }
+}
