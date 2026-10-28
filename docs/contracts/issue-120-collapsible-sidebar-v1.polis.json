@@ -1,0 +1,274 @@
+{
+  "schema_version": 6,
+  "kind": "feature",
+  "scope": {
+    "allowed_paths": [
+      "frontend/lib/features/shared/presentation/widgets/workspace_navigation.dart",
+      "frontend/lib/features/shared/presentation/widgets/workspace_shell.dart",
+      "frontend/test/features/shared/presentation/widgets/workspace_shell_test.dart",
+      "docs/contracts/issue-120-collapsible-sidebar-v1.polis.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/features/shared/presentation/widgets/workspace_shell_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Implement issue #120 as a desktop-only collapsible icon rail in the shared TouchIn workspace shell, preserving the current branch's navigation and access rules.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "At widths of at least 1080px, users can toggle the persistent shared sidebar between its expanded 360px icon-and-label panel and an 88px icon-only rail; the active page receives the reclaimed width."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "Both modes retain all authorized destinations, logout, active-route indication, accessible names, hover/focus tooltips, visible keyboard focus, and comfortable targets."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "The collapsed rail retains the TouchIn brand mark and an accessible expand control; contextual summaries are hidden only while collapsed and return when expanded."
+      },
+      {
+        "id": "REQ-004",
+        "statement": "One shared session-scoped navigation state survives WorkspaceScaffold route changes, including Kanban; route transitions remain instant, and any manual width animation respects reduced-motion settings."
+      },
+      {
+        "id": "REQ-005",
+        "statement": "Below 1080px the existing mobile header and hamburger drawer remain unchanged and no desktop collapse control or rail is shown."
+      },
+      {
+        "id": "REQ-006",
+        "statement": "Collapsed state intentionally is not persisted across a full browser reload: starting expanded preserves label discoverability if viewport size changes, while state is retained across in-app route navigation. This is the explicit reload-persistence tradeoff for this issue."
+      },
+      {
+        "id": "REQ-007",
+        "statement": "Store the locked contract in docs/contracts/issue-120-collapsible-sidebar-v1.polis.json and verify that the repository copy is byte-for-byte identical to the external lock."
+      },
+      {
+        "id": "REQ-008",
+        "statement": "Validate the expanded and collapsed desktop UI, in-app route retention, and narrow/mobile behavior visually with CUA on the refreshed app."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "The desktop toggle switches between expanded labels/context and an 88px icon-only rail, and the page content uses the freed width without clipping.",
+        "requirements": [
+          "REQ-001",
+          "REQ-003"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "Collapsed destination and logout icons remain usable and expose their labels as tooltips and semantics; active selection and keyboard focus remain available.",
+        "requirements": [
+          "REQ-002"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-003",
+        "statement": "The same collapsed state remains after navigating to another workspace route including /kanban, and expansion restores labels and contextual content without a route transition.",
+        "requirements": [
+          "REQ-003",
+          "REQ-004"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-004",
+        "statement": "At 1079px the mobile drawer remains in use without a collapse control; at 1080px the desktop panel and toggle are available.",
+        "requirements": [
+          "REQ-005"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-005",
+        "statement": "The shared state is session-scoped, route changes remain instant, and reduced-motion requests disable the optional manual width animation.",
+        "requirements": [
+          "REQ-004",
+          "REQ-006"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-006",
+        "statement": "The repository contract copy is byte-for-byte identical to the external locked contract.",
+        "requirements": [
+          "REQ-007"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-007",
+        "statement": "CUA visual review confirms the desktop rail, expanded navigation, and narrow/mobile layout on the refreshed application.",
+        "requirements": [
+          "REQ-008"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "Navigation authorization and canonical ordering continue to come from availableWorkspaceDestinations; collapse changes presentation only."
+      },
+      {
+        "id": "INV-002",
+        "statement": "No contextual information is discarded: it is absent from the icon rail and available immediately after expansion."
+      },
+      {
+        "id": "INV-003",
+        "statement": "Only a user-triggered sidebar-width change may animate; workspace route changes remain transition-free."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "Collapsed mode hides a permitted destination, logout, the active indication, an accessible label, or the expand control."
+      },
+      {
+        "id": "FORB-002",
+        "statement": "The icon rail or its collapse toggle appears below the shared 1080px breakpoint."
+      },
+      {
+        "id": "FORB-003",
+        "statement": "The page keeps its expanded offset or clips/overflows after the rail changes width."
+      },
+      {
+        "id": "FORB-004",
+        "statement": "Navigating to another workspace destination, including Kanban, resets the selected sidebar mode or introduces a route animation."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "Viewport dimensions, reduced-motion preference, current route, and verified authorized destinations."
+      },
+      {
+        "id": "IN-002",
+        "statement": "The user's expand/collapse action."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "The shared desktop sidebar width, icon/label presentation, active state, contextual content visibility, and available page width."
+      },
+      {
+        "id": "OUT-002",
+        "statement": "Accessible tooltips, semantics, focus, and activation for the toggle and icon-only navigation actions."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "Focused workspace-shell widget tests fail if toggle, rail width, content width, tooltips/semantics, breakpoint behavior, reduced motion, or cross-route state retention deviate from the acceptance criteria."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "616f950f7f6d3325eaee16e0e5b224671b841303",
+    "base_tree": "d154d49a5d952fff1a253c881485ed5c06714fb9",
+    "policy_sha256": "7714a10ab2b65f58941086f500de93fa62fc6acb6fd59d8b39292980364774dd",
+    "specification_sha256": "9332fa5a887c320f953a2d6ad5b21e353659c4911b7111fb719f8961e544da77"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "--exclude-tags",
+      "canonical-golden",
+      "test/features/shared/presentation/widgets/workspace_shell_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP",
+        "SystemRoot",
+        "COMSPEC",
+        "PATHEXT",
+        "USERPROFILE",
+        "LOCALAPPDATA",
+        "PYTHONUTF8",
+        "PYTHONIOENCODING"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "--exclude-tags",
+      "canonical-golden",
+      "test/features/shared/presentation/widgets/workspace_shell_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP",
+        "SystemRoot",
+        "COMSPEC",
+        "PATHEXT",
+        "USERPROFILE",
+        "LOCALAPPDATA",
+        "PYTHONUTF8",
+        "PYTHONIOENCODING"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "--exclude-tags",
+        "canonical-golden",
+        "--plain-name",
+        "desktop sidebar collapses to an accessible icon-only rail and retains state across Kanban navigation",
+        "test/features/shared/presentation/widgets/workspace_shell_test.dart"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 600,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP",
+          "SystemRoot",
+          "COMSPEC",
+          "PATHEXT",
+          "USERPROFILE",
+          "LOCALAPPDATA",
+          "PYTHONUTF8",
+          "PYTHONIOENCODING"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "desktop sidebar collapses to an accessible icon-only rail and retains state across Kanban navigation"
+    ]
+  }
+}

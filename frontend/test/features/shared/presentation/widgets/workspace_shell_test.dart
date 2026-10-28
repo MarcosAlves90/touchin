@@ -332,6 +332,118 @@ void main() {
     }
   });
 
+  testWidgets(
+    'desktop sidebar collapses to an accessible icon-only rail and retains state across Kanban navigation',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1079, 720));
+      addTearDown(() async {
+        final expand = find.byTooltip('Expandir navegação');
+        if (expand.evaluate().isNotEmpty) {
+          await tester.tap(expand);
+          await tester.pumpAndSettle();
+        }
+        await tester.binding.setSurfaceSize(null);
+      });
+      final semantics = tester.ensureSemantics();
+
+      const contentKey = ValueKey<String>('workspace-content-probe');
+      Route<void> workspaceRoute(RouteSettings settings) =>
+          PageRouteBuilder<void>(
+            settings: settings,
+            transitionDuration: Duration.zero,
+            reverseTransitionDuration: Duration.zero,
+            pageBuilder: (_, __, ___) => WorkspaceScaffold(
+              contextualContent: const WorkspaceSidebar(
+                summaryChildren: <Widget>[Text('Contextual summary')],
+                highlightChips: <Widget>[],
+              ),
+              contentScrollable: false,
+              contentBuilder: (_, __) => LayoutBuilder(
+                builder: (context, constraints) => SizedBox(
+                  key: contentKey,
+                  width: constraints.maxWidth,
+                  height: constraints.maxHeight,
+                  child: Text('Active ${settings.name}'),
+                ),
+              ),
+            ),
+          );
+
+      await tester.pumpWidget(MaterialApp(
+        initialRoute: '/projects',
+        onGenerateInitialRoutes: (name) => <Route<void>>[
+          workspaceRoute(RouteSettings(name: name)),
+        ],
+        onGenerateRoute: workspaceRoute,
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(disableAnimations: true),
+          child: child!,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.byTooltip('Abrir menu'), findsOneWidget);
+      expect(find.byTooltip('Recolher navegação'), findsNothing);
+
+      await tester.binding.setSurfaceSize(const Size(1280, 800));
+      await tester.pumpAndSettle();
+      final collapse = find.byTooltip('Recolher navegação');
+      expect(
+        collapse,
+        findsOneWidget,
+        reason: 'desktop sidebar collapses to an accessible icon-only rail',
+      );
+      expect(
+        tester.getSemantics(collapse),
+        isSemantics(isButton: true),
+      );
+      expect(tester.getSize(collapse).width, greaterThanOrEqualTo(48));
+      final sidebar = find.byKey(
+        const ValueKey<String>('workspace-navigation-sidebar'),
+      );
+      expect(tester.getSize(sidebar).width, 360);
+      expect(find.text('Contextual summary'), findsOneWidget);
+      final expandedContentWidth = tester.getSize(find.byKey(contentKey)).width;
+
+      await tester.tap(collapse);
+      await tester.pump();
+      expect(tester.getSize(sidebar).width, 88);
+      await tester.pumpAndSettle();
+      expect(tester.getSize(sidebar).width, 88);
+      expect(
+        tester.getSize(find.byKey(contentKey)).width,
+        greaterThan(expandedContentWidth),
+      );
+      expect(find.text('Contextual summary'), findsNothing);
+      expect(find.text('Kanban'), findsNothing);
+      expect(find.byTooltip('Kanban'), findsOneWidget);
+      expect(find.byTooltip('Sair do Sistema'), findsOneWidget);
+      expect(find.bySemanticsLabel('Projetos e tarefas'), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      expect(FocusManager.instance.primaryFocus, isNotNull);
+
+      await tester.tap(find.byTooltip('Kanban'));
+      await tester.pumpAndSettle();
+      expect(find.text('Active /kanban'), findsOneWidget);
+      expect(find.byTooltip('Expandir navegação'), findsOneWidget);
+      expect(tester.getSize(sidebar).width, 88);
+      expect(
+        tester.getSemantics(find.byTooltip('Kanban')),
+        isSemantics(isButton: true, isSelected: true),
+      );
+
+      await tester.tap(find.byTooltip('Expandir navegação'));
+      await tester.pump();
+      expect(tester.getSize(sidebar).width, 360);
+      await tester.pumpAndSettle();
+      expect(tester.getSize(sidebar).width, 360);
+      expect(find.text('Kanban'), findsOneWidget);
+      expect(find.text('Contextual summary'), findsOneWidget);
+      semantics.dispose();
+    },
+  );
+
   testWidgets('desktop navigation exposes selected state and keyboard focus',
       (tester) async {
     await tester.binding.setSurfaceSize(const Size(1280, 800));

@@ -13,6 +13,10 @@ abstract final class WorkspaceBreakpoints {
   static const double wide = 1080;
 }
 
+// Session-scoped so a reload restores expanded labels if the viewport changes.
+final ValueNotifier<bool> workspaceSidebarCollapsed =
+    ValueNotifier<bool>(false);
+
 String? workspaceCurrentRoute(BuildContext context) {
   return WorkspaceRouterScope.maybeOf(context)?.currentConfiguration.path ??
       ModalRoute.of(context)?.settings.name;
@@ -29,25 +33,29 @@ class WorkspaceNavigationBrand extends StatelessWidget {
   const WorkspaceNavigationBrand({
     super.key,
     this.compact = false,
+    this.collapsed = false,
     this.onOpenDrawer,
+    this.onToggleCollapse,
   });
 
   final bool compact;
+  final bool collapsed;
   final VoidCallback? onOpenDrawer;
+  final VoidCallback? onToggleCollapse;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final mark = Container(
-      width: compact ? 28 : 42,
-      height: compact ? 28 : 42,
+      width: compact || collapsed ? 28 : 42,
+      height: compact || collapsed ? 28 : 42,
       decoration: BoxDecoration(
         color: colors.onPrimary,
       ),
       child: Icon(
         Icons.fingerprint_rounded,
-        size: compact ? 20 : 30,
+        size: compact || collapsed ? 20 : 30,
         color: AppTheme.accent,
       ),
     );
@@ -66,6 +74,28 @@ class WorkspaceNavigationBrand extends StatelessWidget {
         ),
       ),
     );
+
+    if (collapsed) {
+      return Container(
+        alignment: Alignment.center,
+        decoration: const BoxDecoration(color: AppTheme.accent),
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            mark,
+            const SizedBox(height: 4),
+            IconButton(
+              onPressed: onToggleCollapse,
+              tooltip: 'Expandir navegação',
+              icon: Icon(Icons.chevron_right_rounded, color: colors.onPrimary),
+              constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+              visualDensity: VisualDensity.standard,
+            ),
+          ],
+        ),
+      );
+    }
 
     return Container(
       key: compact && onOpenDrawer != null
@@ -113,6 +143,14 @@ class WorkspaceNavigationBrand extends StatelessWidget {
                 ],
               ),
             ),
+          if (onToggleCollapse != null)
+            IconButton(
+              onPressed: onToggleCollapse,
+              tooltip: 'Recolher navegação',
+              icon: Icon(Icons.chevron_left_rounded, color: colors.onPrimary),
+              constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+              visualDensity: VisualDensity.standard,
+            ),
         ],
       ),
     );
@@ -126,6 +164,7 @@ class WorkspaceNavigationItem extends StatefulWidget {
     required this.label,
     required this.selected,
     required this.onPressed,
+    this.iconOnly = false,
     this.foreground,
     this.tooltip,
   });
@@ -134,6 +173,7 @@ class WorkspaceNavigationItem extends StatefulWidget {
   final String label;
   final bool selected;
   final VoidCallback onPressed;
+  final bool iconOnly;
 
   /// Used by logout while retaining the shared item shape and focus treatment.
   final Color? foreground;
@@ -162,62 +202,71 @@ class _WorkspaceNavigationItemState extends State<WorkspaceNavigationItem> {
         : _hovered
             ? Color.alphaBlend(navigation.hoverOverlay, colors.surface)
             : Colors.transparent;
-    final item = Semantics(
-      button: true,
-      selected: widget.selected,
-      label: widget.label,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: widget.onPressed,
-          onHover: (hovered) => setState(() => _hovered = hovered),
-          onFocusChange: (focused) => setState(() => _focused = focused),
-          hoverColor: Colors.transparent,
-          focusColor: Colors.transparent,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 120),
-            curve: Curves.easeOut,
-            decoration: BoxDecoration(
-              color: background,
-              border: Border.all(
-                color: _focused ? navigation.focusRing : Colors.transparent,
-                width: 2,
-              ),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-            child: Row(
-              children: <Widget>[
-                Icon(widget.icon, size: 24, color: foreground),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Text(
-                    widget.label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: foreground,
-                      fontWeight:
-                          widget.selected ? FontWeight.w800 : FontWeight.w600,
-                    ),
+    final child = widget.iconOnly
+        ? Center(child: Icon(widget.icon, size: 24, color: foreground))
+        : Row(
+            children: <Widget>[
+              Icon(widget.icon, size: 24, color: foreground),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  widget.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: foreground,
+                    fontWeight:
+                        widget.selected ? FontWeight.w800 : FontWeight.w600,
                   ),
                 ),
-                if (widget.selected)
-                  Icon(
-                    Icons.chevron_right_rounded,
-                    size: 18,
-                    color: foreground,
-                  ),
-              ],
+              ),
+              if (widget.selected)
+                Icon(
+                  Icons.chevron_right_rounded,
+                  size: 18,
+                  color: foreground,
+                ),
+            ],
+          );
+    final item = Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: widget.onPressed,
+        onHover: (hovered) => setState(() => _hovered = hovered),
+        onFocusChange: (focused) => setState(() => _focused = focused),
+        hoverColor: Colors.transparent,
+        focusColor: Colors.transparent,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          curve: Curves.easeOut,
+          constraints: const BoxConstraints(minHeight: 48),
+          decoration: BoxDecoration(
+            color: background,
+            border: Border.all(
+              color: _focused ? navigation.focusRing : Colors.transparent,
+              width: 2,
             ),
           ),
+          padding: widget.iconOnly
+              ? EdgeInsets.zero
+              : const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+          child: child,
         ),
       ),
     );
-
-    if (widget.tooltip case final tooltip?) {
-      return Tooltip(message: tooltip, excludeFromSemantics: true, child: item);
-    }
-    return item;
+    final interactive = widget.tooltip == null
+        ? item
+        : Tooltip(
+            message: widget.tooltip!,
+            excludeFromSemantics: true,
+            child: item,
+          );
+    return Semantics(
+      button: true,
+      selected: widget.selected,
+      label: widget.label,
+      child: interactive,
+    );
   }
 }
 
@@ -244,14 +293,18 @@ class _AvailableWorkspaceDestinations extends StatelessWidget {
 class WorkspaceNavigationPanel extends StatelessWidget {
   const WorkspaceNavigationPanel({
     super.key,
+    this.collapsed = false,
     this.contextualContent,
     this.onLogoutRequested = logoutFromWorkspace,
     this.currentRoute,
+    this.onToggleCollapse,
   });
 
+  final bool collapsed;
   final Widget? contextualContent;
   final WorkspaceLogoutHandler onLogoutRequested;
   final String? currentRoute;
+  final VoidCallback? onToggleCollapse;
 
   @override
   Widget build(BuildContext context) {
@@ -266,7 +319,10 @@ class WorkspaceNavigationPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          const WorkspaceNavigationBrand(),
+          WorkspaceNavigationBrand(
+            collapsed: collapsed,
+            onToggleCollapse: onToggleCollapse,
+          ),
           Expanded(
             child: SingleChildScrollView(
               key: const ValueKey<String>('workspace-desktop-destinations'),
@@ -285,6 +341,8 @@ class WorkspaceNavigationPanel extends StatelessWidget {
                               icon: destination.icon,
                               label: destination.label,
                               selected: activeRoute == destination.route,
+                              iconOnly: collapsed,
+                              tooltip: collapsed ? destination.label : null,
                               onPressed: () =>
                                   _navigateTo(context, destination.route),
                             ),
@@ -299,10 +357,12 @@ class WorkspaceNavigationPanel extends StatelessWidget {
                     icon: Icons.logout_rounded,
                     label: 'Sair do Sistema',
                     selected: false,
+                    iconOnly: collapsed,
+                    tooltip: collapsed ? 'Sair do Sistema' : null,
                     foreground: colors.error,
                     onPressed: () => onLogoutRequested(context),
                   ),
-                  if (contextualContent != null) ...<Widget>[
+                  if (contextualContent != null && !collapsed) ...<Widget>[
                     const SizedBox(height: 8),
                     KeyedSubtree(
                       key: const ValueKey<String>('workspace-context-scroll'),

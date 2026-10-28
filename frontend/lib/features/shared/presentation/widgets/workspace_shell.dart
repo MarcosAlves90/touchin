@@ -119,18 +119,31 @@ class WorkspaceScaffold extends StatelessWidget {
     BoxConstraints constraints,
     String? currentRoute,
   ) {
-    return Row(
-      children: <Widget>[
-        SizedBox(
-          width: 360,
-          child: WorkspaceNavigationPanel(
-            contextualContent: contextualContent,
-            onLogoutRequested: onLogoutRequested,
-            currentRoute: currentRoute,
+    return ValueListenableBuilder<bool>(
+      valueListenable: workspaceSidebarCollapsed,
+      builder: (context, collapsed, _) => Row(
+        children: <Widget>[
+          AnimatedContainer(
+            key: const ValueKey<String>('workspace-navigation-sidebar'),
+            duration: MediaQuery.of(context).disableAnimations
+                ? Duration.zero
+                : const Duration(milliseconds: 200),
+            curve: Curves.easeInOut,
+            width: collapsed ? 88 : 360,
+            child: WorkspaceNavigationPanel(
+              collapsed: collapsed,
+              onToggleCollapse: () {
+                workspaceSidebarCollapsed.value =
+                    !workspaceSidebarCollapsed.value;
+              },
+              contextualContent: contextualContent,
+              onLogoutRequested: onLogoutRequested,
+              currentRoute: currentRoute,
+            ),
           ),
-        ),
-        Expanded(child: _buildContentPane(context, constraints, true)),
-      ],
+          Expanded(child: _buildContentPane(context, constraints, true)),
+        ],
+      ),
     );
   }
 
