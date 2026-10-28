@@ -126,8 +126,16 @@ void main() {
     expect(find.text('Contato'), findsNothing);
     expect(find.text('co*****@touchin.com'), findsNothing);
     expect(find.text('Tel. 11*****0000'), findsNothing);
-    expect(find.text('Perfil administrador'), findsOneWidget);
-    expect(find.text('Dados mascarados'), findsOneWidget);
+    expect(
+      find.text('Perfil administrador'),
+      findsNothing,
+      reason: 'workspace_sidebar_chips_removed',
+    );
+    expect(
+      find.text('Dados mascarados'),
+      findsNothing,
+      reason: 'workspace_sidebar_chips_removed',
+    );
   });
 
   testWidgets('opens punch tab without runtime error and shows empty state', (

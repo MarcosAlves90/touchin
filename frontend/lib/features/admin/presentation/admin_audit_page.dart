@@ -633,7 +633,6 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
     return WorkspaceScaffold(
       contextualContent: const WorkspaceSidebar(
         summaryChildren: [],
-        highlightChips: [],
       ),
       contentScrollable: false,
       contentBuilder: (context, isWide) => LayoutBuilder(

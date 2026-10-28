@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:touchin_flutter/contracts/kanban.dart';
 import 'package:touchin_flutter/contracts/project.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_editor_dialog.dart';
@@ -57,12 +58,14 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
   int _page = 0;
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _tableScroll = ScrollController();
+  final ScrollController _horizontalTableScroll = ScrollController();
   final Map<String, String> _columnFilters = <String, String>{};
 
   @override
   void dispose() {
     _searchController.dispose();
     _tableScroll.dispose();
+    _horizontalTableScroll.dispose();
     super.dispose();
   }
 
@@ -185,155 +188,203 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
                       color: colors.surface,
                       border: Border.all(color: colors.outlineVariant),
                     ),
-                    child: SingleChildScrollView(
-                      key: const ValueKey<String>('backlog-table-scroll'),
-                      controller: _tableScroll,
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(
-                              minWidth: constraints.maxWidth - 2),
-                          child: DataTable(
-                            key: const ValueKey<String>('backlog-table'),
-                            horizontalMargin: 12,
-                            columnSpacing: 16,
-                            dataRowMinHeight: 48,
-                            dataRowMaxHeight: 52,
-                            headingRowHeight: 48,
-                            headingRowColor: WidgetStatePropertyAll(
-                                colors.surfaceContainerHighest),
-                            headingTextStyle:
-                                theme.textTheme.labelMedium?.copyWith(
-                              color: colors.onSurfaceVariant,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            dataTextStyle: theme.textTheme.bodySmall,
-                            dividerThickness: 0.5,
-                            columns: <DataColumn>[
-                              for (final field in <(String, String)>[
-                                ('number', '#'),
-                                ('title', 'Título'),
-                                ('description', 'Descrição'),
-                                ('status', 'Status'),
-                                ('assignees', 'Responsáveis'),
-                                ('project', 'Projeto'),
-                                ('created', 'Criado'),
-                                ('updated', 'Atualizado'),
-                              ])
-                                DataColumn(label: _header(field.$1, field.$2)),
-                            ],
-                            rows: <DataRow>[
-                              for (final row in visibleRows)
-                                DataRow(
-                                  key: ValueKey<String>(
-                                      'backlog-card-${row.card.id}'),
-                                  cells: <DataCell>[
-                                    DataCell(Text(
-                                      '#${row.card.cardNumber}',
-                                      style: theme.textTheme.labelMedium
-                                          ?.copyWith(color: colors.primary),
-                                    )),
-                                    DataCell(SizedBox(
-                                      width: _titleCellWidth(
-                                          row.column, row.depth),
-                                      child: Row(children: <Widget>[
-                                        Expanded(
-                                          child: Padding(
-                                            padding: EdgeInsets.only(
-                                                left: row.depth.clamp(0, 5) *
-                                                    8.0),
-                                            child: Row(children: <Widget>[
-                                              if (row.depth > 0)
-                                                Padding(
-                                                  padding:
-                                                      const EdgeInsets.only(
-                                                          right: 6),
-                                                  child: Tooltip(
-                                                    key: ValueKey<String>(
-                                                        'hierarchy-indicator-${row.card.id}'),
-                                                    message:
-                                                        'Subtarefa de ${byId[row.card.parentTaskId]!.name}',
-                                                    child: Icon(
-                                                      Icons
-                                                          .subdirectory_arrow_right_rounded,
-                                                      size: 17,
-                                                      color: colors.primary,
-                                                    ),
-                                                  ),
-                                                ),
-                                              Expanded(
-                                                  child: Tooltip(
-                                                message: row.card.name,
-                                                child: InkWell(
-                                                  onTap: () => widget
-                                                      .onOpenDetails(row.card),
-                                                  child: Text(
-                                                    row.card.name,
-                                                    maxLines: 1,
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
-                                                    style: theme
-                                                        .textTheme.bodySmall
-                                                        ?.copyWith(
-                                                            fontWeight:
-                                                                FontWeight
-                                                                    .w600),
-                                                  ),
-                                                ),
-                                              )),
-                                            ]),
-                                          ),
-                                        ),
-                                        _cardActions(row.card, row.column,
-                                            positionById[row.card.id]!),
-                                      ]),
-                                    )),
-                                    DataCell(
-                                      SizedBox(
-                                        width: 220,
-                                        child: Tooltip(
-                                          message: row.card.description,
-                                          child: Text(
-                                            row.card.description,
-                                            style: theme.textTheme.bodySmall
+                    child: Semantics(
+                      label:
+                          'Tabela do backlog. Use as setas para rolar na horizontal.',
+                      child: Focus(
+                        key: const ValueKey<String>('backlog-table-focus'),
+                        onKeyEvent: (_, event) {
+                          if (event is! KeyDownEvent ||
+                              !_horizontalTableScroll.hasClients) {
+                            return KeyEventResult.ignored;
+                          }
+                          final delta = switch (event.logicalKey) {
+                            LogicalKeyboardKey.arrowRight => 56.0,
+                            LogicalKeyboardKey.arrowLeft => -56.0,
+                            _ => null,
+                          };
+                          if (delta == null) return KeyEventResult.ignored;
+                          final position = _horizontalTableScroll.position;
+                          _horizontalTableScroll.jumpTo(
+                            (position.pixels + delta)
+                                .clamp(0.0, position.maxScrollExtent)
+                                .toDouble(),
+                          );
+                          return KeyEventResult.handled;
+                        },
+                        child: Scrollbar(
+                          key: const ValueKey<String>(
+                              'backlog-horizontal-scrollbar'),
+                          controller: _horizontalTableScroll,
+                          thumbVisibility: true,
+                          interactive: true,
+                          scrollbarOrientation: ScrollbarOrientation.bottom,
+                          child: SingleChildScrollView(
+                            controller: _horizontalTableScroll,
+                            scrollDirection: Axis.horizontal,
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                minWidth: constraints.maxWidth - 2,
+                                maxHeight: constraints.maxHeight,
+                              ),
+                              child: SingleChildScrollView(
+                                key: const ValueKey<String>(
+                                    'backlog-table-scroll'),
+                                controller: _tableScroll,
+                                child: DataTable(
+                                  key: const ValueKey<String>('backlog-table'),
+                                  horizontalMargin: 12,
+                                  columnSpacing: 16,
+                                  dataRowMinHeight: 48,
+                                  dataRowMaxHeight: 52,
+                                  headingRowHeight: 48,
+                                  headingRowColor: WidgetStatePropertyAll(
+                                      colors.surfaceContainerHighest),
+                                  headingTextStyle:
+                                      theme.textTheme.labelMedium?.copyWith(
+                                    color: colors.onSurfaceVariant,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  dataTextStyle: theme.textTheme.bodySmall,
+                                  dividerThickness: 0.5,
+                                  columns: <DataColumn>[
+                                    for (final field in <(String, String)>[
+                                      ('number', '#'),
+                                      ('title', 'Título'),
+                                      ('description', 'Descrição'),
+                                      ('status', 'Status'),
+                                      ('assignees', 'Responsáveis'),
+                                      ('project', 'Projeto'),
+                                      ('created', 'Criado'),
+                                      ('updated', 'Atualizado'),
+                                    ])
+                                      DataColumn(
+                                          label: _header(field.$1, field.$2)),
+                                    DataColumn(label: Text('Ações')),
+                                  ],
+                                  rows: <DataRow>[
+                                    for (final row in visibleRows)
+                                      DataRow(
+                                        key: ValueKey<String>(
+                                            'backlog-card-${row.card.id}'),
+                                        cells: <DataCell>[
+                                          DataCell(Text(
+                                            '#${row.card.cardNumber}',
+                                            style: theme.textTheme.labelMedium
                                                 ?.copyWith(
-                                                    color: colors
-                                                        .onSurfaceVariant),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
+                                                    color: colors.primary),
+                                          )),
+                                          DataCell(SizedBox(
+                                            width: 280,
+                                            child: Row(children: <Widget>[
+                                              Expanded(
+                                                child: Padding(
+                                                  padding: EdgeInsets.only(
+                                                      left: row.depth
+                                                              .clamp(0, 5) *
+                                                          8.0),
+                                                  child: Row(children: <Widget>[
+                                                    if (row.depth > 0)
+                                                      Padding(
+                                                        padding:
+                                                            const EdgeInsets
+                                                                .only(right: 6),
+                                                        child: Tooltip(
+                                                          key: ValueKey<String>(
+                                                              'hierarchy-indicator-${row.card.id}'),
+                                                          message:
+                                                              'Subtarefa de ${byId[row.card.parentTaskId]!.name}',
+                                                          child: Icon(
+                                                            Icons
+                                                                .subdirectory_arrow_right_rounded,
+                                                            size: 17,
+                                                            color:
+                                                                colors.primary,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    Expanded(
+                                                        child: Tooltip(
+                                                      message: row.card.name,
+                                                      child: InkWell(
+                                                        onTap: () => widget
+                                                            .onOpenDetails(
+                                                                row.card),
+                                                        child: Text(
+                                                          row.card.name,
+                                                          maxLines: 1,
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
+                                                          style: theme.textTheme
+                                                              .bodySmall
+                                                              ?.copyWith(
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w600),
+                                                        ),
+                                                      ),
+                                                    )),
+                                                  ]),
+                                                ),
+                                              ),
+                                            ]),
+                                          )),
+                                          DataCell(_cardActions(
+                                            row.card,
+                                            row.column,
+                                            positionById[row.card.id]!,
+                                          )),
+                                          DataCell(
+                                            SizedBox(
+                                              width: 220,
+                                              child: Tooltip(
+                                                message: row.card.description,
+                                                child: Text(
+                                                  row.card.description,
+                                                  style: theme
+                                                      .textTheme.bodySmall
+                                                      ?.copyWith(
+                                                          color: colors
+                                                              .onSurfaceVariant),
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            ),
                                           ),
-                                        ),
+                                          DataCell(Text(
+                                            row.column.name,
+                                            key: ValueKey<String>(
+                                                'backlog-status-${row.card.id}'),
+                                          )),
+                                          DataCell(
+                                            SizedBox(
+                                              width: 150,
+                                              child: Text(
+                                                row.card.assignees.isEmpty
+                                                    ? 'Sem responsáveis'
+                                                    : row.card.assignees
+                                                        .map((item) =>
+                                                            item.employeeName)
+                                                        .join(', '),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ),
+                                          DataCell(Text(
+                                              'Projeto: ${widget.projectName}')),
+                                          DataCell(Text(
+                                              _shortDate(row.card.createdAt))),
+                                          DataCell(Text(
+                                              _shortDate(row.card.updatedAt))),
+                                        ],
                                       ),
-                                    ),
-                                    DataCell(Text(
-                                      row.column.name,
-                                      key: ValueKey<String>(
-                                          'backlog-status-${row.card.id}'),
-                                    )),
-                                    DataCell(
-                                      SizedBox(
-                                        width: 150,
-                                        child: Text(
-                                          row.card.assignees.isEmpty
-                                              ? 'Sem responsáveis'
-                                              : row.card.assignees
-                                                  .map((item) =>
-                                                      item.employeeName)
-                                                  .join(', '),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    ),
-                                    DataCell(
-                                        Text('Projeto: ${widget.projectName}')),
-                                    DataCell(
-                                        Text(_shortDate(row.card.createdAt))),
-                                    DataCell(
-                                        Text(_shortDate(row.card.updatedAt))),
                                   ],
                                 ),
-                            ],
+                              ),
+                            ),
                           ),
                         ),
                       ),
@@ -651,18 +702,6 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
       _status.isEmpty &&
       _assignee.isEmpty &&
       _columnFilters.isEmpty;
-
-  double _titleCellWidth(KanbanColumn column, int depth) {
-    final actionCount = 1 +
-        (_canReorder && column.cards.length > 1 ? 2 : 0) +
-        (widget.canManageCards ? 2 : 0) +
-        (widget.canManageAssignees ? 1 : 0);
-    final requiredWidth = 160.0 +
-        actionCount * 48.0 +
-        depth.clamp(0, 5) * 8.0 +
-        (depth > 0 ? 23.0 : 0.0);
-    return requiredWidth < 330 ? 330 : requiredWidth.toDouble();
-  }
 
   Widget _cardActions(KanbanCard card, KanbanColumn column, int position) {
     final actionButtons = <Widget>[

@@ -38,10 +38,6 @@ class ThemeSettingsPage extends StatelessWidget {
               helper: 'Ajuste aplicado em toda a interface.',
             ),
           ],
-          highlightChips: <Widget>[
-            const WorkspaceHighlightChip(label: 'Configuração global'),
-            const WorkspaceHighlightChip(label: 'Persistida no dispositivo'),
-          ],
         );
       },
     );

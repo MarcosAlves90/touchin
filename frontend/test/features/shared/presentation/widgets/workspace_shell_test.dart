@@ -58,7 +58,6 @@ void main() {
       home: WorkspaceScaffold(
         contextualContent: const WorkspaceSidebar(
           summaryChildren: <Widget>[Text('Context summary')],
-          highlightChips: <Widget>[],
         ),
         contentBuilder: (_, __) => const SizedBox(height: 100),
       ),
@@ -179,7 +178,6 @@ void main() {
             8,
             (index) => Text('Summary $index'),
           ),
-          highlightChips: const <Widget>[],
         ),
         contentBuilder: (_, __) => const SizedBox.shrink(),
       ),
@@ -301,7 +299,6 @@ void main() {
       home: WorkspaceScaffold(
         contextualContent: const WorkspaceSidebar(
           summaryChildren: <Widget>[Text('Summary')],
-          highlightChips: <Widget>[],
         ),
         contentBuilder: (_, __) => const Text('Content'),
       ),
@@ -355,7 +352,6 @@ void main() {
             pageBuilder: (_, __, ___) => WorkspaceScaffold(
               contextualContent: const WorkspaceSidebar(
                 summaryChildren: <Widget>[Text('Contextual summary')],
-                highlightChips: <Widget>[],
               ),
               contentScrollable: false,
               contentBuilder: (_, __) => LayoutBuilder(
@@ -783,10 +779,6 @@ Future<void> _captureVisualCase(
             Text('Resumo do projeto'),
             Text('12 tarefas abertas'),
             Text('Atualizado hoje'),
-          ],
-          highlightChips: <Widget>[
-            Chip(label: Text('3 atrasadas')),
-            Chip(label: Text('9 em andamento')),
           ],
         ),
         contentBuilder: (context, _) => const Padding(

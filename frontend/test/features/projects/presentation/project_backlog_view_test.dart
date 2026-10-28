@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:touchin_flutter/contracts/kanban.dart';
 import 'package:touchin_flutter/contracts/project.dart';
@@ -8,6 +9,89 @@ import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_i
 import 'package:touchin_flutter/theme/app_theme.dart';
 
 void main() {
+  testWidgets('backlog exposes an in-table horizontal scrollbar',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(900, 700));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: ProjectBacklogView(
+          board: _board(),
+          projectName: 'Projeto Alpha',
+          projectMembers: const <ProjectMemberSummary>[],
+          canManageStructure: true,
+          canManageCards: true,
+          canManageAssignees: true,
+          canMoveCards: true,
+          isBusy: false,
+          onManageColumns: () {},
+          onCreateColumn: () {},
+          onCreateCard: (_) {},
+          onMoveCard: (_, __, ___) {},
+          onEditCard: (_) {},
+          onDeleteCard: (_) {},
+          onManageAssignees: (_) {},
+          onOpenDetails: (_) {},
+        ),
+      ),
+    ));
+
+    expect(
+      find.byKey(const ValueKey('backlog-horizontal-scrollbar')),
+      findsOneWidget,
+      reason: 'backlog_horizontal_scrollbar',
+    );
+    final horizontalScrollable = tester.state<ScrollableState>(
+      find.descendant(
+        of: find.byKey(const ValueKey('backlog-horizontal-scrollbar')),
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Scrollable &&
+              widget.axisDirection == AxisDirection.right,
+        ),
+      ),
+    );
+    Focus.of(
+      tester
+          .element(find.byKey(const ValueKey('backlog-horizontal-scrollbar'))),
+    ).requestFocus();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pump();
+    expect(horizontalScrollable.position.pixels, greaterThan(0));
+  });
+
+  testWidgets('backlog puts row controls in a dedicated actions column',
+      (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: ProjectBacklogView(
+          board: _board(),
+          projectName: 'Projeto Alpha',
+          projectMembers: const <ProjectMemberSummary>[],
+          canManageStructure: true,
+          canManageCards: true,
+          canManageAssignees: true,
+          canMoveCards: true,
+          isBusy: false,
+          onManageColumns: () {},
+          onCreateColumn: () {},
+          onCreateCard: (_) {},
+          onMoveCard: (_, __, ___) {},
+          onEditCard: (_) {},
+          onDeleteCard: (_) {},
+          onManageAssignees: (_) {},
+          onOpenDetails: (_) {},
+        ),
+      ),
+    ));
+
+    expect(
+      find.text('Ações'),
+      findsOneWidget,
+      reason: 'backlog_actions_column',
+    );
+  });
+
   testWidgets('production themes keep backlog controls compact and responsive',
       (tester) async {
     addTearDown(() => tester.binding.setSurfaceSize(null));

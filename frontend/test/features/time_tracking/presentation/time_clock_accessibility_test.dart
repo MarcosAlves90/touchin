@@ -120,7 +120,6 @@ void main() {
             data: const MediaQueryData(size: Size(1400, 1800)),
             child: const WorkspaceSidebar(
               summaryChildren: [Text('Informação do resumo')],
-              highlightChips: [],
             ),
           ),
         ),

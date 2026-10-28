@@ -49,7 +49,6 @@ void main() {
         home: WorkspaceScaffold(
           contextualContent: const WorkspaceSidebar(
             summaryChildren: [Text('Resumo da jornada')],
-            highlightChips: [],
           ),
           contentBuilder: (context, isWide) => const WorkspaceHeader(
               title: 'Área principal', description: 'Detalhes'),

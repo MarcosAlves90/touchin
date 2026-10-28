@@ -5,7 +5,7 @@ import 'package:touchin_flutter/core/network/touchin_api.dart';
 import 'package:touchin_flutter/features/time_tracking/application/punch_location_service.dart';
 import 'package:touchin_flutter/features/time_tracking/presentation/time_clock_controller.dart';
 import 'package:touchin_flutter/features/time_tracking/presentation/time_clock_page.dart';
-import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -139,14 +139,12 @@ void main() {
         .pumpWidget(MaterialApp(home: TimeClockPage(controller: controller)));
     await tester.pump();
 
-    final sidebarChips = tester
-        .widgetList<WorkspaceHighlightChip>(
-          find.byType(WorkspaceHighlightChip, skipOffstage: false),
-        )
-        .map((chip) => chip.label)
-        .toList();
-    expect(sidebarChips, contains('Jornada auditável'));
-    expect(sidebarChips, isNot(contains('Dispositivo confiável')));
+    expect(
+      find.text('Jornada auditável'),
+      findsNothing,
+      reason: 'workspace_sidebar_chips_removed',
+    );
+    expect(find.text('Dispositivo confiável'), findsNothing);
     controller.dispose();
   });
 
@@ -154,12 +152,14 @@ void main() {
       (WidgetTester tester) async {
     final controller = _FakeTimeClockController(<int, TimeClockState>{
       1: _timelineState(page: 1, records: const <PunchRecord>[], totalPages: 1),
-    })..isLoadingState = false;
+    })
+      ..isLoadingState = false;
     tester.view.physicalSize = const Size(1400, 1800);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
-    await tester.pumpWidget(MaterialApp(home: TimeClockPage(controller: controller)));
+    await tester
+        .pumpWidget(MaterialApp(home: TimeClockPage(controller: controller)));
     await tester.pump();
 
     expect(find.text('Último evento'), findsOneWidget);
