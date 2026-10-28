@@ -12,10 +12,12 @@ and `WorkspaceNavigationDrawer` with representative audit-page content.
 | `mobile-light.png` | 390 × 844 | light | drawer open |
 | `mobile-dark.png` | 390 × 844 | dark | drawer open |
 
-To regenerate from `frontend/`:
+Regenerate from `frontend/` on the same Ubuntu runner and Flutter 3.47.2 used by
+the `Frontend visual goldens (Ubuntu, Flutter 3.47.2)` CI job. Do not regenerate
+these platform-specific images on macOS or Windows.
 
 ```sh
-flutter test --no-pub --update-goldens test/features/shared/presentation/widgets/workspace_shell_test.dart --plain-name 'navigation visual review captures desktop and mobile themes'
+flutter test --tags canonical-golden --update-goldens test/features/shared/presentation/widgets/workspace_shell_test.dart
 ```
 
 The generated images were inspected at native size. The panel and drawer fit
@@ -25,8 +27,9 @@ legible in both palettes; and the brand accent is confined to the brand block.
 The fixture keeps the drawer open in mobile captures so the complete destination
 list and logout action can be checked.
 
-The visual test loads Roboto from the active Flutter SDK to avoid a network
-font request in tests. It uses the production navigation color tokens and
-light/dark color values, but it is a component-level visual check with fixture
-content, not an authenticated end-to-end run of the whole application. Poppins
-typography and live API data are not represented by these captures.
+The visual test loads Roboto and MaterialIcons from the active Flutter SDK to
+avoid network font requests and render distinct navigation glyphs. It uses the
+production navigation color tokens and light/dark color values, but remains a
+component-level visual check with fixture content, not an authenticated
+end-to-end run of the whole application. Poppins typography and live API data
+are not represented by these captures.

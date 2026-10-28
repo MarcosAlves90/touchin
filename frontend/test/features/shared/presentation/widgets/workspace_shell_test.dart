@@ -764,24 +764,11 @@ Future<void> _captureVisualCase(
   WidgetTester tester,
   ({String name, Size size, ThemeData theme, bool mobile}) visualCase,
 ) async {
-  final fontBytes = await tester.runAsync(() async {
-    var directory = Directory(Platform.resolvedExecutable).parent;
-    while (directory.path != directory.parent.path) {
-      final candidate = File(
-        '${directory.path}/bin/cache/artifacts/material_fonts/Roboto-Regular.ttf',
-      );
-      if (await candidate.exists()) {
-        return candidate.readAsBytes();
-      }
-      directory = directory.parent;
-    }
-    throw StateError('Roboto was not found in the active Flutter SDK.');
-  });
-  expect(fontBytes, isNotNull);
   await (FontLoader('Roboto')
-        ..addFont(Future<ByteData>.value(
-          ByteData.sublistView(fontBytes!),
-        )))
+        ..addFont(_flutterFontData(tester, 'Roboto-Regular.ttf')))
+      .load();
+  await (FontLoader('MaterialIcons')
+        ..addFont(_flutterFontData(tester, 'MaterialIcons-Regular.otf')))
       .load();
 
   await tester.binding.setSurfaceSize(visualCase.size);
@@ -832,6 +819,24 @@ Future<void> _captureVisualCase(
       '../../../../../../docs/validation/issue-119/${visualCase.name}.png',
     ),
   );
+}
+
+Future<ByteData> _flutterFontData(WidgetTester tester, String fileName) async {
+  final fontBytes = await tester.runAsync(() async {
+    var directory = Directory(Platform.resolvedExecutable).parent;
+    while (directory.path != directory.parent.path) {
+      final candidate = File(
+        '${directory.path}/bin/cache/artifacts/material_fonts/$fileName',
+      );
+      if (await candidate.exists()) {
+        return candidate.readAsBytes();
+      }
+      directory = directory.parent;
+    }
+    throw StateError('$fileName was not found in the active Flutter SDK.');
+  });
+  expect(fontBytes, isNotNull);
+  return ByteData.sublistView(fontBytes!);
 }
 
 final ThemeData _visualLightTheme = ThemeData(
