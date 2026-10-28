@@ -251,6 +251,11 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
                                     for (final field in <(String, String)>[
                                       ('number', '#'),
                                       ('title', 'Título'),
+                                    ])
+                                      DataColumn(
+                                          label: _header(field.$1, field.$2)),
+                                    DataColumn(label: Text('Ações')),
+                                    for (final field in <(String, String)>[
                                       ('description', 'Descrição'),
                                       ('status', 'Status'),
                                       ('assignees', 'Responsáveis'),
@@ -260,7 +265,6 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
                                     ])
                                       DataColumn(
                                           label: _header(field.$1, field.$2)),
-                                    DataColumn(label: Text('Ações')),
                                   ],
                                   rows: <DataRow>[
                                     for (final row in visibleRows)

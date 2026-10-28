@@ -85,11 +85,31 @@ void main() {
       ),
     ));
 
-    expect(
-      find.text('Ações'),
-      findsOneWidget,
-      reason: 'backlog_actions_column',
+    final table = tester.widget<DataTable>(
+      find.byKey(const ValueKey<String>('backlog-table')),
     );
+    expect(table.rows, isNotEmpty);
+    final actionsColumnIndex = table.columns.indexWhere(
+      (column) =>
+          column.label is Text && (column.label as Text).data == 'Ações',
+    );
+    expect(
+      actionsColumnIndex,
+      2,
+      reason: 'backlog_actions_column_order',
+    );
+    for (final row in table.rows) {
+      expect(
+        row.cells,
+        hasLength(table.columns.length),
+        reason: 'backlog_actions_column_order',
+      );
+      expect(
+        row.cells[actionsColumnIndex].child,
+        isA<IconButtonTheme>(),
+        reason: 'backlog_actions_column_order',
+      );
+    }
   });
 
   testWidgets('production themes keep backlog controls compact and responsive',

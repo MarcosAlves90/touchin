@@ -1,0 +1,141 @@
+{
+  "schema_version": 6,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      "docs/contracts/backlog-actions-cell-order-v1.polis.json",
+      "frontend/lib/features/projects/presentation/widgets/project_backlog_view.dart",
+      "frontend/test/features/projects/presentation/project_backlog_view_test.dart"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/features/projects/presentation/project_backlog_view_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Align the Backlog Ações header with its existing row action cell so displayed table values are not mislabeled, while preserving the existing action controls position and behavior.",
+    "requirements": [
+      {
+        "id": "REQ-132-ORDER",
+        "statement": "The dedicated Ações header occupies the same index as the row's permission-aware action controls; other row fields retain their existing order."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-132-ORDER",
+        "statement": "A regression test inspects the DataTable and verifies the Ações header is at index 2, each row has one cell per column, and each row's cell at index 2 contains the action controls.",
+        "requirements": [
+          "REQ-132-ORDER"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-132-ORDER",
+        "statement": "Only the Ações header position changes; preserve every existing row cell, action control, callback, permission, sorting, filtering, and layout behavior."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-132-ORDER",
+        "statement": "Actions appear beneath a non-actions header, or any field value is shifted beneath a different header."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-132-ORDER",
+        "statement": "The declared Backlog DataTable columns and each visible card's DataRow cells."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-132-ORDER",
+        "statement": "A Backlog table whose row cell positions match their column headers."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-132-ORDER",
+        "statement": "The focused regression test fails with backlog_actions_column_order when the Ações header is not at index 2, row cell counts do not match the column count, or action controls are not at the matching index."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "5c62d5d77c6e95110f1079bdce2ac17a020bb5cc",
+    "base_tree": "c7142ba54a638d463090618aef1e7f54eeaef763",
+    "policy_sha256": "5563facc34ae2a1a07cf7ec7ec2f115cb8d250c49dd6e2bd5c7a3de4c977d450",
+    "specification_sha256": "da009e5d5e67e35905d4fc06427c9d97dc33c3c33d079880e236492be4aa250b"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/features/projects/presentation/project_backlog_view_test.dart",
+      "--plain-name",
+      "backlog puts row controls in a dedicated actions column"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/features/projects/presentation/project_backlog_view_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "test/features/projects/presentation/project_backlog_view_test.dart",
+        "--plain-name",
+        "backlog puts row controls in a dedicated actions column"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 600,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "backlog_actions_column_order"
+    ]
+  }
+}
