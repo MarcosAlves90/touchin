@@ -70,7 +70,6 @@ class WorkspaceNavigationBrand extends StatelessWidget {
       height: compact ? 28 : 42,
       decoration: BoxDecoration(
         color: colors.onPrimary,
-        borderRadius: BorderRadius.circular(compact ? 8 : 12),
       ),
       child: Icon(
         Icons.fingerprint_rounded,
@@ -100,12 +99,6 @@ class WorkspaceNavigationBrand extends StatelessWidget {
           : null,
       decoration: BoxDecoration(
         color: AppTheme.accent,
-        borderRadius: compact
-            ? const BorderRadius.only(
-                topRight: Radius.circular(12),
-                bottomRight: Radius.circular(12),
-              )
-            : BorderRadius.zero,
       ),
       padding: compact
           ? const EdgeInsets.symmetric(horizontal: 8, vertical: 6)
@@ -207,13 +200,11 @@ class _WorkspaceNavigationItemState extends State<WorkspaceNavigationItem> {
           onFocusChange: (focused) => setState(() => _focused = focused),
           hoverColor: Colors.transparent,
           focusColor: Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 120),
             curve: Curves.easeOut,
             decoration: BoxDecoration(
               color: background,
-              borderRadius: BorderRadius.circular(8),
               border: Border.all(
                 color: _focused ? navigation.focusRing : Colors.transparent,
                 width: 2,
@@ -480,7 +471,6 @@ class WorkspaceMobileHeader extends StatelessWidget {
                     ),
                     decoration: BoxDecoration(
                       color: navigation.selectedContainer,
-                      borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
                       active.label,

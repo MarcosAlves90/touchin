@@ -102,7 +102,7 @@ void main() {
   });
 
   testWidgets(
-    'mobile header puts the contrasting menu inside the rounded brand block',
+    'mobile header puts the contrasting menu inside the square brand block',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(390, 844));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -133,10 +133,8 @@ void main() {
       expect(decoration.color, AppTheme.accent);
       expect(
         decoration.borderRadius,
-        const BorderRadius.only(
-          topRight: Radius.circular(12),
-          bottomRight: Radius.circular(12),
-        ),
+        isNull,
+        reason: 'navigation_square_corners',
       );
       final header = tester.widget<Container>(
         find.byKey(const ValueKey<String>('workspace-mobile-header')),

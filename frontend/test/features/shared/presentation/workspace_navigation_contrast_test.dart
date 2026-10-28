@@ -43,6 +43,109 @@ ThemeData _testTheme(Brightness brightness) {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  testWidgets('workspace navigation keeps all visible corners square', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(420, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.lightTheme,
+        home: Scaffold(
+          body: Column(
+            children: <Widget>[
+              WorkspaceMobileHeader(
+                currentRoute: '/time-clock',
+                onOpenDrawer: () {},
+              ),
+              const Expanded(
+                child: WorkspaceNavigationPanel(currentRoute: '/kanban'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    const reason = 'navigation_square_corners';
+    const brandKey = ValueKey<String>('workspace-mobile-brand-block');
+    final brand = find.byKey(brandKey);
+    expect(
+      (tester.widget<Container>(brand).decoration! as BoxDecoration)
+          .borderRadius,
+      isNull,
+      reason: reason,
+    );
+
+    final markIcon = find.descendant(
+      of: brand,
+      matching: find.byIcon(Icons.fingerprint_rounded),
+    );
+    final markBox = find.ancestor(
+      of: markIcon,
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is Container &&
+            widget.decoration is BoxDecoration &&
+            (widget.decoration! as BoxDecoration).color ==
+                AppTheme.lightTheme.colorScheme.onPrimary,
+      ),
+    );
+    expect(
+      (tester.widget<Container>(markBox).decoration! as BoxDecoration)
+          .borderRadius,
+      isNull,
+      reason: reason,
+    );
+
+    final header = find.byKey(
+      const ValueKey<String>('workspace-mobile-header'),
+    );
+    final activeLabel = find.descendant(
+      of: header,
+      matching: find.text('Bater Ponto'),
+    );
+    final navigation = WorkspaceNavigationColors.of(AppTheme.lightTheme);
+    final activeBadge = find.ancestor(
+      of: activeLabel,
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is Container &&
+            widget.decoration is BoxDecoration &&
+            (widget.decoration! as BoxDecoration).color ==
+                navigation.selectedContainer,
+      ),
+    );
+    expect(activeBadge, findsOneWidget);
+    expect(
+      (tester.widget<Container>(activeBadge).decoration! as BoxDecoration)
+          .borderRadius,
+      isNull,
+      reason: reason,
+    );
+
+    final panel = find.byType(WorkspaceNavigationPanel);
+    final itemBackgrounds = tester.widgetList<AnimatedContainer>(
+      find.descendant(of: panel, matching: find.byType(AnimatedContainer)),
+    );
+    expect(itemBackgrounds, isNotEmpty, reason: reason);
+    for (final background in itemBackgrounds) {
+      expect(
+        (background.decoration! as BoxDecoration).borderRadius,
+        isNull,
+        reason: reason,
+      );
+    }
+
+    final itemInkWells = tester.widgetList<InkWell>(
+      find.descendant(of: panel, matching: find.byType(InkWell)),
+    );
+    expect(itemInkWells, isNotEmpty, reason: reason);
+    for (final item in itemInkWells) {
+      expect(item.borderRadius, isNull, reason: reason);
+    }
+  });
+
   for (final brightness in Brightness.values) {
     final label = brightness.name;
     ThemeData theme() => _testTheme(brightness);
