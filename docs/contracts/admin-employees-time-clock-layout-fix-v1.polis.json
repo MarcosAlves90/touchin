@@ -1,0 +1,199 @@
+{
+  "schema_version": 6,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      "frontend/lib/features/admin/presentation/admin_employees_page.dart",
+      "frontend/test/admin_employees_page_test.dart",
+      "docs/contracts/admin-employees-time-clock-layout-fix-v1.polis.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/admin_employees_page_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Fix the admin employee punch tab's desktop layout failure caused by the shared ElevatedButton minimumSize Size.fromHeight(52) giving infinite minimum width when the header action is laid out as a non-flex child of a Row. Keep the global theme and unrelated behavior unchanged.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "Constrain only the 'Novo ponto' ElevatedButton.icon in the desktop punch-section header with a finite local minimum width while preserving the 52px minimum height."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "At a 1280x800 desktop viewport, opening the employee 'Ponto' tab keeps its heading readable on a normal horizontal line and produces no Flutter rendering exception."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "Leave the shared AppTheme button themes, employee/punch controller behavior, API requests, and other screens unchanged."
+      },
+      {
+        "id": "REQ-004",
+        "statement": "Add focused widget regression coverage for the 1280x800 desktop layout and the punch-tab interaction."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "The header's 'Novo ponto' ElevatedButton.icon overrides the infinite theme minimum width locally with Size(0, 52), retaining the global theme unchanged.",
+        "requirements": [
+          "REQ-001",
+          "REQ-003"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "The focused 1280x800 widget test taps 'Ponto', asserts the 'Gestão de ponto' heading width is greater than 80 logical pixels, and observes no rendering exception.",
+        "requirements": [
+          "REQ-002",
+          "REQ-004"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-003",
+        "statement": "No backend, API/controller, dependency, shared-theme, or unrelated UI files change.",
+        "requirements": [
+          "REQ-003"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "The app-wide ElevatedButtonTheme retains minimumSize Size.fromHeight(52)."
+      },
+      {
+        "id": "INV-002",
+        "statement": "The employee punch data loading, pagination, and manual edit/create actions retain their existing behavior."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "The desktop punch header action inherits an infinite minimum width while remaining a non-flex Row child, causing the title to collapse into one-character lines."
+      },
+      {
+        "id": "FORB-002",
+        "statement": "The fix changes the shared AppTheme or assigns an arbitrary fixed width to the header action."
+      },
+      {
+        "id": "FORB-003",
+        "statement": "The fix changes controller/API behavior, dependencies, or unrelated components."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "Flutter Web reproduction at 1280x800: selecting the employee Ponto tab makes the punch-section heading wrap one character per line and stretches the page."
+      },
+      {
+        "id": "IN-002",
+        "statement": "AppTheme configures ElevatedButtonTheme.minimumSize as Size.fromHeight(52), whose width is infinite; the punch header places ElevatedButton.icon beside an Expanded text column in a Row."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "A readable, finite-width punch header with preserved 52px button height."
+      },
+      {
+        "id": "OUT-002",
+        "statement": "A regression test that fails on the current collapsed heading and passes after the local width constraint is applied."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "If the heading width is 80 logical pixels or less after opening the Ponto tab, the regression fails with admin_punch_header_title_width_collapsed."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "d3cfbfaf95c7ae170a7fc12ab56c63b175ad6a76",
+    "base_tree": "221ff34ee1075a294b45708925788a808ec7a7e8",
+    "policy_sha256": "7714a10ab2b65f58941086f500de93fa62fc6acb6fd59d8b39292980364774dd",
+    "specification_sha256": "e6ba79bb019311a533a43d02bf5681fbff0f21c09b51976216e538167c63d20e"
+  },
+  "behavior": {
+    "argv": [
+      "python3",
+      "-c",
+      "from pathlib import Path; import sys; page=Path('frontend/lib/features/admin/presentation/admin_employees_page.dart').read_text(); test=Path('frontend/test/admin_employees_page_test.dart').read_text(); theme=Path('frontend/lib/theme/app_theme.dart').read_text(); ok='minimumSize: const Size(0, 52)' in page and 'admin_punch_header_title_width_collapsed' in test and 'minimumSize: const Size.fromHeight(52)' in theme; print('admin_punch_layout_ok' if ok else 'admin_punch_layout_incomplete'); sys.exit(0 if ok else 1)"
+    ],
+    "cwd": ".",
+    "timeout_seconds": 30,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "--exclude-tags",
+      "canonical-golden",
+      "--reporter",
+      "expanded",
+      "--plain-name",
+      "keeps admin punch header readable at desktop width",
+      "test/admin_employees_page_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "--exclude-tags",
+        "canonical-golden",
+        "--reporter",
+        "expanded",
+        "--plain-name",
+        "keeps admin punch header readable at desktop width",
+        "test/admin_employees_page_test.dart"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 600,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "admin_punch_header_title_width_collapsed"
+    ]
+  }
+}

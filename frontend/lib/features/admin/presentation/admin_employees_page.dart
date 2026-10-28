@@ -963,6 +963,9 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
                   if (!isCompact) ...<Widget>[
                     const SizedBox(width: 12),
                     ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        minimumSize: const Size(0, 52),
+                      ),
                       onPressed: () => _openCreatePunchDialog(employee),
                       icon: const Icon(Icons.add_circle_outline_rounded),
                       label: const Text('Novo ponto'),

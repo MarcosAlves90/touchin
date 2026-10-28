@@ -5,6 +5,7 @@ import 'package:touchin_flutter/contracts/time_clock.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
 import 'package:touchin_flutter/features/admin/presentation/admin_employees_page.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
+import 'package:touchin_flutter/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -151,6 +152,42 @@ void main() {
     expect(find.text('Nenhum ponto manual registrado.'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'keeps admin punch header readable at desktop width',
+    (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: AdminEmployeesPage(api: _FakeAdminApi()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final punchTab = find.text('Ponto').last;
+      await tester.ensureVisible(punchTab);
+      await tester.tap(punchTab);
+      await tester.pumpAndSettle();
+      expect(
+        tester.takeException(),
+        isNull,
+        reason: 'admin_punch_header_title_width_collapsed',
+      );
+
+      final heading = find.text('Gestão de ponto');
+      expect(heading, findsOneWidget);
+      expect(
+        tester.getSize(heading).width,
+        greaterThan(80),
+        reason: 'admin_punch_header_title_width_collapsed',
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('paginates managed punches on the admin screen', (
     WidgetTester tester,
