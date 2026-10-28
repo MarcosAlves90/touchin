@@ -77,6 +77,86 @@ def test_audit_end_date_is_exclusive_at_next_day_utc_boundary(client):
     assert "evt_before_end_boundary" in ids
     assert "evt_at_end_boundary" not in ids
 
+
+def test_audit_id_filters_match_literal_substrings(client):
+    headers = login_headers(client, MARINA_EMAIL)
+    project_response = client.post(
+        "/api/v1/projects",
+        headers=headers,
+        json={
+            "name": "Audit substring filter",
+            "description": "Project for audit ID substring filtering.",
+            "taskEmployeeLimit": 2,
+        },
+    )
+    assert project_response.status_code == 201, project_response.text
+    project_id = project_response.json()["id"]
+
+    with SessionLocal() as db:
+        company = db.query(Company).first()
+        assert company is not None
+        created_event = (
+            db.query(AuditEvent)
+            .filter(
+                AuditEvent.project_id == project_id,
+                AuditEvent.action == "project.created",
+            )
+            .first()
+        )
+        assert created_event is not None
+        assert created_event.actor_user_id is not None
+        event_id = created_event.id
+        actor_id = created_event.actor_user_id
+
+        db.add_all(
+            [
+                AuditEvent(
+                    id="evt_audit_literal_percent_underscore",
+                    company_id=company.id,
+                    action="literal.test",
+                    entity_type="test",
+                    entity_id="literal%_fragment",
+                    result="success",
+                    timestamp=datetime.now(timezone.utc),
+                ),
+                AuditEvent(
+                    id="evt_audit_literal_wildcard_decoy",
+                    company_id=company.id,
+                    action="literal.test",
+                    entity_type="test",
+                    entity_id="literalXYfragment",
+                    result="success",
+                    timestamp=datetime.now(timezone.utc),
+                ),
+            ]
+        )
+        db.commit()
+
+    for parameter, identifier in (
+        ("actor_user_id", actor_id),
+        ("entity_id", project_id),
+        ("project_id", project_id),
+    ):
+        partial = identifier[-6:]
+        assert partial != identifier
+        response = client.get(
+            "/api/v1/audit-events",
+            headers=headers,
+            params={parameter: partial},
+        )
+        assert response.status_code == 200, response.text
+        assert event_id in {event["id"] for event in response.json()}
+
+    response = client.get(
+        "/api/v1/audit-events",
+        headers=headers,
+        params={"entity_id": "%_"},
+    )
+    assert response.status_code == 200, response.text
+    assert {event["id"] for event in response.json()} == {
+        "evt_audit_literal_percent_underscore"
+    }
+
 def test_audit_list_tenant_isolation(client):
     with SessionLocal() as db:
         # Isolated companies must both be valid referenced entities when SQLite

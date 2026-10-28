@@ -56,16 +56,23 @@ def build_audit_query(
         query = query.where(AuditEvent.timestamp >= filters.start_date)
     if filters.end_date:
         query = query.where(AuditEvent.timestamp < filters.end_date)
+    # shortcut: leading-wildcard filters scan tenant audit rows; add a trigram index if volume warrants it.
     if filters.actor_user_id:
-        query = query.where(AuditEvent.actor_user_id == filters.actor_user_id)
+        query = query.where(
+            AuditEvent.actor_user_id.contains(filters.actor_user_id, autoescape=True)
+        )
     if filters.action:
         query = query.where(AuditEvent.action == filters.action)
     if filters.entity_type:
         query = query.where(AuditEvent.entity_type == filters.entity_type)
     if filters.entity_id:
-        query = query.where(AuditEvent.entity_id == filters.entity_id)
+        query = query.where(
+            AuditEvent.entity_id.contains(filters.entity_id, autoescape=True)
+        )
     if filters.project_id:
-        query = query.where(AuditEvent.project_id == filters.project_id)
+        query = query.where(
+            AuditEvent.project_id.contains(filters.project_id, autoescape=True)
+        )
     if filters.result:
         query = query.where(AuditEvent.result == filters.result)
 

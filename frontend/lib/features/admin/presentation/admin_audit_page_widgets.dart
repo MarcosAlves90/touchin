@@ -29,6 +29,7 @@ String auditUtcTimestamp(DateTime value) {
 String auditEntityLabel(String value) {
   return const <String, String>{
         'card': 'Tarefa',
+        'task': 'Tarefa',
         'project': 'Projeto',
         'employee': 'Funcionário',
         'kanban_column': 'Coluna do Kanban',
