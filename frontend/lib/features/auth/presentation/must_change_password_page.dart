@@ -1,11 +1,13 @@
 import 'package:touchin_flutter/core/network/touchin_api.dart';
 import 'package:touchin_flutter/features/auth/presentation/auth_submission_mixin.dart';
 import 'package:touchin_flutter/features/auth/presentation/widgets/auth_shell.dart';
+import 'package:touchin_flutter/features/auth/presentation/logout_navigation.dart';
 import 'package:flutter/material.dart';
-import 'package:touchin_flutter/core/navigation/workspace_router.dart';
 
 class MustChangePasswordPage extends StatefulWidget {
-  const MustChangePasswordPage({super.key});
+  const MustChangePasswordPage({super.key, this.api});
+
+  final TouchInApi? api;
 
   @override
   State<MustChangePasswordPage> createState() => _MustChangePasswordPageState();
@@ -13,7 +15,7 @@ class MustChangePasswordPage extends StatefulWidget {
 
 class _MustChangePasswordPageState extends State<MustChangePasswordPage>
     with AuthSubmissionMixin<MustChangePasswordPage> {
-  final TouchInApi _api = TouchInApi();
+  TouchInApi get _api => widget.api ?? TouchInApi();
   final _formKey = GlobalKey<FormState>();
   final _currentPasswordController = TextEditingController();
   final _newPasswordController = TextEditingController();
@@ -54,13 +56,7 @@ class _MustChangePasswordPageState extends State<MustChangePasswordPage>
             content: Text('Senha redefinida com sucesso.'),
           ),
         );
-
-        final router = WorkspaceRouterScope.maybeOf(context);
-        if (router != null) {
-          Router.neglect(context, () => router.navigate('/'));
-        } else {
-          Navigator.of(context).pushReplacementNamed('/');
-        }
+        logoutFromWorkspace(context, api: _api);
       },
       genericErrorMessage: 'Não foi possível redefinir sua senha.',
     );

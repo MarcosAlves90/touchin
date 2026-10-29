@@ -7,6 +7,7 @@ import 'package:touchin_flutter/core/network/touchin_api.dart';
 import 'package:touchin_flutter/core/storage/token_storage.dart';
 import 'package:touchin_flutter/core/navigation/workspace_router.dart';
 import 'package:touchin_flutter/features/auth/presentation/login_page.dart';
+import 'package:touchin_flutter/features/auth/presentation/must_change_password_page.dart';
 import 'package:touchin_flutter/features/auth/presentation/reset_password_page.dart';
 import 'package:touchin_flutter/features/admin/presentation/admin_audit_page.dart';
 import 'package:touchin_flutter/features/admin/presentation/admin_employees_page.dart';
@@ -148,6 +149,44 @@ void main() {
     expect(find.text('Entrar'), findsNWidgets(2));
     expect(find.text('TOUCHIN'), findsWidgets);
     expect(find.text('Cadastrar empresa'), findsOneWidget);
+  });
+
+  testWidgets('first-login password change returns to login', (tester) async {
+    final storage = _InMemoryTokenStorage()
+      ..savedSession = AuthSession(
+        accessToken: 'temporary-token',
+        tokenType: 'bearer',
+        expiresAt: DateTime.parse('2099-04-26T18:00:00Z'),
+        mustChangePassword: true,
+        company: company,
+        user: user,
+      );
+    final api = _FakeTouchInApi(
+      tokenStorage: storage,
+      authContext: const AuthContext(company: company, user: user),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MustChangePasswordPage(api: api),
+        onGenerateRoute: (settings) => settings.name == '/'
+            ? MaterialPageRoute<void>(builder: (_) => const LoginPage())
+            : null,
+      ),
+    );
+
+    expect(find.text('Criar nova senha'), findsOneWidget);
+    await tester.enterText(find.byType(TextFormField).at(0), 'TempSenha123!');
+    await tester.enterText(find.byType(TextFormField).at(1), 'NovaSenha123!');
+    await tester.enterText(find.byType(TextFormField).at(2), 'NovaSenha123!');
+    await tester
+        .tap(find.widgetWithText(ElevatedButton, 'Redefinir senha').last);
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(find.byType(LoginPage), findsOneWidget);
+    expect(find.byType(AdminEmployeesPage), findsNothing);
+    expect(find.text('Criar nova senha'), findsNothing);
+    expect(storage.savedSession, isNull);
   });
 
   testWidgets('startup splash explains pending session verification', (
@@ -579,7 +618,8 @@ void main() {
     expect(router.sessionRevoked, isTrue);
     expect(router.verifiedSession, isNull);
     expect(router.navigationUser.value, isNull,
-        reason: 'former-user destination remains visible after reset revocation');
+        reason:
+            'former-user destination remains visible after reset revocation');
     expect(storage.savedSession, isNull);
     expect(find.byType(AdminEmployeesPage), findsNothing);
     expect(find.byType(LoginPage), findsOneWidget);
@@ -1512,10 +1552,7 @@ void main() {
       (
         name: 'employee without employee profile',
         user: employeeWithoutProfile,
-        expected: const <String>[
-          'Projetos e tarefas',
-          'Configurações'
-        ],
+        expected: const <String>['Projetos e tarefas', 'Configurações'],
       ),
       (
         name: 'manager without employee profile',
@@ -1637,8 +1674,7 @@ void main() {
       });
     }
 
-    testWidgets(
-        'internal navigation reuses the verified user navigation',
+    testWidgets('internal navigation reuses the verified user navigation',
         (tester) async {
       final workspace = await pumpWorkspace(tester, employeeWithProfile);
       expect(workspace.api.authContextRequests, 1);
@@ -1762,6 +1798,7 @@ class _FakeTouchInApi extends TouchInApi {
   final ApiException? resetConfirmError;
   int authContextRequests = 0;
   int resetConfirmRequests = 0;
+  int changePasswordRequests = 0;
   final List<String> resetVerifiedTokens = <String>[];
 
   @override
@@ -1774,6 +1811,19 @@ class _FakeTouchInApi extends TouchInApi {
       await resetConfirmCompleter!.future;
     }
     if (resetConfirmError != null) throw resetConfirmError!;
+  }
+
+  @override
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    changePasswordRequests++;
+  }
+
+  @override
+  Future<void> logout() async {
+    await tokenStorage.clearAccessToken();
   }
 
   @override
