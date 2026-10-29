@@ -1,0 +1,181 @@
+{
+  "schema_version": 6,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      "docs/contracts/mobile-page-badge-v1.polis.json",
+      "frontend/lib/features/shared/presentation/widgets/workspace_navigation.dart",
+      "frontend/test/features/shared/presentation/widgets/workspace_shell_test.dart"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/features/shared/presentation/widgets/workspace_shell_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Keep the active-page badge in the mobile workspace header anchored to the right edge, allowing its width to grow only to the left and truncating its label when space is limited.",
+    "requirements": [
+      {
+        "id": "REQ-1",
+        "statement": "The active-page badge remains right-aligned at a fixed inset from the mobile header's right edge regardless of label or viewport width."
+      },
+      {
+        "id": "REQ-2",
+        "statement": "The badge uses only available horizontal space to its left; its text stays on one line and truncates with an ellipsis when the available width is insufficient."
+      },
+      {
+        "id": "REQ-3",
+        "statement": "The mobile menu/brand remains in its current left-side position and does not overlap or get displaced by the active-page badge."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-1",
+        "statement": "Widget regressions at wide and narrow mobile widths assert the badge right edge stays at the header's fixed right inset and the row has no layout exception.",
+        "requirements": [
+          "REQ-1",
+          "REQ-3"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-2",
+        "statement": "A narrow-width widget regression verifies the page label is single-line and configured to ellipsize rather than overflow or shift the badge.",
+        "requirements": [
+          "REQ-1",
+          "REQ-2"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-3",
+        "statement": "The focused workspace-shell widget tests pass after the layout correction.",
+        "requirements": [
+          "REQ-1",
+          "REQ-2",
+          "REQ-3"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-1",
+        "statement": "Do not alter desktop navigation, routes, active destination selection, or the mobile menu behavior."
+      },
+      {
+        "id": "INV-2",
+        "statement": "The active-page badge remains accessible with its full destination label in semantics even when its visible text is truncated."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORBID-1",
+        "statement": "The active-page badge drifts toward the center/left as the viewport narrows or as its label changes."
+      },
+      {
+        "id": "FORBID-2",
+        "statement": "The badge text wraps, overflows the header, overlaps the menu/brand, or is clipped without an ellipsis."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-1",
+        "statement": "Current mobile workspace route and its destination label."
+      },
+      {
+        "id": "IN-2",
+        "statement": "Available viewport width in the mobile layout."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-1",
+        "statement": "A right-anchored active-page badge whose label fits or truncates safely."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-1",
+        "statement": "The regression test exits nonzero and prints mobile_page_badge_regression_missing when the right anchor, truncation, or no-overlap contract fails."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "969fc650ff72adda49b0dc55114b8470ed09e359",
+    "base_tree": "86daa6c2b0944612214d9239b87b82068b58c21a",
+    "policy_sha256": "5563facc34ae2a1a07cf7ec7ec2f115cb8d250c49dd6e2bd5c7a3de4c977d450",
+    "specification_sha256": "1ec82038c581d72f31137f0614585440b0cee478ab8dc9fc2ac5010ffd51b703"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/features/shared/presentation/widgets/workspace_shell_test.dart",
+      "--plain-name",
+      "mobile page badge stays pinned right and truncates when narrow"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 300,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/features/shared/presentation/widgets/workspace_shell_test.dart",
+      "--plain-name",
+      "mobile page badge stays pinned right and truncates when narrow"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 300,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "python3",
+        "-c",
+        "import subprocess,sys; r=subprocess.run(['flutter','test','test/features/shared/presentation/widgets/workspace_shell_test.dart','--plain-name','mobile page badge stays pinned right and truncates when narrow'],cwd='frontend'); print('mobile_page_badge_regression_missing' if r.returncode else 'mobile_page_badge_regressions_pass'); sys.exit(r.returncode)"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 360,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "mobile_page_badge_regression_missing"
+    ]
+  }
+}

@@ -166,6 +166,57 @@ void main() {
     },
   );
 
+  testWidgets('mobile page badge stays pinned right and truncates when narrow',
+      (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    for (final width in <double>[390, 320, 200]) {
+      await tester.binding.setSurfaceSize(Size(width, 640));
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: Scaffold(
+            body: WorkspaceMobileHeader(
+              currentRoute: '/admin/audit',
+              onOpenDrawer: () {},
+            ),
+          ),
+        ),
+      );
+
+      final header = find.byKey(
+        const ValueKey<String>('workspace-mobile-header'),
+      );
+      final title = find.descendant(
+        of: header,
+        matching: find.text('Trilha de Auditoria'),
+      );
+      final badge = find.ancestor(
+        of: title,
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Container &&
+              widget.decoration is BoxDecoration &&
+              (widget.decoration! as BoxDecoration).color ==
+                  WorkspaceNavigationColors.of(AppTheme.lightTheme)
+                      .selectedContainer,
+        ),
+      );
+
+      expect(badge, findsOneWidget);
+      final headerRect = tester.getRect(header);
+      final badgeRect = tester.getRect(badge);
+      expect(
+        badgeRect.right,
+        moreOrLessEquals(headerRect.right - 16, epsilon: 0.01),
+        reason: 'mobile_page_badge_right_anchor_$width',
+      );
+      final label = tester.widget<Text>(title);
+      expect(label.maxLines, 1);
+      expect(label.overflow, TextOverflow.ellipsis);
+      expect(tester.takeException(), isNull);
+    }
+  });
+
   testWidgets('desktop panel uses one scroll for destinations and context', (
     tester,
   ) async {
