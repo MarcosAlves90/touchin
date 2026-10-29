@@ -33,12 +33,14 @@ class WorkspaceNavigationBrand extends StatelessWidget {
   const WorkspaceNavigationBrand({
     super.key,
     this.compact = false,
+    this.showCompactWordmark = true,
     this.collapsed = false,
     this.onOpenDrawer,
     this.onToggleCollapse,
   });
 
   final bool compact;
+  final bool showCompactWordmark;
   final bool collapsed;
   final VoidCallback? onOpenDrawer;
   final VoidCallback? onToggleCollapse;
@@ -121,9 +123,9 @@ class WorkspaceNavigationBrand extends StatelessWidget {
           ],
           mark,
           SizedBox(width: compact ? 7 : 12),
-          if (compact)
+          if (compact && showCompactWordmark)
             wordmark
-          else
+          else if (!compact)
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -521,38 +523,45 @@ class WorkspaceMobileHeader extends StatelessWidget {
           decoration: BoxDecoration(
             border: Border(bottom: BorderSide(color: colors.outlineVariant)),
           ),
-          child: Row(
-            children: <Widget>[
-              WorkspaceNavigationBrand(
-                compact: true,
-                onOpenDrawer: onOpenDrawer,
-              ),
-              const SizedBox(width: 8),
-              const Spacer(),
-              if (active != null)
-                Flexible(
-                  child: Container(
-                    constraints: const BoxConstraints(maxWidth: 170),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: navigation.selectedContainer,
-                    ),
-                    child: Text(
-                      active.label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      semanticsLabel: 'Destino atual: ${active.label}',
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: navigation.selectedForeground,
-                        fontWeight: FontWeight.w700,
+          child: LayoutBuilder(
+            builder: (context, constraints) => Row(
+              children: <Widget>[
+                WorkspaceNavigationBrand(
+                  compact: true,
+                  showCompactWordmark: constraints.maxWidth >= 224,
+                  onOpenDrawer: onOpenDrawer,
+                ),
+                const SizedBox(width: 8),
+                if (active != null)
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 170),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: navigation.selectedContainer,
+                          ),
+                          child: Text(
+                            active.label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            semanticsLabel: 'Destino atual: ${active.label}',
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              color: navigation.selectedForeground,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

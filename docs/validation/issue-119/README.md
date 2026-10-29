@@ -22,7 +22,8 @@ flutter test --tags canonical-golden --update-goldens test/features/shared/prese
 
 The generated images were inspected at native size. The panel and drawer fit
 their viewports; the desktop panel remains 360 px wide; the drawer overlays the
-mobile content without horizontal overflow; the navigation labels remain
+mobile content without horizontal overflow; the active-page badge stays pinned
+to the right edge and truncates only its label; the navigation labels remain
 legible in both palettes; and the brand accent is confined to the brand block.
 The fixture keeps the drawer open in mobile captures so the complete destination
 list and logout action can be checked.
@@ -36,16 +37,19 @@ are not represented by these captures.
 
 ## Canonical baseline provenance
 
-The four updated screenshots are the actual images from CI run
+The desktop screenshots remain the actual images from CI run
 [40753762985](https://github.com/MarcosAlves90/touchin/actions/runs/40753762985),
 which tested candidate commit `34657a6c751d1e2a571264d6060383a99d07c903` on
-Ubuntu 24.04.5 x64 with Flutter 3.47.2. The actuals and diffs were reviewed at
-native size; the informational sidebar chips are absent in desktop and mobile,
-light and dark captures.
+Ubuntu 24.04.5 x64 with Flutter 3.47.2. The mobile screenshots were refreshed
+from the actual images in the canonical-golden failure artifact from CI run
+[40879439641](https://github.com/MarcosAlves90/touchin/actions/runs/40879439641),
+which tested candidate commit `cd385fabd2e0a17a3a4c3d0a68f21e240cf21161` on
+Ubuntu with Flutter 3.47.2. Actuals and diffs were reviewed at native size; the
+mobile badge is right-anchored and its label truncates to available space.
 
 | Snapshot | SHA-256 |
 | --- | --- |
 | `desktop-light.png` | `0fbd81206cbda83be64b857cd49b911f8d1e4b2301d57a3ef8e27d32cea5555e` |
 | `desktop-dark.png` | `affba68411d49357cbb55e6d5d098d4ee8061f40f936eee99a7e54031999dd57` |
-| `mobile-light.png` | `5a65a125d970da5d2fec327cbc6a4bb2f1bda9367450e5d0b8e324269653a87d` |
-| `mobile-dark.png` | `b437624ec8b3cd1f552907a7e7465cc0e6edfdbcc5d5a9bf7dfddb2a5c3018f5` |
+| `mobile-light.png` | `ecd902b63a8941a409052f0a091b98d20621000f25c5cb65925ef2b382528593` |
+| `mobile-dark.png` | `02e891e6438bb78088474dd0cea0a1fbdaa3a30e5cc59959d891c1c71fb95705` |
