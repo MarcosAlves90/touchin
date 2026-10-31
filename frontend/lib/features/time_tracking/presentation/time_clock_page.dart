@@ -337,16 +337,32 @@ class _TimeClockPageState extends State<TimeClockPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          WorkspaceHeader(
-            title: 'Bater ponto',
-            description:
-                'Registre sua jornada com um fluxo direto, auditável e com localização quando exigida ou ativada.',
-            maxContentWidth: 520,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'CONTROLE DE PONTO',
+                key: const ValueKey<String>('time-clock-page-kicker'),
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: AppTheme.accent,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.3,
+                    ),
+              ),
+              const SizedBox(height: 6),
+              WorkspaceHeader(
+                title: 'Bater ponto',
+                description:
+                    'Registre sua jornada e acompanhe os eventos do dia.',
+                maxContentWidth: 640,
+                compact: true,
+              ),
+            ],
           ),
           const SizedBox(height: 28),
           _buildHeroCard(isWide),
           const SizedBox(height: 20),
-          _buildMetricGrid(isWide),
+          _buildMetricGrid(),
           const SizedBox(height: 20),
           _buildTimelineCard(),
           const SizedBox(height: 20),
@@ -453,79 +469,102 @@ class _TimeClockPageState extends State<TimeClockPage> {
     }
 
     return WorkspaceSectionCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isSplit = constraints.maxWidth >= 900;
+          final details = _buildHeroDetails(isWide);
+          final location = _buildLocationBanner();
+          return Flex(
+            key: const ValueKey<String>('time-clock-hero-layout'),
+            direction: isSplit ? Axis.horizontal : Axis.vertical,
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 58,
-                height: 58,
-                decoration: BoxDecoration(
-                  color: AppTheme.accent.withValues(alpha: 0.16),
-                  border: Border.all(
-                    color: AppTheme.accent.withValues(alpha: 0.28),
-                  ),
-                ),
-                child: const Icon(Icons.fingerprint_rounded),
-              ),
-              const SizedBox(width: 18),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    WorkspaceStatusBadge(
-                      label: _statusLabel(),
-                      tone: _statusColor(),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      _formatClock(_now),
-                      style: theme.textTheme.displayMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        height: 0.96,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      _formatDate(_now),
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          Text(
-            _statusDescription(),
-            style: theme.textTheme.bodyLarge?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-              height: 1.5,
-            ),
-          ),
-          const SizedBox(height: 20),
-          _buildLocationBanner(),
-          const SizedBox(height: 24),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: [
-              SizedBox(
-                width: isWide ? 240 : double.infinity,
-                child: _buildPrimaryActionButton(),
-              ),
-              SizedBox(
-                width: isWide ? 220 : double.infinity,
-                child: _buildSecondaryActionButton(),
-              ),
-            ],
-          ),
-        ],
+            children: isSplit
+                ? [
+                    Expanded(flex: 3, child: details),
+                    const SizedBox(width: 24),
+                    Expanded(flex: 2, child: location),
+                  ]
+                : [details, const SizedBox(height: 20), location],
+          );
+        },
       ),
+    );
+  }
+
+  Widget _buildHeroDetails(bool isWide) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 58,
+              height: 58,
+              decoration: BoxDecoration(
+                color: AppTheme.accent.withValues(alpha: 0.16),
+                border: Border.all(
+                  color: AppTheme.accent.withValues(alpha: 0.28),
+                ),
+              ),
+              child: const Icon(Icons.fingerprint_rounded),
+            ),
+            const SizedBox(width: 18),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  WorkspaceStatusBadge(
+                    label: _statusLabel(),
+                    tone: _statusColor(),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    _formatClock(_now),
+                    style: theme.textTheme.displayMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      height: 0.96,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    _formatDate(_now),
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        Text(
+          _statusDescription(),
+          style: theme.textTheme.bodyLarge?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+            height: 1.5,
+          ),
+        ),
+        const SizedBox(height: 24),
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            SizedBox(
+              width: isWide ? 240 : double.infinity,
+              child: _buildPrimaryActionButton(),
+            ),
+            SizedBox(
+              width: isWide ? 220 : double.infinity,
+              child: _buildSecondaryActionButton(),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -659,14 +698,19 @@ class _TimeClockPageState extends State<TimeClockPage> {
     );
   }
 
-  Widget _buildMetricGrid(bool isWide) {
+  Widget _buildMetricGrid() {
     if (_isLoadingState) {
       return LayoutBuilder(
         builder: (context, constraints) {
-          final width =
-              isWide ? (constraints.maxWidth - 12) / 2 : constraints.maxWidth;
+          final columns = constraints.maxWidth >= 1024
+              ? 4
+              : constraints.maxWidth >= 560
+                  ? 2
+                  : 1;
+          final width = (constraints.maxWidth - 12 * (columns - 1)) / columns;
 
           return Wrap(
+            key: const ValueKey<String>('time-clock-metrics-grid'),
             spacing: 12,
             runSpacing: 12,
             children: [
@@ -714,10 +758,15 @@ class _TimeClockPageState extends State<TimeClockPage> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final width =
-            isWide ? (constraints.maxWidth - 12) / 2 : constraints.maxWidth;
+        final columns = constraints.maxWidth >= 1024
+            ? 4
+            : constraints.maxWidth >= 560
+                ? 2
+                : 1;
+        final width = (constraints.maxWidth - 12 * (columns - 1)) / columns;
 
         return Wrap(
+          key: const ValueKey<String>('time-clock-metrics-grid'),
           spacing: 12,
           runSpacing: 12,
           children: [
@@ -772,6 +821,61 @@ class _TimeClockPageState extends State<TimeClockPage> {
     );
   }
 
+  Widget _buildTimelineHeader(String description) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final titleAndDescription = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Jornada do dia',
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          description,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+    final date = Container(
+      key: const ValueKey<String>('time-clock-timeline-date'),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.calendar_today_rounded, size: 16, color: AppTheme.accent),
+          const SizedBox(width: 8),
+          Text('${_now.day} de ${_months[_now.month - 1]}'),
+        ],
+      ),
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) => constraints.maxWidth >= 700
+          ? Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: titleAndDescription),
+                const SizedBox(width: 16),
+                date,
+              ],
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [titleAndDescription, const SizedBox(height: 12), date],
+            ),
+    );
+  }
+
   Widget _buildTimelineCard() {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
@@ -783,18 +887,8 @@ class _TimeClockPageState extends State<TimeClockPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Jornada do dia',
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
+            _buildTimelineHeader(
               'Histórico cronológico das batidas com contexto suficiente para auditoria operacional.',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-              ),
             ),
             const SizedBox(height: 20),
             Text(
@@ -828,18 +922,8 @@ class _TimeClockPageState extends State<TimeClockPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Jornada do dia',
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
+            _buildTimelineHeader(
               'Não foi possível carregar o histórico agora.',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-              ),
             ),
             const SizedBox(height: 16),
             Text(
@@ -863,25 +947,32 @@ class _TimeClockPageState extends State<TimeClockPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Jornada do dia',
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
+          _buildTimelineHeader(
             'Histórico cronológico das batidas com contexto suficiente para auditoria operacional.',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
           ),
           const SizedBox(height: 20),
           if (_records.isEmpty)
-            Text(
-              'Nenhum registro realizado hoje.',
-              style: theme.textTheme.bodyLarge?.copyWith(
-                color: colorScheme.onSurfaceVariant,
+            Center(
+              key: const ValueKey<String>('time-clock-empty-state'),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.event_available_outlined,
+                      size: 28,
+                      color: AppTheme.accent,
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'Nenhum registro realizado hoje.',
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             )
           else
