@@ -24,7 +24,8 @@ The generated images were inspected at native size. The panel and drawer fit
 their viewports; the desktop panel remains 360 px wide; the drawer overlays the
 mobile content without horizontal overflow; the active-page badge stays pinned
 to the right edge and truncates only its label; the navigation labels remain
-legible in both palettes; and the brand accent is confined to the brand block.
+legible in both palettes; and the amber accent is confined to the fingerprint
+mark while the surrounding brand container uses the theme surface.
 The fixture keeps the drawer open in mobile captures so the complete destination
 list and logout action can be checked.
 
@@ -37,19 +38,18 @@ are not represented by these captures.
 
 ## Canonical baseline provenance
 
-The desktop screenshots remain the actual images from CI run
-[40753762985](https://github.com/MarcosAlves90/touchin/actions/runs/40753762985),
-which tested candidate commit `34657a6c751d1e2a571264d6060383a99d07c903` on
-Ubuntu 24.04.5 x64 with Flutter 3.47.2. The mobile screenshots were refreshed
-from the actual images in the canonical-golden failure artifact from CI run
-[40879439641](https://github.com/MarcosAlves90/touchin/actions/runs/40879439641),
-which tested candidate commit `cd385fabd2e0a17a3a4c3d0a68f21e240cf21161` on
-Ubuntu with Flutter 3.47.2. Actuals and diffs were reviewed at native size; the
-mobile badge is right-anchored and its label truncates to available space.
+All four snapshots were refreshed from the `testImage` outputs produced by the
+canonical-golden job in CI run
+[41240473292](https://github.com/MarcosAlves90/touchin/actions/runs/41240473292),
+for candidate commit `873851fe21c5f09968f33c37851dd32800a85cab`. The job ran on
+Ubuntu 24.04.5 LTS (`ubuntu-24.04`, image `20261025.353.1`) with Flutter 3.47.2.
+The run compared against the pre-refresh snapshots and emitted the
+`canonical-navigation-golden-failure-images` artifact. Its actuals, masters,
+and diffs were reviewed before the four actual images were copied here.
 
 | Snapshot | SHA-256 |
 | --- | --- |
-| `desktop-light.png` | `0fbd81206cbda83be64b857cd49b911f8d1e4b2301d57a3ef8e27d32cea5555e` |
-| `desktop-dark.png` | `affba68411d49357cbb55e6d5d098d4ee8061f40f936eee99a7e54031999dd57` |
-| `mobile-light.png` | `ecd902b63a8941a409052f0a091b98d20621000f25c5cb65925ef2b382528593` |
-| `mobile-dark.png` | `02e891e6438bb78088474dd0cea0a1fbdaa3a30e5cc59959d891c1c71fb95705` |
+| `desktop-light.png` | `56b7de519eee43ac6aadceb815cb79885bfafebbda92d94d6a387ce082cfdde2` |
+| `desktop-dark.png` | `d3f1a89eccc94a4f9e10a81c3881f04df31ed590902f166e07e9e529c1375168` |
+| `mobile-light.png` | `08e9cf3cb34f067fd59e4eba6b44d388904651a118be0a34a90cac9f21d8036c` |
+| `mobile-dark.png` | `448d93dd1fe47b4d4a52082b359f97deadc66439a96b1d3fc491a48bb7f75dd2` |
