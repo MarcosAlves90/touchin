@@ -14,6 +14,141 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  group('workspace visual system', () {
+    testWidgets('canvas uses the theme background', (tester) async {
+      final theme = AppTheme.darkTheme;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: theme,
+          home: WorkspaceScaffold(
+            contentBuilder: (_, __) => const Text('Workspace content'),
+          ),
+        ),
+      );
+
+      final scaffold = tester.widget<Scaffold>(find.byType(Scaffold).first);
+      expect(
+        scaffold.backgroundColor,
+        theme.scaffoldBackgroundColor,
+        reason: 'workspace_canvas_uses_theme_background',
+      );
+    });
+
+    testWidgets('workspace backdrop has no blur or ambient gradient', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.darkTheme,
+          home: WorkspaceScaffold(
+            contentBuilder: (_, __) => const Text('Workspace content'),
+          ),
+        ),
+      );
+
+      expect(
+        find.byType(BackdropFilter),
+        findsNothing,
+        reason: 'workspace_backdrop_filter_absent',
+      );
+      expect(find.byType(ImageFiltered), findsNothing);
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is DecoratedBox &&
+              widget.decoration is BoxDecoration &&
+              (widget.decoration as BoxDecoration).gradient != null,
+        ),
+        findsNothing,
+      );
+    });
+
+    testWidgets('section panel uses consistent theme surface alpha', (
+      tester,
+    ) async {
+      final theme = AppTheme.darkTheme;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: theme,
+          home: const Scaffold(
+            body: WorkspaceSectionCard(child: Text('Section')),
+          ),
+        ),
+      );
+
+      final section = tester.widget<Material>(
+        find.descendant(
+          of: find.byType(WorkspaceSectionCard),
+          matching: find.byType(Material),
+        ),
+      );
+      expect(
+        section.color,
+        theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.8),
+        reason: 'workspace_section_panel_uses_consistent_surface_alpha',
+      );
+    });
+
+    testWidgets('summary panel uses consistent theme surface alpha', (
+      tester,
+    ) async {
+      final theme = AppTheme.darkTheme;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: theme,
+          home: const Scaffold(
+            body: WorkspaceSummaryStripe(
+              label: 'Summary',
+              value: '12',
+              helper: 'Current value',
+            ),
+          ),
+        ),
+      );
+
+      final summary = tester.widget<Container>(
+        find.descendant(
+          of: find.byType(WorkspaceSummaryStripe),
+          matching: find.byType(Container),
+        ),
+      );
+      expect(
+        (summary.decoration! as BoxDecoration).color,
+        theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.8),
+        reason: 'workspace_summary_panel_uses_consistent_surface_alpha',
+      );
+    });
+
+    testWidgets('metric card uses solid theme surface', (tester) async {
+      final theme = AppTheme.darkTheme;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: theme,
+          home: const Scaffold(
+            body: WorkspaceMetricCard(
+              icon: Icons.timer_outlined,
+              label: 'Hours',
+              value: '8h',
+              helper: 'Today',
+            ),
+          ),
+        ),
+      );
+
+      final metric = tester.widget<Container>(
+        find.descendant(
+          of: find.byType(WorkspaceMetricCard),
+          matching: find.byType(Container),
+        ),
+      );
+      expect(
+        (metric.decoration! as BoxDecoration).color,
+        theme.colorScheme.surface,
+        reason: 'workspace_metric_card_uses_solid_theme_surface',
+      );
+    });
+  });
+
   for (final visualCase in _visualCases) {
     testWidgets(
       'navigation visual review captures ${visualCase.name}',
@@ -712,7 +847,7 @@ void main() {
   );
 
   testWidgets(
-    'scrollable workspace content is painted outside the backdrop filter',
+    'scrollable workspace content uses the flat theme canvas',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(1440, 900));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -725,15 +860,9 @@ void main() {
         ),
       );
 
-      expect(find.byType(BackdropFilter), findsOneWidget);
+      expect(find.byType(BackdropFilter), findsNothing);
       expect(find.byType(SingleChildScrollView), findsNWidgets(2));
-      expect(
-        find.ancestor(
-          of: find.byType(SingleChildScrollView),
-          matching: find.byType(BackdropFilter),
-        ),
-        findsNothing,
-      );
+      expect(tester.takeException(), isNull);
     },
   );
 

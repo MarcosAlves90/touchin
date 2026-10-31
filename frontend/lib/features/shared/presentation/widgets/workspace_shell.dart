@@ -1,9 +1,6 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:touchin_flutter/features/auth/presentation/logout_navigation.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_navigation.dart';
-import 'package:touchin_flutter/theme/app_theme.dart';
 
 export 'package:touchin_flutter/features/shared/presentation/widgets/workspace_navigation.dart';
 
@@ -23,7 +20,8 @@ class WorkspaceScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final currentRoute = workspaceCurrentRoute(context);
 
     return LayoutBuilder(
@@ -31,6 +29,7 @@ class WorkspaceScaffold extends StatelessWidget {
         final isWide = constraints.maxWidth >= WorkspaceBreakpoints.wide;
 
         return Scaffold(
+          backgroundColor: theme.scaffoldBackgroundColor,
           drawer: isWide
               ? null
               : WorkspaceNavigationDrawer(
@@ -38,79 +37,29 @@ class WorkspaceScaffold extends StatelessWidget {
                   onLogoutRequested: onLogoutRequested,
                 ),
           body: Builder(
-            builder: (bodyContext) => DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: <Color>[
-                    colorScheme.surface,
-                    colorScheme.surfaceContainerHighest.withValues(alpha: 0.84),
-                  ],
+            builder: (bodyContext) => SafeArea(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: colorScheme.outlineVariant.withValues(alpha: 0.6),
+                  ),
                 ),
-              ),
-              child: Stack(
-                children: <Widget>[
-                  Positioned(
-                    top: -120,
-                    right: -40,
-                    child: _AmbientGlow(
-                      color: AppTheme.accent.withValues(alpha: 0.22),
-                      size: 280,
-                    ),
-                  ),
-                  Positioned(
-                    bottom: -120,
-                    left: -60,
-                    child: _AmbientGlow(
-                      color: colorScheme.secondary.withValues(alpha: 0.14),
-                      size: 260,
-                    ),
-                  ),
-                  _buildStaticBackdrop(colorScheme),
-                  SafeArea(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        border: Border.all(
-                          color: colorScheme.outlineVariant.withValues(
-                            alpha: 0.6,
-                          ),
-                        ),
+                child: isWide
+                    ? _buildWideLayout(
+                        bodyContext,
+                        constraints,
+                        currentRoute,
+                      )
+                    : _buildNarrowLayout(
+                        bodyContext,
+                        constraints,
+                        currentRoute,
                       ),
-                      child: isWide
-                          ? _buildWideLayout(
-                              bodyContext,
-                              constraints,
-                              currentRoute,
-                            )
-                          : _buildNarrowLayout(
-                              bodyContext,
-                              constraints,
-                              currentRoute,
-                            ),
-                    ),
-                  ),
-                ],
               ),
             ),
           ),
         );
       },
-    );
-  }
-
-  Widget _buildStaticBackdrop(ColorScheme colorScheme) {
-    return Positioned.fill(
-      child: IgnorePointer(
-        child: ClipRect(
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-            child: ColoredBox(
-              color: colorScheme.surface.withValues(alpha: 0.74),
-            ),
-          ),
-        ),
-      ),
     );
   }
 
@@ -300,7 +249,7 @@ class WorkspaceSectionCard extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Material(
-      color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.56),
+      color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.8),
       shape: RoundedRectangleBorder(
         side: BorderSide(color: colorScheme.outlineVariant),
       ),
@@ -334,7 +283,7 @@ class WorkspaceMetricCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: colorScheme.surface.withValues(alpha: 0.78),
+        color: colorScheme.surface,
         border: Border.all(color: colorScheme.outlineVariant),
       ),
       child: Column(
@@ -407,7 +356,7 @@ class WorkspaceSummaryStripe extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.56),
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.8),
         border: Border.all(color: colorScheme.outlineVariant),
       ),
       child: Column(
@@ -466,29 +415,6 @@ class WorkspaceStatusBadge extends StatelessWidget {
         style: theme.textTheme.labelLarge?.copyWith(
           color: tone,
           fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
-}
-
-class _AmbientGlow extends StatelessWidget {
-  const _AmbientGlow({required this.color, required this.size});
-
-  final Color color;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: RadialGradient(
-            colors: <Color>[color, color.withValues(alpha: 0)],
-          ),
         ),
       ),
     );
