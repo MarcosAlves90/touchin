@@ -255,6 +255,7 @@ void main() {
 
       const brandKey = ValueKey<String>('workspace-mobile-brand-block');
       final brand = find.byKey(brandKey);
+      final colors = Theme.of(tester.element(brand)).colorScheme;
       final menu = find.byTooltip('Abrir menu');
       expect(
         find.descendant(of: brand, matching: menu),
@@ -264,7 +265,11 @@ void main() {
 
       final decoration =
           tester.widget<Container>(brand).decoration! as BoxDecoration;
-      expect(decoration.color, AppTheme.accent);
+      expect(
+        decoration.color,
+        colors.surface,
+        reason: 'workspace_brand_surface',
+      );
       expect(
         decoration.borderRadius,
         isNull,
@@ -284,7 +289,7 @@ void main() {
       final menuIcon = tester.widget<IconButton>(menuButton).icon as Icon;
       expect(
         menuIcon.color,
-        Theme.of(tester.element(menu)).colorScheme.onPrimary,
+        colors.onSurface,
       );
       final mark = find.descendant(
         of: brand,
@@ -294,6 +299,11 @@ void main() {
           find.descendant(of: brand, matching: find.text('TOUCHIN'));
       expect(mark, findsOneWidget);
       expect(wordmark, findsOneWidget);
+      expect(tester.widget<Text>(wordmark).style?.color, colors.onSurface);
+      expect(
+        tester.widget<Icon>(mark).color,
+        colors.onPrimary,
+      );
       expect(tester.getTopLeft(menu).dx, lessThan(tester.getTopLeft(mark).dx));
 
       await tester.tap(menu);

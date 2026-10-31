@@ -53,12 +53,12 @@ class WorkspaceNavigationBrand extends StatelessWidget {
       width: compact || collapsed ? 28 : 42,
       height: compact || collapsed ? 28 : 42,
       decoration: BoxDecoration(
-        color: colors.onPrimary,
+        color: AppTheme.accent,
       ),
       child: Icon(
         Icons.fingerprint_rounded,
         size: compact || collapsed ? 20 : 30,
-        color: AppTheme.accent,
+        color: colors.onPrimary,
       ),
     );
     final wordmark = Semantics(
@@ -70,7 +70,7 @@ class WorkspaceNavigationBrand extends StatelessWidget {
         style:
             (compact ? theme.textTheme.labelLarge : theme.textTheme.titleMedium)
                 ?.copyWith(
-          color: colors.onPrimary,
+          color: colors.onSurface,
           letterSpacing: compact ? 1.4 : 1.7,
           fontWeight: FontWeight.w900,
         ),
@@ -80,7 +80,7 @@ class WorkspaceNavigationBrand extends StatelessWidget {
     if (collapsed) {
       return Container(
         alignment: Alignment.center,
-        decoration: const BoxDecoration(color: AppTheme.accent),
+        decoration: BoxDecoration(color: colors.surface),
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -90,7 +90,7 @@ class WorkspaceNavigationBrand extends StatelessWidget {
             IconButton(
               onPressed: onToggleCollapse,
               tooltip: 'Expandir navegação',
-              icon: Icon(Icons.chevron_right_rounded, color: colors.onPrimary),
+              icon: Icon(Icons.chevron_right_rounded, color: colors.onSurface),
               constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
               visualDensity: VisualDensity.standard,
             ),
@@ -103,9 +103,7 @@ class WorkspaceNavigationBrand extends StatelessWidget {
       key: compact && onOpenDrawer != null
           ? const ValueKey<String>('workspace-mobile-brand-block')
           : null,
-      decoration: BoxDecoration(
-        color: AppTheme.accent,
-      ),
+      decoration: BoxDecoration(color: colors.surface),
       padding: compact
           ? const EdgeInsets.symmetric(horizontal: 8, vertical: 6)
           : const EdgeInsets.fromLTRB(20, 18, 20, 18),
@@ -116,7 +114,7 @@ class WorkspaceNavigationBrand extends StatelessWidget {
             IconButton(
               onPressed: onOpenDrawer,
               tooltip: 'Abrir menu',
-              icon: Icon(Icons.menu_rounded, color: colors.onPrimary),
+              icon: Icon(Icons.menu_rounded, color: colors.onSurface),
               visualDensity: VisualDensity.compact,
             ),
             const SizedBox(width: 4),
@@ -137,7 +135,7 @@ class WorkspaceNavigationBrand extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.labelSmall?.copyWith(
-                      color: colors.onPrimary.withValues(alpha: 0.82),
+                      color: colors.onSurfaceVariant,
                       letterSpacing: 0.9,
                       fontWeight: FontWeight.w700,
                     ),
@@ -149,7 +147,7 @@ class WorkspaceNavigationBrand extends StatelessWidget {
             IconButton(
               onPressed: onToggleCollapse,
               tooltip: 'Recolher navegação',
-              icon: Icon(Icons.chevron_left_rounded, color: colors.onPrimary),
+              icon: Icon(Icons.chevron_left_rounded, color: colors.onSurface),
               constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
               visualDensity: VisualDensity.standard,
             ),
