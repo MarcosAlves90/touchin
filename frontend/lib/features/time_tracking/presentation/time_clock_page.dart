@@ -364,9 +364,7 @@ class _TimeClockPageState extends State<TimeClockPage> {
           const SizedBox(height: 20),
           _buildMetricGrid(),
           const SizedBox(height: 20),
-          _buildTimelineCard(),
-          const SizedBox(height: 20),
-          _buildContextCard(isWide),
+          _buildTimelineCard(isWide),
         ],
       ),
     );
@@ -483,9 +481,14 @@ class _TimeClockPageState extends State<TimeClockPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: isSplit
                     ? [
-                        Expanded(flex: 3, child: details),
-                        const SizedBox(width: 24),
-                        Expanded(flex: 2, child: location),
+                        Expanded(flex: 1, child: details),
+                        Container(
+                          width: 1,
+                          height: 130,
+                          margin: const EdgeInsets.symmetric(horizontal: 24),
+                          color: colorScheme.outlineVariant,
+                        ),
+                        Expanded(flex: 1, child: location),
                       ]
                     : [details, const SizedBox(height: 20), location],
               ),
@@ -836,22 +839,37 @@ class _TimeClockPageState extends State<TimeClockPage> {
   Widget _buildTimelineHeader(String description) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final titleAndDescription = Column(
+    final titleAndDescription = Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Jornada do dia',
-          style: theme.textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.w700,
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppTheme.accent.withValues(alpha: 0.14),
+            borderRadius: BorderRadius.circular(8),
           ),
+          child: const Icon(Icons.bar_chart_rounded, color: AppTheme.accent),
         ),
-        const SizedBox(height: 6),
-        Text(
-          description,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: colorScheme.onSurfaceVariant,
-          ),
-        ),
+        const SizedBox(width: 14),
+        Expanded(
+            child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Jornada do dia',
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              description,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        )),
       ],
     );
     final date = Container(
@@ -888,7 +906,7 @@ class _TimeClockPageState extends State<TimeClockPage> {
     );
   }
 
-  Widget _buildTimelineCard() {
+  Widget _buildTimelineCard(bool isWide) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final hasPagination = _controller.hasTimelinePagination;
@@ -924,6 +942,8 @@ class _TimeClockPageState extends State<TimeClockPage> {
                 ],
               ),
             ),
+            const SizedBox(height: 20),
+            _buildContextCard(isWide),
           ],
         ),
       );
@@ -950,6 +970,8 @@ class _TimeClockPageState extends State<TimeClockPage> {
               icon: const Icon(Icons.refresh_rounded),
               label: const Text('Recarregar'),
             ),
+            const SizedBox(height: 20),
+            _buildContextCard(isWide),
           ],
         ),
       );
@@ -964,8 +986,14 @@ class _TimeClockPageState extends State<TimeClockPage> {
           ),
           const SizedBox(height: 20),
           if (_records.isEmpty)
-            Center(
+            Container(
               key: const ValueKey<String>('time-clock-empty-state'),
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: colorScheme.surface.withValues(alpha: 0.5),
+                border: Border.all(color: colorScheme.outlineVariant),
+                borderRadius: BorderRadius.circular(8),
+              ),
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 24),
                 child: Column(
@@ -1008,6 +1036,8 @@ class _TimeClockPageState extends State<TimeClockPage> {
                 ],
               ],
             ),
+          const SizedBox(height: 20),
+          _buildContextCard(isWide),
         ],
       ),
     );

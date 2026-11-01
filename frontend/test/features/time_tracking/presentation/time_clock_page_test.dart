@@ -126,6 +126,24 @@ TimeClockState _timelineState({
 }
 
 void main() {
+  testWidgets('time clock history composition', (tester) async {
+    final controller = _FakeTimeClockController(<int, TimeClockState>{
+      1: _timelineState(page: 1, records: const <PunchRecord>[], totalPages: 1),
+    })..isLoadingState = false;
+    tester.view.physicalSize = const Size(1600, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(MaterialApp(home: TimeClockPage(controller: controller)));
+    await tester.pump();
+    final history = find.ancestor(
+      of: find.text('Jornada do dia'), matching: find.byType(WorkspaceSectionCard),
+    ).first;
+    expect(find.descendant(of: history, matching: find.text('Permissão')),
+        findsOneWidget, reason: 'time_clock_history_composition');
+    expect(tester.takeException(), isNull);
+    controller.dispose();
+  });
+
   testWidgets('hero actions follow clock and location', (tester) async {
     final controller = _FakeTimeClockController(<int, TimeClockState>{
       1: _timelineState(page: 1, records: const <PunchRecord>[], totalPages: 1),
