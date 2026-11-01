@@ -885,6 +885,16 @@ class _KanbanCardTileState extends State<_KanbanCardTile> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
+                  Text(
+                    widget.card.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      height: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
                   Row(
                     children: <Widget>[
                       _TaskTypeBadge(type: widget.card.type),
@@ -1002,16 +1012,6 @@ class _KanbanCardTileState extends State<_KanbanCardTile> {
                           ],
                         ),
                     ],
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    widget.card.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      height: 1.2,
-                    ),
                   ),
                   if (widget.card.description.trim().isNotEmpty) ...<Widget>[
                     const SizedBox(height: 2),

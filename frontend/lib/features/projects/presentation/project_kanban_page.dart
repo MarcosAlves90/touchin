@@ -167,33 +167,31 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
     );
     final viewSwitch = _buildProjectViewSwitch(compact: compact);
 
-    return Material(
-      key: const ValueKey<String>('kanban-project-overview'),
-      color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.28),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: colorScheme.outlineVariant),
-      ),
-      child: Padding(
-        padding: EdgeInsets.all(compact ? 12 : 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            Row(children: <Widget>[Expanded(child: selector), refresh]),
-            const SizedBox(height: 12),
-            if (compact) ...<Widget>[
-              viewSwitch,
-              const SizedBox(height: 12),
-              metrics,
-            ] else
-              Row(children: <Widget>[
-                viewSwitch,
-                const SizedBox(width: 16),
-                Expanded(child: metrics),
-              ]),
-          ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        metrics,
+        const SizedBox(height: 8),
+        Material(
+          key: const ValueKey<String>('kanban-project-overview'),
+          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.28),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: colorScheme.outlineVariant),
+          ),
+          child: Padding(
+            padding: EdgeInsets.all(compact ? 8 : 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                Row(children: <Widget>[Expanded(child: selector), refresh]),
+                const SizedBox(height: 6),
+                Align(alignment: Alignment.centerLeft, child: viewSwitch),
+              ],
+            ),
+          ),
         ),
-      ),
+      ],
     );
   }
 

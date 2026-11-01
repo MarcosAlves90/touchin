@@ -16,6 +16,19 @@ import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_i
 import 'package:touchin_flutter/theme/app_theme.dart';
 
 void main() {
+  testWidgets('kanban summary composition', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1650, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(MaterialApp(home: ProjectKanbanPage(api: _FakeKanbanApi())));
+    await tester.pumpAndSettle();
+    final metrics = find.byKey(const ValueKey<String>('kanban-project-metrics'));
+    final selector = find.byType(WorkspaceInstantSelectField<String>);
+    final views = find.byKey(const ValueKey<String>('project-view-switch'));
+    expect(tester.getBottomLeft(metrics).dy, lessThanOrEqualTo(tester.getTopLeft(selector).dy), reason: 'kanban_summary_composition');
+    expect(tester.getBottomLeft(selector).dy, lessThanOrEqualTo(tester.getTopLeft(views).dy));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('kanban overview separates project selection and views', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1650, 1000));
     addTearDown(() => tester.binding.setSurfaceSize(null));
