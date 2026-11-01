@@ -9,6 +9,30 @@ import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_i
 import 'package:touchin_flutter/theme/app_theme.dart';
 
 void main() {
+  testWidgets('backlog redesign hierarchy', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    for (final theme in [AppTheme.darkTheme, AppTheme.lightTheme]) {
+      await tester.pumpWidget(MaterialApp(theme: theme, home: Scaffold(
+        body: ProjectBacklogView(
+          board: _board(hierarchical: true), projectName: 'Projeto Alpha',
+          projectMembers: const [], canManageStructure: true, canManageCards: true,
+          canManageAssignees: true, canMoveCards: true, isBusy: false,
+          onManageColumns: () {}, onCreateColumn: () {}, onCreateCard: (_) {},
+          onMoveCard: (_, __, ___) {}, onEditCard: (_) {}, onDeleteCard: (_) {},
+          onManageAssignees: (_) {}, onOpenDetails: (_) {},
+        ),
+      )));
+      await tester.pumpAndSettle();
+      final tableSurface = find.byKey(const ValueKey('backlog-table-surface'));
+      expect(tableSurface, findsOneWidget, reason: 'backlog_redesign_hierarchy');
+      final decoration = tester.widget<DecoratedBox>(tableSurface).decoration as BoxDecoration;
+      expect(decoration.borderRadius, isNotNull, reason: 'backlog_redesign_hierarchy');
+      expect(find.byKey(const ValueKey('hierarchy-indicator-task-2')), findsOneWidget);
+      expect(find.byKey(const ValueKey('backlog-search')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    }
+  });
   testWidgets('backlog exposes an in-table horizontal scrollbar',
       (tester) async {
     await tester.binding.setSurfaceSize(const Size(900, 700));

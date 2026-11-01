@@ -472,26 +472,53 @@ class _TimeClockPageState extends State<TimeClockPage> {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final isSplit = constraints.maxWidth >= 900;
-          final details = _buildHeroDetails(isWide);
+          final details = _buildHeroDetails();
           final location = _buildLocationBanner();
-          return Flex(
-            key: const ValueKey<String>('time-clock-hero-layout'),
-            direction: isSplit ? Axis.horizontal : Axis.vertical,
+          return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: isSplit
-                ? [
-                    Expanded(flex: 3, child: details),
-                    const SizedBox(width: 24),
-                    Expanded(flex: 2, child: location),
-                  ]
-                : [details, const SizedBox(height: 20), location],
+            children: [
+              Flex(
+                key: const ValueKey<String>('time-clock-hero-layout'),
+                direction: isSplit ? Axis.horizontal : Axis.vertical,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: isSplit
+                    ? [
+                        Expanded(flex: 3, child: details),
+                        const SizedBox(width: 24),
+                        Expanded(flex: 2, child: location),
+                      ]
+                    : [details, const SizedBox(height: 20), location],
+              ),
+              const SizedBox(height: 24),
+              Divider(color: colorScheme.outlineVariant),
+              const SizedBox(height: 20),
+              Wrap(
+                key: const ValueKey<String>('time-clock-hero-actions'),
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  SizedBox(
+                    width: constraints.maxWidth >= 560
+                        ? 240
+                        : constraints.maxWidth,
+                    child: _buildPrimaryActionButton(),
+                  ),
+                  SizedBox(
+                    width: constraints.maxWidth >= 560
+                        ? 220
+                        : constraints.maxWidth,
+                    child: _buildSecondaryActionButton(),
+                  ),
+                ],
+              ),
+            ],
           );
         },
       ),
     );
   }
 
-  Widget _buildHeroDetails(bool isWide) {
+  Widget _buildHeroDetails() {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
@@ -548,21 +575,6 @@ class _TimeClockPageState extends State<TimeClockPage> {
             color: colorScheme.onSurfaceVariant,
             height: 1.5,
           ),
-        ),
-        const SizedBox(height: 24),
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: [
-            SizedBox(
-              width: isWide ? 240 : double.infinity,
-              child: _buildPrimaryActionButton(),
-            ),
-            SizedBox(
-              width: isWide ? 220 : double.infinity,
-              child: _buildSecondaryActionButton(),
-            ),
-          ],
         ),
       ],
     );

@@ -107,6 +107,7 @@ class AuditResultBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
       decoration: BoxDecoration(
         color: visual.container,
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(color: visual.foreground.withValues(alpha: 0.48)),
       ),
       child: Row(
@@ -214,12 +215,15 @@ class AuditEventTableHeader extends StatelessWidget {
 
     return Container(
       key: const ValueKey<String>('audit-table-header'),
-      color: colors.surfaceContainerHighest,
-      padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerHighest,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+      ),
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
       child: Row(
         children: [
-          SizedBox(width: 124, child: label('Data/hora (local)')),
           Expanded(flex: 5, child: label('Evento')),
+          SizedBox(width: 124, child: label('Data/hora (local)')),
           SizedBox(width: 100, child: label('Resultado')),
           Expanded(flex: 3, child: label('Ator')),
           Expanded(flex: 4, child: label('Recurso')),
@@ -249,7 +253,6 @@ class AuditEventTableRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final visual = auditResultVisual(theme, event.result, (_) => resultLabel);
     final actor = event.actorUserId;
 
     return Material(
@@ -264,37 +267,13 @@ class AuditEventTableRow extends StatelessWidget {
           child: Container(
             decoration: BoxDecoration(
               border: Border(
-                left: BorderSide(color: visual.foreground, width: 3),
                 bottom: BorderSide(color: colors.outlineVariant),
               ),
             ),
-            padding: const EdgeInsets.fromLTRB(11, 11, 14, 11),
+            padding: const EdgeInsets.fromLTRB(14, 17, 14, 17),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                SizedBox(
-                  width: 124,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        auditLocalDate(event.timestamp),
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          fontFeatures: const [FontFeature.tabularFigures()],
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        auditLocalTime(event.timestamp),
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: colors.onSurfaceVariant,
-                          fontFeatures: const [FontFeature.tabularFigures()],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
                 Expanded(
                   flex: 5,
                   child: Padding(
@@ -323,6 +302,29 @@ class AuditEventTableRow extends StatelessWidget {
                         ),
                       ],
                     ),
+                  ),
+                ),
+                SizedBox(
+                  width: 124,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        auditLocalDate(event.timestamp),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        auditLocalTime(event.timestamp),
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: colors.onSurfaceVariant,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 SizedBox(
@@ -417,7 +419,6 @@ class AuditEventCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final visual = auditResultVisual(theme, event.result, (_) => resultLabel);
 
     return Material(
       color: Colors.transparent,
@@ -430,18 +431,32 @@ class AuditEventCard extends StatelessWidget {
               .withValues(alpha: 0.16),
           child: Container(
             decoration: BoxDecoration(
-              color: colors.surface,
-              border: Border(
-                left: BorderSide(color: visual.foreground, width: 4),
-                top: BorderSide(color: colors.outlineVariant),
-                right: BorderSide(color: colors.outlineVariant),
-                bottom: BorderSide(color: colors.outlineVariant),
-              ),
+              color: colors.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: colors.outlineVariant),
             ),
             padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Text(
+                  actionLabel,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    height: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  event.action,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: colors.onSurfaceVariant,
+                    fontFamily: 'monospace',
+                  ),
+                ),
+                const SizedBox(height: 12),
                 Wrap(
                   alignment: WrapAlignment.spaceBetween,
                   crossAxisAlignment: WrapCrossAlignment.center,
@@ -475,23 +490,6 @@ class AuditEventCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 12),
-                Text(
-                  actionLabel,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    height: 1.2,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  event.action,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: colors.onSurfaceVariant,
-                    fontFamily: 'monospace',
-                  ),
-                ),
                 const SizedBox(height: 12),
                 _AuditCardMeta(
                   icon: Icons.person_outline_rounded,

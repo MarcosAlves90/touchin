@@ -16,6 +16,17 @@ import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_i
 import 'package:touchin_flutter/theme/app_theme.dart';
 
 void main() {
+  testWidgets('kanban overview separates project selection and views', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1650, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(MaterialApp(home: ProjectKanbanPage(api: _FakeKanbanApi())));
+    await tester.pumpAndSettle();
+    final selector = find.byType(WorkspaceInstantSelectField<String>);
+    final views = find.byKey(const ValueKey<String>('project-view-switch'));
+    expect(tester.getTopLeft(views).dy, greaterThanOrEqualTo(tester.getBottomLeft(selector).dy), reason: 'kanban_overview_hierarchy');
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Kanban uses persistent desktop nav and mobile drawer', (
     tester,
   ) async {
@@ -53,7 +64,7 @@ void main() {
       'Configurações',
       'Sair do Sistema',
     ]) {
-      expect(find.text(label), findsOneWidget);
+      expect(find.descendant(of: find.byKey(const ValueKey('workspace-desktop-destinations')), matching: find.text(label)), findsOneWidget);
     }
     expect(find.byKey(const ValueKey<String>('kanban-topbar')), findsNothing);
     expect(find.text('Sincronizado'), findsNothing);
@@ -845,7 +856,7 @@ void main() {
     );
     final boardRect = tester.getRect(find.byType(ProjectKanbanBoard));
 
-    expect(overviewRect.height, lessThan(80));
+    expect(overviewRect.height, lessThan(180));
     expect(boardRect.top, greaterThan(overviewRect.bottom));
     expect(boardRect.width, greaterThan(0));
     expect(boardRect.height, greaterThan(0));
@@ -988,7 +999,7 @@ void main() {
     expect(find.text('Adicionar card'), findsOneWidget);
     expect(find.text('Sem responsáveis'), findsOneWidget);
     expect(overview, findsOneWidget);
-    expect(tester.getRect(overview).height, lessThan(80));
+    expect(tester.getRect(overview).height, lessThan(180));
     expect(tester.takeException(), isNull);
   });
 
@@ -1107,27 +1118,7 @@ void main() {
         size.width < 980 ? 48 : 94,
         reason: 'workspace_overview_control_width at $size',
       );
-      if (size.width >= 980) {
-        final metricCellWidth = (tester
-                    .getSize(find.byKey(const ValueKey<String>(
-                      'kanban-project-metrics',
-                    )))
-                    .width -
-                2) /
-            3;
-        expect(
-          (tester
-                          .getSize(find.byKey(const ValueKey<String>(
-                            'project-view-switch',
-                          )))
-                          .width /
-                      2 -
-                  metricCellWidth)
-              .abs(),
-          lessThanOrEqualTo(2),
-          reason: 'workspace_overview_control_width at $size',
-        );
-      }
+      expect(tester.getSize(find.byKey(const ValueKey<String>('project-view-switch'))).width, greaterThanOrEqualTo(96));
 
       final metricWidths = <double>[
         for (final label in <String>['Colunas', 'Cards', 'Equipe'])

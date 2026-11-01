@@ -1,0 +1,326 @@
+{
+  "schema_version": 6,
+  "kind": "feature",
+  "scope": {
+    "allowed_paths": [
+      "frontend/lib/features/shared/presentation/widgets/workspace_shell.dart",
+      "frontend/lib/features/time_tracking/presentation/time_clock_page.dart",
+      "frontend/test/features/time_tracking/presentation/time_clock_page_test.dart",
+      "frontend/test/features/shared/presentation/widgets/workspace_visual_components_test.dart",
+      "frontend/test/features/projects/presentation/project_tasks_page_test.dart",
+      "docs/contracts/workspace-redesign-foundation-v1.polis.json",
+      "docs/validation/issue-119/README.md",
+      "docs/validation/issue-119/desktop-dark.png",
+      "docs/validation/issue-119/desktop-light.png",
+      "docs/validation/issue-119/mobile-dark.png",
+      "docs/validation/issue-119/mobile-light.png",
+      "frontend/lib/features/admin/presentation/admin_employees_page.dart",
+      "frontend/lib/features/admin/presentation/admin_employees_page_widgets.dart",
+      "frontend/test/admin_employees_page_test.dart",
+      "frontend/lib/features/projects/presentation/project_tasks_page.dart",
+      "frontend/lib/features/projects/presentation/project_kanban_page.dart",
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart",
+      "frontend/lib/features/admin/presentation/admin_audit_page.dart",
+      "frontend/lib/features/admin/presentation/admin_audit_page_widgets.dart",
+      "frontend/lib/features/settings/presentation/settings_page.dart",
+      "frontend/test/admin_audit_page_test.dart",
+      "frontend/test/features/settings/presentation/theme_settings_page_test.dart",
+      "frontend/lib/features/auth/presentation/widgets/auth_shell.dart",
+      "frontend/lib/features/auth/presentation/widgets/auth_form_widgets.dart",
+      "frontend/test/features/auth/auth_redesign_test.dart",
+      "frontend/lib/features/projects/presentation/widgets/project_kanban_board.dart",
+      "frontend/test/features/projects/presentation/project_kanban_board_test.dart",
+      "frontend/lib/features/projects/presentation/widgets/project_backlog_view.dart",
+      "frontend/test/features/projects/presentation/project_backlog_view_test.dart"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/features/shared/presentation/widgets/workspace_visual_components_test.dart",
+      "frontend/test/features/projects/presentation/project_tasks_page_test.dart",
+      "frontend/test/features/time_tracking/presentation/time_clock_page_test.dart",
+      "frontend/test/admin_employees_page_test.dart",
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart",
+      "frontend/test/admin_audit_page_test.dart",
+      "frontend/test/features/settings/presentation/theme_settings_page_test.dart",
+      "frontend/test/features/auth/auth_redesign_test.dart",
+      "frontend/test/features/projects/presentation/project_kanban_board_test.dart",
+      "frontend/test/features/projects/presentation/project_backlog_view_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Rebuild the time clock hero composition and reusable workspace content cards in the visual language of the supplied reference, without claiming the redesign of all pages is complete. Rebuild the team administration page with responsive, functional hierarchy. Rebuild the project and task workspace with full-width readable sections and preserve all controls. Rebuild the Kanban and Backlog project overview while retaining usable board space and all existing interactions. Rebuild audit content and theme settings choices into reference-inspired responsive panels while retaining all interactions. Rebuild all five authentication flows in the workspace visual language, preserving interactions and accessibility. Reconstruct Kanban lane headers and task cards while preserving pointer and menu movement. Rebuild the Backlog table and toolbar into responsive reference-inspired hierarchy without changing filtering, sorting, pagination, hierarchy or actions.",
+    "requirements": [
+      {
+        "id": "REQ-01",
+        "statement": "Workspace section cards use a rounded, outlined theme-aware surface with generous consistent padding."
+      },
+      {
+        "id": "REQ-02",
+        "statement": "Workspace metric cards use rounded outlined theme-aware surfaces, an accent-backed icon tile and a clear vertical label/value hierarchy, adapting to narrow and enlarged-text layouts."
+      },
+      {
+        "id": "REQ-03",
+        "statement": "Maintain all existing content, semantic information, theme choices, navigation and interactions; preserve light and dark theme contrast."
+      },
+      {
+        "id": "REQ-04",
+        "statement": "Store the exact locked contract in docs/contracts/workspace-redesign-foundation-v1.polis.json."
+      },
+      {
+        "id": "REQ-05",
+        "statement": "Place the time clock actions beneath the clock and location regions across the hero card, adapting to available width and preserving punch and location behavior."
+      },
+      {
+        "id": "REQ-06",
+        "statement": "Present the employee directory and selected profile in a full-width stacked responsive layout while preserving search, selection and management actions."
+      },
+      {
+        "id": "REQ-07",
+        "statement": "Present project directory, selected project, tasks and participants in full-width responsive sections while preserving their interactions and permissions."
+      },
+      {
+        "id": "REQ-08",
+        "statement": "Display the Kanban and Backlog project selection and view controls in a rounded, responsive hierarchy while preserving navigation, board and backlog behavior."
+      },
+      {
+        "id": "REQ-09",
+        "statement": "Rebuild audit filter and event content and theme selection controls into responsive, theme-aware layouts without changing behavior."
+      },
+      {
+        "id": "REQ-10",
+        "statement": "Recompose the shared authentication shell and form frame into responsive theme-aware workspace surfaces for login, registration, recovery, reset and mandatory password change, preserving fields, validation, states and keyboard access."
+      },
+      {
+        "id": "REQ-11",
+        "statement": "Present Kanban lane headers and task cards as rounded, outlined theme-aware surfaces, retaining content, controls and drag semantics."
+      },
+      {
+        "id": "REQ-12",
+        "statement": "Rebuild backlog toolbar and table into distinct rounded, outlined theme-aware panels while retaining filtering, sorting, pagination, hierarchy and actions."
+      },
+      {
+        "id": "REQ-13",
+        "statement": "Rebuild populated audit desktop event rows and mobile cards with action-first hierarchy, readable status and retained technical data, interactions, focus and copy controls."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-01",
+        "statement": "Widget regression verifies the section card surface is rounded and preserves its content in light and dark themes.",
+        "requirements": [
+          "REQ-01",
+          "REQ-03"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-02",
+        "statement": "Widget regression verifies the metric card's rounded surface, accent icon tile and vertical label/value ordering, including a narrow viewport and enlarged text without exceptions.",
+        "requirements": [
+          "REQ-02",
+          "REQ-03"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-03",
+        "statement": "Existing widget and project gates pass and the persisted contract is byte-for-byte identical to the locked contract.",
+        "requirements": [
+          "REQ-03",
+          "REQ-04"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-04",
+        "statement": "A widget regression checks the desktop time clock action region lies below both clock and location and the mobile hero remains responsive without overflow.",
+        "requirements": [
+          "REQ-05"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-05",
+        "statement": "Desktop regression verifies the selected profile follows the directory vertically and search remains functional.",
+        "requirements": [
+          "REQ-06"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-06",
+        "statement": "Desktop regression verifies the selected project follows the project directory vertically and remains full width, with no framework exception.",
+        "requirements": [
+          "REQ-07"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-07",
+        "statement": "A desktop regression verifies the view controls follow project selection vertically without losing the bounded board.",
+        "requirements": [
+          "REQ-08",
+          "REQ-03"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-08",
+        "statement": "Desktop regressions verify audit filters appear above results and settings theme options form a horizontal choice group, retaining functional controls and mobile layout.",
+        "requirements": [
+          "REQ-09",
+          "REQ-03"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-09",
+        "statement": "Desktop and mobile widget regressions verify a bounded form surface encloses each flow with heading semantics and input fields, without overflow in light and dark themes.",
+        "requirements": [
+          "REQ-10",
+          "REQ-03"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-10",
+        "statement": "Widget regression checks rounded lane and task card surfaces in light and dark themes, content and existing drag behavior.",
+        "requirements": [
+          "REQ-11",
+          "REQ-03"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-11",
+        "statement": "Widget regression verifies toolbar content hierarchy and rounded table surface with parent and child rows and working search in both themes.",
+        "requirements": [
+          "REQ-12",
+          "REQ-03"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-12",
+        "statement": "Widget regression verifies action precedes timestamp on desktop and mobile, status and technical identifiers remain visible, details open, and no overflow occurs in light and dark themes.",
+        "requirements": [
+          "REQ-13",
+          "REQ-03"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-01",
+        "statement": "Do not change business logic, API calls, navigation, data, route access, or theme persistence."
+      },
+      {
+        "id": "INV-02",
+        "statement": "Maintain readable contrast, semantic headers, keyboard and touch access, and light/dark support."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-01",
+        "statement": "A redesigned card loses its existing text or icons, causes overflow, or becomes unreadable in a supported theme."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-01",
+        "statement": "Existing workspace section and metric widgets and the user-provided visual reference."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-01",
+        "statement": "Reference-inspired, responsive reusable workspace content card primitives and regression tests."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-01",
+        "statement": "The redesign_hierarchy regression fails against baseline layout and passes on the rebuilt layout."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "56b662408704a0fb39411bfb735151fa6f8d22f5",
+    "base_tree": "f9d33f122f13b17edde32a0f6cfff2a9c33b41bd",
+    "policy_sha256": "7714a10ab2b65f58941086f500de93fa62fc6acb6fd59d8b39292980364774dd",
+    "specification_sha256": "81a620738fce54b59216f175e7f99413570d5b1f82e50b63d561a8359757e90b"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/features/shared/presentation/widgets/workspace_visual_components_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 300,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "--exclude-tags",
+      "canonical-golden",
+      "test/features/shared/presentation/widgets/workspace_visual_components_test.dart",
+      "test/features/shared/presentation/widgets/workspace_shell_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "test/admin_audit_page_test.dart",
+        "--plain-name",
+        "audit event content hierarchy"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 300,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "audit_event_content_hierarchy"
+    ]
+  }
+}

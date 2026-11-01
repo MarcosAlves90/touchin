@@ -5,6 +5,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('settings redesign hierarchy', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final controller = ThemeModeController(store: _InMemoryThemeStore());
+    await controller.load();
+    await tester.pumpWidget(MaterialApp(home: ThemeSettingsPage(controller: controller)));
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(find.text('Tema claro')).dy,
+        tester.getTopLeft(find.text('Tema escuro')).dy,
+        reason: 'settings_redesign_hierarchy');
+    expect(tester.takeException(), isNull);
+  });
   testWidgets('keeps page copy in the content and out of the summary panel', (
     tester,
   ) async {

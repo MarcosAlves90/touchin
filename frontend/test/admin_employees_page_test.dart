@@ -10,6 +10,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('team directory stacks above selected profile', (tester) async {
+    tester.view.physicalSize = const Size(1800, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(MaterialApp(home: AdminEmployeesPage(api: _FakeAdminApi())));
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(find.text('Perfil selecionado')).dy,
+        greaterThan(tester.getBottomLeft(find.text('Buscar funcionário')).dy),
+        reason: 'team_directory_layout');
+    await tester.enterText(find.widgetWithText(TextField, 'Buscar funcionário'), 'Renata');
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Limpar busca'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
   testWidgets(
     'employee editor accepts two characters for role, department and unit',
     (WidgetTester tester) async {

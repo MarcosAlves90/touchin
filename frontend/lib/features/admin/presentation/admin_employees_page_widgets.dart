@@ -656,8 +656,9 @@ class _EmployeeListTile extends StatelessWidget {
           onTap: onTap,
           child: Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
               color: selected
                   ? adminColors.selectedContainer
                   : colorScheme.surface,
@@ -869,9 +870,10 @@ class _EmployeeDetailHero extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        color: colorScheme.surfaceContainerLow,
         border: Border.all(color: colorScheme.outline),
       ),
       child: LayoutBuilder(

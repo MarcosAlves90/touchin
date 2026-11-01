@@ -196,7 +196,7 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
   Widget _buildWorkspaceHeader(bool isWide) {
     return WorkspaceHeader(
       title: 'Administrar projetos',
-      description: '',
+      description: 'Organize projetos, tarefas e participantes em um só lugar.',
       maxContentWidth: 620,
       actions: _buildHeaderActions(isWide),
       compact: !isWide,
@@ -295,29 +295,13 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
   }
 
   Widget _buildProjectsSection(bool isWide) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final useSplitLayout = isWide && constraints.maxWidth >= 980;
-        if (useSplitLayout) {
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Expanded(flex: 11, child: _buildProjectsListCard()),
-              const SizedBox(width: 20),
-              Expanded(flex: 9, child: _buildSelectedProjectCard()),
-            ],
-          );
-        }
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            _buildProjectsListCard(),
-            const SizedBox(height: 20),
-            _buildSelectedProjectCard(),
-          ],
-        );
-      },
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        _buildProjectsListCard(),
+        const SizedBox(height: 20),
+        _buildSelectedProjectCard(),
+      ],
     );
   }
 
@@ -499,29 +483,13 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
   }
 
   Widget _buildTaskWorkspace(bool isWide) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final useSplitLayout = isWide && constraints.maxWidth >= 980;
-        if (useSplitLayout) {
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Expanded(flex: 11, child: _buildTasksCard()),
-              const SizedBox(width: 20),
-              Expanded(flex: 9, child: _buildMembershipCard()),
-            ],
-          );
-        }
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            _buildTasksCard(),
-            const SizedBox(height: 20),
-            _buildMembershipCard(),
-          ],
-        );
-      },
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        _buildTasksCard(),
+        const SizedBox(height: 20),
+        _buildMembershipCard(),
+      ],
     );
   }
 
@@ -1041,8 +1009,9 @@ class _ProjectListTile extends StatelessWidget {
           onTap: onTap,
           child: Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
               color: selected
                   ? AppTheme.accent.withValues(alpha: 0.08)
                   : colorScheme.surface.withValues(alpha: 0.8),

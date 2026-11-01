@@ -138,12 +138,8 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
   Future<void> _loadEmployees() => _controller.loadEmployees();
 
   void _scrollToEmployeeDetails({required bool isWide}) {
-    if (isWide) {
-      return;
-    }
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || isWide) {
+      if (!mounted) {
         return;
       }
       final detailContext = _employeeDetailKey.currentContext;
@@ -406,7 +402,7 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
   Widget _buildWorkspaceHeader(bool isWide) {
     return WorkspaceHeader(
       title: 'Administrar equipe',
-      description: '',
+      description: 'Acompanhe a equipe e gerencie cadastros e registros de ponto.',
       maxContentWidth: 620,
       actions: _buildHeaderActions(isWide),
       compact: !isWide,
@@ -493,31 +489,13 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
   }
 
   Widget _buildEmployeesSection(bool isWide) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final useSplitLayout = isWide && constraints.maxWidth >= 980;
-
-        if (useSplitLayout) {
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Expanded(
-                  flex: 11, child: _buildEmployeesListCard(isWide: isWide)),
-              const SizedBox(width: 20),
-              Expanded(flex: 9, child: _buildEmployeeDetailCard()),
-            ],
-          );
-        }
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            _buildEmployeesListCard(isWide: isWide),
-            const SizedBox(height: 20),
-            _buildEmployeeDetailCard(),
-          ],
-        );
-      },
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        _buildEmployeesListCard(isWide: isWide),
+        const SizedBox(height: 20),
+        _buildEmployeeDetailCard(),
+      ],
     );
   }
 

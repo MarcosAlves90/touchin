@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:touchin_flutter/features/admin/presentation/admin_audit_page.dart';
+import 'package:touchin_flutter/features/admin/presentation/admin_audit_page_widgets.dart';
 import 'package:touchin_flutter/contracts/audit.dart';
 import 'package:touchin_flutter/core/network/api_client.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
@@ -113,6 +114,55 @@ Future<void> selectAuditFilter(
 }
 
 void main() {
+  testWidgets('audit event content hierarchy', (tester) async {
+    final event = AuditEventResponse(
+      id: 'event', timestamp: DateTime.utc(2026, 10, 20), companyId: 'company',
+      actorUserId: 'actor', projectId: 'project', action: 'card.created',
+      entityType: 'card', entityId: 'entity', result: 'success', metadataPayload: null,
+    );
+    for (final theme in [AppTheme.lightTheme, AppTheme.darkTheme]) {
+      for (final mobile in [false, true]) {
+        var opened = false;
+        await tester.binding.setSurfaceSize(Size(mobile ? 360 : 1280, 800));
+        await tester.pumpWidget(MaterialApp(theme: theme, home: Scaffold(body: Center(
+          child: mobile
+              ? AuditEventCard(event: event, actionLabel: 'Tarefa criada', resultLabel: 'Sucesso', onTap: () => opened = true)
+              : AuditEventTableRow(event: event, actionLabel: 'Tarefa criada', resultLabel: 'Sucesso', onTap: () => opened = true),
+        ))));
+        await tester.pumpAndSettle();
+        final action = find.text('Tarefa criada');
+        final date = find.text(mobile ? auditLocalDateTime(event.timestamp) : auditLocalDate(event.timestamp));
+        expect(action, findsOneWidget);
+        expect(date, findsOneWidget);
+        if (mobile) {
+          expect(tester.getTopLeft(action).dy, lessThan(tester.getTopLeft(date).dy), reason: 'audit_event_content_hierarchy');
+        } else {
+          expect(tester.getTopLeft(action).dx, lessThan(tester.getTopLeft(date).dx), reason: 'audit_event_content_hierarchy');
+        }
+        expect(find.text('Sucesso'), findsOneWidget);
+        expect(find.text('entity'), findsOneWidget);
+        await tester.tap(action);
+        expect(opened, isTrue);
+        expect(tester.takeException(), isNull);
+      }
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+  testWidgets('audit redesign results have a section heading', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final api = FakeTouchInApi()..mockEvents = [AuditEventResponse(
+      id: 'redesign', timestamp: DateTime.utc(2026), companyId: 'company',
+      actorUserId: null, projectId: null, action: 'card.created',
+      entityType: 'card', entityId: 'entity', result: 'success', metadataPayload: null,
+    )];
+    await tester.pumpWidget(MaterialApp(home: AdminAuditPage(api: api)));
+    await tester.pumpAndSettle();
+    expect(find.text('Histórico de eventos'), findsOneWidget, reason: 'audit_redesign_hierarchy');
+    expect(find.byKey(const ValueKey<String>('audit-events-table')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   AuditEventResponse pageEvent(int index) => AuditEventResponse(
         id: 'evt_$index',
         timestamp: DateTime.utc(2026, 10, 20),

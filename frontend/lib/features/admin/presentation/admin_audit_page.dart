@@ -725,10 +725,11 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
 
     return Container(
       key: const ValueKey<String>('audit-active-filters'),
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
       decoration: BoxDecoration(
         color: colorScheme.surface,
         border: Border.all(color: colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1226,6 +1227,25 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
                   ? _buildEmptyState()
                   : Column(
                       children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(4, 4, 4, 12),
+                          child: Row(children: [
+                            Icon(Icons.history_rounded,
+                                color: Theme.of(context).colorScheme.primary),
+                            const SizedBox(width: 10),
+                            Expanded(
+                                child: Semantics(
+                                    header: true,
+                                    child: Text(
+                                      'Histórico de eventos',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleMedium
+                                          ?.copyWith(
+                                              fontWeight: FontWeight.w700),
+                                    ))),
+                          ]),
+                        ),
                         Expanded(
                           child: compact ? _buildCards() : _buildTable(),
                         ),

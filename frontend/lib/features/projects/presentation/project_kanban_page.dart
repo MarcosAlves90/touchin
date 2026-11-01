@@ -171,43 +171,27 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
       key: const ValueKey<String>('kanban-project-overview'),
       color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.28),
       shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
         side: BorderSide(color: colorScheme.outlineVariant),
       ),
       child: Padding(
-        padding: EdgeInsets.all(compact ? 7 : 8),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            if (!compact && constraints.maxWidth >= 980) {
-              return Row(
-                children: <Widget>[
-                  Expanded(child: selector),
-                  const SizedBox(width: 8),
-                  viewSwitch,
-                  const SizedBox(width: 8),
-                  SizedBox(width: 292, child: metrics),
-                  const SizedBox(width: 2),
-                  refresh,
-                ],
-              );
-            }
-
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: <Widget>[
-                Row(
-                  children: <Widget>[
-                    Expanded(child: selector),
-                    const SizedBox(width: 4),
-                    _buildProjectViewSwitch(compact: true),
-                    const SizedBox(width: 2),
-                    refresh,
-                  ],
-                ),
-                const SizedBox(height: 6),
-                metrics,
-              ],
-            );
-          },
+        padding: EdgeInsets.all(compact ? 12 : 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Row(children: <Widget>[Expanded(child: selector), refresh]),
+            const SizedBox(height: 12),
+            if (compact) ...<Widget>[
+              viewSwitch,
+              const SizedBox(height: 12),
+              metrics,
+            ] else
+              Row(children: <Widget>[
+                viewSwitch,
+                const SizedBox(width: 16),
+                Expanded(child: metrics),
+              ]),
+          ],
         ),
       ),
     );

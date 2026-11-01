@@ -264,7 +264,8 @@ class _ProjectKanbanBoardState extends State<ProjectKanbanBoard> {
       duration: const Duration(milliseconds: 140),
       curve: Curves.easeOut,
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.62),
+        color: colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isDropTarget
               ? colorScheme.primary
@@ -283,14 +284,10 @@ class _ProjectKanbanBoardState extends State<ProjectKanbanBoard> {
       ),
       child: Material(
         color: Colors.transparent,
+        clipBehavior: Clip.antiAlias,
+        borderRadius: BorderRadius.circular(12),
         child: Column(
           children: <Widget>[
-            Container(
-              height: 3,
-              color: isDropTarget
-                  ? colorScheme.primary
-                  : colorScheme.primary.withValues(alpha: 0.34),
-            ),
             _LaneHeader(
               column: column,
               columnIndex: columnIndex,
@@ -671,12 +668,21 @@ class _LaneHeader extends StatelessWidget {
     final colorScheme = theme.colorScheme;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(10, 7, 4, 6),
+      padding: const EdgeInsets.fromLTRB(16, 10, 6, 9),
       child: Row(
         children: <Widget>[
           Expanded(
             child: Row(
               children: <Widget>[
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: colorScheme.primary,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 10),
                 Flexible(
                   child: Text(
                     column.name,
@@ -694,7 +700,8 @@ class _LaneHeader extends StatelessWidget {
                   height: 22,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: colorScheme.surface,
+                    color: colorScheme.primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(6),
                     border: Border.all(color: colorScheme.outlineVariant),
                   ),
                   child: Text(
@@ -855,6 +862,7 @@ class _KanbanCardTileState extends State<_KanbanCardTile> {
             color: _hovered
                 ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.9)
                 : colorScheme.surface,
+            borderRadius: BorderRadius.circular(10),
             border: Border.all(
               color: _hovered
                   ? colorScheme.primary.withValues(alpha: 0.7)
@@ -1079,6 +1087,7 @@ class _TaskTypeBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
         color: tone.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: tone.withValues(alpha: 0.32)),
       ),
       child: Row(

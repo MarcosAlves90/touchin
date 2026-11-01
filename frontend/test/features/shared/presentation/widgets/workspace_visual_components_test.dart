@@ -6,6 +6,52 @@ import 'package:touchin_flutter/theme/app_theme.dart';
 
 void main() {
   testWidgets(
+      'redesign cards use rounded surfaces and vertical metric hierarchy',
+      (tester) async {
+    tester.view.physicalSize = const Size(320, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    for (final theme in [AppTheme.lightTheme, AppTheme.darkTheme]) {
+      await tester.pumpWidget(MaterialApp(
+        theme: theme,
+        home: const MediaQuery(
+          data: MediaQueryData(
+              size: Size(320, 800), textScaler: TextScaler.linear(2)),
+          child: Scaffold(
+            body: SingleChildScrollView(
+              child: Column(children: [
+                WorkspaceSectionCard(child: Text('Seção')),
+                WorkspaceMetricCard(
+                  icon: Icons.groups_rounded,
+                  label: 'Colaboradores',
+                  value: '14',
+                  helper: 'Perfis cadastrados',
+                ),
+              ]),
+            ),
+          ),
+        ),
+      ));
+      final surface = tester.widget<Material>(find
+          .descendant(
+            of: find.byType(WorkspaceSectionCard),
+            matching: find.byType(Material),
+          )
+          .first);
+      final shape = surface.shape as RoundedRectangleBorder;
+      expect(shape.borderRadius, isNot(BorderRadius.zero),
+          reason: 'workspace_redesign_surface');
+      expect(find.text('Seção'), findsOneWidget);
+      expect(find.byKey(const ValueKey('workspace-metric-icon-tile')),
+          findsOneWidget);
+      expect(tester.getTopLeft(find.text('14')).dy,
+          greaterThan(tester.getTopLeft(find.text('Colaboradores')).dy));
+      expect(tester.takeException(), isNull);
+    }
+  });
+
+  testWidgets(
       'workspace header omits blank copy and stays semantic at 200% text',
       (tester) async {
     tester.view.physicalSize = const Size(320, 640);

@@ -5,6 +5,25 @@ import 'package:touchin_flutter/contracts/task.dart';
 import 'package:touchin_flutter/features/projects/presentation/widgets/project_kanban_board.dart';
 
 void main() {
+  testWidgets('kanban redesign surfaces', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1000, 700));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(_host(_board()));
+    final lane = tester.widget<AnimatedContainer>(
+      find.byKey(const ValueKey<String>('kanban-column-column-a')),
+    );
+    final card = find.byKey(const ValueKey<String>('kanban-card-task-01'));
+    final surface = tester.widget<AnimatedContainer>(find.descendant(
+      of: card, matching: find.byType(AnimatedContainer),
+    ).first);
+    expect((lane.decoration! as BoxDecoration).borderRadius, isNotNull,
+        reason: 'kanban_redesign_surfaces lane');
+    expect((surface.decoration! as BoxDecoration).borderRadius, isNotNull,
+        reason: 'kanban_redesign_surfaces card');
+    expect(find.text('Implementar tela'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('uses native slivers and no legacy drag/reorder primitives', (
     tester,
   ) async {

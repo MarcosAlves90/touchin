@@ -126,6 +126,33 @@ TimeClockState _timelineState({
 }
 
 void main() {
+  testWidgets('hero actions follow clock and location', (tester) async {
+    final controller = _FakeTimeClockController(<int, TimeClockState>{
+      1: _timelineState(page: 1, records: const <PunchRecord>[], totalPages: 1),
+    })
+      ..isLoadingState = false
+      ..status = ShiftStatus.working;
+    tester.view.physicalSize = const Size(1600, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester
+        .pumpWidget(MaterialApp(home: TimeClockPage(controller: controller)));
+    await tester.pump();
+    final actions =
+        find.byKey(const ValueKey<String>('time-clock-hero-actions'));
+    expect(actions, findsOneWidget, reason: 'time_clock_action_placement');
+    final location = find
+        .byKey(const ValueKey<String>('time-clock-location-status-heading'));
+    expect(tester.getTopLeft(actions).dy,
+        greaterThan(tester.getBottomLeft(location).dy));
+    expect(find.descendant(of: actions, matching: find.text('Iniciar pausa')),
+        findsOneWidget);
+    expect(find.descendant(of: actions, matching: find.text('Registrar saída')),
+        findsOneWidget);
+    expect(tester.takeException(), isNull);
+    controller.dispose();
+  });
+
   testWidgets('time clock does not claim a trusted device without validation',
       (WidgetTester tester) async {
     final controller = _FakeTimeClockController(<int, TimeClockState>{
