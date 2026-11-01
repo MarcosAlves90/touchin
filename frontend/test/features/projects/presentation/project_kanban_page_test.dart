@@ -30,15 +30,20 @@ void main() {
           ),
         ));
         await tester.pumpAndSettle();
-        final strip = find.byKey(const ValueKey<String>('kanban-project-metrics'));
+        final strip =
+            find.byKey(const ValueKey<String>('kanban-project-metrics'));
         for (final text in ['Colunas', 'Cards', 'Equipe', '2', '6', '1']) {
-          expect(find.descendant(of: strip, matching: find.text(text)), findsOneWidget);
+          expect(find.descendant(of: strip, matching: find.text(text)),
+              findsOneWidget);
         }
-        final box = tester.widget<Container>(strip).decoration! as BoxDecoration;
+        final box =
+            tester.widget<Container>(strip).decoration! as BoxDecoration;
         expect(box.borderRadius, BorderRadius.circular(12),
             reason: 'kanban_metrics_rounded');
         final bounds = tester.getRect(strip);
-        for (final divider in find.descendant(of: strip, matching: find.byType(VerticalDivider)).evaluate()) {
+        for (final divider in find
+            .descendant(of: strip, matching: find.byType(VerticalDivider))
+            .evaluate()) {
           final rect = tester.getRect(find.byWidget(divider.widget));
           expect(rect.left, greaterThan(bounds.left + 12));
           expect(rect.right, lessThan(bounds.right - 12));
@@ -78,9 +83,11 @@ void main() {
                   widget.height == 48),
             )
             .first;
-        final laneViewport = find.byKey(const ValueKey<String>('kanban-column-scroll-column-01'));
+        final laneViewport = find
+            .byKey(const ValueKey<String>('kanban-column-scroll-column-01'));
         expect(tester.getSize(laneViewport).height, greaterThanOrEqualTo(100),
-            reason: 'kanban_accessibility_overlap usable cards $size inset $inset');
+            reason:
+                'kanban_accessibility_overlap usable cards $size inset $inset');
         await tester.ensureVisible(laneViewport);
         await tester.pumpAndSettle();
         final scroll =
@@ -135,7 +142,9 @@ void main() {
             .byKey(const ValueKey<String>('kanban-column-scroll-column-03'));
         final card = find.byKey(const ValueKey<String>('kanban-card-task-3-5'));
         await tester.scrollUntilVisible(card, 100,
-            scrollable: find.descendant(of: lane, matching: find.byType(Scrollable)).first);
+            scrollable: find
+                .descendant(of: lane, matching: find.byType(Scrollable))
+                .first);
         await tester.pumpAndSettle();
         expect(
             _scrollOffset(tester,
@@ -151,14 +160,21 @@ void main() {
         await tester.tap(footer);
         await tester.pumpAndSettle();
         expect(find.byType(ProjectTaskEditorDialog), findsOneWidget);
-        await tester.enterText(find.widgetWithText(TextFormField, 'Nome'), 'Novo card');
-        await tester.enterText(find.widgetWithText(TextFormField, 'Descrição'), 'Teste');
+        await tester.enterText(
+            find.widgetWithText(TextFormField, 'Nome'), 'Novo card');
+        await tester.enterText(
+            find.widgetWithText(TextFormField, 'Descrição'), 'Teste');
         await tester.tap(find.text('Criar tarefa').last);
         await tester.pumpAndSettle();
-        expect((await api.getKanbanBoard('project-01')).columns
-            .firstWhere((column) => column.id == 'column-03')
-            .cards.any((card) => card.name == 'Novo card'), isTrue);
-        final focus = Focus.of(tester.element(find.byIcon(Icons.accessibility_new_rounded)));
+        expect(
+            (await api.getKanbanBoard('project-01'))
+                .columns
+                .firstWhere((column) => column.id == 'column-03')
+                .cards
+                .any((card) => card.name == 'Novo card'),
+            isTrue);
+        final focus = Focus.of(
+            tester.element(find.byIcon(Icons.accessibility_new_rounded)));
         focus.requestFocus();
         await tester.pump();
         expect(focus.hasFocus, isTrue);
@@ -180,29 +196,40 @@ void main() {
       }
     }
   });
-  testWidgets('Kanban footer avoids accessibility overlay resize and gestures', (tester) async {
+  testWidgets('Kanban footer avoids accessibility overlay resize and gestures',
+      (tester) async {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.binding.setSurfaceSize(const Size(320, 540));
-    await tester.pumpWidget(MaterialApp(home: ProjectKanbanPage(api: _FakeKanbanApi(columnCount: 5, cardsPerColumn: 5))));
+    await tester.pumpWidget(MaterialApp(
+        home: ProjectKanbanPage(
+            api: _FakeKanbanApi(columnCount: 5, cardsPerColumn: 5))));
     await tester.pumpAndSettle();
     const boardKey = ValueKey<String>('kanban-board-scroll');
     const laneKey = ValueKey<String>('kanban-column-scroll-column-01');
     final lane = find.byKey(laneKey);
-    expect(tester.getSize(lane).height, greaterThanOrEqualTo(100), reason: 'kanban_accessibility_overlap usable lane');
-    final summaryScroll = find.ancestor(
-      of: find.byKey(const ValueKey<String>('kanban-project-overview')),
-      matching: find.byType(SingleChildScrollView),
-    ).first;
+    expect(tester.getSize(lane).height, greaterThanOrEqualTo(100),
+        reason: 'kanban_accessibility_overlap usable lane');
+    final summaryScroll = find
+        .ancestor(
+          of: find.byKey(const ValueKey<String>('kanban-project-overview')),
+          matching: find.byType(SingleChildScrollView),
+        )
+        .first;
     expect(find.descendant(of: summaryScroll, matching: lane), findsNothing,
         reason: 'kanban_accessibility_overlap independent vertical scrolling');
-    final summaryOffset = tester.state<ScrollableState>(find.descendant(
-      of: summaryScroll, matching: find.byType(Scrollable)).first).position;
+    final summaryOffset = tester
+        .state<ScrollableState>(find
+            .descendant(of: summaryScroll, matching: find.byType(Scrollable))
+            .first)
+        .position;
     await tester.drag(summaryScroll, const Offset(0, -80));
     await tester.pumpAndSettle();
-    expect(summaryOffset.pixels, greaterThan(0), reason: 'kanban_accessibility_overlap summary gesture');
+    expect(summaryOffset.pixels, greaterThan(0),
+        reason: 'kanban_accessibility_overlap summary gesture');
     await tester.drag(lane, const Offset(0, -90));
     await tester.pumpAndSettle();
-    expect(_scrollOffset(tester, laneKey), greaterThan(0), reason: 'kanban_accessibility_overlap lane gesture');
+    expect(_scrollOffset(tester, laneKey), greaterThan(0),
+        reason: 'kanban_accessibility_overlap lane gesture');
     final board = find.byKey(boardKey);
     await tester.drag(board, const Offset(-250, 0));
     await tester.pumpAndSettle();
@@ -210,18 +237,22 @@ void main() {
     expect(offset, greaterThan(0));
     await tester.binding.setSurfaceSize(const Size(320, 844));
     await tester.pumpAndSettle();
-    expect(_scrollOffset(tester, boardKey), closeTo(offset, 0.1), reason: 'kanban_accessibility_overlap resize');
+    expect(_scrollOffset(tester, boardKey), closeTo(offset, 0.1),
+        reason: 'kanban_accessibility_overlap resize');
     await tester.binding.setSurfaceSize(const Size(320, 540));
     await tester.pumpAndSettle();
-    expect(_scrollOffset(tester, boardKey), closeTo(offset, 0.1), reason: 'kanban_accessibility_overlap resize back');
+    expect(_scrollOffset(tester, boardKey), closeTo(offset, 0.1),
+        reason: 'kanban_accessibility_overlap resize back');
     expect(tester.takeException(), isNull);
   });
-  testWidgets('Kanban footer avoids accessibility overlay width breakpoint scroll',
+  testWidgets(
+      'Kanban footer avoids accessibility overlay width breakpoint scroll',
       (tester) async {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.binding.setSurfaceSize(const Size(320, 540));
     await tester.pumpWidget(MaterialApp(
-      home: ProjectKanbanPage(api: _FakeKanbanApi(columnCount: 5, cardsPerColumn: 5)),
+      home: ProjectKanbanPage(
+          api: _FakeKanbanApi(columnCount: 5, cardsPerColumn: 5)),
     ));
     await tester.pumpAndSettle();
     const key = ValueKey<String>('kanban-board-scroll');
@@ -1138,6 +1169,19 @@ void main() {
       find.byKey(const ValueKey<String>('kanban-board-skeleton')),
       findsOneWidget,
     );
+    final skeletonBoxes = tester
+        .widgetList<DecoratedBox>(find.descendant(
+          of: find.byKey(const ValueKey<String>('kanban-board-skeleton')),
+          matching: find.byType(DecoratedBox),
+        ))
+        .map((box) => box.decoration)
+        .whereType<BoxDecoration>()
+        .where((decoration) => decoration.border != null);
+    expect(skeletonBoxes.length, greaterThanOrEqualTo(2));
+    for (final decoration in skeletonBoxes) {
+      expect(decoration.borderRadius, BorderRadius.circular(12),
+          reason: 'skeleton_radius_rounded');
+    }
     expect(find.byType(ProjectKanbanBoard), findsNothing);
     expect(find.byType(CircularProgressIndicator), findsNothing);
 

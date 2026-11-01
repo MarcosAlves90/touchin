@@ -390,6 +390,7 @@ class _TimeClockPageState extends State<TimeClockPage> {
                     height: 58,
                     decoration: BoxDecoration(
                       color: AppTheme.accent.withValues(alpha: 0.10),
+                      borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: AppTheme.accent.withValues(alpha: 0.20),
                       ),
@@ -427,6 +428,7 @@ class _TimeClockPageState extends State<TimeClockPage> {
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
                   color: colorScheme.surface.withValues(alpha: 0.8),
+                  borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: colorScheme.outlineVariant),
                 ),
                 child: Text(

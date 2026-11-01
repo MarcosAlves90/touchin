@@ -839,6 +839,7 @@ class _KanbanLaneSkeleton extends StatelessWidget {
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.32),
         border: Border.all(color: colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Padding(
         padding: const EdgeInsets.all(10),
@@ -877,6 +878,7 @@ class _KanbanCardSkeleton extends StatelessWidget {
       decoration: BoxDecoration(
         color: colorScheme.surface.withValues(alpha: 0.72),
         border: Border.all(color: colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Padding(
         padding: const EdgeInsets.all(10),

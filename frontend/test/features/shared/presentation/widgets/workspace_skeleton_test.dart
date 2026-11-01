@@ -64,13 +64,59 @@ void main() {
         .toList();
 
     expect(decorations[0].shape, BoxShape.rectangle);
-    expect(decorations[0].borderRadius, BorderRadius.zero);
+    expect(decorations[0].borderRadius, BorderRadius.circular(8),
+        reason: 'skeleton_radius_rounded');
     expect(decorations[1].shape, BoxShape.rectangle);
     expect(decorations[2].shape, BoxShape.circle);
     expect(decorations[2].borderRadius, isNull);
     expect(decorations[0].color?.a, closeTo(0.12, 0.001));
 
     await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('rounded shapes preserve circles, overrides and theme colors',
+      (tester) async {
+    for (final dark in [false, true]) {
+      await tester.pumpWidget(_wrap(
+        dark: dark,
+        reduceMotion: true,
+        const Column(children: [
+          WorkspaceSkeleton(width: 120, height: 24),
+          WorkspaceSkeleton.line(width: 80, height: 10),
+          WorkspaceSkeleton.avatar(height: 40),
+          WorkspaceSkeleton(
+              width: 80,
+              height: 24,
+              radius: BorderRadius.all(Radius.circular(3))),
+          WorkspaceSkeletonPanel(child: SizedBox(height: 20)),
+        ]),
+      ));
+      await tester.pumpAndSettle();
+      final blocks = tester
+          .widgetList<DecoratedBox>(find.descendant(
+            of: find.byType(WorkspaceSkeleton),
+            matching: find.byType(DecoratedBox),
+          ))
+          .map((box) => box.decoration as BoxDecoration)
+          .toList();
+      expect(blocks[0].borderRadius, BorderRadius.circular(8),
+          reason: 'skeleton_radius_rounded');
+      expect(blocks[1].borderRadius, BorderRadius.circular(5));
+      expect(blocks[2].shape, BoxShape.circle);
+      expect(blocks[2].borderRadius, isNull);
+      expect(blocks[3].borderRadius, BorderRadius.circular(3));
+      final panel = tester.widget<Container>(find
+          .descendant(
+            of: find.byType(WorkspaceSkeletonPanel),
+            matching: find.byType(Container),
+          )
+          .first);
+      expect((panel.decoration! as BoxDecoration).borderRadius,
+          BorderRadius.circular(12));
+      final theme = dark ? AppTheme.darkTheme : AppTheme.lightTheme;
+      expect(
+          blocks[0].color, theme.colorScheme.onSurface.withValues(alpha: 0.12));
+    }
   });
 
   testWidgets('one region animates every block with a single fade transition', (

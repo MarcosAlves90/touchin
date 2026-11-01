@@ -165,7 +165,7 @@ class WorkspaceSkeleton extends StatelessWidget {
   final WorkspaceSkeletonShape shape;
   final WorkspaceSkeletonTone tone;
 
-  /// TouchIn uses square corners; pass a radius only for intentional circles.
+  /// Optional override for rectangular corners.
   final BorderRadius? radius;
 
   @override
@@ -193,7 +193,7 @@ class WorkspaceSkeleton extends StatelessWidget {
               : BoxShape.rectangle,
           borderRadius: shape == WorkspaceSkeletonShape.circle
               ? null
-              : (radius ?? BorderRadius.zero),
+              : (radius ?? BorderRadius.circular(math.min(8, height / 2))),
         ),
       ),
     );
@@ -220,7 +220,7 @@ class WorkspaceSkeletonPanel extends StatelessWidget {
       decoration: BoxDecoration(
         color: colorScheme.surface,
         border: Border.all(color: colorScheme.outlineVariant),
-        borderRadius: BorderRadius.zero,
+        borderRadius: BorderRadius.circular(12),
       ),
       child: child,
     );

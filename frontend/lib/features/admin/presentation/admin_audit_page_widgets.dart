@@ -720,6 +720,7 @@ class _AuditCardSkeleton extends StatelessWidget {
       decoration: BoxDecoration(
         color: colors.surface,
         border: Border.all(color: colors.outlineVariant),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
