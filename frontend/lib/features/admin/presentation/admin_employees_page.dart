@@ -96,7 +96,7 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
       builder: (context) {
         return AlertDialog(
           shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.zero,
+            borderRadius: BorderRadius.all(Radius.circular(12)),
           ),
           title: const Text('Remover funcionário'),
           content: Text(
@@ -227,7 +227,7 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
       builder: (context) {
         return AlertDialog(
           shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.zero,
+            borderRadius: BorderRadius.all(Radius.circular(12)),
           ),
           title: const Text('Remover ponto'),
           content: Text(

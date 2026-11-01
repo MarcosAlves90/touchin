@@ -10,6 +10,86 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  for (final isPunch in [false, true]) {
+    for (final dark in [false, true]) {
+      for (final width in [430.0, 1440.0]) {
+        testWidgets(
+            'removal confirmation safety and radius $isPunch $dark $width',
+            (tester) async {
+          tester.view.physicalSize = Size(width, 1200);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.reset);
+          final semantics = tester.ensureSemantics();
+          final api = _FakeAdminApi(managedPunchesByEmployeeId: {
+            'emp-99': [
+              ManagedPunchRecord(
+                id: 'punch-1',
+                employeeId: 'emp-99',
+                type: PunchType.checkIn,
+                timestamp: DateTime(2026, 5, 1, 8),
+                detail: 'Teste',
+                projectId: null,
+                location: null,
+              )
+            ],
+          });
+          await tester.pumpWidget(MaterialApp(
+            theme: dark ? AppTheme.darkTheme : AppTheme.lightTheme,
+            home: AdminEmployeesPage(api: api),
+          ));
+          await tester.pumpAndSettle();
+          if (isPunch) {
+            final tab = find.text('Ponto').last;
+            await tester.ensureVisible(tab);
+            await tester.tap(tab);
+            await tester.pumpAndSettle();
+          }
+          Future<void> openDialog() async {
+            if (isPunch) {
+              final menu = find.byIcon(Icons.more_horiz_rounded).last;
+              await tester.ensureVisible(menu);
+              await tester.tap(menu);
+              await tester.pumpAndSettle();
+              await tester.tap(find.text('Remover').last);
+            } else {
+              final remove = find.byTooltip('Remover funcionário');
+              await tester.ensureVisible(remove);
+              await tester.tap(remove);
+            }
+            await tester.pumpAndSettle();
+          }
+
+          await openDialog();
+          expect(find.text(isPunch ? 'Remover ponto' : 'Remover funcionário'),
+              findsOneWidget);
+          expect(find.textContaining('Esta ação não pode ser desfeita.'),
+              findsOneWidget);
+          expect(find.bySemanticsLabel('Cancelar'), findsWidgets);
+          expect(find.bySemanticsLabel('Remover'), findsWidgets);
+          expect(api.deletedEmployees, isEmpty);
+          expect(api.deletedPunches, isEmpty);
+          final shape = tester
+              .widget<AlertDialog>(find.byType(AlertDialog))
+              .shape as RoundedRectangleBorder;
+          await tester.tap(find.text('Cancelar'));
+          await tester.pumpAndSettle();
+          expect(api.deletedEmployees, isEmpty);
+          expect(api.deletedPunches, isEmpty);
+          await openDialog();
+          expect(api.deletedEmployees, isEmpty);
+          expect(api.deletedPunches, isEmpty);
+          await tester.tap(find.text('Remover').last);
+          await tester.pumpAndSettle();
+          expect(api.deletedEmployees, isPunch ? isEmpty : ['emp-99']);
+          expect(api.deletedPunches, isPunch ? ['emp-99/punch-1'] : isEmpty);
+          semantics.dispose();
+          expect(shape.borderRadius, BorderRadius.circular(12),
+              reason: 'removal_dialog_radius_12');
+          expect(tester.takeException(), isNull);
+        });
+      }
+    }
+  }
   testWidgets('pending indicator at 200 percent on narrow viewport',
       (tester) async {
     tester.view.physicalSize = const Size(320, 1800);
@@ -527,6 +607,14 @@ class _FakeAdminApi extends TouchInApi {
             managedPunchesByEmployeeId ?? <String, List<ManagedPunchRecord>>{};
 
   final EmployeeProfile employee;
+  final deletedEmployees = <String>[];
+  final deletedPunches = <String>[];
+
+  @override
+  Future<void> deleteEmployee(String employeeId) async {
+    deletedEmployees.add(employeeId);
+  }
+
   final Map<String, List<ManagedPunchRecord>> managedPunchesByEmployeeId;
 
   @override
@@ -621,5 +709,7 @@ class _FakeAdminApi extends TouchInApi {
   Future<void> deleteManagedPunch({
     required String employeeId,
     required String punchId,
-  }) async {}
+  }) async {
+    deletedPunches.add('$employeeId/$punchId');
+  }
 }
