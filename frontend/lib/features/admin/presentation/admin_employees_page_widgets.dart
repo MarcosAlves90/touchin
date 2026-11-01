@@ -821,11 +821,16 @@ class _EmployeeListTile extends StatelessWidget {
 }
 
 class _InlinePill extends StatelessWidget {
-  const _InlinePill({required this.label, required this.tone, this.icon});
+  const _InlinePill(
+      {required this.label,
+      required this.tone,
+      this.icon,
+      this.rounded = false});
 
   final String label;
   final Color tone;
   final IconData? icon;
+  final bool rounded;
 
   @override
   Widget build(BuildContext context) {
@@ -836,6 +841,7 @@ class _InlinePill extends StatelessWidget {
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest,
         border: Border.all(color: theme.colorScheme.outline),
+        borderRadius: rounded ? BorderRadius.circular(8) : null,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -907,6 +913,7 @@ class _EmployeeDetailHero extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: colorScheme.surfaceContainerHighest,
                     border: Border.all(color: colorScheme.outline),
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(
                     Icons.manage_accounts_rounded,
@@ -971,11 +978,13 @@ class _EmployeeDetailHero extends StatelessWidget {
                           label: statusLabel,
                           tone: statusColor,
                           icon: statusIcon,
+                          rounded: true,
                         ),
                         _InlinePill(
                           label: workModeLabel,
                           tone: colorScheme.onSurfaceVariant,
                           icon: workModeIcon,
+                          rounded: true,
                         ),
                         if (needsAttention)
                           _InlinePill(
@@ -983,6 +992,7 @@ class _EmployeeDetailHero extends StatelessWidget {
                             tone:
                                 AppTheme.adminColors(theme).warning.foreground,
                             icon: Icons.priority_high_rounded,
+                            rounded: true,
                           ),
                       ],
                     ),
@@ -1109,6 +1119,7 @@ class _EmployeeOverviewCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: colorScheme.surface,
         border: Border.all(color: colorScheme.outline),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1119,6 +1130,7 @@ class _EmployeeOverviewCard extends StatelessWidget {
             decoration: BoxDecoration(
               color: colorScheme.surfaceContainerHighest,
               border: Border.all(color: colorScheme.outline),
+              borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(icon, size: 18, color: colorScheme.onSurfaceVariant),
           ),

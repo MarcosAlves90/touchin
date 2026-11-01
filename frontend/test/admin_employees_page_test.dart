@@ -10,6 +10,94 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  for (final dark in [false, true]) {
+    for (final width in [430.0, 1440.0]) {
+      testWidgets('profile surface radii $dark $width', (tester) async {
+        tester.view.physicalSize = Size(width, 1800);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(MaterialApp(
+          theme: dark ? AppTheme.darkTheme : AppTheme.lightTheme,
+          home: AdminEmployeesPage(
+            api: _FakeAdminApi(
+                employee: _employeeResponse(pendingAdjustments: 1)),
+          ),
+        ));
+        await tester.pumpAndSettle();
+        final profile = find
+            .ancestor(
+              of: find.text('Perfil selecionado'),
+              matching: find.byType(WorkspaceSectionCard),
+            )
+            .first;
+        Finder inside(Finder finder) =>
+            find.descendant(of: profile, matching: finder);
+        void radius(Finder child, double value, {int ancestor = 0}) {
+          final containers = find.ancestor(
+              of: child,
+              matching: find.byWidgetPredicate(
+                (widget) =>
+                    widget is Container && widget.decoration is BoxDecoration,
+              ));
+          final decoration = tester
+              .widget<Container>(containers.at(ancestor))
+              .decoration! as BoxDecoration;
+          expect(decoration.borderRadius, BorderRadius.circular(value),
+              reason: 'profile_surface_radius');
+        }
+
+        if (width >= 560) {
+          radius(inside(find.byIcon(Icons.manage_accounts_rounded)), 8);
+        }
+        for (final label in ['Ativo', 'Híbrido', 'Atenção operacional']) {
+          radius(inside(find.text(label)), 8);
+        }
+        for (final label in ['Jornada', 'Horas de hoje', 'Última batida']) {
+          radius(inside(find.text(label)), 12);
+        }
+        for (final icon in [
+          Icons.schedule_rounded,
+          Icons.av_timer_rounded,
+          Icons.history_toggle_off_rounded
+        ]) {
+          final cardIcon = inside(find.byIcon(icon)).first;
+          radius(cardIcon, 8);
+        }
+        radius(inside(find.text('E-mail')), 12);
+        expect(inside(find.byType(Divider)), findsOneWidget);
+        for (final label in ['Cadastro', 'Políticas', 'Ponto', 'Notas']) {
+          final button = find.ancestor(
+              of: inside(find.text(label)),
+              matching: find.byType(OutlinedButton));
+          final style = tester.widget<OutlinedButton>(button).style!;
+          final shape = style.shape!.resolve(<MaterialState>{})!
+              as RoundedRectangleBorder;
+          expect(shape.borderRadius, BorderRadius.circular(8),
+              reason: 'profile_surface_radius');
+          await tester.ensureVisible(button);
+          await tester.tap(button);
+          await tester.pumpAndSettle();
+          final selected = tester
+              .widget<OutlinedButton>(button)
+              .style!
+              .backgroundColor!
+              .resolve(<MaterialState>{});
+          expect(
+              selected,
+              AppTheme.adminColors(tester
+                      .element(button)
+                      .findAncestorWidgetOfExactType<MaterialApp>()!
+                      .theme!)
+                  .selectedContainer);
+        }
+        await tester.ensureVisible(inside(find.text('Editar')));
+        await tester.tap(inside(find.text('Editar')));
+        await tester.pumpAndSettle();
+        expect(find.text('Editar funcionário'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      });
+    }
+  }
   for (final isPunch in [false, true]) {
     for (final dark in [false, true]) {
       for (final width in [430.0, 1440.0]) {

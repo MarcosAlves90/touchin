@@ -806,6 +806,7 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
                     decoration: BoxDecoration(
                       color: colorScheme.surface,
                       border: Border.all(color: colorScheme.outline),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                     child: Column(
                       children: <Widget>[
@@ -1185,7 +1186,7 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
                     : colorScheme.outline),
           ),
           shape: MaterialStateProperty.all(
-            const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           ),
         ),
         icon: Icon(icon),
