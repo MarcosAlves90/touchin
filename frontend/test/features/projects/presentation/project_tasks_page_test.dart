@@ -556,7 +556,7 @@ void main() {
     expect(dialogFinder, findsOneWidget);
     final dialog = tester.widget<Dialog>(dialogFinder);
     final shape = dialog.shape as RoundedRectangleBorder;
-    expect(shape.borderRadius, BorderRadius.zero);
+    expect(shape.borderRadius, BorderRadius.circular(12));
     expect(find.text('Detalhes da tarefa'), findsOneWidget);
     expect(find.text('Projeto atual'), findsNothing);
     final taskNameField = tester.widget<InputDecorator>(
