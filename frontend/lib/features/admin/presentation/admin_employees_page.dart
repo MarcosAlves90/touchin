@@ -402,7 +402,8 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
   Widget _buildWorkspaceHeader(bool isWide) {
     return WorkspaceHeader(
       title: 'Administrar equipe',
-      description: 'Acompanhe a equipe e gerencie cadastros e registros de ponto.',
+      description:
+          'Acompanhe a equipe e gerencie cadastros e registros de ponto.',
       maxContentWidth: 620,
       actions: _buildHeaderActions(isWide),
       compact: !isWide,
@@ -506,44 +507,61 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
     final visibleEmployees = _visibleEmployees;
     final pagedEmployees = _pagedEmployees;
 
+    final search = TextField(
+      controller: _searchController,
+      onChanged: _controller.setSearchQuery,
+      decoration: InputDecoration(
+        labelText: 'Buscar funcionário',
+        hintText: 'Nome, cargo ou unidade',
+        prefixIcon: const Icon(Icons.search_rounded),
+        suffixIcon: _searchQuery.isEmpty
+            ? null
+            : IconButton(
+                tooltip: 'Limpar busca',
+                onPressed: _controller.clearSearch,
+                icon: const Icon(Icons.close_rounded),
+              ),
+      ),
+    );
+    final heading = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Equipe',
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Busque e selecione perfis para editar dados principais.',
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+
     return WorkspaceSectionCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Text(
-            'Equipe',
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Busque e selecione perfis para editar dados principais.',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 20),
-          TextField(
-            controller: _searchController,
-            onChanged: (value) {
-              _controller.setSearchQuery(value);
-            },
-            decoration: InputDecoration(
-              labelText: 'Buscar funcionário',
-              hintText: 'Nome, cargo ou unidade',
-              prefixIcon: const Icon(Icons.search_rounded),
-              suffixIcon: _searchQuery.isEmpty
-                  ? null
-                  : IconButton(
-                      tooltip: 'Limpar busca',
-                      onPressed: () {
-                        _controller.clearSearch();
-                      },
-                      icon: const Icon(Icons.close_rounded),
-                    ),
-            ),
-          ),
+          LayoutBuilder(builder: (context, constraints) {
+            if (constraints.maxWidth < 700) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [heading, const SizedBox(height: 20), search],
+              );
+            }
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: heading),
+                const SizedBox(width: 24),
+                SizedBox(width: 340, child: search),
+              ],
+            );
+          }),
           const SizedBox(height: 16),
           Wrap(
             spacing: 12,
@@ -713,10 +731,13 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
       child: WorkspaceSectionCard(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final useTwoColumns = constraints.maxWidth >= 520;
-            final overviewItemWidth = useTwoColumns
-                ? (constraints.maxWidth - 12) / 2
-                : constraints.maxWidth;
+            final columns = constraints.maxWidth >= 800
+                ? 3
+                : constraints.maxWidth >= 520
+                    ? 2
+                    : 1;
+            final overviewItemWidth =
+                (constraints.maxWidth - (columns - 1) * 12) / columns;
             final activeTab = hasNotes || _detailTab != _EmployeeDetailTab.notes
                 ? _detailTab
                 : _EmployeeDetailTab.registration;
@@ -1179,8 +1200,11 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
     if (!useVerticalLayout) {
       return LayoutBuilder(
         builder: (context, constraints) {
+          final columns = constraints.maxWidth >= visibleItems.length * 170
+              ? visibleItems.length
+              : 2;
           final itemWidth =
-              (constraints.maxWidth - (visibleItems.length > 1 ? 8 : 0)) / 2;
+              (constraints.maxWidth - (columns - 1) * 8) / columns;
 
           return Wrap(
             spacing: 8,

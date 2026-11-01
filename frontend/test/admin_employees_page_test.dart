@@ -10,6 +10,25 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('team toolbar composition', (tester) async {
+    tester.view.physicalSize = const Size(1800, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(home: AdminEmployeesPage(api: _FakeAdminApi())),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester.getTopLeft(find.text('Buscar funcionário')).dy,
+      lessThan(tester.getBottomLeft(find.text('Equipe')).dy + 20),
+      reason: 'team_toolbar_composition',
+    );
+    expect(tester.getTopLeft(find.text('Jornada')).dy,
+        closeTo(tester.getTopLeft(find.text('Última batida')).dy, 2));
+    expect(tester.getTopLeft(find.text('Cadastro')).dy,
+        closeTo(tester.getTopLeft(find.text('Notas')).dy, 2));
+    expect(tester.takeException(), isNull);
+  });
   testWidgets('team directory stacks above selected profile', (tester) async {
     tester.view.physicalSize = const Size(1800, 1800);
     tester.view.devicePixelRatio = 1;
