@@ -414,6 +414,7 @@ class WorkspaceStatusBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: tone.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(color: tone.withValues(alpha: 0.28)),
       ),
       child: Text(

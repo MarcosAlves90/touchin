@@ -126,6 +126,38 @@ TimeClockState _timelineState({
 }
 
 void main() {
+  testWidgets('clock status badge is rounded without changing content or tone', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    for (final brightness in Brightness.values) {
+      for (final width in [400.0, 1600.0]) {
+        tester.view.physicalSize = Size(width, 1600);
+        final controller = _FakeTimeClockController(<int, TimeClockState>{
+          1: _timelineState(page: 1, records: const <PunchRecord>[], totalPages: 1),
+        })
+          ..isLoadingState = false
+          ..status = ShiftStatus.working;
+        await tester.pumpWidget(MaterialApp(
+          theme: ThemeData(brightness: brightness),
+          home: TimeClockPage(controller: controller),
+        ));
+        await tester.pump();
+        final badge = tester.widget<WorkspaceStatusBadge>(find.byType(WorkspaceStatusBadge));
+        expect(badge.label, 'Em jornada');
+        final container = tester.widget<Container>(find.descendant(
+          of: find.byType(WorkspaceStatusBadge), matching: find.byType(Container),
+        ).first);
+        final decoration = container.decoration! as BoxDecoration;
+        expect(decoration.color, badge.tone.withValues(alpha: 0.14));
+        expect(decoration.border, Border.all(color: badge.tone.withValues(alpha: 0.28)));
+        expect(find.descendant(of: find.byType(WorkspaceStatusBadge), matching: find.text('Em jornada')), findsOneWidget);
+        expect(decoration.borderRadius, BorderRadius.circular(8), reason: 'clock_status_badge_radius_8 $brightness $width');
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+        controller.dispose();
+      }
+    }
+  });
   testWidgets('context flags have rounded theme surfaces', (tester) async {
     tester.view.physicalSize = const Size(1600, 1600);
     tester.view.devicePixelRatio = 1;
