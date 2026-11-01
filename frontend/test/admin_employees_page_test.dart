@@ -10,6 +10,83 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('pending indicator at 200 percent on narrow viewport',
+      (tester) async {
+    tester.view.physicalSize = const Size(320, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final errors = <FlutterErrorDetails>[];
+    final previous = FlutterError.onError;
+    FlutterError.onError = errors.add;
+    addTearDown(() => FlutterError.onError = previous);
+    final semantics = tester.ensureSemantics();
+    await tester.pumpWidget(MaterialApp(
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context)
+            .copyWith(textScaler: const TextScaler.linear(2)),
+        child: child!,
+      ),
+      home: AdminEmployeesPage(
+          api: _FakeAdminApi(
+              employee: _employeeResponse(pendingAdjustments: 1))),
+    ));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Acompanhamento'));
+    await tester.pumpAndSettle();
+    FlutterError.onError = previous;
+    // The existing mobile header overflows independently at this text scale.
+    final unexpected = errors.where((error) {
+      final details = error.informationCollector?.call().join('\n') ?? '';
+      return !(error.exceptionAsString() ==
+              'A RenderFlex overflowed by 4.8 pixels on the right.' &&
+          details.contains("Container-[<'workspace-mobile-header'>]"));
+    }).toList();
+    expect(unexpected, isEmpty, reason: unexpected.join('\n'));
+    final indicator = find.text('Acompanhamento');
+    expect(indicator, findsOneWidget);
+    final pill =
+        find.ancestor(of: indicator, matching: find.byType(Container)).first;
+    final icon = find.descendant(
+        of: pill, matching: find.byIcon(Icons.priority_high_rounded));
+    expect(icon, findsOneWidget);
+    final bounds = tester.getRect(pill);
+    for (final child in [indicator, icon]) {
+      final rect = tester.getRect(child);
+      expect(bounds.contains(rect.topLeft), isTrue);
+      expect(rect.right, lessThanOrEqualTo(bounds.right));
+      expect(rect.bottom, lessThanOrEqualTo(bounds.bottom));
+    }
+    expect(tester.getSemantics(indicator).label, contains('Acompanhamento'));
+    expect(find.bySemanticsLabel(RegExp('Acompanhamento')), findsOneWidget);
+    semantics.dispose();
+  });
+  testWidgets('profile identity hierarchy', (tester) async {
+    for (final width in [1440.0, 430.0]) {
+      tester.view.physicalSize = Size(width, 1800);
+      tester.view.devicePixelRatio = 1;
+      await tester.pumpWidget(
+        MaterialApp(home: AdminEmployeesPage(api: _FakeAdminApi())),
+      );
+      await tester.pumpAndSettle();
+      final profile = find
+          .ancestor(
+            of: find.text('Perfil selecionado'),
+            matching: find.byType(WorkspaceSectionCard),
+          )
+          .first;
+      final name =
+          find.descendant(of: profile, matching: find.text('Renata Souza'));
+      final status = find.descendant(of: profile, matching: find.text('Ativo'));
+      expect(
+          tester.getBottomLeft(name).dy, lessThan(tester.getTopLeft(status).dy),
+          reason: 'profile_identity_hierarchy');
+      expect(find.descendant(of: profile, matching: find.text('Editar')),
+          findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    }
+    addTearDown(tester.view.reset);
+  });
   testWidgets('team toolbar composition', (tester) async {
     tester.view.physicalSize = const Size(1800, 1800);
     tester.view.devicePixelRatio = 1;
@@ -423,6 +500,7 @@ EmployeeProfile _employeeResponse({
   bool? hasAccount = true,
   String? accessRole = 'manager',
   bool includeAccountMetadata = true,
+  int pendingAdjustments = 0,
 }) =>
     EmployeeProfile.fromJson(<String, dynamic>{
       'id': 'emp-99',
@@ -440,7 +518,7 @@ EmployeeProfile _employeeResponse({
       'requiresLocationOnPunch': false,
       'trustedDeviceRequired': true,
       'todayWorkedMinutes': 0,
-      'pendingAdjustments': 0,
+      'pendingAdjustments': pendingAdjustments,
       'lastPunchAt': null,
       'notes': 'Nova contratação.',
       if (includeAccountMetadata) 'hasAccount': hasAccount,

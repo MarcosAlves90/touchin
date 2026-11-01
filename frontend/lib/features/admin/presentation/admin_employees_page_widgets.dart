@@ -776,16 +776,40 @@ class _EmployeeListTile extends StatelessWidget {
                   height: 1.2,
                 ),
               ),
-              if (hasSignals) ...<Widget>[
-                const SizedBox(height: 6),
-                Text(
-                  _compactSignalsLabel(),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
+              const SizedBox(height: 8),
+              Row(
+                children: <Widget>[
+                  Icon(Icons.apartment_rounded,
+                      size: 15, color: colorScheme.onSurfaceVariant),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      employee.unit,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall
+                          ?.copyWith(color: colorScheme.onSurfaceVariant),
+                    ),
                   ),
+                ],
+              ),
+              if (hasSignals) ...<Widget>[
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: <Widget>[
+                    if (employee.status != EmployeeStatus.active)
+                      _InlinePill(
+                          label: statusLabel,
+                          tone: statusColor,
+                          icon: statusIcon),
+                    if (needsAttention)
+                      _InlinePill(
+                          label: 'Acompanhamento',
+                          tone: adminColors.warning.foreground,
+                          icon: Icons.priority_high_rounded),
+                  ],
                 ),
               ],
             ],
@@ -793,14 +817,6 @@ class _EmployeeListTile extends StatelessWidget {
         ),
       ],
     );
-  }
-
-  String _compactSignalsLabel() {
-    final labels = <String>[
-      if (employee.status != EmployeeStatus.active) statusLabel,
-      if (needsAttention) 'Acompanhamento',
-    ];
-    return labels.join(' • ');
   }
 }
 
@@ -828,11 +844,13 @@ class _InlinePill extends StatelessWidget {
             Icon(icon, size: 14, color: tone),
             const SizedBox(width: 6),
           ],
-          Text(
-            label,
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: theme.colorScheme.onSurface,
-              fontWeight: FontWeight.w700,
+          Flexible(
+            child: Text(
+              label,
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: theme.colorScheme.onSurface,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ],
@@ -911,30 +929,6 @@ class _EmployeeDetailHero extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 6),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: <Widget>[
-                        _InlinePill(
-                          label: statusLabel,
-                          tone: statusColor,
-                          icon: statusIcon,
-                        ),
-                        _InlinePill(
-                          label: workModeLabel,
-                          tone: colorScheme.onSurfaceVariant,
-                          icon: workModeIcon,
-                        ),
-                        if (needsAttention)
-                          _InlinePill(
-                            label: 'Atenção operacional',
-                            tone:
-                                AppTheme.adminColors(theme).warning.foreground,
-                            icon: Icons.priority_high_rounded,
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
                     Text(
                       employee.name,
                       style: theme.textTheme.titleLarge?.copyWith(
@@ -968,6 +962,31 @@ class _EmployeeDetailHero extends StatelessWidget {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 14),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: <Widget>[
+                        _InlinePill(
+                          label: statusLabel,
+                          tone: statusColor,
+                          icon: statusIcon,
+                        ),
+                        _InlinePill(
+                          label: workModeLabel,
+                          tone: colorScheme.onSurfaceVariant,
+                          icon: workModeIcon,
+                        ),
+                        if (needsAttention)
+                          _InlinePill(
+                            label: 'Atenção operacional',
+                            tone:
+                                AppTheme.adminColors(theme).warning.foreground,
+                            icon: Icons.priority_high_rounded,
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
                   ],
                 ),
               ),
