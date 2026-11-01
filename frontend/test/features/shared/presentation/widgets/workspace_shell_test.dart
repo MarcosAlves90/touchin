@@ -120,6 +120,36 @@ void main() {
       );
     });
 
+    testWidgets('summary cards have rounded theme surfaces', (tester) async {
+      for (final theme in [AppTheme.lightTheme, AppTheme.darkTheme]) {
+        await tester.pumpWidget(MaterialApp(
+          theme: theme,
+          home: const Scaffold(
+            body: WorkspaceSummaryStripe(
+              label: 'Status',
+              value: 'Em jornada',
+              helper: 'Jornada em andamento.',
+            ),
+          ),
+        ));
+        await tester.pumpAndSettle();
+        final container = tester.widget<Container>(find.descendant(
+          of: find.byType(WorkspaceSummaryStripe),
+          matching: find.byType(Container),
+        ));
+        final decoration = container.decoration! as BoxDecoration;
+        expect(decoration.borderRadius, BorderRadius.circular(12),
+            reason: 'summary_radius');
+        expect(decoration.color,
+            theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.8));
+        expect(decoration.border,
+            Border.all(color: theme.colorScheme.outlineVariant));
+        expect(find.text('Status'), findsOneWidget);
+        expect(find.text('Em jornada'), findsOneWidget);
+        expect(find.text('Jornada em andamento.'), findsOneWidget);
+      }
+    });
+
     testWidgets('metric card uses solid theme surface', (tester) async {
       final theme = AppTheme.darkTheme;
       await tester.pumpWidget(
