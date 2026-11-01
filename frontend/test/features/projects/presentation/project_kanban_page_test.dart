@@ -18,6 +18,36 @@ import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_i
 import 'package:touchin_flutter/theme/app_theme.dart';
 
 void main() {
+  testWidgets('kanban metrics rounded', (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    for (final size in [const Size(320, 844), const Size(1440, 900)]) {
+      for (final brightness in Brightness.values) {
+        await tester.binding.setSurfaceSize(size);
+        await tester.pumpWidget(MaterialApp(
+          theme: ThemeData(brightness: brightness),
+          home: ProjectKanbanPage(
+            api: _FakeKanbanApi(columnCount: 2, cardsPerColumn: 3),
+          ),
+        ));
+        await tester.pumpAndSettle();
+        final strip = find.byKey(const ValueKey<String>('kanban-project-metrics'));
+        for (final text in ['Colunas', 'Cards', 'Equipe', '2', '6', '1']) {
+          expect(find.descendant(of: strip, matching: find.text(text)), findsOneWidget);
+        }
+        final box = tester.widget<Container>(strip).decoration! as BoxDecoration;
+        expect(box.borderRadius, BorderRadius.circular(12),
+            reason: 'kanban_metrics_rounded');
+        final bounds = tester.getRect(strip);
+        for (final divider in find.descendant(of: strip, matching: find.byType(VerticalDivider)).evaluate()) {
+          final rect = tester.getRect(find.byWidget(divider.widget));
+          expect(rect.left, greaterThan(bounds.left + 12));
+          expect(rect.right, lessThan(bounds.right - 12));
+        }
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      }
+    }
+  });
   testWidgets('Kanban footer avoids accessibility overlay', (tester) async {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     for (final size in <Size>[

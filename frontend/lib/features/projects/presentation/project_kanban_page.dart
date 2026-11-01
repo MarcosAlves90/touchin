@@ -1045,6 +1045,7 @@ class _KanbanMetricsStrip extends StatelessWidget {
       decoration: BoxDecoration(
         color: colorScheme.surface.withValues(alpha: 0.58),
         border: Border.all(color: colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         children: <Widget>[
