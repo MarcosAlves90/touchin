@@ -43,7 +43,7 @@ ThemeData _testTheme(Brightness brightness) {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('workspace navigation keeps all visible corners square', (
+  testWidgets('workspace navigation rounds interactive surfaces', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(420, 900));
@@ -67,7 +67,7 @@ void main() {
       ),
     );
 
-    const reason = 'navigation_square_corners';
+    const reason = 'navigation_rounded_corners';
     const brandKey = ValueKey<String>('workspace-mobile-brand-block');
     final brand = find.byKey(brandKey);
     expect(
@@ -133,7 +133,7 @@ void main() {
     expect(
       (tester.widget<Container>(activeBadge).decoration! as BoxDecoration)
           .borderRadius,
-      isNull,
+      BorderRadius.circular(8),
       reason: reason,
     );
 
@@ -145,7 +145,7 @@ void main() {
     for (final background in itemBackgrounds) {
       expect(
         (background.decoration! as BoxDecoration).borderRadius,
-        isNull,
+        BorderRadius.circular(8),
         reason: reason,
       );
     }
@@ -155,7 +155,7 @@ void main() {
     );
     expect(itemInkWells, isNotEmpty, reason: reason);
     for (final item in itemInkWells) {
-      expect(item.borderRadius, isNull, reason: reason);
+      expect(item.borderRadius, BorderRadius.circular(8), reason: reason);
     }
   });
 

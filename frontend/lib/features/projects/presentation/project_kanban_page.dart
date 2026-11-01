@@ -207,7 +207,7 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
     final colors = Theme.of(context).colorScheme;
     return ToggleButtons(
       key: const ValueKey<String>('project-view-switch'),
-      borderRadius: BorderRadius.zero,
+      borderRadius: BorderRadius.circular(8),
       constraints: BoxConstraints(
         minWidth: compact ? 48 : 94,
         minHeight: 50,

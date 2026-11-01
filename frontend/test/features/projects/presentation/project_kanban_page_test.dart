@@ -1018,7 +1018,8 @@ void main() {
     expect(viewSwitch, findsOneWidget);
     expect(
       tester.widget<ToggleButtons>(viewSwitch).borderRadius,
-      BorderRadius.zero,
+      BorderRadius.circular(8),
+      reason: 'kanban_rounded_corners',
     );
 
     await tester.tap(find.text('Backlog'));

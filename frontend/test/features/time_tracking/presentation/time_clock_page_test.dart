@@ -161,6 +161,13 @@ void main() {
     expect(actions, findsOneWidget, reason: 'time_clock_action_placement');
     final location = find
         .byKey(const ValueKey<String>('time-clock-location-status-heading'));
+    final banner = find.ancestor(
+      of: location,
+      matching: find.byWidgetPredicate((widget) =>
+          widget is Container && widget.padding == const EdgeInsets.all(18)),
+    ).first;
+    expect((tester.widget<Container>(banner).decoration! as BoxDecoration).borderRadius,
+        BorderRadius.circular(12), reason: 'location_rounded_corners');
     expect(tester.getTopLeft(actions).dy,
         greaterThan(tester.getBottomLeft(location).dy));
     expect(find.descendant(of: actions, matching: find.text('Iniciar pausa')),

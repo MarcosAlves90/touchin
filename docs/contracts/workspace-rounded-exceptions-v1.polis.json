@@ -1,0 +1,164 @@
+{
+  "schema_version": 6,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      "docs/contracts/workspace-rounded-exceptions-v1.polis.json",
+      "frontend/lib/features/shared/presentation/widgets/workspace_navigation.dart",
+      "frontend/lib/features/projects/presentation/project_kanban_page.dart",
+      "frontend/lib/features/time_tracking/presentation/time_clock_page.dart",
+      "frontend/test/features/shared/presentation/workspace_navigation_contrast_test.dart",
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart",
+      "frontend/test/features/time_tracking/presentation/time_clock_page_test.dart"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/features/shared/presentation/workspace_navigation_contrast_test.dart",
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart",
+      "frontend/test/features/time_tracking/presentation/time_clock_page_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Round the explicitly square navigation, project view switch and location banner without changing functionality.",
+    "requirements": [
+      {
+        "id": "REQ-ROUND-01",
+        "statement": "Use 8 logical pixel radii for navigation items, mobile destination badge and Kanban view selector, and 12 for the location banner in both themes."
+      },
+      {
+        "id": "REQ-PRESERVE-01",
+        "statement": "Preserve navigation focus, semantics and contrast and view selection interactions."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-ROUND-01",
+        "statement": "Widget tests verify the requested radii and existing visual and interactive behavior.",
+        "requirements": [
+          "REQ-ROUND-01",
+          "REQ-PRESERVE-01"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-LOCK-01",
+        "statement": "docs/contracts/workspace-rounded-exceptions-v1.polis.json is byte-for-byte identical to the locked contract.",
+        "requirements": [
+          "REQ-ROUND-01"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-ROUND-01",
+        "statement": "Preserve colors, labels, existing actions, semantics and theme behavior."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-ROUND-01",
+        "statement": "Square target surfaces or inaccessible navigation and view controls."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-ROUND-01",
+        "statement": "Navigation destinations, active view and location state in both themes."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-ROUND-01",
+        "statement": "Rounded target surfaces and retained interactions."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-ROUND-01",
+        "statement": "Widget tests fail on missing radii or interaction regressions."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "fc88f838d239523cc4c82c033593d98d4878434f",
+    "base_tree": "91da980f9e083ffdbfac656d5c16b4e7655e31f3",
+    "policy_sha256": "7714a10ab2b65f58941086f500de93fa62fc6acb6fd59d8b39292980364774dd",
+    "specification_sha256": "afaf59506e551bb3e5a52308d7a5f2c709cdd0b9d51bab43f5639e5211ed07e8"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/features/shared/presentation/workspace_navigation_contrast_test.dart",
+      "test/features/projects/presentation/project_kanban_page_test.dart",
+      "test/features/time_tracking/presentation/time_clock_page_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/features/shared/presentation/workspace_navigation_contrast_test.dart",
+      "test/features/projects/presentation/project_kanban_page_test.dart",
+      "test/features/time_tracking/presentation/time_clock_page_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "test/features/shared/presentation/workspace_navigation_contrast_test.dart",
+        "test/features/projects/presentation/project_kanban_page_test.dart",
+        "test/features/time_tracking/presentation/time_clock_page_test.dart"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 600,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "navigation_rounded_corners",
+      "kanban_rounded_corners",
+      "location_rounded_corners"
+    ]
+  }
+}

@@ -233,6 +233,7 @@ class _WorkspaceNavigationItemState extends State<WorkspaceNavigationItem> {
       color: Colors.transparent,
       child: InkWell(
         onTap: widget.onPressed,
+        borderRadius: BorderRadius.circular(8),
         onHover: (hovered) => setState(() => _hovered = hovered),
         onFocusChange: (focused) => setState(() => _focused = focused),
         hoverColor: Colors.transparent,
@@ -243,6 +244,7 @@ class _WorkspaceNavigationItemState extends State<WorkspaceNavigationItem> {
           constraints: const BoxConstraints(minHeight: 48),
           decoration: BoxDecoration(
             color: background,
+            borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: _focused ? navigation.focusRing : Colors.transparent,
               width: 2,
@@ -551,6 +553,7 @@ class WorkspaceMobileHeader extends StatelessWidget {
                           ),
                           decoration: BoxDecoration(
                             color: navigation.selectedContainer,
+                            borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
                             active.label,

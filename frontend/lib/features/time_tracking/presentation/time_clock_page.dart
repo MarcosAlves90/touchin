@@ -593,6 +593,7 @@ class _TimeClockPageState extends State<TimeClockPage> {
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: color.withValues(alpha: 0.26)),
       ),
       child: Column(
