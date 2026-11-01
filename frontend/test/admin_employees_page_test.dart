@@ -14,14 +14,47 @@ void main() {
     tester.view.physicalSize = const Size(1800, 1800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(MaterialApp(home: AdminEmployeesPage(api: _FakeAdminApi())));
+    await tester.pumpWidget(
+      MaterialApp(home: AdminEmployeesPage(api: _FakeAdminApi())),
+    );
     await tester.pumpAndSettle();
-    expect(tester.getTopLeft(find.text('Perfil selecionado')).dy,
-        greaterThan(tester.getBottomLeft(find.text('Buscar funcionário')).dy),
-        reason: 'team_directory_layout');
-    await tester.enterText(find.widgetWithText(TextField, 'Buscar funcionário'), 'Renata');
+
+    final directory = find
+        .ancestor(
+          of: find.text('Buscar funcionário'),
+          matching: find.byType(WorkspaceSectionCard),
+        )
+        .first;
+    final profile = find
+        .ancestor(
+          of: find.text('Perfil selecionado'),
+          matching: find.byType(WorkspaceSectionCard),
+        )
+        .first;
+    expect(
+      tester.getTopLeft(profile).dy,
+      greaterThan(tester.getBottomLeft(directory).dy),
+      reason: 'team_directory_layout',
+    );
+    expect(
+      tester.getSize(directory).width,
+      closeTo(tester.getSize(profile).width, 1),
+      reason: 'team_directory_full_width',
+    );
+
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Buscar funcionário'),
+      'Renata',
+    );
     await tester.pumpAndSettle();
     expect(find.byTooltip('Limpar busca'), findsOneWidget);
+    await tester.tap(find.byTooltip('Limpar busca'));
+    await tester.pumpAndSettle();
+    expect(find.text('Renata Souza'), findsWidgets);
+    await tester.tap(find.byTooltip('Editar funcionário'));
+    await tester.pumpAndSettle();
+    expect(find.text('Editar funcionário'), findsOneWidget);
+    expect(find.widgetWithText(TextFormField, 'Nome'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
   testWidgets(

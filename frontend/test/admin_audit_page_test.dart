@@ -669,6 +669,23 @@ void main() {
     });
   }
 
+  testWidgets('audit filter panel surface', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(MaterialApp(home: AdminAuditPage(api: FakeTouchInApi())));
+    await tester.pumpAndSettle();
+    await openAuditFilters(tester);
+    final panel = tester.widget<Container>(
+      find.byKey(const ValueKey<String>('audit-filter-panel')),
+    );
+    final decoration = panel.decoration! as BoxDecoration;
+    expect(decoration.borderRadius, BorderRadius.circular(16));
+    expect(decoration.border, isA<Border>());
+    expect(find.text('Filtros da auditoria'), findsOneWidget);
+    expect(find.text('ID do usuário (ator)'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('AdminAuditPage keeps filters usable in a narrow viewport',
       (WidgetTester tester) async {
     tester.view.physicalSize = const Size(360, 760);
