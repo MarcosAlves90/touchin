@@ -65,8 +65,8 @@ class WorkspaceNavigationBrand extends StatelessWidget {
       header: true,
       child: Text(
         'TOUCHIN',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
+        maxLines: compact ? null : 1,
+        overflow: compact ? TextOverflow.clip : TextOverflow.ellipsis,
         style:
             (compact ? theme.textTheme.labelLarge : theme.textTheme.titleMedium)
                 ?.copyWith(
@@ -99,6 +99,49 @@ class WorkspaceNavigationBrand extends StatelessWidget {
       );
     }
 
+    final children = <Widget>[
+      if (compact && onOpenDrawer != null) ...<Widget>[
+        IconButton(
+          onPressed: onOpenDrawer,
+          tooltip: 'Abrir menu',
+          icon: Icon(Icons.menu_rounded, color: colors.onSurface),
+          visualDensity: VisualDensity.compact,
+        ),
+        const SizedBox(width: 4),
+      ],
+      mark,
+      SizedBox(width: compact ? 7 : 12),
+      if (compact && showCompactWordmark)
+        wordmark
+      else if (!compact)
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              wordmark,
+              const SizedBox(height: 2),
+              Text(
+                'CONTROLE DE PONTO',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: colors.onSurfaceVariant,
+                  letterSpacing: 0.9,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      if (onToggleCollapse != null)
+        IconButton(
+          onPressed: onToggleCollapse,
+          tooltip: 'Recolher navegação',
+          icon: Icon(Icons.chevron_left_rounded, color: colors.onSurface),
+          constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+          visualDensity: VisualDensity.standard,
+        ),
+    ];
     return Container(
       key: compact && onOpenDrawer != null
           ? const ValueKey<String>('workspace-mobile-brand-block')
@@ -107,52 +150,10 @@ class WorkspaceNavigationBrand extends StatelessWidget {
       padding: compact
           ? const EdgeInsets.symmetric(horizontal: 8, vertical: 6)
           : const EdgeInsets.fromLTRB(20, 18, 20, 18),
-      child: Row(
-        mainAxisSize: compact ? MainAxisSize.min : MainAxisSize.max,
-        children: <Widget>[
-          if (compact && onOpenDrawer != null) ...<Widget>[
-            IconButton(
-              onPressed: onOpenDrawer,
-              tooltip: 'Abrir menu',
-              icon: Icon(Icons.menu_rounded, color: colors.onSurface),
-              visualDensity: VisualDensity.compact,
-            ),
-            const SizedBox(width: 4),
-          ],
-          mark,
-          SizedBox(width: compact ? 7 : 12),
-          if (compact && showCompactWordmark)
-            wordmark
-          else if (!compact)
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  wordmark,
-                  const SizedBox(height: 2),
-                  Text(
-                    'CONTROLE DE PONTO',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: colors.onSurfaceVariant,
-                      letterSpacing: 0.9,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          if (onToggleCollapse != null)
-            IconButton(
-              onPressed: onToggleCollapse,
-              tooltip: 'Recolher navegação',
-              icon: Icon(Icons.chevron_left_rounded, color: colors.onSurface),
-              constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-              visualDensity: VisualDensity.standard,
-            ),
-        ],
-      ),
+      child: compact
+          ? Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center, children: children)
+          : Row(children: children),
     );
   }
 }
@@ -522,17 +523,24 @@ class WorkspaceMobileHeader extends StatelessWidget {
             border: Border(bottom: BorderSide(color: colors.outlineVariant)),
           ),
           child: LayoutBuilder(
-            builder: (context, constraints) => Row(
-              children: <Widget>[
-                WorkspaceNavigationBrand(
-                  compact: true,
-                  showCompactWordmark: constraints.maxWidth >= 224,
-                  onOpenDrawer: onOpenDrawer,
+            builder: (context, constraints) {
+              final wordmark = TextPainter(
+                text: TextSpan(
+                  text: 'TOUCHIN',
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    letterSpacing: 1.4,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
-                const SizedBox(width: 8),
-                if (active != null)
-                  Expanded(
-                    child: Align(
+                textDirection: Directionality.of(context),
+                textScaler: MediaQuery.textScalerOf(context),
+              )..layout();
+              final stacked = active != null &&
+                  constraints.maxWidth < wordmark.width + 95 + 8 + 80;
+              wordmark.dispose();
+              final badge = active == null
+                  ? null
+                  : Align(
                       alignment: Alignment.centerRight,
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 170),
@@ -556,10 +564,32 @@ class WorkspaceMobileHeader extends StatelessWidget {
                           ),
                         ),
                       ),
-                    ),
+                    );
+              final brand = WorkspaceNavigationBrand(
+                compact: true,
+                showCompactWordmark: constraints.maxWidth >= 224,
+                onOpenDrawer: onOpenDrawer,
+              );
+              return Flex(
+                direction: stacked ? Axis.vertical : Axis.horizontal,
+                crossAxisAlignment: stacked
+                    ? CrossAxisAlignment.start
+                    : CrossAxisAlignment.center,
+                children: [
+                  ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: constraints.maxWidth),
+                    child: brand,
                   ),
-              ],
-            ),
+                  if (badge != null)
+                    if (stacked)
+                      badge
+                    else ...[
+                      const SizedBox(width: 8),
+                      Expanded(child: badge),
+                    ],
+                ],
+              );
+            },
           ),
         ),
       ),

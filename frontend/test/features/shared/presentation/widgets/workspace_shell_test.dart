@@ -10,6 +10,7 @@ import 'package:touchin_flutter/features/auth/presentation/logout_navigation.dar
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
 import 'package:touchin_flutter/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -361,6 +362,81 @@ void main() {
       expect(tester.takeException(), isNull);
     }
   });
+
+  for (final width in [300.0, 320.0, 480.0]) {
+    for (final scale in [1.0, 1.8, 1.99, 2.0, 2.5]) {
+      testWidgets('mobile header at 200 percent matrix $width $scale',
+          (tester) async {
+        await tester.binding.setSurfaceSize(Size(width, 640));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final semantics = tester.ensureSemantics();
+        var opened = false;
+        Widget header(double textScale) => MaterialApp(
+              theme: AppTheme.lightTheme,
+              builder: (context, child) => MediaQuery(
+                data: MediaQuery.of(context).copyWith(
+                  textScaler: TextScaler.linear(textScale),
+                ),
+                child: child!,
+              ),
+              home: Scaffold(
+                  body: WorkspaceMobileHeader(
+                currentRoute: '/admin/audit',
+                onOpenDrawer: () => opened = true,
+              )),
+            );
+        await tester.pumpWidget(header(scale));
+        expect(tester.takeException(), isNull);
+        final headerBox = find.byKey(const ValueKey('workspace-mobile-header'));
+        final brand =
+            find.byKey(const ValueKey('workspace-mobile-brand-block'));
+        final title = find.text('Trilha de Auditoria');
+        final badge = find.ancestor(
+          of: title,
+          matching: find.byWidgetPredicate((widget) =>
+              widget is Container &&
+              widget.decoration is BoxDecoration &&
+              (widget.decoration! as BoxDecoration).color ==
+                  WorkspaceNavigationColors.of(AppTheme.lightTheme)
+                      .selectedContainer),
+        );
+        expect(find.byIcon(Icons.fingerprint_rounded), findsOneWidget);
+        final wordmark = find.text('TOUCHIN');
+        expect(wordmark, findsOneWidget);
+        final rendered = tester.renderObject<RenderParagraph>(wordmark);
+        final painter = TextPainter(
+          text: rendered.text,
+          textDirection: rendered.textDirection,
+          textScaler: TextScaler.linear(scale),
+        )..layout();
+        expect(rendered.size.width, greaterThanOrEqualTo(painter.width - 0.01));
+        expect(rendered.size.height, closeTo(painter.height, 0.01));
+        expect(tester.getRect(brand).contains(tester.getRect(wordmark).topLeft),
+            isTrue);
+        expect(tester.getRect(wordmark).right,
+            lessThanOrEqualTo(tester.getRect(brand).right));
+        painter.dispose();
+        expect(badge, findsOneWidget);
+        expect(tester.getRect(brand).overlaps(tester.getRect(badge)), isFalse);
+        expect(tester.getRect(badge).right,
+            closeTo(tester.getRect(headerBox).right - 16, 0.01));
+        expect(find.bySemanticsLabel('Destino atual: Trilha de Auditoria'),
+            findsOneWidget);
+        final menu = find.byTooltip('Abrir menu');
+        final focus = Focus.of(tester.element(find.byIcon(Icons.menu_rounded)));
+        focus.requestFocus();
+        await tester.pump();
+        expect(focus.hasFocus, isTrue);
+        await tester.pumpWidget(header(scale == 1.0 ? 2.5 : 1.0));
+        await tester.pump();
+        expect(tester.takeException(), isNull);
+        expect(focus.hasFocus, isTrue);
+        await tester.tap(menu);
+        expect(opened, isTrue);
+        semantics.dispose();
+      });
+    }
+  }
 
   testWidgets('desktop panel uses one scroll for destinations and context', (
     tester,

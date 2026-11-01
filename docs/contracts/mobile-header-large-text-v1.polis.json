@@ -1,0 +1,160 @@
+{
+  "schema_version": 6,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      "frontend/lib/features/shared/presentation/widgets/workspace_navigation.dart",
+      "frontend/test/features/shared/presentation/widgets/workspace_shell_test.dart",
+      "frontend/test/admin_employees_page_test.dart",
+      "docs/contracts/mobile-header-large-text-v1.polis.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/features/shared/presentation/widgets/workspace_shell_test.dart",
+      "frontend/test/admin_employees_page_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Prevent mobile workspace header overflow at narrow widths and large text while preserving navigation, branding, focus and accessibility.",
+    "requirements": [
+      {
+        "id": "REQ-HEADER-01",
+        "statement": "Mobile header fits at widths 300 and 320 pixels at text scales 1.8, 1.99, 2 and 2.5, preserving menu, brand, destination, focus and accessibility."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-HEADER-01",
+        "statement": "Regression verifies the viewport and text scale matrix plus a control, long destination labels, no overflow, nonoverlap, destination semantics, branding, menu activation and focus across responsive changes. Wordmark is fully visible on one line at the requested text scale.",
+        "requirements": [
+          "REQ-HEADER-01"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-HEADER-02",
+        "statement": "Employee page large-text regression continues checking the correct pending pill and reports unexpected errors without a header exception filter if no unrelated errors occur.",
+        "requirements": [
+          "REQ-HEADER-01"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-HEADER-01",
+        "statement": "Preserve destination routing, right badge alignment, brand mark, accessible labels and menu activation."
+      },
+      {
+        "id": "INV-HEADER-DOC",
+        "statement": "docs/contracts/mobile-header-large-text-v1.polis.json is byte-for-byte identical to the locked contract."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-HEADER-01",
+        "statement": "Header overflows or hides required controls or destination semantics."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-HEADER-01",
+        "statement": "Viewport width, text scale and current workspace route."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-HEADER-01",
+        "statement": "Responsive accessible mobile workspace header."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-HEADER-01",
+        "statement": "Mobile header regression fails for RenderFlex overflow at narrow widths and enlarged text."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "fa68d884c6af8d3cf555cd1291f7347920e63e16",
+    "base_tree": "2b9650de357da714bdec52cc5ce17e8b04f739fc",
+    "policy_sha256": "7714a10ab2b65f58941086f500de93fa62fc6acb6fd59d8b39292980364774dd",
+    "specification_sha256": "d04f37d5c63758ca540f51fbee28f2708fce33fec5b0695d415c86a8ca943ae2"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "--exclude-tags",
+      "canonical-golden",
+      "test/features/shared/presentation/widgets/workspace_shell_test.dart",
+      "test/admin_employees_page_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "--exclude-tags",
+      "canonical-golden",
+      "test/features/shared/presentation/widgets/workspace_shell_test.dart",
+      "test/admin_employees_page_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "--exclude-tags",
+        "canonical-golden",
+        "test/features/shared/presentation/widgets/workspace_shell_test.dart",
+        "test/admin_employees_page_test.dart"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 600,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "A RenderFlex overflowed"
+    ]
+  }
+}

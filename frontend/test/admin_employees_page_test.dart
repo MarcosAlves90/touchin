@@ -34,14 +34,7 @@ void main() {
     await tester.ensureVisible(find.text('Acompanhamento'));
     await tester.pumpAndSettle();
     FlutterError.onError = previous;
-    // The existing mobile header overflows independently at this text scale.
-    final unexpected = errors.where((error) {
-      final details = error.informationCollector?.call().join('\n') ?? '';
-      return !(error.exceptionAsString() ==
-              'A RenderFlex overflowed by 4.8 pixels on the right.' &&
-          details.contains("Container-[<'workspace-mobile-header'>]"));
-    }).toList();
-    expect(unexpected, isEmpty, reason: unexpected.join('\n'));
+    expect(errors, isEmpty, reason: errors.join('\n'));
     final indicator = find.text('Acompanhamento');
     expect(indicator, findsOneWidget);
     final pill =
