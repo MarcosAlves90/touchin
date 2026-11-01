@@ -1284,6 +1284,7 @@ class _InfoFlag extends StatelessWidget {
       decoration: BoxDecoration(
         color: colorScheme.surface.withValues(alpha: 0.8),
         border: Border.all(color: colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

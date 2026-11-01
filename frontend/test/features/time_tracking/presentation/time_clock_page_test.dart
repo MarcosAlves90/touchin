@@ -126,6 +126,40 @@ TimeClockState _timelineState({
 }
 
 void main() {
+  testWidgets('context flags have rounded theme surfaces', (tester) async {
+    tester.view.physicalSize = const Size(1600, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    for (final brightness in Brightness.values) {
+      final controller = _FakeTimeClockController(<int, TimeClockState>{
+        1: _timelineState(page: 1, records: const <PunchRecord>[], totalPages: 1),
+      })..isLoadingState = false;
+      final theme = ThemeData(brightness: brightness);
+      await tester.pumpWidget(MaterialApp(
+        theme: theme,
+        home: TimeClockPage(controller: controller),
+      ));
+      await tester.pump();
+      for (final label in ['Permissão', 'Última coordenada', 'Precisão', 'Modo']) {
+        final flag = find.ancestor(
+          of: find.text(label),
+          matching: find.byWidgetPredicate((widget) => widget is Container &&
+              widget.padding == const EdgeInsets.symmetric(horizontal: 16, vertical: 14)),
+        ).first;
+        final decoration = tester.widget<Container>(flag).decoration! as BoxDecoration;
+        expect(decoration.borderRadius, BorderRadius.circular(10),
+            reason: 'context_flag_radius $brightness $label');
+        expect(decoration.color, theme.colorScheme.surface.withValues(alpha: 0.8));
+        expect(decoration.border, Border.all(color: theme.colorScheme.outlineVariant));
+      }
+      expect(find.text('Aguardando batida'), findsOneWidget);
+      expect(find.text('Presencial rastreado'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      controller.dispose();
+    }
+  });
+
   testWidgets('time clock history composition', (tester) async {
     final controller = _FakeTimeClockController(<int, TimeClockState>{
       1: _timelineState(page: 1, records: const <PunchRecord>[], totalPages: 1),
