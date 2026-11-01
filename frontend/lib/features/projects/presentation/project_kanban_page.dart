@@ -26,6 +26,7 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
   late final ProjectKanbanController _controller;
   late final bool _ownsController;
   bool _showBacklog = false;
+  final GlobalKey _boardKey = GlobalKey();
 
   @override
   void initState() {
@@ -102,7 +103,14 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              _buildProjectOverview(compact: isCompact),
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                    maxHeight:
+                        (constraints.maxHeight - 440).clamp(40.0, 260.0)),
+                child: SingleChildScrollView(
+                  child: _buildProjectOverview(compact: isCompact),
+                ),
+              ),
               SizedBox(height: gap),
               Expanded(child: _buildBoardContent()),
             ],
@@ -295,26 +303,30 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
               const SizedBox(height: 8),
             ],
             Expanded(
-              child: RepaintBoundary(
-                child: ProjectKanbanBoard(
-                  board: board,
-                  isBusy: isMutating,
-                  canMoveCards: _controller.canMoveCards,
-                  canManageStructure: _controller.canManageStructure,
-                  canManageCards: _controller.canManageCards,
-                  canManageAssignees: _controller.canManageAssignees,
-                  onMoveCard: _moveCardWithFeedback,
-                  onMoveColumn: (columnId, index) => _controller.moveColumn(
-                    columnId: columnId,
-                    toIndex: index,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 60),
+                child: RepaintBoundary(
+                  child: ProjectKanbanBoard(
+                    key: _boardKey,
+                    board: board,
+                    isBusy: isMutating,
+                    canMoveCards: _controller.canMoveCards,
+                    canManageStructure: _controller.canManageStructure,
+                    canManageCards: _controller.canManageCards,
+                    canManageAssignees: _controller.canManageAssignees,
+                    onMoveCard: _moveCardWithFeedback,
+                    onMoveColumn: (columnId, index) => _controller.moveColumn(
+                      columnId: columnId,
+                      toIndex: index,
+                    ),
+                    onCreateColumn: _openCreateKanbanColumn,
+                    onRenameColumn: _openRenameKanbanColumn,
+                    onDeleteColumn: _confirmDeleteKanbanColumn,
+                    onCreateCard: _openCreateKanbanCard,
+                    onEditCard: _openEditKanbanCard,
+                    onDeleteCard: _confirmDeleteKanbanCard,
+                    onManageAssignees: _openManageKanbanAssignees,
                   ),
-                  onCreateColumn: _openCreateKanbanColumn,
-                  onRenameColumn: _openRenameKanbanColumn,
-                  onDeleteColumn: _confirmDeleteKanbanColumn,
-                  onCreateCard: _openCreateKanbanCard,
-                  onEditCard: _openEditKanbanCard,
-                  onDeleteCard: _confirmDeleteKanbanCard,
-                  onManageAssignees: _openManageKanbanAssignees,
                 ),
               ),
             ),

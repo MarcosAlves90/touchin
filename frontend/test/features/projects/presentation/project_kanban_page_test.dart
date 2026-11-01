@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:touchin_flutter/contracts/auth.dart';
 import 'package:touchin_flutter/contracts/kanban.dart';
@@ -11,32 +12,233 @@ import 'package:touchin_flutter/core/network/api_client.dart';
 import 'package:touchin_flutter/features/projects/presentation/project_kanban_page.dart';
 import 'package:touchin_flutter/features/projects/presentation/widgets/project_kanban_board.dart';
 import 'package:touchin_flutter/features/projects/presentation/widgets/task_editor_dialog.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/accessibility_tools.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_editor_dialog.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_instant_select_field.dart';
 import 'package:touchin_flutter/theme/app_theme.dart';
 
 void main() {
+  testWidgets('Kanban footer avoids accessibility overlay', (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    for (final size in <Size>[
+      const Size(320, 540),
+      const Size(320, 568),
+      const Size(390, 844),
+      const Size(1440, 900)
+    ]) {
+      for (final inset in <double>[0, 24]) {
+        await tester.binding.setSurfaceSize(size);
+        await tester.pumpWidget(MaterialApp(
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+                padding: EdgeInsets.only(bottom: inset),
+                viewPadding: EdgeInsets.only(bottom: inset)),
+            child: AccessibilityTools(child: child!),
+          ),
+          home: ProjectKanbanPage(
+              api: _FakeKanbanApi(columnCount: 3, cardsPerColumn: 5)),
+        ));
+        await tester.pumpAndSettle();
+        final button = find
+            .ancestor(
+              of: find.byIcon(Icons.accessibility_new_rounded),
+              matching: find.byWidgetPredicate((widget) =>
+                  widget is SizedBox &&
+                  widget.width == 48 &&
+                  widget.height == 48),
+            )
+            .first;
+        final laneViewport = find.byKey(const ValueKey<String>('kanban-column-scroll-column-01'));
+        expect(tester.getSize(laneViewport).height, greaterThanOrEqualTo(100),
+            reason: 'kanban_accessibility_overlap usable cards $size inset $inset');
+        await tester.ensureVisible(laneViewport);
+        await tester.pumpAndSettle();
+        final scroll =
+            find.byKey(const ValueKey<String>('kanban-board-scroll'));
+        for (var step = 0; step < 3; step++) {
+          final buttonRect = tester.getRect(button);
+          final footers = find.widgetWithText(TextButton, 'Adicionar card');
+          expect(footers, findsWidgets);
+          for (final footer in footers.evaluate()) {
+            final rect = tester.getRect(find.byWidget(footer.widget));
+            if (rect.overlaps(tester.getRect(scroll))) {
+              expect(rect.overlaps(buttonRect), isFalse,
+                  reason: 'kanban_accessibility_overlap $size inset $inset');
+            }
+          }
+          await tester.drag(scroll, const Offset(-320, 0));
+          await tester.pumpAndSettle();
+        }
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      }
+    }
+  });
+  testWidgets('Kanban footer avoids accessibility overlay functional flow',
+      (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    for (final size in <Size>[
+      const Size(320, 540),
+      const Size(320, 568),
+      const Size(390, 844),
+      const Size(1440, 900)
+    ]) {
+      for (final inset in <double>[0, 24]) {
+        await tester.binding.setSurfaceSize(size);
+        final api = _FakeKanbanApi(columnCount: 3, cardsPerColumn: 5);
+        await tester.pumpWidget(MaterialApp(
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+                padding: EdgeInsets.only(bottom: inset),
+                viewPadding: EdgeInsets.only(bottom: inset)),
+            child: AccessibilityTools(child: child!),
+          ),
+          home: ProjectKanbanPage(api: api),
+        ));
+        await tester.pumpAndSettle();
+        final board = find.byKey(const ValueKey<String>('kanban-board-scroll'));
+        await tester.ensureVisible(board);
+        await tester.pumpAndSettle();
+        await tester.drag(board, const Offset(-1000, 0));
+        await tester.pumpAndSettle();
+        final lane = find
+            .byKey(const ValueKey<String>('kanban-column-scroll-column-03'));
+        final card = find.byKey(const ValueKey<String>('kanban-card-task-3-5'));
+        await tester.scrollUntilVisible(card, 100,
+            scrollable: find.descendant(of: lane, matching: find.byType(Scrollable)).first);
+        await tester.pumpAndSettle();
+        expect(
+            _scrollOffset(tester,
+                const ValueKey<String>('kanban-column-scroll-column-03')),
+            greaterThan(0));
+        expect(card, findsOneWidget);
+        expect(tester.getRect(card).overlaps(tester.getRect(lane)), isTrue);
+        final footer = find.descendant(
+            of: find.byKey(const ValueKey<String>('kanban-column-column-03')),
+            matching: find.widgetWithText(TextButton, 'Adicionar card'));
+        await tester.ensureVisible(footer);
+        await tester.pumpAndSettle();
+        await tester.tap(footer);
+        await tester.pumpAndSettle();
+        expect(find.byType(ProjectTaskEditorDialog), findsOneWidget);
+        await tester.enterText(find.widgetWithText(TextFormField, 'Nome'), 'Novo card');
+        await tester.enterText(find.widgetWithText(TextFormField, 'Descrição'), 'Teste');
+        await tester.tap(find.text('Criar tarefa').last);
+        await tester.pumpAndSettle();
+        expect((await api.getKanbanBoard('project-01')).columns
+            .firstWhere((column) => column.id == 'column-03')
+            .cards.any((card) => card.name == 'Novo card'), isTrue);
+        final focus = Focus.of(tester.element(find.byIcon(Icons.accessibility_new_rounded)));
+        focus.requestFocus();
+        await tester.pump();
+        expect(focus.hasFocus, isTrue);
+        await tester.sendKeyEvent(LogicalKeyboardKey.space);
+        await tester.pumpAndSettle();
+        expect(find.byKey(const ValueKey<String>('accessibility-panel')),
+            findsOneWidget);
+        await tester.tap(find
+            .ancestor(
+                of: find.byIcon(Icons.close_rounded),
+                matching: find.byType(IconButton))
+            .first);
+        await tester.pumpAndSettle();
+        expect(find.byKey(const ValueKey<String>('accessibility-panel')),
+            findsNothing);
+        expect(api.boardVersion, 2);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      }
+    }
+  });
+  testWidgets('Kanban footer avoids accessibility overlay resize and gestures', (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.binding.setSurfaceSize(const Size(320, 540));
+    await tester.pumpWidget(MaterialApp(home: ProjectKanbanPage(api: _FakeKanbanApi(columnCount: 5, cardsPerColumn: 5))));
+    await tester.pumpAndSettle();
+    const boardKey = ValueKey<String>('kanban-board-scroll');
+    const laneKey = ValueKey<String>('kanban-column-scroll-column-01');
+    final lane = find.byKey(laneKey);
+    expect(tester.getSize(lane).height, greaterThanOrEqualTo(100), reason: 'kanban_accessibility_overlap usable lane');
+    final summaryScroll = find.ancestor(
+      of: find.byKey(const ValueKey<String>('kanban-project-overview')),
+      matching: find.byType(SingleChildScrollView),
+    ).first;
+    expect(find.descendant(of: summaryScroll, matching: lane), findsNothing,
+        reason: 'kanban_accessibility_overlap independent vertical scrolling');
+    final summaryOffset = tester.state<ScrollableState>(find.descendant(
+      of: summaryScroll, matching: find.byType(Scrollable)).first).position;
+    await tester.drag(summaryScroll, const Offset(0, -80));
+    await tester.pumpAndSettle();
+    expect(summaryOffset.pixels, greaterThan(0), reason: 'kanban_accessibility_overlap summary gesture');
+    await tester.drag(lane, const Offset(0, -90));
+    await tester.pumpAndSettle();
+    expect(_scrollOffset(tester, laneKey), greaterThan(0), reason: 'kanban_accessibility_overlap lane gesture');
+    final board = find.byKey(boardKey);
+    await tester.drag(board, const Offset(-250, 0));
+    await tester.pumpAndSettle();
+    final offset = _scrollOffset(tester, boardKey);
+    expect(offset, greaterThan(0));
+    await tester.binding.setSurfaceSize(const Size(320, 844));
+    await tester.pumpAndSettle();
+    expect(_scrollOffset(tester, boardKey), closeTo(offset, 0.1), reason: 'kanban_accessibility_overlap resize');
+    await tester.binding.setSurfaceSize(const Size(320, 540));
+    await tester.pumpAndSettle();
+    expect(_scrollOffset(tester, boardKey), closeTo(offset, 0.1), reason: 'kanban_accessibility_overlap resize back');
+    expect(tester.takeException(), isNull);
+  });
+  testWidgets('Kanban footer avoids accessibility overlay width breakpoint scroll',
+      (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.binding.setSurfaceSize(const Size(320, 540));
+    await tester.pumpWidget(MaterialApp(
+      home: ProjectKanbanPage(api: _FakeKanbanApi(columnCount: 5, cardsPerColumn: 5)),
+    ));
+    await tester.pumpAndSettle();
+    const key = ValueKey<String>('kanban-board-scroll');
+    await tester.drag(find.byKey(key), const Offset(-250, 0));
+    await tester.pumpAndSettle();
+    final offset = _scrollOffset(tester, key);
+    expect(offset, greaterThan(0));
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
+    await tester.pumpAndSettle();
+    expect(_scrollOffset(tester, key), closeTo(offset, 0.1),
+        reason: 'kanban_width_scroll desktop');
+    await tester.binding.setSurfaceSize(const Size(320, 540));
+    await tester.pumpAndSettle();
+    expect(_scrollOffset(tester, key), closeTo(offset, 0.1),
+        reason: 'kanban_width_scroll mobile');
+    expect(tester.takeException(), isNull);
+  });
   testWidgets('kanban summary composition', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1650, 1000));
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    await tester.pumpWidget(MaterialApp(home: ProjectKanbanPage(api: _FakeKanbanApi())));
+    await tester.pumpWidget(
+        MaterialApp(home: ProjectKanbanPage(api: _FakeKanbanApi())));
     await tester.pumpAndSettle();
-    final metrics = find.byKey(const ValueKey<String>('kanban-project-metrics'));
+    final metrics =
+        find.byKey(const ValueKey<String>('kanban-project-metrics'));
     final selector = find.byType(WorkspaceInstantSelectField<String>);
     final views = find.byKey(const ValueKey<String>('project-view-switch'));
-    expect(tester.getBottomLeft(metrics).dy, lessThanOrEqualTo(tester.getTopLeft(selector).dy), reason: 'kanban_summary_composition');
-    expect(tester.getBottomLeft(selector).dy, lessThanOrEqualTo(tester.getTopLeft(views).dy));
+    expect(tester.getBottomLeft(metrics).dy,
+        lessThanOrEqualTo(tester.getTopLeft(selector).dy),
+        reason: 'kanban_summary_composition');
+    expect(tester.getBottomLeft(selector).dy,
+        lessThanOrEqualTo(tester.getTopLeft(views).dy));
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('kanban overview separates project selection and views', (tester) async {
+  testWidgets('kanban overview separates project selection and views',
+      (tester) async {
     await tester.binding.setSurfaceSize(const Size(1650, 1000));
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    await tester.pumpWidget(MaterialApp(home: ProjectKanbanPage(api: _FakeKanbanApi())));
+    await tester.pumpWidget(
+        MaterialApp(home: ProjectKanbanPage(api: _FakeKanbanApi())));
     await tester.pumpAndSettle();
     final selector = find.byType(WorkspaceInstantSelectField<String>);
     final views = find.byKey(const ValueKey<String>('project-view-switch'));
-    expect(tester.getTopLeft(views).dy, greaterThanOrEqualTo(tester.getBottomLeft(selector).dy), reason: 'kanban_overview_hierarchy');
+    expect(tester.getTopLeft(views).dy,
+        greaterThanOrEqualTo(tester.getBottomLeft(selector).dy),
+        reason: 'kanban_overview_hierarchy');
     expect(tester.takeException(), isNull);
   });
 
@@ -77,7 +279,11 @@ void main() {
       'Configurações',
       'Sair do Sistema',
     ]) {
-      expect(find.descendant(of: find.byKey(const ValueKey('workspace-desktop-destinations')), matching: find.text(label)), findsOneWidget);
+      expect(
+          find.descendant(
+              of: find.byKey(const ValueKey('workspace-desktop-destinations')),
+              matching: find.text(label)),
+          findsOneWidget);
     }
     expect(find.byKey(const ValueKey<String>('kanban-topbar')), findsNothing);
     expect(find.text('Sincronizado'), findsNothing);
@@ -1131,7 +1337,12 @@ void main() {
         size.width < 980 ? 48 : 94,
         reason: 'workspace_overview_control_width at $size',
       );
-      expect(tester.getSize(find.byKey(const ValueKey<String>('project-view-switch'))).width, greaterThanOrEqualTo(96));
+      expect(
+          tester
+              .getSize(
+                  find.byKey(const ValueKey<String>('project-view-switch')))
+              .width,
+          greaterThanOrEqualTo(96));
 
       final metricWidths = <double>[
         for (final label in <String>['Colunas', 'Cards', 'Equipe'])
