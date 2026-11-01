@@ -184,6 +184,7 @@ class ThemeSettingsPage extends StatelessWidget {
                                 alpha: 0.72,
                               ),
                         border: Border.all(color: colorScheme.outlineVariant),
+                        borderRadius: BorderRadius.circular(10),
                       ),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
