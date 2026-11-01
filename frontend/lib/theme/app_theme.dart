@@ -5,7 +5,7 @@ class AppTheme {
   AppTheme._();
 
   static const Color accent = Color(0xFFFFB020);
-  static const BorderRadius _radius = BorderRadius.zero;
+  static const BorderRadius _radius = BorderRadius.all(Radius.circular(8));
 
   static const Color _lightBackground = Color(0xFFFAFAF7);
   static const Color _lightSurface = Color(0xFFFFFFFF);

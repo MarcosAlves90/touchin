@@ -316,7 +316,7 @@ void main() {
   });
 
   testWidgets(
-      'audit date picker uses the shared square dialog shape in dark theme on desktop and mobile',
+      'audit date picker uses the shared rounded dialog shape in dark theme on desktop and mobile',
       (tester) async {
     for (final size in [const Size(1280, 800), const Size(360, 760)]) {
       await tester.binding.setSurfaceSize(size);
@@ -335,7 +335,7 @@ void main() {
         expect(
             dialog.shape,
             const RoundedRectangleBorder(
-              borderRadius: BorderRadius.zero,
+              borderRadius: BorderRadius.all(Radius.circular(8)),
             ));
         expect(find.text('Cancel'), findsOneWidget);
         expect(find.text('OK'), findsOneWidget);
