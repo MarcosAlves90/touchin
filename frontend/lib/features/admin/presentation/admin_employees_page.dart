@@ -342,18 +342,14 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Theme(
-      data: AppTheme.adminContrastTheme(Theme.of(context)),
-      child: AnimatedBuilder(
-        animation: _controller,
-        builder: (context, _) {
-          return WorkspaceScaffold(
-            contextualContent: _buildSummaryPanel(),
-            contentBuilder: (context, isWide) =>
-                _buildWorkspace(isWide: isWide),
-          );
-        },
-      ),
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        return WorkspaceScaffold(
+          contextualContent: _buildSummaryPanel(),
+          contentBuilder: (context, isWide) => _buildWorkspace(isWide: isWide),
+        );
+      },
     );
   }
 
@@ -512,6 +508,9 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
       controller: _searchController,
       onChanged: _controller.setSearchQuery,
       decoration: InputDecoration(
+        focusedBorder: AppTheme.adminContrastTheme(theme)
+            .inputDecorationTheme
+            .focusedBorder,
         labelText: 'Buscar funcionário',
         hintText: 'Nome, cargo ou unidade',
         prefixIcon: const Icon(Icons.search_rounded),

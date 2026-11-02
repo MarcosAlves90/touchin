@@ -71,6 +71,44 @@ class AppTheme {
           ? _darkAdminColors
           : _lightAdminColors);
 
+  static ThemeData highContrastTheme(ThemeData theme) {
+    final dark = theme.brightness == Brightness.dark;
+    final surface = dark ? Colors.black : Colors.white;
+    final foreground = dark ? Colors.white : Colors.black;
+    final panel = dark ? const Color(0xFF202020) : const Color(0xFFF0F0F0);
+    final primary = dark ? const Color(0xFFFFD180) : const Color(0xFF704600);
+    final onPrimary = dark ? Colors.black : Colors.white;
+    final scheme = theme.colorScheme.copyWith(
+      primary: primary,
+      onPrimary: onPrimary,
+      secondary: primary,
+      onSecondary: onPrimary,
+      surface: surface,
+      onSurface: foreground,
+      surfaceContainerLowest: surface,
+      surfaceContainerLow: panel,
+      surfaceContainer: panel,
+      surfaceContainerHigh: panel,
+      surfaceContainerHighest: panel,
+      onSurfaceVariant: foreground,
+      outline: foreground,
+      outlineVariant: foreground,
+    );
+    final base = _buildTheme(colorScheme: scheme, backgroundColor: surface);
+    return adminContrastTheme(base.copyWith(
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: base.elevatedButtonTheme.style?.copyWith(
+          backgroundColor: WidgetStatePropertyAll(primary),
+          foregroundColor: WidgetStatePropertyAll(onPrimary),
+        ),
+      ),
+      floatingActionButtonTheme: base.floatingActionButtonTheme.copyWith(
+        backgroundColor: primary,
+        foregroundColor: onPrimary,
+      ),
+    ));
+  }
+
   static ThemeData adminContrastTheme(ThemeData theme) {
     final scheme = theme.colorScheme;
     final colors = adminColors(theme);
