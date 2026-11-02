@@ -1064,6 +1064,7 @@ class _EmployeeNarrativeCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest,
         border: Border.all(color: colorScheme.outline),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1235,6 +1236,7 @@ class _EmployeePolicyRow extends StatelessWidget {
       decoration: BoxDecoration(
         color: colorScheme.surface,
         border: Border.all(color: colorScheme.outline),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1245,6 +1247,7 @@ class _EmployeePolicyRow extends StatelessWidget {
             decoration: BoxDecoration(
               color: colorScheme.surfaceContainerHighest,
               border: Border.all(color: colorScheme.outline),
+              borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(icon, size: 18, color: tone),
           ),
@@ -1576,6 +1579,7 @@ class _ManagedPunchTile extends StatelessWidget {
       decoration: BoxDecoration(
         color: colorScheme.surface,
         border: Border.all(color: colorScheme.outline),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1586,6 +1590,7 @@ class _ManagedPunchTile extends StatelessWidget {
             decoration: BoxDecoration(
               color: colorScheme.surfaceContainerHighest,
               border: Border.all(color: colorScheme.outline),
+              borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(_punchTypeIcon(punch.type), size: 17, color: tone),
           ),
@@ -1600,6 +1605,7 @@ class _ManagedPunchTile extends StatelessWidget {
                       label: _punchTypeLabel(punch.type),
                       tone: tone,
                       icon: _punchTypeIcon(punch.type),
+                      rounded: true,
                     ),
                     const SizedBox(width: 6),
                     Expanded(

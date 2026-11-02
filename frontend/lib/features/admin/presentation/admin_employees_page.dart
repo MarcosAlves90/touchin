@@ -910,6 +910,7 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
           decoration: BoxDecoration(
             color: colorScheme.surface,
             border: Border.all(color: colorScheme.outline),
+            borderRadius: BorderRadius.circular(12),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1010,6 +1011,7 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
             decoration: BoxDecoration(
               color: colorScheme.surface,
               border: Border.all(color: colorScheme.outline),
+              borderRadius: BorderRadius.circular(12),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1037,6 +1039,7 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
             decoration: BoxDecoration(
               color: colorScheme.surface,
               border: Border.all(color: colorScheme.outline),
+              borderRadius: BorderRadius.circular(12),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

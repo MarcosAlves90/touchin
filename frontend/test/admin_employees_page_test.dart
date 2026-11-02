@@ -12,6 +12,107 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   for (final dark in [false, true]) {
     for (final width in [430.0, 1440.0]) {
+      for (final populated in [false, true]) {
+        testWidgets('profile tabs rounded $dark $width $populated',
+            (tester) async {
+          tester.view.physicalSize = Size(width, 1800);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.reset);
+          final semantics = tester.ensureSemantics();
+          final api = _FakeAdminApi(managedPunchesByEmployeeId: {
+            'emp-99': populated
+                ? [
+                    ManagedPunchRecord(
+                      id: 'test-punch',
+                      employeeId: 'emp-99',
+                      type: PunchType.checkIn,
+                      timestamp: DateTime(2026, 5, 1, 8),
+                      detail: 'Registro fictício',
+                      projectId: null,
+                      location: null,
+                    )
+                  ]
+                : [],
+          });
+          await tester.pumpWidget(MaterialApp(
+            theme: dark ? AppTheme.darkTheme : AppTheme.lightTheme,
+            home: AdminEmployeesPage(api: api),
+          ));
+          await tester.pumpAndSettle();
+          final failures = <String>[];
+          void radius(Finder child, double expected, {int ancestor = 0}) {
+            final containers = find.ancestor(
+                of: child,
+                matching: find.byWidgetPredicate(
+                    (w) => w is Container && w.decoration is BoxDecoration));
+            final decoration = tester
+                .widget<Container>(containers.at(ancestor))
+                .decoration! as BoxDecoration;
+            if (decoration.borderRadius != BorderRadius.circular(expected)) {
+              failures.add(
+                  '$child expected $expected got ${decoration.borderRadius}');
+            }
+          }
+
+          Future<void> tab(String label) async {
+            final button = find
+                .ancestor(
+                    of: find.text(label).last,
+                    matching: find.byType(OutlinedButton))
+                .first;
+            await tester.ensureVisible(button);
+            await tester.tap(button);
+            await tester.pumpAndSettle();
+            expect(find.bySemanticsLabel(label), findsWidgets);
+          }
+
+          await tab('Políticas');
+          for (final label in [
+            'Validação de localização',
+            'Dispositivo confiável',
+            'Ajustes pendentes'
+          ]) {
+            radius(find.text(label), 12);
+          }
+          for (final icon in [
+            Icons.location_searching_rounded,
+            Icons.verified_user_outlined,
+            Icons.task_alt_rounded
+          ]) {
+            radius(find.byIcon(icon), 8);
+          }
+          await tab('Notas');
+          radius(find.text('Notas da gestão'), 12);
+          expect(find.text('Nova contratação.'), findsOneWidget);
+          await tab('Ponto');
+          radius(find.text('Gestão de ponto'), 12);
+          if (populated) {
+            radius(find.text('Registro fictício'), 12);
+            radius(find.byIcon(Icons.login_rounded).first, 8);
+            radius(find.text('Entrada'), 8);
+            final menu = find.byIcon(Icons.more_horiz_rounded).last;
+            await tester.ensureVisible(menu);
+            await tester.tap(menu);
+            await tester.pumpAndSettle();
+            expect(find.text('Remover'), findsWidgets);
+            await tester.tap(find.text('Remover').last);
+            await tester.pumpAndSettle();
+            expect(find.text('Remover ponto'), findsOneWidget);
+            await tester.tap(find.text('Cancelar'));
+            await tester.pumpAndSettle();
+            expect(api.deletedPunches, isEmpty);
+          } else {
+            radius(find.text('Nenhum ponto manual registrado.'), 12);
+          }
+          expect(tester.takeException(), isNull);
+          semantics.dispose();
+          expect(failures, isEmpty, reason: 'profile_tabs_radius');
+        });
+      }
+    }
+  }
+  for (final dark in [false, true]) {
+    for (final width in [430.0, 1440.0]) {
       testWidgets('profile surface radii $dark $width', (tester) async {
         tester.view.physicalSize = Size(width, 1800);
         tester.view.devicePixelRatio = 1;
