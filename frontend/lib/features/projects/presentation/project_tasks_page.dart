@@ -8,6 +8,7 @@ import 'package:touchin_flutter/features/projects/presentation/widgets/task_edit
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_editor_dialog.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_skeleton.dart';
+import 'package:touchin_flutter/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -1139,8 +1140,9 @@ class _ProjectDetailHero extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final success = theme.extension<AdminSemanticColors>()?.success;
     final statusColor = project.status == ProjectStatus.active
-        ? const Color(0xFF2F8F46)
+        ? success?.foreground ?? const Color(0xFF2F8F46)
         : colorScheme.onSurfaceVariant;
     final showIdentityIcon = MediaQuery.sizeOf(context).width >= 560;
 
@@ -1197,6 +1199,9 @@ class _ProjectDetailHero extends StatelessWidget {
                               ? 'Ativo'
                               : 'Inativo',
                           tone: statusColor,
+                          background: project.status == ProjectStatus.active
+                              ? success?.container
+                              : null,
                           icon: project.status == ProjectStatus.active
                               ? Icons.check_circle_outline_rounded
                               : Icons.pause_circle_outline_rounded,
@@ -1271,10 +1276,12 @@ class _ProjectPill extends StatelessWidget {
     required this.label,
     required this.tone,
     required this.icon,
+    this.background,
   });
 
   final String label;
   final Color tone;
+  final Color? background;
   final IconData icon;
 
   @override
@@ -1283,7 +1290,7 @@ class _ProjectPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: tone.withValues(alpha: 0.12),
+        color: background ?? tone.withValues(alpha: 0.12),
         border: Border.all(color: tone.withValues(alpha: 0.22)),
       ),
       child: Row(

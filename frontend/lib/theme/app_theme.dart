@@ -102,6 +102,10 @@ class AppTheme {
               states.contains(WidgetState.disabled) ? panel : primary),
           foregroundColor: WidgetStateProperty.resolveWith((states) =>
               states.contains(WidgetState.disabled) ? foreground : onPrimary),
+          side: WidgetStateProperty.resolveWith((states) =>
+              states.contains(WidgetState.disabled)
+                  ? BorderSide(color: foreground)
+                  : BorderSide.none),
         ),
       ),
       floatingActionButtonTheme: base.floatingActionButtonTheme.copyWith(
@@ -261,9 +265,7 @@ class AppTheme {
         focusedBorder: OutlineInputBorder(
           borderRadius: _radius,
           borderSide: BorderSide(
-            color: colorScheme.brightness == Brightness.dark
-                ? _darkAdminColors.selectedIndicator
-                : _lightAdminColors.selectedIndicator,
+            color: accent,
             width: 1.5,
           ),
         ),
