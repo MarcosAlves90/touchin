@@ -1259,7 +1259,9 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
   Widget _buildTable() {
     return Container(
       key: const ValueKey<String>('audit-events-table'),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
         color: Theme.of(context).colorScheme.surface,
         border: Border.all(
           color: Theme.of(context).colorScheme.outlineVariant,
@@ -1494,6 +1496,7 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
                 color: colorScheme.surface,
                 border: Border.all(
                   color: Focus.of(context).hasFocus

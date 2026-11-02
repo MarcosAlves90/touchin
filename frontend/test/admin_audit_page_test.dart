@@ -114,6 +114,44 @@ Future<void> selectAuditFilter(
 }
 
 void main() {
+  testWidgets('audit outer surface radii', (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    for (final theme in [AppTheme.lightTheme, AppTheme.darkTheme]) {
+      for (final mobile in [false, true]) {
+        await tester.binding.setSurfaceSize(Size(mobile ? 390 : 1280, 800));
+        final api = FakeTouchInApi()
+          ..mockEvents = [AuditEventResponse(
+            id: 'rounded', timestamp: DateTime.utc(2026), companyId: 'company',
+            actorUserId: null, projectId: null, action: 'card.created',
+            entityType: 'card', entityId: 'entity', result: 'success',
+            metadataPayload: null,
+          )];
+        await tester.pumpWidget(MaterialApp(key: UniqueKey(), theme: theme,
+            home: AdminAuditPage(api: api)));
+        await tester.pumpAndSettle();
+        expect(api.requestedPages, contains(1));
+        final event = find.byKey(ValueKey<String>(mobile
+            ? 'audit-event-card-rounded' : 'audit-event-row-rounded'));
+        expect(event, findsOneWidget);
+        if (!mobile) {
+          final table = tester.widget<Container>(find.byKey(
+              const ValueKey<String>('audit-events-table')));
+          expect((table.decoration! as BoxDecoration).borderRadius,
+              BorderRadius.circular(12), reason: 'audit_outer_surface_radius');
+          expect(table.clipBehavior, isNot(Clip.none),
+              reason: 'audit_outer_surface_radius');
+        }
+        final notice = tester.widget<Container>(find.byKey(
+            const ValueKey<String>('audit-end-of-list')));
+        expect((notice.decoration! as BoxDecoration).borderRadius,
+            BorderRadius.circular(12), reason: 'audit_outer_surface_radius');
+        await tester.tap(event);
+        await tester.pumpAndSettle();
+        expect(find.byType(AuditEventDetailsDialog), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      }
+    }
+  });
   testWidgets('compact audit skeleton cards have rounded corners',
       (tester) async {
     await tester.pumpWidget(const MaterialApp(
