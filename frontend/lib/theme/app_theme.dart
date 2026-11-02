@@ -265,7 +265,9 @@ class AppTheme {
         focusedBorder: OutlineInputBorder(
           borderRadius: _radius,
           borderSide: BorderSide(
-            color: accent,
+            color: colorScheme.brightness == Brightness.dark
+                ? _darkAdminColors.selectedIndicator
+                : _lightAdminColors.selectedIndicator,
             width: 1.5,
           ),
         ),

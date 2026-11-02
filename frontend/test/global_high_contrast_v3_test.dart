@@ -85,14 +85,9 @@ void main() {
             reason: 'contrast_v3_regression team keyboard');
         final local = Theme.of(tester.element(finder));
         final border = local.inputDecorationTheme.focusedBorder!.borderSide;
-        if (isHigh) {
-          expect(contrast(border.color, local.inputDecorationTheme.fillColor!),
-              greaterThanOrEqualTo(3),
-              reason: 'contrast_v3_regression team focus');
-        } else {
-          expect(border.color, AppTheme.accent,
-              reason: 'contrast_v3_regression team normal focus');
-        }
+        expect(contrast(border.color, local.inputDecorationTheme.fillColor!),
+            greaterThanOrEqualTo(3),
+            reason: 'contrast_v4_regression team focus');
       });
       testWidgets(
           'contrast_v3_regression login field keyboard focus $brightness high=$isHigh',
@@ -110,14 +105,9 @@ void main() {
         expect(field.focusNode.hasFocus, isTrue,
             reason: 'contrast_v3_regression keyboard');
         final border = theme.inputDecorationTheme.focusedBorder!.borderSide;
-        if (isHigh) {
-          expect(contrast(border.color, theme.inputDecorationTheme.fillColor!),
-              greaterThanOrEqualTo(3),
-              reason: 'contrast_v3_regression focus');
-        } else {
-          expect(border.color, AppTheme.accent,
-              reason: 'contrast_v3_regression normal focus');
-        }
+        expect(contrast(border.color, theme.inputDecorationTheme.fillColor!),
+            greaterThanOrEqualTo(3),
+            reason: 'contrast_v4_regression login focus');
       });
     }
     testWidgets('contrast_v3_regression project active text $brightness',
