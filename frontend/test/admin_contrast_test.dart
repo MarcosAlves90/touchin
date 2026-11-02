@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/accessibility_tools.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:touchin_flutter/contracts/auth.dart';
 import 'package:touchin_flutter/contracts/audit.dart';
@@ -36,8 +37,15 @@ void main() {
           final box = find.descendant(of: tile, matching: find.byWidgetPredicate((w) => w is Container && w.decoration is BoxDecoration)).first;
           final decoration = tester.widget<Container>(box).decoration! as BoxDecoration;
           final border = (decoration.border! as Border).top;
-          expect(_contrast(border.color, decoration.color!), greaterThanOrEqualTo(3), reason: 'team_selection_indicator selected surface');
-          expect(_contrast(border.color, theme.colorScheme.surface), greaterThanOrEqualTo(3), reason: 'team_selection_indicator adjacent surface');
+          final localTheme = Theme.of(tester.element(active));
+          final section = find.ancestor(of: tile, matching: find.byType(WorkspaceSectionCard)).first;
+          final panel = tester.widget<Material>(find.descendant(of: section, matching: find.byType(Material)).first);
+          final adjacent = Color.alphaBlend(panel.color!, localTheme.scaffoldBackgroundColor);
+          if (!highContrast) {
+            expect(border.color, localTheme.colorScheme.outline, reason: 'Normal selection must use the shared outline token');
+          }
+          expect(_contrast(border.color, decoration.color!), greaterThanOrEqualTo(3), reason: 'selected surface');
+          expect(_contrast(border.color, adjacent), greaterThanOrEqualTo(3), reason: 'composited adjacent panel');
           final selected = find.ancestor(of: active, matching: find.byWidgetPredicate((w) => w is Semantics && w.properties.selected == true));
           expect(selected, findsWidgets);
           await tester.ensureVisible(inactive);

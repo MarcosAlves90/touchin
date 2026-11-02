@@ -668,7 +668,7 @@ class _EmployeeListTile extends StatelessWidget {
                 color: selected
                     ? (theme.extension<HighContrastMarker>() != null
                         ? adminColors.selectedIndicator
-                        : colorScheme.onSurface)
+                        : colorScheme.outline)
                     : colorScheme.outlineVariant,
                 width: selected && theme.extension<HighContrastMarker>() == null ? 2 : 1,
               ),
