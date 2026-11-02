@@ -401,6 +401,7 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
 
   Widget _buildWorkspaceHeader(bool isWide) {
     return WorkspaceHeader(
+      kicker: 'EQUIPE',
       title: 'Administrar equipe',
       description:
           'Acompanhe a equipe e gerencie cadastros e registros de ponto.',
@@ -412,8 +413,8 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
 
   List<Widget> _buildHeaderActions(bool isWide) {
     final createButton = SizedBox(
-      width: isWide ? 210 : double.infinity,
-      child: ElevatedButton.icon(
+      width: isWide ? null : double.infinity,
+      child: FilledButton.icon(
         onPressed: _openCreateEmployeeDialog,
         icon: const Icon(Icons.person_add_alt_1_rounded),
         label: const Text('Novo funcionário'),

@@ -114,6 +114,20 @@ Future<void> selectAuditFilter(
 }
 
 void main() {
+  testWidgets('page header audit desktop inset follows scaffold width',
+      (tester) async {
+    tester.view.physicalSize = const Size(1200, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(MaterialApp(home: AdminAuditPage(api: FakeTouchInApi())));
+    await tester.pumpAndSettle();
+    final scroll = find.byKey(const ValueKey<String>('audit-header-scroll'));
+    final heading = find.text('Eventos de auditoria');
+    expect(tester.getTopLeft(heading).dx - tester.getTopLeft(scroll).dx, 32);
+    await tester.tap(find.byKey(const ValueKey<String>('audit-filters-button')));
+    await tester.pumpAndSettle();
+    expect(find.byType(BottomSheet), findsOneWidget);
+  });
   testWidgets('audit temporary completion notification', (tester) async {
     final api = FakeTouchInApi()..mockEvents = [AuditEventResponse(
       id: 'event', timestamp: DateTime.utc(2026), companyId: 'company',

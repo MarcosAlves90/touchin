@@ -48,7 +48,7 @@ class ThemeSettingsPage extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final padding = EdgeInsets.fromLTRB(
       isWide ? 32 : 24,
-      isWide ? 32 : 24,
+      28,
       isWide ? 32 : 24,
       isWide ? 40 : 32,
     );
@@ -66,6 +66,7 @@ class ThemeSettingsPage extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               WorkspaceHeader(
+                kicker: 'PREFERÊNCIAS',
                 title: 'Configurações',
                 description:
                     'Ajuste preferências globais da interface e mantenha a experiência do jeito que preferir.',

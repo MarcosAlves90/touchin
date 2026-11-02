@@ -218,6 +218,24 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
+    testWidgets('page header audit filter rendered contrast in ${brightness.name}',
+        (tester) async {
+      tester.view.physicalSize = const Size(1200, 1000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final theme = brightness == Brightness.light
+          ? AppTheme.lightTheme
+          : AppTheme.darkTheme;
+      await tester.pumpWidget(MaterialApp(
+          theme: theme, home: AdminAuditPage(api: _ContrastApi())));
+      await tester.pumpAndSettle();
+      final button = find.byKey(const ValueKey<String>('audit-filters-button'));
+      final label = find.descendant(of: button, matching: find.text('Filtros'));
+      final background = Theme.of(tester.element(button)).scaffoldBackgroundColor;
+      expect(_contrast(_renderedTextColor(tester, label), background),
+          greaterThanOrEqualTo(4.5));
+    });
+
     testWidgets(
         '${brightness.name} audit filters and event indicators use rendered colors',
         (tester) async {

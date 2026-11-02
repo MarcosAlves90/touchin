@@ -195,6 +195,7 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
 
   Widget _buildWorkspaceHeader(bool isWide) {
     return WorkspaceHeader(
+      kicker: 'PROJETOS',
       title: 'Administrar projetos',
       description: 'Organize projetos, tarefas e participantes em um só lugar.',
       maxContentWidth: 620,
@@ -210,8 +211,8 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
 
     return <Widget>[
       SizedBox(
-        width: isWide ? 210 : double.infinity,
-        child: ElevatedButton.icon(
+        width: isWide ? null : double.infinity,
+        child: FilledButton.icon(
           onPressed: _controller.isMutating ? null : _openCreateProject,
           icon: const Icon(Icons.create_new_folder_outlined),
           label: const Text('Novo projeto'),

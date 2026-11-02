@@ -94,10 +94,7 @@ class AuthPageHeading extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (onBack == null) {
-      return Semantics(
-        header: true,
-        child: Text(title, style: authPageTitleStyle(context)),
-      );
+      return WorkspaceHeader(title: title, description: '');
     }
 
     return Row(
@@ -113,10 +110,7 @@ class AuthPageHeading extends StatelessWidget {
         ),
         const SizedBox(width: 12),
         Expanded(
-          child: Semantics(
-            header: true,
-            child: Text(title, style: authPageTitleStyle(context)),
-          ),
+          child: WorkspaceHeader(title: title, description: ''),
         ),
       ],
     );

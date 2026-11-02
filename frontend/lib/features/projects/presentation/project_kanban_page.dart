@@ -51,12 +51,22 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
     return WorkspaceScaffold(
       contentScrollable: false,
       contentBuilder: (context, isWide) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           if (!isWide) _KanbanTopBar(controller: _controller),
+          if (isWide)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(32, 28, 32, 0),
+              child: const WorkspaceHeader(
+                  kicker: 'KANBAN',
+                  title: 'Acompanhar tarefas',
+                  description: 'Visualize e organize as tarefas do projeto.',
+                  compact: true),
+            ),
           Expanded(
             child: AnimatedBuilder(
               animation: _controller,
-              builder: (context, _) => _buildPageBody(),
+              builder: (context, _) => _buildPageBody(isWide),
             ),
           ),
         ],
@@ -64,28 +74,49 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
     );
   }
 
-  Widget _buildPageBody() {
+  Widget _buildPageBody(bool pageIsWide) {
+    Widget withMobileHeader(Widget child) => pageIsWide
+        ? child
+        : LayoutBuilder(builder: (context, constraints) => SingleChildScrollView(
+          child: SizedBox(height: constraints.maxHeight < (MediaQuery.textScalerOf(context).scale(1) > 1 ? 1050 : 750)
+              ? (MediaQuery.textScalerOf(context).scale(1) > 1 ? 1050 : 750)
+              : constraints.maxHeight,
+          child: Column(children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(24, 28, 24, 0),
+              child: WorkspaceHeader(kicker: 'KANBAN', title: 'Acompanhar tarefas',
+                description: 'Visualize e organize as tarefas do projeto.', compact: true),
+            ),
+            Expanded(child: child),
+          ]))));
     if (_controller.isLoading) {
-      return const _KanbanPageSkeleton();
+      return withMobileHeader(LayoutBuilder(
+        builder: (context, constraints) => SingleChildScrollView(
+          child: SizedBox(
+            height: constraints.maxHeight < 500 ? 500 : constraints.maxHeight,
+            child: const _KanbanPageSkeleton(),
+          ),
+        ),
+      ));
     }
 
     if (_controller.loadError != null) {
-      return _KanbanPageMessage(
+      return withMobileHeader(_KanbanPageMessage(
         title: 'Não foi possível carregar o Kanban',
         message: _controller.loadError!,
         actionLabel: 'Tentar novamente',
         onAction: _controller.retry,
-      );
+      ));
     }
 
     if (_controller.projects.isEmpty) {
-      return const _KanbanPageMessage(
+      return withMobileHeader(const _KanbanPageMessage(
         title: 'Nenhum projeto disponível',
         message: 'Crie ou obtenha acesso a um projeto antes de usar o Kanban.',
-      );
+      ));
     }
 
-    return LayoutBuilder(
+    return withMobileHeader(LayoutBuilder(
       builder: (context, constraints) {
         final isCompact = constraints.maxWidth < 600;
         final isWide = constraints.maxWidth >= 980;
@@ -93,7 +124,8 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
         final verticalPadding = isCompact ? 8.0 : 14.0;
         final gap = isCompact ? 8.0 : 12.0;
 
-        return Padding(
+        final enlarged = MediaQuery.textScalerOf(context).scale(1) > 1;
+        final body = Padding(
           padding: EdgeInsets.fromLTRB(
             horizontalPadding,
             verticalPadding,
@@ -106,7 +138,7 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
               ConstrainedBox(
                 constraints: BoxConstraints(
                     maxHeight:
-                        (constraints.maxHeight - 440).clamp(40.0, 260.0)),
+                        (constraints.maxHeight - 440).clamp(enlarged ? 280.0 : 40.0, enlarged ? 360.0 : 260.0)),
                 child: SingleChildScrollView(
                   child: _buildProjectOverview(compact: isCompact),
                 ),
@@ -116,8 +148,12 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
             ],
           ),
         );
+        return enlarged
+            ? SingleChildScrollView(
+                child: SizedBox(height: constraints.maxHeight + 180, child: body))
+            : body;
       },
-    );
+    ));
   }
 
   Widget _buildProjectOverview({required bool compact}) {
@@ -178,6 +214,7 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
+
         metrics,
         const SizedBox(height: 8),
         Material(

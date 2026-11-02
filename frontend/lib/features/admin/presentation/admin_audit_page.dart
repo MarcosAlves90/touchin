@@ -138,8 +138,10 @@ class _AdminAuditPageState extends State<AdminAuditPage> with RouteAware {
   void didChangeDependencies() {
     super.didChangeDependencies();
     final route = ModalRoute.of(context);
-    final observers = route?.navigator?.widget.observers.whereType<RouteObserver<ModalRoute<dynamic>>>();
-    final observer = observers == null || observers.isEmpty ? null : observers.first;
+    final observers = route?.navigator?.widget.observers
+        .whereType<RouteObserver<ModalRoute<dynamic>>>();
+    final observer =
+        observers == null || observers.isEmpty ? null : observers.first;
     if (route != _observedRoute || observer != _routeObserver) {
       _routeObserver?.unsubscribe(this);
       _observedRoute = route;
@@ -226,7 +228,8 @@ class _AdminAuditPageState extends State<AdminAuditPage> with RouteAware {
     }
     if (refresh) {
       _requestGeneration++;
-      if (_completionSnackKey?.currentContext != null) _completionSnack?.close();
+      if (_completionSnackKey?.currentContext != null)
+        _completionSnack?.close();
       _completionSnack = null;
       _completionSnackKey = null;
     }
@@ -266,7 +269,9 @@ class _AdminAuditPageState extends State<AdminAuditPage> with RouteAware {
 
       if (!mounted || generation != _requestGeneration) return;
       final currentRoute = ModalRoute.of(context)?.isCurrent ?? true;
-      if (!refresh && newEvents.length < _limit && currentRoute &&
+      if (!refresh &&
+          newEvents.length < _limit &&
+          currentRoute &&
           (_loadMoreFocusNode.hasFocus || _retryFocusNode.hasFocus)) {
         _filterFocusNode.requestFocus();
       }
@@ -289,28 +294,32 @@ class _AdminAuditPageState extends State<AdminAuditPage> with RouteAware {
       if (!_hasMore && _events.isNotEmpty) {
         final routeGeneration = _routeGeneration;
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted || generation != _requestGeneration ||
+          if (!mounted ||
+              generation != _requestGeneration ||
               routeGeneration != _routeGeneration ||
               !(ModalRoute.of(context)?.isCurrent ?? true)) return;
           final messenger = _messengerKey.currentState;
           if (messenger == null) return;
           final key = GlobalKey();
-          late final ScaffoldFeatureController<SnackBar, SnackBarClosedReason> controller;
+          late final ScaffoldFeatureController<SnackBar, SnackBarClosedReason>
+              controller;
           controller = messenger.showSnackBar(
             SnackBar(
               key: key,
               duration: const Duration(seconds: 3),
-              content: Text.rich(TextSpan(children: [WidgetSpan(child: Builder(builder: (context) {
-                if (generation != _requestGeneration ||
-                    routeGeneration != _routeGeneration ||
-                    !(ModalRoute.of(context)?.isCurrent ?? true)) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (key.currentContext != null) controller.close();
-                  });
-                  return const SizedBox.shrink();
-                }
-                return const Text('Todos os eventos carregados.');
-              }))])),
+              content: Text.rich(TextSpan(children: [
+                WidgetSpan(child: Builder(builder: (context) {
+                  if (generation != _requestGeneration ||
+                      routeGeneration != _routeGeneration ||
+                      !(ModalRoute.of(context)?.isCurrent ?? true)) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (key.currentContext != null) controller.close();
+                    });
+                    return const SizedBox.shrink();
+                  }
+                  return const Text('Todos os eventos carregados.');
+                }))
+              ])),
             ),
           );
           _completionSnack = controller;
@@ -711,7 +720,7 @@ class _AdminAuditPageState extends State<AdminAuditPage> with RouteAware {
           final compact = constraints.maxWidth < 860 ||
               MediaQuery.textScalerOf(context).scale(1) > 1.3;
           final maxHeaderHeight =
-              MediaQuery.sizeOf(context).height * (compact ? 0.58 : 0.64);
+              MediaQuery.sizeOf(context).height * 0.64;
           return Column(
             children: [
               ConstrainedBox(
@@ -720,15 +729,18 @@ class _AdminAuditPageState extends State<AdminAuditPage> with RouteAware {
                   key: const ValueKey<String>('audit-header-scroll'),
                   controller: _headerScrollController,
                   padding: EdgeInsets.fromLTRB(
-                    compact ? 16 : 24,
-                    18,
-                    compact ? 16 : 24,
+                    isWide ? 24 : 16,
+                    28,
+                    isWide ? 24 : 16,
                     8,
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      _buildHeader(compact: compact),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: _buildHeader(compact: compact),
+                      ),
                       const SizedBox(height: 14),
                       _buildActiveFilters(),
                       if (_filterPanelOpen && !compact) ...[
@@ -756,20 +768,12 @@ class _AdminAuditPageState extends State<AdminAuditPage> with RouteAware {
       OutlinedButton.icon(
         key: const ValueKey<String>('audit-filters-button'),
         focusNode: _filterFocusNode,
-        style: OutlinedButton.styleFrom(
-          minimumSize: const Size(0, 48),
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-        ),
         onPressed: () => _openFilters(compact),
         icon: const Icon(Icons.tune_rounded, size: 18),
         label: Text(_filterButtonLabel),
       ),
       FilledButton.icon(
         key: const ValueKey<String>('audit-export-button'),
-        style: FilledButton.styleFrom(
-          minimumSize: const Size(0, 48),
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-        ),
         onPressed: _isExporting ? null : _exportEvents,
         icon: _isExporting
             ? const SizedBox.shrink()
@@ -779,6 +783,7 @@ class _AdminAuditPageState extends State<AdminAuditPage> with RouteAware {
     ];
 
     return WorkspaceHeader(
+      kicker: 'AUDITORIA',
       title: 'Eventos de auditoria',
       description: compact
           ? 'Consulte e exporte os eventos registrados da empresa.'

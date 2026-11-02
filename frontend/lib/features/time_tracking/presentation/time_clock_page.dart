@@ -337,27 +337,13 @@ class _TimeClockPageState extends State<TimeClockPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'CONTROLE DE PONTO',
-                key: const ValueKey<String>('time-clock-page-kicker'),
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: AppTheme.accent,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.3,
-                    ),
-              ),
-              const SizedBox(height: 6),
-              WorkspaceHeader(
-                title: 'Bater ponto',
-                description:
-                    'Registre sua jornada e acompanhe os eventos do dia.',
-                maxContentWidth: 640,
-                compact: true,
-              ),
-            ],
+          const WorkspaceHeader(
+            kicker: 'CONTROLE DE PONTO',
+            kickerKey: ValueKey<String>('time-clock-page-kicker'),
+            title: 'Bater ponto',
+            description: 'Registre sua jornada e acompanhe os eventos do dia.',
+            maxContentWidth: 640,
+            compact: true,
           ),
           const SizedBox(height: 28),
           _buildHeroCard(isWide),
