@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/accessibility_tools.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:touchin_flutter/contracts/auth.dart';
 import 'package:touchin_flutter/contracts/audit.dart';
@@ -88,6 +90,44 @@ void main() {
           .pumpWidget(MaterialApp(theme: theme, home: const SizedBox()));
     });
 
+    testWidgets('${brightness.name} team global contrast and keyboard activation', (tester) async {
+      tester.view.physicalSize = const Size(1440, 1200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final theme = brightness == Brightness.light ? AppTheme.lightTheme : AppTheme.darkTheme;
+      await tester.pumpWidget(MaterialApp(
+        theme: theme,
+        builder: (context, child) => AccessibilityTools(child: child!),
+        home: AdminEmployeesPage(api: _ContrastApi(employees: _employees)),
+      ));
+      await tester.pumpAndSettle();
+      final name = find.text('Active Employee').first;
+      await tester.tap(name);
+      await tester.pumpAndSettle();
+      expect(_decorationColorAncestor(tester, name, theme.colorScheme.surfaceContainerHighest), isNotNull);
+      await tester.tap(find.bySemanticsLabel('Acessibilidade'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Alto contraste'));
+      await tester.pumpAndSettle();
+      final high = Theme.of(tester.element(name));
+      expect(high.extension<HighContrastMarker>(), isNotNull);
+      final selected = AppTheme.adminColors(high).selectedContainer;
+      expect(_decorationColorAncestor(tester, name, selected), selected);
+      expect(_contrast(_renderedTextColor(tester, name), selected), greaterThanOrEqualTo(4.5));
+      await tester.tap(find.bySemanticsLabel('Acessibilidade'));
+      await tester.pumpAndSettle();
+      final button = find.widgetWithText(OutlinedButton, 'Ponto').last;
+      await tester.ensureVisible(button);
+      final focus = Focus.of(tester.element(find.text('Ponto').last));
+      focus.requestFocus();
+      await tester.pump();
+      expect(focus.hasFocus, isTrue);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(tester.widget<OutlinedButton>(button).style!.backgroundColor!.resolve({}), selected);
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('${brightness.name} employee states render accessible colors',
         (tester) async {
       tester.view.physicalSize = const Size(1440, 1200);
@@ -107,15 +147,14 @@ void main() {
       await tester.tap(activeName);
       await tester.pumpAndSettle();
       final localTheme = Theme.of(tester.element(activeName));
-      final localColors = AppTheme.adminColors(localTheme);
+      final selectedBackground = localTheme.colorScheme.surfaceContainerHighest;
+      expect(selectedBackground, isNot(localTheme.colorScheme.surface));
       expect(
-        _decorationColorAncestor(
-            tester, activeName, localColors.selectedContainer),
-        localColors.selectedContainer,
+        _decorationColorAncestor(tester, activeName, selectedBackground),
+        selectedBackground,
       );
       expect(
-        _contrast(_renderedTextColor(tester, activeName),
-            localColors.selectedContainer),
+        _contrast(_renderedTextColor(tester, activeName), selectedBackground),
         greaterThanOrEqualTo(4.5),
       );
       final pillBackground = localTheme.colorScheme.surfaceContainerHighest;
@@ -140,9 +179,8 @@ void main() {
       await tester.pumpAndSettle();
       final selectedInactive = find.text('Inactive Employee').first;
       expect(
-        _decorationColorAncestor(
-            tester, selectedInactive, localColors.selectedContainer),
-        localColors.selectedContainer,
+        _decorationColorAncestor(tester, selectedInactive, selectedBackground),
+        selectedBackground,
       );
       final inactiveLabel = find.text('Inativo').last;
       expect(
