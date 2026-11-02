@@ -665,7 +665,7 @@ class _EmployeeListTile extends StatelessWidget {
               border: Border.all(
                 color: selected
                     ? adminColors.selectedIndicator
-                    : colorScheme.outline,
+                    : colorScheme.outlineVariant,
               ),
             ),
             child: LayoutBuilder(
@@ -710,7 +710,7 @@ class _EmployeeListTile extends StatelessWidget {
               border: Border.all(
                 color: selected
                     ? adminColors.selectedIndicator
-                    : colorScheme.outline,
+                    : colorScheme.outlineVariant,
               ),
             ),
             child: Icon(
@@ -803,12 +803,14 @@ class _EmployeeListTile extends StatelessWidget {
                       _InlinePill(
                           label: statusLabel,
                           tone: statusColor,
-                          icon: statusIcon),
+                          icon: statusIcon,
+                          teamSurface: true),
                     if (needsAttention)
                       _InlinePill(
                           label: 'Acompanhamento',
                           tone: adminColors.warning.foreground,
-                          icon: Icons.priority_high_rounded),
+                          icon: Icons.priority_high_rounded,
+                          teamSurface: true),
                   ],
                 ),
               ],
@@ -825,12 +827,14 @@ class _InlinePill extends StatelessWidget {
       {required this.label,
       required this.tone,
       this.icon,
-      this.rounded = false});
+      this.rounded = false,
+      this.teamSurface = false});
 
   final String label;
   final Color tone;
   final IconData? icon;
   final bool rounded;
+  final bool teamSurface;
 
   @override
   Widget build(BuildContext context) {
@@ -840,7 +844,10 @@ class _InlinePill extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest,
-        border: Border.all(color: theme.colorScheme.outline),
+        border: Border.all(
+            color: teamSurface
+                ? theme.colorScheme.outlineVariant
+                : theme.colorScheme.outline),
         borderRadius: rounded ? BorderRadius.circular(8) : null,
       ),
       child: Row(
@@ -898,7 +905,7 @@ class _EmployeeDetailHero extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
         color: colorScheme.surfaceContainerLow,
-        border: Border.all(color: colorScheme.outline),
+        border: Border.all(color: colorScheme.outlineVariant),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -912,7 +919,7 @@ class _EmployeeDetailHero extends StatelessWidget {
                   height: 56,
                   decoration: BoxDecoration(
                     color: colorScheme.surfaceContainerHighest,
-                    border: Border.all(color: colorScheme.outline),
+                    border: Border.all(color: colorScheme.outlineVariant),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(
@@ -979,12 +986,14 @@ class _EmployeeDetailHero extends StatelessWidget {
                           tone: statusColor,
                           icon: statusIcon,
                           rounded: true,
+                          teamSurface: true,
                         ),
                         _InlinePill(
                           label: workModeLabel,
                           tone: colorScheme.onSurfaceVariant,
                           icon: workModeIcon,
                           rounded: true,
+                          teamSurface: true,
                         ),
                         if (needsAttention)
                           _InlinePill(
@@ -993,6 +1002,7 @@ class _EmployeeDetailHero extends StatelessWidget {
                                 AppTheme.adminColors(theme).warning.foreground,
                             icon: Icons.priority_high_rounded,
                             rounded: true,
+                            teamSurface: true,
                           ),
                       ],
                     ),
@@ -1119,7 +1129,7 @@ class _EmployeeOverviewCard extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: colorScheme.surface,
-        border: Border.all(color: colorScheme.outline),
+        border: Border.all(color: colorScheme.outlineVariant),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -1130,7 +1140,7 @@ class _EmployeeOverviewCard extends StatelessWidget {
             height: 36,
             decoration: BoxDecoration(
               color: colorScheme.surfaceContainerHighest,
-              border: Border.all(color: colorScheme.outline),
+              border: Border.all(color: colorScheme.outlineVariant),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(icon, size: 18, color: colorScheme.onSurfaceVariant),

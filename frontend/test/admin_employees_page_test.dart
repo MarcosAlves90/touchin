@@ -11,6 +11,43 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   for (final dark in [false, true]) {
+    for (final highContrast in [false, true]) {
+      for (final width in [430.0, 1440.0]) {
+        testWidgets('team normal surfaces $dark $highContrast $width', (tester) async {
+          tester.view.physicalSize = Size(width, 1800);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.reset);
+          final base = dark ? AppTheme.darkTheme : AppTheme.lightTheme;
+          final theme = highContrast ? AppTheme.highContrastTheme(base) : base;
+          await tester.pumpWidget(MaterialApp(
+            theme: theme,
+            home: AdminEmployeesPage(api: _FakeAdminApi(employee: _employeeResponse(pendingAdjustments: 1))),
+          ));
+          await tester.pumpAndSettle();
+          BoxDecoration decoration(Finder child) {
+            final container = find.ancestor(
+              of: child,
+              matching: find.byWidgetPredicate((w) => w is Container && w.decoration is BoxDecoration),
+            ).first;
+            return tester.widget<Container>(container).decoration! as BoxDecoration;
+          }
+          for (final label in ['Perfil selecionado', 'Jornada', 'E-mail', 'Atenção operacional']) {
+            final border = decoration(find.text(label).last).border! as Border;
+            expect(border.top.color, theme.colorScheme.outlineVariant, reason: 'team_surface_color $label');
+          }
+          final button = find.ancestor(of: find.text('Cadastro').last, matching: find.byType(OutlinedButton)).first;
+          final selected = tester.widget<OutlinedButton>(button).style!;
+          expect(selected.backgroundColor!.resolve({}), AppTheme.adminColors(theme).selectedContainer);
+          await tester.ensureVisible(find.text('Políticas').last);
+          await tester.tap(find.text('Políticas').last);
+          await tester.pumpAndSettle();
+          expect(find.text('Validação de localização'), findsOneWidget);
+          expect(tester.takeException(), isNull);
+        });
+      }
+    }
+  }
+  for (final dark in [false, true]) {
     for (final width in [430.0, 1440.0]) {
       for (final populated in [false, true]) {
         testWidgets('profile tabs rounded $dark $width $populated',

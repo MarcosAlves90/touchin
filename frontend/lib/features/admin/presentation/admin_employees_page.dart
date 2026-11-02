@@ -802,7 +802,7 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
                     width: double.infinity,
                     decoration: BoxDecoration(
                       color: colorScheme.surface,
-                      border: Border.all(color: colorScheme.outline),
+                      border: Border.all(color: colorScheme.outlineVariant),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Column(
@@ -812,7 +812,7 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
                           label: 'E-mail',
                           value: employee.email,
                         ),
-                        Divider(color: colorScheme.outline, height: 1),
+                        Divider(color: colorScheme.outlineVariant, height: 1),
                         _EmployeeDetailRow(
                           icon: Icons.phone_outlined,
                           label: 'Telefone',
@@ -1179,12 +1179,14 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
           foregroundColor: MaterialStateProperty.resolveWith((_) {
             return selected ? selectedTabForeground : colorScheme.onSurface;
           }),
-          side: MaterialStateProperty.all(
-            BorderSide(
-                color: selected
-                    ? adminColors.selectedIndicator
-                    : colorScheme.outline),
-          ),
+          side: MaterialStateProperty.resolveWith((states) => BorderSide(
+                color: states.contains(MaterialState.focused)
+                    ? AppTheme.navigationColors(Theme.of(context)).focusRing
+                    : selected
+                        ? adminColors.selectedIndicator
+                        : colorScheme.outlineVariant,
+                width: states.contains(MaterialState.focused) ? 2 : 1,
+              )),
           shape: MaterialStateProperty.all(
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           ),
