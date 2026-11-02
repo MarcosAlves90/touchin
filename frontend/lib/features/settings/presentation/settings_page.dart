@@ -197,7 +197,7 @@ class ThemeSettingsPage extends StatelessWidget {
                                     ? Icons.nightlight_round_rounded
                                     : Icons.brightness_auto_rounded,
                             color: isLightMode
-                                ? AppTheme.accent
+                                ? colorScheme.primary
                                 : colorScheme.onSurfaceVariant,
                           ),
                           const SizedBox(width: 12),

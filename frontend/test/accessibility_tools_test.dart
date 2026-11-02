@@ -3,8 +3,44 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:touchin_flutter/theme/app_theme.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/accessibility_tools.dart';
+import 'package:touchin_flutter/features/admin/presentation/admin_audit_page.dart';
+import 'admin_audit_page_test.dart' show FakeTouchInApi, openAuditFilters;
 
 void main() {
+  for (final brightness in Brightness.values) {
+    testWidgets('high contrast disabled button differs from enabled ${brightness.name}', (tester) async {
+      final base = brightness == Brightness.light ? AppTheme.lightTheme : AppTheme.darkTheme;
+      await tester.pumpWidget(MaterialApp(theme: AppTheme.highContrastTheme(base), home: Scaffold(body: Column(children: [
+        ElevatedButton(onPressed: () {}, child: const Text('Enabled')),
+        const ElevatedButton(onPressed: null, child: Text('Disabled')),
+      ]))));
+      final style = Theme.of(tester.element(find.text('Enabled'))).elevatedButtonTheme.style!;
+      expect(style.backgroundColor!.resolve({WidgetState.disabled}), isNot(style.backgroundColor!.resolve({})), reason: 'high_contrast_disabled_state');
+    });
+  }
+  for (final brightness in Brightness.values) {
+    testWidgets('audit picker updates while open ${brightness.name}', (tester) async {
+      tester.view.physicalSize = const Size(1200, 1000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final base = brightness == Brightness.light ? AppTheme.lightTheme : AppTheme.darkTheme;
+      await tester.pumpWidget(MaterialApp(theme: base, builder: (context, child) => AccessibilityTools(child: child!), home: AdminAuditPage(api: FakeTouchInApi())));
+      await tester.pumpAndSettle();
+      await openAuditFilters(tester);
+      await tester.ensureVisible(find.text('Data inicial'));
+      await tester.tap(find.text('Data inicial'));
+      await tester.pumpAndSettle();
+      expect(find.byType(DatePickerDialog), findsOneWidget);
+      await tester.tap(find.bySemanticsLabel('Acessibilidade'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Alto contraste'));
+      await tester.pumpAndSettle();
+      expect(Theme.of(tester.element(find.byType(DatePickerDialog))).colorScheme.surface, AppTheme.highContrastTheme(base).colorScheme.surface, reason: 'audit_picker_live_theme');
+      await tester.tap(find.text('Alto contraste'));
+      await tester.pumpAndSettle();
+      expect(Theme.of(tester.element(find.byType(DatePickerDialog))).colorScheme.surface, base.colorScheme.surface);
+    });
+  }
   for (final brightness in Brightness.values) {
     testWidgets('global contrast toggle survives navigation ${brightness.name}',
         (tester) async {

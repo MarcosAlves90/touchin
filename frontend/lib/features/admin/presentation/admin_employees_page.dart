@@ -508,9 +508,6 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
       controller: _searchController,
       onChanged: _controller.setSearchQuery,
       decoration: InputDecoration(
-        focusedBorder: AppTheme.adminContrastTheme(theme)
-            .inputDecorationTheme
-            .focusedBorder,
         labelText: 'Buscar funcionário',
         hintText: 'Nome, cargo ou unidade',
         prefixIcon: const Icon(Icons.search_rounded),

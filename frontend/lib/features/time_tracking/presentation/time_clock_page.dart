@@ -837,7 +837,7 @@ class _TimeClockPageState extends State<TimeClockPage> {
             color: AppTheme.accent.withValues(alpha: 0.14),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: const Icon(Icons.bar_chart_rounded, color: AppTheme.accent),
+          child: Icon(Icons.bar_chart_rounded, color: colorScheme.primary),
         ),
         const SizedBox(width: 14),
         Expanded(
@@ -871,7 +871,7 @@ class _TimeClockPageState extends State<TimeClockPage> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.calendar_today_rounded, size: 16, color: AppTheme.accent),
+          Icon(Icons.calendar_today_rounded, size: 16, color: colorScheme.primary),
           const SizedBox(width: 8),
           Text('${_now.day} de ${_months[_now.month - 1]}'),
         ],
@@ -991,7 +991,7 @@ class _TimeClockPageState extends State<TimeClockPage> {
                     Icon(
                       Icons.event_available_outlined,
                       size: 28,
-                      color: AppTheme.accent,
+                      color: colorScheme.primary,
                     ),
                     const SizedBox(height: 10),
                     Text(

@@ -98,8 +98,10 @@ class AppTheme {
     return adminContrastTheme(base.copyWith(
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: base.elevatedButtonTheme.style?.copyWith(
-          backgroundColor: WidgetStatePropertyAll(primary),
-          foregroundColor: WidgetStatePropertyAll(onPrimary),
+          backgroundColor: WidgetStateProperty.resolveWith((states) =>
+              states.contains(WidgetState.disabled) ? panel : primary),
+          foregroundColor: WidgetStateProperty.resolveWith((states) =>
+              states.contains(WidgetState.disabled) ? foreground : onPrimary),
         ),
       ),
       floatingActionButtonTheme: base.floatingActionButtonTheme.copyWith(
@@ -258,7 +260,12 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: _radius,
-          borderSide: const BorderSide(color: accent, width: 1.5),
+          borderSide: BorderSide(
+            color: colorScheme.brightness == Brightness.dark
+                ? _darkAdminColors.selectedIndicator
+                : _lightAdminColors.selectedIndicator,
+            width: 1.5,
+          ),
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(

@@ -53,7 +53,7 @@ class WorkspaceNavigationBrand extends StatelessWidget {
       width: compact || collapsed ? 28 : 42,
       height: compact || collapsed ? 28 : 42,
       decoration: BoxDecoration(
-        color: AppTheme.accent,
+        color: colors.primary,
       ),
       child: Icon(
         Icons.fingerprint_rounded,

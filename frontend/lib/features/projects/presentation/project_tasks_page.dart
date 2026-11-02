@@ -8,7 +8,6 @@ import 'package:touchin_flutter/features/projects/presentation/widgets/task_edit
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_editor_dialog.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_skeleton.dart';
-import 'package:touchin_flutter/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -1014,10 +1013,10 @@ class _ProjectListTile extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(8),
               color: selected
-                  ? AppTheme.accent.withValues(alpha: 0.08)
+                  ? colorScheme.primary.withValues(alpha: 0.08)
                   : colorScheme.surface.withValues(alpha: 0.8),
               border: Border.all(
-                color: selected ? AppTheme.accent : colorScheme.outlineVariant,
+                color: selected ? colorScheme.primary : colorScheme.outlineVariant,
               ),
             ),
             child: LayoutBuilder(
@@ -1032,12 +1031,12 @@ class _ProjectListTile extends StatelessWidget {
                         height: 40,
                         decoration: BoxDecoration(
                           color: selected
-                              ? AppTheme.accent.withValues(alpha: 0.16)
+                              ? colorScheme.primary.withValues(alpha: 0.16)
                               : colorScheme.surfaceContainerHighest
                                   .withValues(alpha: 0.72),
                           border: Border.all(
                             color: selected
-                                ? AppTheme.accent.withValues(alpha: 0.36)
+                                ? colorScheme.primary.withValues(alpha: 0.36)
                                 : colorScheme.outlineVariant,
                           ),
                         ),
@@ -1045,7 +1044,7 @@ class _ProjectListTile extends StatelessWidget {
                           Icons.folder_open_rounded,
                           size: 20,
                           color: selected
-                              ? AppTheme.accent
+                              ? colorScheme.primary
                               : colorScheme.onSurface,
                         ),
                       ),

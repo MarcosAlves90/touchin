@@ -475,14 +475,13 @@ class _AdminAuditPageState extends State<AdminAuditPage> with RouteAware {
   Future<void> _pickDate(bool isStart) async {
     final initialDate =
         isStart ? _startDate ?? DateTime.now() : _endDate ?? DateTime.now();
-    final baseTheme = Theme.of(context);
     final picked = await showDatePicker(
       context: context,
       initialDate: initialDate,
       firstDate: DateTime(2020),
       lastDate: DateTime(2100),
       builder: (context, child) => Theme(
-        data: AppTheme.adminContrastTheme(baseTheme),
+        data: AppTheme.adminContrastTheme(Theme.of(context)),
         child: child!,
       ),
     );
