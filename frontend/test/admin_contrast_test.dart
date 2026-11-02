@@ -279,33 +279,16 @@ void main() {
       await tester.tap(filtersButton);
       await tester.pumpAndSettle();
       await tester.tap(find.text('Carregar mais eventos'));
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
       final endText = find.text('Todos os eventos carregados.');
       expect(endText, findsOneWidget);
-      final endFocus = tester.widget<Focus>(
-        find.ancestor(of: endText, matching: find.byType(Focus)).first,
-      );
-      endFocus.focusNode!.requestFocus();
+      final snack = tester.widget<SnackBar>(find.byType(SnackBar));
+      expect(snack.content, isA<Text>());
       await tester.pumpAndSettle();
-      expect(endFocus.focusNode!.hasFocus, isTrue);
-      final endContainer = tester.widget<Container>(
-        find.ancestor(
-          of: endText,
-          matching: find.byWidgetPredicate(
-            (widget) =>
-                widget is Container &&
-                widget.decoration is BoxDecoration &&
-                ((widget.decoration! as BoxDecoration).border?.top.width == 2),
-          ),
-        ),
-      );
-      final focusColor =
-          (endContainer.decoration! as BoxDecoration).border!.top.color;
-      expect(focusColor, AppTheme.adminColors(auditTheme).selectedIndicator);
-      expect(
-        _contrast(focusColor, auditTheme.scaffoldBackgroundColor),
-        greaterThanOrEqualTo(3),
-      );
+      await tester.pump(const Duration(seconds: 4));
+      await tester.pumpAndSettle();
+      expect(endText, findsNothing);
       expect(tester.takeException(), isNull);
     });
   }

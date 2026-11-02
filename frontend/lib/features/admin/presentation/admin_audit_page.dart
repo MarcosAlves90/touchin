@@ -32,7 +32,9 @@ class AdminAuditPage extends StatefulWidget {
   State<AdminAuditPage> createState() => _AdminAuditPageState();
 }
 
-class _AdminAuditPageState extends State<AdminAuditPage> {
+class _AdminAuditPageState extends State<AdminAuditPage> with RouteAware {
+  RouteObserver<ModalRoute<dynamic>>? _routeObserver;
+  ModalRoute<dynamic>? _observedRoute;
   static const _AuditFilters _noFilters = (
     startDate: null,
     endDate: null,
@@ -98,6 +100,7 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
   final List<AuditEventResponse> _events = [];
   bool _hasMore = true;
   int _requestGeneration = 0;
+  int _routeGeneration = 0;
   late final TouchInApi _api;
 
   int _page = 1;
@@ -106,7 +109,11 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
   final ScrollController _scrollController = ScrollController();
   final ScrollController _headerScrollController = ScrollController();
   final FocusNode _loadMoreFocusNode = FocusNode();
-  final FocusNode _endOfResultsFocusNode = FocusNode();
+  final FocusNode _retryFocusNode = FocusNode();
+  final FocusNode _filterFocusNode = FocusNode();
+  final _messengerKey = GlobalKey<ScaffoldMessengerState>();
+  GlobalKey? _completionSnackKey;
+  ScaffoldFeatureController<SnackBar, SnackBarClosedReason>? _completionSnack;
 
   DateTime? _startDate;
   DateTime? _endDate;
@@ -128,11 +135,31 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    final observers = route?.navigator?.widget.observers.whereType<RouteObserver<ModalRoute<dynamic>>>();
+    final observer = observers == null || observers.isEmpty ? null : observers.first;
+    if (route != _observedRoute || observer != _routeObserver) {
+      _routeObserver?.unsubscribe(this);
+      _observedRoute = route;
+      _routeObserver = observer;
+      if (route != null) observer?.subscribe(this, route);
+    }
+    if (!(route?.isCurrent ?? true)) _routeGeneration++;
+  }
+
+  @override
+  void didPushNext() => _routeGeneration++;
+
+  @override
   void dispose() {
+    _routeObserver?.unsubscribe(this);
     _scrollController.dispose();
     _headerScrollController.dispose();
     _loadMoreFocusNode.dispose();
-    _endOfResultsFocusNode.dispose();
+    _retryFocusNode.dispose();
+    _filterFocusNode.dispose();
     _actorUserIdController.dispose();
     _actionController.dispose();
     _entityTypeController.dispose();
@@ -197,7 +224,13 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
             (_error != null && !retry))) {
       return;
     }
-    if (refresh) _requestGeneration++;
+    if (refresh) {
+      _requestGeneration++;
+      if (_completionSnackKey?.currentContext != null) _completionSnack?.close();
+      _completionSnack = null;
+      _completionSnackKey = null;
+    }
+    if (retry && _retryFocusNode.hasFocus) _filterFocusNode.requestFocus();
     final generation = _requestGeneration;
     final requestedPage = refresh ? 1 : _page;
     final filters = _appliedFilters;
@@ -232,8 +265,11 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
       );
 
       if (!mounted || generation != _requestGeneration) return;
-      final moveFocusToEnd =
-          !refresh && _loadMoreFocusNode.hasFocus && newEvents.length < _limit;
+      final currentRoute = ModalRoute.of(context)?.isCurrent ?? true;
+      if (!refresh && newEvents.length < _limit && currentRoute &&
+          (_loadMoreFocusNode.hasFocus || _retryFocusNode.hasFocus)) {
+        _filterFocusNode.requestFocus();
+      }
       setState(() {
         if (newEvents.length < _limit) {
           _hasMore = false;
@@ -250,9 +286,41 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
           }
         });
       }
-      if (moveFocusToEnd) {
+      if (!_hasMore && _events.isNotEmpty) {
+        final routeGeneration = _routeGeneration;
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted && !_hasMore) _endOfResultsFocusNode.requestFocus();
+          if (!mounted || generation != _requestGeneration ||
+              routeGeneration != _routeGeneration ||
+              !(ModalRoute.of(context)?.isCurrent ?? true)) return;
+          final messenger = _messengerKey.currentState;
+          if (messenger == null) return;
+          final key = GlobalKey();
+          late final ScaffoldFeatureController<SnackBar, SnackBarClosedReason> controller;
+          controller = messenger.showSnackBar(
+            SnackBar(
+              key: key,
+              duration: const Duration(seconds: 3),
+              content: Text.rich(TextSpan(children: [WidgetSpan(child: Builder(builder: (context) {
+                if (generation != _requestGeneration ||
+                    routeGeneration != _routeGeneration ||
+                    !(ModalRoute.of(context)?.isCurrent ?? true)) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (key.currentContext != null) controller.close();
+                  });
+                  return const SizedBox.shrink();
+                }
+                return const Text('Todos os eventos carregados.');
+              }))])),
+            ),
+          );
+          _completionSnack = controller;
+          _completionSnackKey = key;
+          controller.closed.then((_) {
+            if (identical(_completionSnack, controller)) {
+              _completionSnack = null;
+              _completionSnackKey = null;
+            }
+          });
         });
       }
     } catch (e) {
@@ -623,9 +691,12 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Theme(
-      data: AppTheme.adminContrastTheme(Theme.of(context)),
-      child: _buildScaffold(),
+    return ScaffoldMessenger(
+      key: _messengerKey,
+      child: Theme(
+        data: AppTheme.adminContrastTheme(Theme.of(context)),
+        child: _buildScaffold(),
+      ),
     );
   }
 
@@ -684,6 +755,7 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
     final actions = <Widget>[
       OutlinedButton.icon(
         key: const ValueKey<String>('audit-filters-button'),
+        focusNode: _filterFocusNode,
         style: OutlinedButton.styleFrom(
           minimumSize: const Size(0, 48),
           padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -1468,6 +1540,7 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
               ),
               const SizedBox(height: 4),
               TextButton(
+                focusNode: _retryFocusNode,
                 onPressed: () => _loadEvents(retry: true),
                 child: const Text('Tentar novamente'),
               ),
@@ -1483,50 +1556,6 @@ class _AdminAuditPageState extends State<AdminAuditPage> {
       );
     }
 
-    return Padding(
-      padding: const EdgeInsets.only(top: 12),
-      child: Semantics(
-        liveRegion: true,
-        focusable: true,
-        child: Focus(
-          focusNode: _endOfResultsFocusNode,
-          child: Builder(
-            builder: (context) => Container(
-              key: const ValueKey<String>('audit-end-of-list'),
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                color: colorScheme.surface,
-                border: Border.all(
-                  color: Focus.of(context).hasFocus
-                      ? AppTheme.adminColors(theme).selectedIndicator
-                      : colorScheme.outlineVariant,
-                  width: Focus.of(context).hasFocus ? 2 : 1,
-                ),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.check_circle_outline_rounded,
-                    size: 17,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                  const SizedBox(width: 7),
-                  Expanded(
-                    child: Text(
-                      'Todos os eventos carregados.',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
+    return const SizedBox.shrink();
   }
 }

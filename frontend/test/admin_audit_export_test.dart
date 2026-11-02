@@ -712,7 +712,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(
       find.byKey(const ValueKey<String>('audit-end-of-list')),
-      findsOneWidget,
+      findsNothing,
     );
     expect(find.text('Todos os eventos carregados.'), findsOneWidget);
   });
