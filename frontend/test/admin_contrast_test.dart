@@ -41,9 +41,14 @@ void main() {
           final section = find.ancestor(of: tile, matching: find.byType(WorkspaceSectionCard)).first;
           final panel = tester.widget<Material>(find.descendant(of: section, matching: find.byType(Material)).first);
           final adjacent = Color.alphaBlend(panel.color!, localTheme.scaffoldBackgroundColor);
-          if (!highContrast) {
-            expect(border.color, localTheme.colorScheme.outline, reason: 'Normal selection must use the shared outline token');
-          }
+          expect(border.color, AppTheme.adminColors(localTheme).selectedIndicator, reason: 'Employee selection border must use accessible theme yellow');
+          expect(border.width, 2, reason: 'Selected border width is independent of contrast mode');
+          final inactiveTile = find.ancestor(of: inactive, matching: find.byType(InkWell)).first;
+          final inactiveBox = find.descendant(of: inactiveTile, matching: find.byWidgetPredicate((w) => w is Container && w.decoration is BoxDecoration)).first;
+          final inactiveDecoration = tester.widget<Container>(inactiveBox).decoration! as BoxDecoration;
+          final inactiveBorder = (inactiveDecoration.border! as Border).top;
+          expect(inactiveBorder.color, localTheme.colorScheme.outlineVariant);
+          expect(inactiveBorder.width, 1);
           expect(_contrast(border.color, decoration.color!), greaterThanOrEqualTo(3), reason: 'selected surface');
           expect(_contrast(border.color, adjacent), greaterThanOrEqualTo(3), reason: 'composited adjacent panel');
           final selected = find.ancestor(of: active, matching: find.byWidgetPredicate((w) => w is Semantics && w.properties.selected == true));
