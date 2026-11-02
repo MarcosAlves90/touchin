@@ -1184,12 +1184,10 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
           side: MaterialStateProperty.resolveWith((states) => BorderSide(
                 color: states.contains(MaterialState.focused)
                     ? AppTheme.navigationColors(Theme.of(context)).focusRing
-                    : selected &&
-                            Theme.of(context).extension<HighContrastMarker>() !=
-                                null
+                    : selected
                         ? adminColors.selectedIndicator
                         : colorScheme.outlineVariant,
-                width: states.contains(MaterialState.focused) ? 2 : 1,
+                width: states.contains(MaterialState.focused) || selected ? 2 : 1,
               )),
           shape: MaterialStateProperty.all(
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),

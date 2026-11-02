@@ -7,9 +7,78 @@ import 'package:touchin_flutter/features/admin/presentation/admin_employees_page
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
 import 'package:touchin_flutter/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  for (final dark in [false, true]) {
+    for (final highContrast in [false, true]) {
+      for (final width in [430.0, 1440.0]) {
+        testWidgets('profile selected tabs $dark $highContrast $width', (tester) async {
+          tester.view.physicalSize = Size(width, 1800);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.reset);
+          final base = dark ? AppTheme.darkTheme : AppTheme.lightTheme;
+          final theme = highContrast ? AppTheme.highContrastTheme(base) : base;
+          final semantics = tester.ensureSemantics();
+          await tester.pumpWidget(MaterialApp(theme: theme, home: AdminEmployeesPage(api: _FakeAdminApi(employee: _employeeResponse(pendingAdjustments: 1)))));
+          await tester.pumpAndSettle();
+          final selectedCard = find.ancestor(of: find.text('Renata Souza').first, matching: find.byType(InkWell)).first;
+          final cardBox = find.descendant(of: selectedCard, matching: find.byWidgetPredicate((w) => w is Container && w.decoration is BoxDecoration)).first;
+          final card = tester.widget<Container>(cardBox).decoration! as BoxDecoration;
+          final cardBorder = (card.border! as Border).top;
+          final labels = ['Cadastro', 'Políticas', 'Ponto', 'Notas'];
+          final failures = <String>[];
+          Finder button(String label) => find.ancestor(of: find.text(label).last, matching: find.byType(OutlinedButton)).first;
+          double contrast(Color a, Color b) {
+            final x = a.computeLuminance();
+            final y = b.computeLuminance();
+            return (x > y ? x + .05 : y + .05) / (x > y ? y + .05 : x + .05);
+          }
+          for (final label in labels) {
+            final target = button(label);
+            await tester.ensureVisible(target);
+            await tester.tap(target);
+            await tester.pumpAndSettle();
+            final style = tester.widget<OutlinedButton>(target).style!;
+            final side = style.side!.resolve({})!;
+            if (side != cardBorder) {
+              failures.add('$label $side != $cardBorder');
+              continue;
+            }
+            final bg = style.backgroundColor!.resolve({})!;
+            final section = find.ancestor(of: target, matching: find.byType(WorkspaceSectionCard)).first;
+            final panel = tester.widget<Material>(find.descendant(of: section, matching: find.byType(Material)).first);
+            final adjacent = Color.alphaBlend(panel.color!, theme.scaffoldBackgroundColor);
+            expect(contrast(side.color, Color.alphaBlend(bg, adjacent)), greaterThanOrEqualTo(3), reason: 'selected surface $label');
+            expect(contrast(side.color, adjacent), greaterThanOrEqualTo(3), reason: 'adjacent surface $label');
+            expect(contrast(style.foregroundColor!.resolve({})!, Color.alphaBlend(bg, adjacent)), greaterThanOrEqualTo(4.5), reason: 'selected text $label');
+            expect(find.bySemanticsLabel(label), findsWidgets);
+            for (final other in labels.where((item) => item != label)) {
+              final inactive = tester.widget<OutlinedButton>(button(other)).style!.side!.resolve({})!;
+              expect(inactive.width, 1);
+              expect(inactive.color, theme.colorScheme.outlineVariant);
+            }
+          }
+          final first = button('Cadastro');
+          await tester.ensureVisible(first);
+          final focus = Focus.of(tester.element(find.text('Cadastro').last));
+          focus.requestFocus();
+          await tester.pump();
+          expect(focus.hasFocus, isTrue);
+          final focused = tester.widget<OutlinedButton>(first).style!.side!.resolve({MaterialState.focused})!;
+          expect(focused.color, AppTheme.navigationColors(theme).focusRing);
+          expect(focused.width, 2);
+          await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+          await tester.pumpAndSettle();
+          expect(find.text('E-mail'), findsWidgets);
+          expect(tester.takeException(), isNull);
+          semantics.dispose();
+          expect(failures, isEmpty, reason: 'profile_tab_indicator_mismatch');
+        });
+      }
+    }
+  }
   for (final dark in [false, true]) {
     for (final highContrast in [false, true]) {
       for (final width in [430.0, 1440.0]) {
@@ -26,7 +95,7 @@ void main() {
           final button = find.ancestor(of: find.text('Cadastro').last, matching: find.byType(OutlinedButton)).first;
           final style = tester.widget<OutlinedButton>(button).style!;
           expect(style.backgroundColor!.resolve({}), highContrast ? AppTheme.adminColors(theme).selectedContainer : theme.colorScheme.surfaceContainerHighest, reason: 'team_selected_v2 tab');
-          expect(style.side!.resolve({})!.color, highContrast ? AppTheme.adminColors(theme).selectedIndicator : theme.colorScheme.outlineVariant, reason: 'team_selected_v2 border');
+          expect(style.side!.resolve({})!.color, AppTheme.adminColors(theme).selectedIndicator, reason: 'profile_tab_indicator_mismatch');
           expect(style.side!.resolve({MaterialState.focused})!.width, 2);
           expect((decoration(find.text('Acompanhamento')).border! as Border).top.color, theme.colorScheme.outlineVariant);
           await tester.ensureVisible(find.text('Ponto').last);
