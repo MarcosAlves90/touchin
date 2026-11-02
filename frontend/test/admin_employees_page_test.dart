@@ -13,6 +13,38 @@ void main() {
   for (final dark in [false, true]) {
     for (final highContrast in [false, true]) {
       for (final width in [430.0, 1440.0]) {
+        testWidgets('team selected v2 $dark $highContrast $width', (tester) async {
+          tester.view.physicalSize = Size(width, 1800);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.reset);
+          final base = dark ? AppTheme.darkTheme : AppTheme.lightTheme;
+          final theme = highContrast ? AppTheme.highContrastTheme(base) : base;
+          final semantics = tester.ensureSemantics();
+          await tester.pumpWidget(MaterialApp(theme: theme, home: AdminEmployeesPage(api: _FakeAdminApi(employee: _employeeResponse(pendingAdjustments: 1)))));
+          await tester.pumpAndSettle();
+          BoxDecoration decoration(Finder child) => tester.widget<Container>(find.ancestor(of: child, matching: find.byWidgetPredicate((w) => w is Container && w.decoration is BoxDecoration)).first).decoration! as BoxDecoration;
+          final button = find.ancestor(of: find.text('Cadastro').last, matching: find.byType(OutlinedButton)).first;
+          final style = tester.widget<OutlinedButton>(button).style!;
+          expect(style.backgroundColor!.resolve({}), highContrast ? AppTheme.adminColors(theme).selectedContainer : theme.colorScheme.surfaceContainerHighest, reason: 'team_selected_v2 tab');
+          expect(style.side!.resolve({})!.color, highContrast ? AppTheme.adminColors(theme).selectedIndicator : theme.colorScheme.outlineVariant, reason: 'team_selected_v2 border');
+          expect(style.side!.resolve({MaterialState.focused})!.width, 2);
+          expect((decoration(find.text('Acompanhamento')).border! as Border).top.color, theme.colorScheme.outlineVariant);
+          await tester.ensureVisible(find.text('Ponto').last);
+          await tester.tap(find.text('Ponto').last);
+          await tester.pumpAndSettle();
+          for (final label in ['Gestão de ponto', 'Nenhum ponto manual registrado.']) {
+            expect((decoration(find.text(label)).border! as Border).top.color, theme.colorScheme.outlineVariant, reason: 'team_selected_v2 $label');
+          }
+          expect(find.bySemanticsLabel('Ponto'), findsWidgets);
+          expect(tester.takeException(), isNull);
+          semantics.dispose();
+        });
+      }
+    }
+  }
+  for (final dark in [false, true]) {
+    for (final highContrast in [false, true]) {
+      for (final width in [430.0, 1440.0]) {
         testWidgets('team normal surfaces $dark $highContrast $width', (tester) async {
           tester.view.physicalSize = Size(width, 1800);
           tester.view.devicePixelRatio = 1;
@@ -37,7 +69,7 @@ void main() {
           }
           final button = find.ancestor(of: find.text('Cadastro').last, matching: find.byType(OutlinedButton)).first;
           final selected = tester.widget<OutlinedButton>(button).style!;
-          expect(selected.backgroundColor!.resolve({}), AppTheme.adminColors(theme).selectedContainer);
+          expect(selected.backgroundColor!.resolve({}), highContrast ? AppTheme.adminColors(theme).selectedContainer : theme.colorScheme.surfaceContainerHighest);
           await tester.ensureVisible(find.text('Políticas').last);
           await tester.tap(find.text('Políticas').last);
           await tester.pumpAndSettle();
@@ -222,11 +254,7 @@ void main() {
               .resolve(<MaterialState>{});
           expect(
               selected,
-              AppTheme.adminColors(tester
-                      .element(button)
-                      .findAncestorWidgetOfExactType<MaterialApp>()!
-                      .theme!)
-                  .selectedContainer);
+              Theme.of(tester.element(button)).colorScheme.surfaceContainerHighest);
         }
         await tester.ensureVisible(inside(find.text('Editar')));
         await tester.tap(inside(find.text('Editar')));

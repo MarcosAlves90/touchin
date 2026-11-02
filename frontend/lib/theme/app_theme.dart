@@ -1,6 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+class HighContrastMarker extends ThemeExtension<HighContrastMarker> {
+  const HighContrastMarker();
+
+  @override
+  HighContrastMarker copyWith() => this;
+
+  @override
+  HighContrastMarker lerp(
+          ThemeExtension<HighContrastMarker>? other, double t) =>
+      this;
+}
+
 class AppTheme {
   AppTheme._();
 
@@ -96,6 +108,7 @@ class AppTheme {
     );
     final base = _buildTheme(colorScheme: scheme, backgroundColor: surface);
     return adminContrastTheme(base.copyWith(
+      extensions: [...base.extensions.values, const HighContrastMarker()],
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: base.elevatedButtonTheme.style?.copyWith(
           backgroundColor: WidgetStateProperty.resolveWith((states) =>

@@ -660,10 +660,12 @@ class _EmployeeListTile extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
               color: selected
-                  ? adminColors.selectedContainer
+                  ? (theme.extension<HighContrastMarker>() != null
+                      ? adminColors.selectedContainer
+                      : colorScheme.surfaceContainerHighest)
                   : colorScheme.surface,
               border: Border.all(
-                color: selected
+                color: selected && theme.extension<HighContrastMarker>() != null
                     ? adminColors.selectedIndicator
                     : colorScheme.outlineVariant,
               ),
@@ -705,10 +707,12 @@ class _EmployeeListTile extends StatelessWidget {
             height: 40,
             decoration: BoxDecoration(
               color: selected
-                  ? adminColors.selectedContainer
+                  ? (theme.extension<HighContrastMarker>() != null
+                      ? adminColors.selectedContainer
+                      : colorScheme.surface)
                   : colorScheme.surfaceContainerHighest,
               border: Border.all(
-                color: selected
+                color: selected && theme.extension<HighContrastMarker>() != null
                     ? adminColors.selectedIndicator
                     : colorScheme.outlineVariant,
               ),

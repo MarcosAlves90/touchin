@@ -590,7 +590,7 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 color: colorScheme.surface,
-                border: Border.all(color: colorScheme.outline),
+                border: Border.all(color: colorScheme.outlineVariant),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -616,7 +616,7 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 color: colorScheme.surface,
-                border: Border.all(color: colorScheme.outline),
+                border: Border.all(color: colorScheme.outlineVariant),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -906,7 +906,7 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
             color: colorScheme.surface,
-            border: Border.all(color: colorScheme.outline),
+            border: Border.all(color: colorScheme.outlineVariant),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Column(
@@ -1007,7 +1007,7 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: colorScheme.surface,
-              border: Border.all(color: colorScheme.outline),
+              border: Border.all(color: colorScheme.outlineVariant),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Column(
@@ -1035,7 +1035,7 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: colorScheme.surface,
-              border: Border.all(color: colorScheme.outline),
+              border: Border.all(color: colorScheme.outlineVariant),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Column(
@@ -1173,7 +1173,9 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
           minimumSize: MaterialStateProperty.all(const Size.fromHeight(48)),
           backgroundColor: MaterialStateProperty.resolveWith((_) {
             return selected
-                ? adminColors.selectedContainer
+                ? (Theme.of(context).extension<HighContrastMarker>() != null
+                    ? adminColors.selectedContainer
+                    : colorScheme.surfaceContainerHighest)
                 : Colors.transparent;
           }),
           foregroundColor: MaterialStateProperty.resolveWith((_) {
@@ -1182,7 +1184,9 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
           side: MaterialStateProperty.resolveWith((states) => BorderSide(
                 color: states.contains(MaterialState.focused)
                     ? AppTheme.navigationColors(Theme.of(context)).focusRing
-                    : selected
+                    : selected &&
+                            Theme.of(context).extension<HighContrastMarker>() !=
+                                null
                         ? adminColors.selectedIndicator
                         : colorScheme.outlineVariant,
                 width: states.contains(MaterialState.focused) ? 2 : 1,
