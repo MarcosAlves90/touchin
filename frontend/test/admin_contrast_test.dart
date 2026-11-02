@@ -16,6 +16,45 @@ import 'package:touchin_flutter/theme/app_theme.dart';
 
 void main() {
   for (final brightness in Brightness.values) {
+    for (final highContrast in [false, true]) {
+      for (final width in [430.0, 1440.0]) {
+        testWidgets('team_selection_indicator $brightness $highContrast $width', (tester) async {
+          tester.view.physicalSize = Size(width, 1800);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.reset);
+          final semantics = tester.ensureSemantics();
+          final base = brightness == Brightness.light ? AppTheme.lightTheme : AppTheme.darkTheme;
+          final theme = highContrast ? AppTheme.highContrastTheme(base) : base;
+          await tester.pumpWidget(MaterialApp(theme: theme, home: AdminEmployeesPage(api: _ContrastApi(employees: _employees))));
+          await tester.pumpAndSettle();
+          final active = find.text('Active Employee').first;
+          final inactive = find.text('Inactive Employee').first;
+          await tester.ensureVisible(active);
+          await tester.tap(active);
+          await tester.pumpAndSettle();
+          final tile = find.ancestor(of: active, matching: find.byType(InkWell)).first;
+          final box = find.descendant(of: tile, matching: find.byWidgetPredicate((w) => w is Container && w.decoration is BoxDecoration)).first;
+          final decoration = tester.widget<Container>(box).decoration! as BoxDecoration;
+          final border = (decoration.border! as Border).top;
+          expect(_contrast(border.color, decoration.color!), greaterThanOrEqualTo(3), reason: 'team_selection_indicator selected surface');
+          expect(_contrast(border.color, theme.colorScheme.surface), greaterThanOrEqualTo(3), reason: 'team_selection_indicator adjacent surface');
+          final selected = find.ancestor(of: active, matching: find.byWidgetPredicate((w) => w is Semantics && w.properties.selected == true));
+          expect(selected, findsWidgets);
+          await tester.ensureVisible(inactive);
+          final focus = Focus.of(tester.element(inactive));
+          focus.requestFocus();
+          await tester.pump();
+          expect(focus.hasFocus, isTrue);
+          await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+          await tester.pumpAndSettle();
+          expect(find.ancestor(of: inactive, matching: find.byWidgetPredicate((w) => w is Semantics && w.properties.selected == true)), findsWidgets);
+          expect(find.ancestor(of: active, matching: find.byWidgetPredicate((w) => w is Semantics && w.properties.selected == false)), findsWidgets);
+          expect(tester.takeException(), isNull);
+          semantics.dispose();
+        });
+      }
+    }
+
     testWidgets(
         '${brightness.name} input borders distinguish enabled and focused controls',
         (tester) async {

@@ -1,0 +1,172 @@
+{
+  "schema_version": 6,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      "frontend/lib/features/admin/presentation/admin_employees_page_widgets.dart",
+      "frontend/test/admin_contrast_test.dart",
+      "docs/contracts/team-normal-surfaces-v4.polis.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/admin_contrast_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Supersede v3 proof guarantee and correct imperceptible employee selection: regression executes both complete employee and contrast test files, including global toggle and Enter.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "Distinguish selected employee with an indicator of at least 3:1 contrast against adjacent surfaces without restoring the strong yellow background; preserve high contrast."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "Preserve semantics, keyboard focus and activation, light/dark and compact/desktop behavior; keep text contrast at least 4.5:1."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "Supersede v3 proof coverage by executing both complete admin contrast and employee widget test files; archive this lock byte-identically."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "Real widget selected border contrasts at least 3:1 with selected and adjacent surface across themes and sizes; selection and keyboard semantics work.",
+        "requirements": [
+          "REQ-001",
+          "REQ-002"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "Full contrast and employee widget test files including global toggle and Enter execute as regression; text contrast thresholds remain unchanged.",
+        "requirements": [
+          "REQ-002",
+          "REQ-003"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-003",
+        "statement": "Archived v4 contract is byte-identical to external lock.",
+        "requirements": [
+          "REQ-003"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "High contrast colors, 4.5:1 text contrast, unrelated surfaces and selection interactions remain unchanged."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "Normal selected employee card restores strong yellow background or weakens high contrast."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "Employee list and profile widgets and global theme."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "Normalized scoped surfaces and regression coverage."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "Widget regression fails on insufficient selected border contrast."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "0ec9c450630c6272d86ae245845debfcd7db3db3",
+    "base_tree": "86fb8eaa98fd756783a4962fcfb41bbfb00aee4e",
+    "policy_sha256": "7714a10ab2b65f58941086f500de93fa62fc6acb6fd59d8b39292980364774dd",
+    "specification_sha256": "f1fc4172687efcb22f5522db54756b3b0ebbf431fa5d22f5ebff57a0155b3a49"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "--reporter",
+      "expanded",
+      "test/admin_contrast_test.dart",
+      "test/admin_employees_page_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "--reporter",
+      "expanded",
+      "test/admin_contrast_test.dart",
+      "test/admin_employees_page_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "--reporter",
+        "expanded",
+        "test/admin_contrast_test.dart",
+        "test/admin_employees_page_test.dart"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 600,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "team_selection_indicator"
+    ]
+  }
+}
