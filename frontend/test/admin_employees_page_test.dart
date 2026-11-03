@@ -6,6 +6,7 @@ import 'package:touchin_flutter/core/network/touchin_api.dart';
 import 'package:touchin_flutter/features/admin/presentation/admin_employees_page.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
 import 'package:touchin_flutter/theme/app_theme.dart';
+import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/rendering.dart';
 import 'package:flutter/material.dart';
@@ -17,8 +18,28 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(() async {
     GoogleFonts.config.allowRuntimeFetching = false;
-    GoogleFonts.poppinsTextTheme();
-    await GoogleFonts.pendingFonts();
+    final paths = ['Regular', 'Medium', 'SemiBold', 'Bold']
+        .map((weight) => 'test/fixtures/poppins/Poppins-$weight.ttf')
+        .toList();
+    final fonts = {for (final path in paths) path: await File(path).readAsBytes()};
+    final messenger = TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMessageHandler('flutter/assets', (message) async {
+      final key = const StringCodec().decodeMessage(message);
+      if (key == 'AssetManifest.bin') {
+        return const StandardMessageCodec().encodeMessage({
+          for (final path in paths) path: [{'asset': path}],
+        });
+      }
+      return fonts[key]?.buffer.asByteData();
+    });
+    try {
+      for (final weight in [FontWeight.w400, FontWeight.w500, FontWeight.w600, FontWeight.w700]) {
+        GoogleFonts.poppins(fontWeight: weight);
+      }
+      await GoogleFonts.pendingFonts();
+    } finally {
+      messenger.setMockMessageHandler('flutter/assets', null);
+    }
   });
   for (final dark in [false, true]) {
     for (final highContrast in [false, true]) {
@@ -72,6 +93,12 @@ void main() {
             }))!;
           }
           Offset ringPoint(Finder button) => tester.getRect(button).topCenter + const Offset(0, 5);
+          Future<void> checkRingPixels(String label, Finder button) async {
+            final color = (tester.widget<DecoratedBox>(find.byKey(ValueKey('profile-tab-focus-$label'))).decoration as BoxDecoration).border!.top.color;
+            for (final dx in [-15.0, 0.0, 15.0]) {
+              expect(await pixel(ringPoint(button) + Offset(dx, 0)), color);
+            }
+          }
           final selectedBefore = await pixel(ringPoint(selected));
           final nextBefore = await pixel(ringPoint(next));
           final selectedFocus = Focus.of(tester.element(find.text('Cadastro').last));
@@ -82,6 +109,7 @@ void main() {
           }
           expect(selectedFocus.hasFocus, isTrue);
           checkFocus('Cadastro', selected);
+          await checkRingPixels('Cadastro', selected);
           expect(await pixel(ringPoint(selected)), (tester.widget<DecoratedBox>(find.byKey(const ValueKey('profile-tab-focus-Cadastro'))).decoration as BoxDecoration).border!.top.color);
           expect(await pixel(ringPoint(selected)), isNot(selectedBefore));
           expect(rects(), initialRects);
@@ -93,6 +121,7 @@ void main() {
           expect(nextFocus.hasFocus, isTrue);
           expect(find.byKey(const ValueKey('profile-tab-focus-Cadastro')), findsNothing);
           checkFocus('Políticas', next);
+          await checkRingPixels('Políticas', next);
           expect(await pixel(ringPoint(next)), (tester.widget<DecoratedBox>(find.byKey(const ValueKey('profile-tab-focus-Políticas'))).decoration as BoxDecoration).border!.top.color);
           expect(await pixel(ringPoint(next)), isNot(nextBefore));
           expect(rects(), initialRects);
