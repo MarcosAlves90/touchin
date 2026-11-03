@@ -53,12 +53,16 @@ void main() {
           final initialRects = rects();
           Future<Color> pixel(Offset point) async {
             final boundary = boundaryKey.currentContext!.findRenderObject()! as RenderRepaintBoundary;
-            final image = await boundary.toImage();
-            final bytes = (await image.toByteData(format: ui.ImageByteFormat.rawRgba))!;
-            final offset = (point.dy.floor() * image.width + point.dx.floor()) * 4;
-            final result = Color.fromARGB(bytes.getUint8(offset + 3), bytes.getUint8(offset), bytes.getUint8(offset + 1), bytes.getUint8(offset + 2));
-            image.dispose();
-            return result;
+            return (await tester.runAsync(() async {
+              final image = await boundary.toImage();
+              try {
+                final bytes = (await image.toByteData(format: ui.ImageByteFormat.rawRgba))!;
+                final offset = (point.dy.floor() * image.width + point.dx.floor()) * 4;
+                return Color.fromARGB(bytes.getUint8(offset + 3), bytes.getUint8(offset), bytes.getUint8(offset + 1), bytes.getUint8(offset + 2));
+              } finally {
+                image.dispose();
+              }
+            }))!;
           }
           Offset ringPoint(Finder button) => tester.getRect(button).topCenter + const Offset(0, 5);
           final selectedBefore = await pixel(ringPoint(selected));
@@ -71,6 +75,9 @@ void main() {
           }
           expect(selectedFocus.hasFocus, isTrue);
           checkFocus('Cadastro', selected);
+          expect(await pixel(ringPoint(selected)), (tester.widget<DecoratedBox>(find.byKey(const ValueKey('profile-tab-focus-Cadastro'))).decoration as BoxDecoration).border!.top.color);
+          expect(await pixel(ringPoint(selected)), isNot(selectedBefore));
+          expect(rects(), initialRects);
           final selectedSide = tester.widget<OutlinedButton>(selected).style!.side!.resolve({MaterialState.focused})!;
           expect(selectedSide.color, AppTheme.adminColors(theme).selectedIndicator);
           expect(selectedSide.width, 2);
@@ -79,10 +86,17 @@ void main() {
           expect(nextFocus.hasFocus, isTrue);
           expect(find.byKey(const ValueKey('profile-tab-focus-Cadastro')), findsNothing);
           checkFocus('Políticas', next);
-          await tester.sendKeyEvent(LogicalKeyboardKey.space);
+          expect(await pixel(ringPoint(next)), (tester.widget<DecoratedBox>(find.byKey(const ValueKey('profile-tab-focus-Políticas'))).decoration as BoxDecoration).border!.top.color);
+          expect(await pixel(ringPoint(next)), isNot(nextBefore));
+          expect(rects(), initialRects);
+          expect(find.bySemanticsLabel('Cadastro'), findsWidgets);
+          expect(find.bySemanticsLabel('Políticas'), findsWidgets);
+          await tester.sendKeyEvent(LogicalKeyboardKey.enter);
           await tester.pumpAndSettle();
+          expect(rects(), initialRects);
           expect(find.text('Validação de localização'), findsOneWidget);
           expect(tester.takeException(), isNull);
+          semantics.dispose();
         });
       }
     }
