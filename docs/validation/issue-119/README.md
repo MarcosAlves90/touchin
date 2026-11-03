@@ -38,18 +38,16 @@ are not represented by these captures.
 
 ## Canonical baseline provenance
 
-All four snapshots were refreshed from the `testImage` outputs produced by the
-canonical-golden job in CI run
-[41240473292](https://github.com/MarcosAlves90/touchin/actions/runs/41240473292),
-for candidate commit `873851fe21c5f09968f33c37851dd32800a85cab`. The job ran on
-Ubuntu 24.04.5 LTS (`ubuntu-24.04`, image `20261025.353.1`) with Flutter 3.47.2.
-The run compared against the pre-refresh snapshots and emitted the
-`canonical-navigation-golden-failure-images` artifact. Its actuals, masters,
-and diffs were reviewed before the four actual images were copied here.
+All four snapshots were copied from the `testImage` outputs of the canonical
+job in CI run [41735260737](https://github.com/MarcosAlves90/touchin/actions/runs/41735260737),
+job 126262702491, for candidate commit `1ba1c58c89bec15f3630f327c76321afe52823ee`.
+The job ran on Ubuntu 24.04.5 LTS (`ubuntu-24.04`, image `20261025.353.1`)
+with Flutter 3.47.2. The actual images and diffs were reviewed before copying;
+they reflect the intended rounding. Canonical CI must validate the final commit.
 
 | Snapshot | SHA-256 |
 | --- | --- |
-| `desktop-light.png` | `56b7de519eee43ac6aadceb815cb79885bfafebbda92d94d6a387ce082cfdde2` |
-| `desktop-dark.png` | `d3f1a89eccc94a4f9e10a81c3881f04df31ed590902f166e07e9e529c1375168` |
-| `mobile-light.png` | `08e9cf3cb34f067fd59e4eba6b44d388904651a118be0a34a90cac9f21d8036c` |
-| `mobile-dark.png` | `448d93dd1fe47b4d4a52082b359f97deadc66439a96b1d3fc491a48bb7f75dd2` |
+| `desktop-light.png` | `812f2e063228743b2ad0363baa36b7b6af5fa2566e512691eba2035d565058fb` |
+| `desktop-dark.png` | `b25b96e8d8e3a684c4afa29f813f085a4d6a6b01e002b8fd7f9422aa43c8a5c3` |
+| `mobile-light.png` | `de883f6edd77e75de539f976b73a8660e251a9a7bb97e7ab00d8247c573ad233` |
+| `mobile-dark.png` | `6d46b0f99d1cac41a465e667a9dfadd4e3ddaa677cd9ac1e5eed01868145adb0` |
