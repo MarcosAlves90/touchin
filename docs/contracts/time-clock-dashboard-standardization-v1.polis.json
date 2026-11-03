@@ -1,0 +1,204 @@
+{
+  "schema_version": 6,
+  "kind": "feature",
+  "scope": {
+    "allowed_paths": [
+      "frontend/lib/features/time_tracking/presentation/time_clock_page.dart",
+      "frontend/test/features/time_tracking/presentation/time_clock_page_test.dart",
+      "docs/contracts/time-clock-dashboard-standardization-v1.polis.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/features/time_tracking/presentation/time_clock_page_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Align the TouchIn time-clock workspace with the supplied reference using the existing shared workspace design primitives, while preserving all punch, location, loading, and timeline behavior.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "The time-clock page must use the existing shared workspace header, section, status, and metric components with the TouchIn accent and typography."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "At wide content widths, the time/status actions and location state must form a balanced split hero and the four existing metrics must appear in one row; at medium and narrow widths, both layouts must adapt without horizontal overflow."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "The daily history must identify the current day and present a clear empty state without inventing records or changing pagination."
+      },
+      {
+        "id": "REQ-004",
+        "statement": "Existing punch actions, permission handling, work-log collection, errors, and accessibility feedback remain unchanged."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "The page shows a concise CONTROLE DE PONTO overline, a horizontally split hero at desktop width, and four shared metric cards in a single desktop row.",
+        "requirements": [
+          "REQ-001",
+          "REQ-002"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "At narrow widths the hero stacks and the metric grid reduces to two columns or one column as available width requires, with no render overflow.",
+        "requirements": [
+          "REQ-002"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-003",
+        "statement": "The daily timeline displays a current-date indicator and a visually distinct empty state while retaining the existing empty-state copy and real event rendering.",
+        "requirements": [
+          "REQ-003"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-004",
+        "statement": "All existing time-clock, location, accessibility, work-log, loading, pagination, lint, release-build, and browser smoke validations pass.",
+        "requirements": [
+          "REQ-004"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "No punch state transitions, location permission requirements, geolocation data, or API behavior change."
+      },
+      {
+        "id": "INV-002",
+        "statement": "Existing shared workspace components and app theme remain the source of visual styling; no new dependency or unrelated page redesign is added."
+      },
+      {
+        "id": "INV-003",
+        "statement": "The time-clock page retains its existing loading, retry, error, timeline pagination, and work-log flows."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "Wide desktop leaves the four existing time metrics unnecessarily split into two rows."
+      },
+      {
+        "id": "FORB-002",
+        "statement": "The hero or metric row overflows on supported narrow screens."
+      },
+      {
+        "id": "FORB-003",
+        "statement": "The redesign invents time-clock data, alters punch behavior, or weakens location/accessibility safeguards."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "Viewport width, existing time-clock controller state, and location permission state."
+      },
+      {
+        "id": "IN-002",
+        "statement": "The supplied time-clock design reference and existing shared workspace components."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "A responsive time-clock workspace visually aligned with the design reference and existing TouchIn workspace style."
+      },
+      {
+        "id": "OUT-002",
+        "statement": "Widget regression coverage for wide and narrow layout behavior."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "A failed time-clock data load keeps its existing visible retry path."
+      },
+      {
+        "id": "FAIL-002",
+        "statement": "If responsive constraints cannot fit the wide composition, the page falls back to a stacked layout instead of clipping or overflowing."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "1aa78760d5edbeb69ed69cde0a58095006d7fa86",
+    "base_tree": "9a8e1d9542ce1f1cf15846b6831de75440dce1fb",
+    "policy_sha256": "7714a10ab2b65f58941086f500de93fa62fc6acb6fd59d8b39292980364774dd",
+    "specification_sha256": "7a435ea3277afba683e1fb330dc38ecae204287a937666ab18d8d50c5120b4ea"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/features/time_tracking/presentation/time_clock_page_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 300,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/features/time_tracking/presentation/time_clock_page_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 300,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "test/features/time_tracking/presentation/time_clock_page_test.dart",
+        "--plain-name",
+        "time-clock reference layout adapts across viewport sizes"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 180,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "time_clock_reference_header_missing"
+    ]
+  }
+}

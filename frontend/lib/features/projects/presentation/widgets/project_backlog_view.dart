@@ -184,8 +184,10 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
                   final theme = Theme.of(context);
                   final colors = theme.colorScheme;
                   return DecoratedBox(
+                    key: const ValueKey<String>('backlog-table-surface'),
                     decoration: BoxDecoration(
                       color: colors.surface,
+                      borderRadius: BorderRadius.circular(16),
                       border: Border.all(color: colors.outlineVariant),
                     ),
                     child: Semantics(
@@ -233,13 +235,13 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
                                 controller: _tableScroll,
                                 child: DataTable(
                                   key: const ValueKey<String>('backlog-table'),
-                                  horizontalMargin: 12,
-                                  columnSpacing: 16,
-                                  dataRowMinHeight: 48,
-                                  dataRowMaxHeight: 52,
-                                  headingRowHeight: 48,
+                                  horizontalMargin: 20,
+                                  columnSpacing: 20,
+                                  dataRowMinHeight: 56,
+                                  dataRowMaxHeight: 60,
+                                  headingRowHeight: 52,
                                   headingRowColor: WidgetStatePropertyAll(
-                                      colors.surfaceContainerHighest),
+                                      colors.surfaceContainerLow),
                                   headingTextStyle:
                                       theme.textTheme.labelMedium?.copyWith(
                                     color: colors.onSurfaceVariant,
@@ -357,10 +359,23 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
                                               ),
                                             ),
                                           ),
-                                          DataCell(Text(
-                                            row.column.name,
-                                            key: ValueKey<String>(
-                                                'backlog-status-${row.card.id}'),
+                                          DataCell(Container(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 10, vertical: 6),
+                                            decoration: BoxDecoration(
+                                              color: colors.primaryContainer
+                                                  .withValues(alpha: .45),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                            child: Text(
+                                              row.column.name,
+                                              key: ValueKey<String>(
+                                                  'backlog-status-${row.card.id}'),
+                                              style: theme.textTheme.labelMedium
+                                                  ?.copyWith(
+                                                      color: colors.onSurface),
+                                            ),
                                           )),
                                           DataCell(
                                             SizedBox(
@@ -558,6 +573,33 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
+              Row(children: <Widget>[
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: colors.primaryContainer.withValues(alpha: .45),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(Icons.filter_list_rounded,
+                      size: 20, color: colors.primary),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                    child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text('Filtros do backlog',
+                        style: theme.textTheme.titleSmall
+                            ?.copyWith(fontWeight: FontWeight.w700)),
+                    Text('Encontre e organize os cards do projeto',
+                        style: theme.textTheme.bodySmall
+                            ?.copyWith(color: colors.onSurfaceVariant),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis),
+                  ],
+                )),
+              ]),
+              const SizedBox(height: 12),
               if (fillsWidth)
                 SizedBox(height: 48, child: row)
               else

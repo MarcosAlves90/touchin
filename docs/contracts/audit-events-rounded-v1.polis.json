@@ -1,0 +1,170 @@
+{
+  "schema_version": 6,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      "frontend/lib/features/admin/presentation/admin_audit_page.dart",
+      "frontend/lib/features/admin/presentation/admin_audit_page_widgets.dart",
+      "frontend/test/admin_audit_page_test.dart",
+      "docs/contracts/audit-events-rounded-v1.polis.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/admin_audit_page_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Round the outer desktop audit table and end-of-results notice while preserving interaction and mobile presentation.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "Round and clip the outer desktop event table and round the end notice in light and dark themes."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "Preserve event data, semantics, scrolling and interaction across desktop and mobile."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "Store an identical locked contract copy at the declared path."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "Loaded audit table and end notice have rounded outer surfaces and table content is clipped.",
+        "requirements": [
+          "REQ-001"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "Loaded events remain interactive on desktop and mobile in both themes.",
+        "requirements": [
+          "REQ-002"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-003",
+        "statement": "Store the identical locked contract.",
+        "requirements": [
+          "REQ-003"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "Keep data, colors, semantics, scrolling and internal dividers unchanged."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "Table or notice retains square outer corners."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "Audit page and supplied screenshot."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "Rounded surfaces and regression tests."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "Regression fails on square surfaces or broken interaction."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "54a815fbc35c4a639a8d539ce5faa283d5273082",
+    "base_tree": "f12bd3d6fcfb00a1abadfa94c092c168b5d4b427",
+    "policy_sha256": "7714a10ab2b65f58941086f500de93fa62fc6acb6fd59d8b39292980364774dd",
+    "specification_sha256": "394e16c950ff62a126da9e4b2f3b184484e62c3c97efd894edc5710e02c86049"
+  },
+  "behavior": {
+    "argv": [
+      "python3",
+      "-c",
+      "from pathlib import Path; import sys; sys.exit(0 if Path('docs/contracts/audit-events-rounded-v1.polis.json').is_file() else 1)"
+    ],
+    "cwd": ".",
+    "timeout_seconds": 30,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "--reporter",
+      "expanded",
+      "--plain-name",
+      "audit outer surface radii",
+      "test/admin_audit_page_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "--reporter",
+        "expanded",
+        "--plain-name",
+        "audit outer surface radii",
+        "test/admin_audit_page_test.dart"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 600,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "audit_outer_surface_radius"
+    ]
+  }
+}

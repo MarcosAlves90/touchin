@@ -1,0 +1,258 @@
+{
+  "schema_version": 6,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      "docs/contracts/shared-control-radius-v1.polis.json",
+      "frontend/lib/theme/app_theme.dart",
+      "frontend/test/shared_control_radius_test.dart",
+      "frontend/test/accessibility_shared_test.dart",
+      "frontend/test/accessibility_tools_test.dart",
+      "frontend/test/admin_audit_export_test.dart",
+      "frontend/test/admin_audit_page_test.dart",
+      "frontend/test/admin_contrast_test.dart",
+      "frontend/test/admin_employees_page_test.dart",
+      "frontend/test/audit_api_client_test.dart",
+      "frontend/test/audit_export_api_client_test.dart",
+      "frontend/test/browser/first_paint_smoke.mjs",
+      "frontend/test/browser/navigation_history_smoke.mjs",
+      "frontend/test/contracts/audit_timestamp_test.dart",
+      "frontend/test/contracts/auth_test.dart",
+      "frontend/test/contracts/employee_access_role_test.dart",
+      "frontend/test/contracts/managed_punch_project_update_test.dart",
+      "frontend/test/core/forms/br_input_masks_test.dart",
+      "frontend/test/core/navigation/browser_history_test.dart",
+      "frontend/test/core/navigation/workspace_route_transition_test.dart",
+      "frontend/test/core/network/auth_context_cache_test.dart",
+      "frontend/test/core/network/project_task_api_test.dart",
+      "frontend/test/core/network/touchin_api_test.dart",
+      "frontend/test/core/theme/theme_mode_controller_test.dart",
+      "frontend/test/core/theme/theme_settings_accessibility_test.dart",
+      "frontend/test/features/admin/presentation/admin_employees_controller_test.dart",
+      "frontend/test/features/auth/auth_accessibility_test.dart",
+      "frontend/test/features/auth/auth_background_test.dart",
+      "frontend/test/features/auth/auth_branding_test.dart",
+      "frontend/test/features/auth/auth_editorial_layout_test.dart",
+      "frontend/test/features/auth/auth_redesign_test.dart",
+      "frontend/test/features/auth/auth_session_navigation_test.dart",
+      "frontend/test/features/projects/presentation/accessibility_projects_kanban_board_test.dart",
+      "frontend/test/features/projects/presentation/accessibility_projects_task_editor_test.dart",
+      "frontend/test/features/projects/presentation/kanban_controller_test.dart",
+      "frontend/test/features/projects/presentation/project_backlog_view_test.dart",
+      "frontend/test/features/projects/presentation/project_kanban_board_test.dart",
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart",
+      "frontend/test/features/projects/presentation/project_tasks_controller_test.dart",
+      "frontend/test/features/projects/presentation/project_tasks_page_test.dart",
+      "frontend/test/features/projects/presentation/task_editor_parent_options_test.dart",
+      "frontend/test/features/settings/presentation/theme_settings_page_test.dart",
+      "frontend/test/features/shared/presentation/widgets/pagination_controls_test.dart",
+      "frontend/test/features/shared/presentation/widgets/workspace_shell_test.dart",
+      "frontend/test/features/shared/presentation/widgets/workspace_skeleton_test.dart",
+      "frontend/test/features/shared/presentation/widgets/workspace_visual_components_test.dart",
+      "frontend/test/features/shared/presentation/workspace_navigation_contrast_test.dart",
+      "frontend/test/features/time_tracking/application/punch_location_service_test.dart",
+      "frontend/test/features/time_tracking/presentation/time_clock_accessibility_test.dart",
+      "frontend/test/features/time_tracking/presentation/time_clock_controller_test.dart",
+      "frontend/test/features/time_tracking/presentation/time_clock_page_test.dart",
+      "frontend/test/features/time_tracking/presentation/time_clock_work_log_flow_test.dart",
+      "frontend/test/issue121_visual_entrypoint.dart",
+      "frontend/test/loading_spinner_audit_test.dart",
+      "frontend/test/widget_test.dart"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/shared_control_radius_test.dart",
+      "frontend/test/accessibility_shared_test.dart",
+      "frontend/test/accessibility_tools_test.dart",
+      "frontend/test/admin_audit_export_test.dart",
+      "frontend/test/admin_audit_page_test.dart",
+      "frontend/test/admin_contrast_test.dart",
+      "frontend/test/admin_employees_page_test.dart",
+      "frontend/test/audit_api_client_test.dart",
+      "frontend/test/audit_export_api_client_test.dart",
+      "frontend/test/browser/first_paint_smoke.mjs",
+      "frontend/test/browser/navigation_history_smoke.mjs",
+      "frontend/test/contracts/audit_timestamp_test.dart",
+      "frontend/test/contracts/auth_test.dart",
+      "frontend/test/contracts/employee_access_role_test.dart",
+      "frontend/test/contracts/managed_punch_project_update_test.dart",
+      "frontend/test/core/forms/br_input_masks_test.dart",
+      "frontend/test/core/navigation/browser_history_test.dart",
+      "frontend/test/core/navigation/workspace_route_transition_test.dart",
+      "frontend/test/core/network/auth_context_cache_test.dart",
+      "frontend/test/core/network/project_task_api_test.dart",
+      "frontend/test/core/network/touchin_api_test.dart",
+      "frontend/test/core/theme/theme_mode_controller_test.dart",
+      "frontend/test/core/theme/theme_settings_accessibility_test.dart",
+      "frontend/test/features/admin/presentation/admin_employees_controller_test.dart",
+      "frontend/test/features/auth/auth_accessibility_test.dart",
+      "frontend/test/features/auth/auth_background_test.dart",
+      "frontend/test/features/auth/auth_branding_test.dart",
+      "frontend/test/features/auth/auth_editorial_layout_test.dart",
+      "frontend/test/features/auth/auth_redesign_test.dart",
+      "frontend/test/features/auth/auth_session_navigation_test.dart",
+      "frontend/test/features/projects/presentation/accessibility_projects_kanban_board_test.dart",
+      "frontend/test/features/projects/presentation/accessibility_projects_task_editor_test.dart",
+      "frontend/test/features/projects/presentation/kanban_controller_test.dart",
+      "frontend/test/features/projects/presentation/project_backlog_view_test.dart",
+      "frontend/test/features/projects/presentation/project_kanban_board_test.dart",
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart",
+      "frontend/test/features/projects/presentation/project_tasks_controller_test.dart",
+      "frontend/test/features/projects/presentation/project_tasks_page_test.dart",
+      "frontend/test/features/projects/presentation/task_editor_parent_options_test.dart",
+      "frontend/test/features/settings/presentation/theme_settings_page_test.dart",
+      "frontend/test/features/shared/presentation/widgets/pagination_controls_test.dart",
+      "frontend/test/features/shared/presentation/widgets/workspace_shell_test.dart",
+      "frontend/test/features/shared/presentation/widgets/workspace_skeleton_test.dart",
+      "frontend/test/features/shared/presentation/widgets/workspace_visual_components_test.dart",
+      "frontend/test/features/shared/presentation/workspace_navigation_contrast_test.dart",
+      "frontend/test/features/time_tracking/application/punch_location_service_test.dart",
+      "frontend/test/features/time_tracking/presentation/time_clock_accessibility_test.dart",
+      "frontend/test/features/time_tracking/presentation/time_clock_controller_test.dart",
+      "frontend/test/features/time_tracking/presentation/time_clock_page_test.dart",
+      "frontend/test/features/time_tracking/presentation/time_clock_work_log_flow_test.dart",
+      "frontend/test/issue121_visual_entrypoint.dart",
+      "frontend/test/loading_spinner_audit_test.dart",
+      "frontend/test/widget_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Round shared theme controls consistently without changing layout, behavior, accessibility, or theme defaults.",
+    "requirements": [
+      {
+        "id": "REQ-RADIUS-01",
+        "statement": "Use a consistent 8 logical pixel corner radius for the existing shared theme shapes in light, dark, and admin contrast themes."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-RADIUS-01",
+        "statement": "Theme regression verifies all affected shapes and input states in light, dark and admin contrast themes use an 8px radius.",
+        "requirements": [
+          "REQ-RADIUS-01"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-RADIUS-02",
+        "statement": "Shared controls retain usable interactions, focus, accessible labels, minimum sizes, contrast and responsive layout, including 320px at 200 percent text scaling.",
+        "requirements": [
+          "REQ-RADIUS-01"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-RADIUS-03",
+        "statement": "docs/contracts/shared-control-radius-v1.polis.json is byte-for-byte identical to the locked contract.",
+        "requirements": [
+          "REQ-RADIUS-01"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-RADIUS-01",
+        "statement": "Preserve control sizes, padding, colors, focus borders, semantics, callbacks, clipping behavior and light default theme."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-RADIUS-01",
+        "statement": "Shared themed controls remain square or become clipped or unusable."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-RADIUS-01",
+        "statement": "Theme brightness and optional admin contrast theme."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-RADIUS-01",
+        "statement": "Consistently rounded shared theme shapes."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-RADIUS-01",
+        "statement": "Regression fails with shared_radius_expected_8 on square baseline."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "f897037fe7c538f16092fda8006a9fbdbe02ca6a",
+    "base_tree": "7072ec887b7f19ad3fdbb91611911f7e4adad39f",
+    "policy_sha256": "7714a10ab2b65f58941086f500de93fa62fc6acb6fd59d8b39292980364774dd",
+    "specification_sha256": "84f6a17bcced90364c4ec1c1a7d967de067ac457f69b4af6aa69f72f1c064ba8"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/shared_control_radius_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 360,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "--exclude-tags",
+      "canonical-golden"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 1200,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "test/shared_control_radius_test.dart"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 360,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "shared_radius_expected_8"
+    ]
+  }
+}

@@ -6,10 +6,675 @@ import 'package:touchin_flutter/core/network/touchin_api.dart';
 import 'package:touchin_flutter/features/admin/presentation/admin_employees_page.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
 import 'package:touchin_flutter/theme/app_theme.dart';
+import 'dart:io';
+import 'dart:ui' as ui;
+import 'package:flutter/rendering.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  setUpAll(() async {
+    GoogleFonts.config.allowRuntimeFetching = false;
+    final paths = ['Regular', 'Medium', 'SemiBold', 'Bold']
+        .map((weight) => 'test/fixtures/poppins/Poppins-$weight.ttf')
+        .toList();
+    final fonts = {for (final path in paths) path: await File(path).readAsBytes()};
+    final messenger = TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMessageHandler('flutter/assets', (message) async {
+      final key = const StringCodec().decodeMessage(message);
+      if (key == 'AssetManifest.bin') {
+        return const StandardMessageCodec().encodeMessage({
+          for (final path in paths) path: [{'asset': path}],
+        });
+      }
+      return fonts[key]?.buffer.asByteData();
+    });
+    try {
+      for (final weight in [FontWeight.w400, FontWeight.w500, FontWeight.w600, FontWeight.w700]) {
+        GoogleFonts.poppins(fontWeight: weight);
+      }
+      await GoogleFonts.pendingFonts();
+    } finally {
+      messenger.setMockMessageHandler('flutter/assets', null);
+    }
+  });
+  for (final dark in [false, true]) {
+    for (final highContrast in [false, true]) {
+      for (final width in [430.0, 1440.0]) {
+        testWidgets('profile keyboard focus $dark $highContrast $width', (tester) async {
+          tester.view.physicalSize = Size(width, 1800);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.reset);
+          final base = dark ? AppTheme.darkTheme : AppTheme.lightTheme;
+          final theme = highContrast ? AppTheme.highContrastTheme(base) : base;
+          final semantics = tester.ensureSemantics();
+          final boundaryKey = GlobalKey();
+          await tester.pumpWidget(RepaintBoundary(key: boundaryKey, child: MaterialApp(theme: theme, home: AdminEmployeesPage(api: _FakeAdminApi(employee: _employeeResponse(pendingAdjustments: 1))))));
+          await tester.pumpAndSettle();
+          final selected = find.ancestor(of: find.text('Cadastro').last, matching: find.byType(OutlinedButton)).first;
+          final next = find.ancestor(of: find.text('Políticas').last, matching: find.byType(OutlinedButton)).first;
+          void checkFocus(String label, Finder button) {
+            final indicator = find.byKey(ValueKey('profile-tab-focus-$label'));
+            expect(indicator, findsOneWidget, reason: 'profile_tab_focus_invisible');
+            final box = tester.widget<DecoratedBox>(indicator);
+            final border = (box.decoration as BoxDecoration).border! as Border;
+            expect(border.top.width, greaterThanOrEqualTo(2));
+            final style = tester.widget<OutlinedButton>(button).style!;
+            final section = find.ancestor(of: button, matching: find.byType(WorkspaceSectionCard)).first;
+            final panel = tester.widget<Material>(find.descendant(of: section, matching: find.byType(Material)).first);
+            final adjacent = Color.alphaBlend(panel.color!, theme.scaffoldBackgroundColor);
+            final background = Color.alphaBlend(style.backgroundColor!.resolve({})!, adjacent);
+            final a = border.top.color.computeLuminance();
+            final b = background.computeLuminance();
+            expect((a > b ? a + .05 : b + .05) / (a > b ? b + .05 : a + .05), greaterThanOrEqualTo(3));
+            expect(tester.getRect(button).contains(tester.getRect(indicator).topLeft), isTrue);
+            expect(tester.getRect(button).contains(tester.getRect(indicator).bottomRight - const Offset(0.1, 0.1)), isTrue);
+          }
+          await tester.ensureVisible(selected);
+          await tester.pumpAndSettle();
+          final labels = ['Cadastro', 'Políticas', 'Ponto', 'Notas'];
+          Finder tab(String label) => find.ancestor(of: find.text(label).last, matching: find.byType(OutlinedButton)).first;
+          List<Rect> rects() => labels.map((label) => tester.getRect(tab(label))).toList();
+          final initialRects = rects();
+          Future<Color> pixel(Offset point) async {
+            final boundary = boundaryKey.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+            return (await tester.runAsync(() async {
+              final image = await boundary.toImage();
+              try {
+                final bytes = (await image.toByteData(format: ui.ImageByteFormat.rawRgba))!;
+                final offset = (point.dy.floor() * image.width + point.dx.floor()) * 4;
+                return Color.fromARGB(bytes.getUint8(offset + 3), bytes.getUint8(offset), bytes.getUint8(offset + 1), bytes.getUint8(offset + 2));
+              } finally {
+                image.dispose();
+              }
+            }))!;
+          }
+          Offset ringPoint(Finder button) => tester.getRect(button).topCenter + const Offset(0, 5);
+          Future<void> checkRingPixels(String label, Finder button) async {
+            final color = (tester.widget<DecoratedBox>(find.byKey(ValueKey('profile-tab-focus-$label'))).decoration as BoxDecoration).border!.top.color;
+            for (final dx in [-15.0, 0.0, 15.0]) {
+              expect(await pixel(ringPoint(button) + Offset(dx, 0)), color);
+            }
+          }
+          final selectedBefore = await pixel(ringPoint(selected));
+          final nextBefore = await pixel(ringPoint(next));
+          final selectedFocus = Focus.of(tester.element(find.text('Cadastro').last));
+          final nextFocus = Focus.of(tester.element(find.text('Políticas').last));
+          for (var i = 0; i < 80 && !selectedFocus.hasFocus; i++) {
+            await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+            await tester.pumpAndSettle();
+          }
+          expect(selectedFocus.hasFocus, isTrue);
+          checkFocus('Cadastro', selected);
+          await checkRingPixels('Cadastro', selected);
+          expect(await pixel(ringPoint(selected)), (tester.widget<DecoratedBox>(find.byKey(const ValueKey('profile-tab-focus-Cadastro'))).decoration as BoxDecoration).border!.top.color);
+          expect(await pixel(ringPoint(selected)), isNot(selectedBefore));
+          expect(rects(), initialRects);
+          final selectedSide = tester.widget<OutlinedButton>(selected).style!.side!.resolve({MaterialState.focused})!;
+          expect(selectedSide.color, AppTheme.adminColors(theme).selectedIndicator);
+          expect(selectedSide.width, 2);
+          await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+          await tester.pumpAndSettle();
+          expect(nextFocus.hasFocus, isTrue);
+          expect(find.byKey(const ValueKey('profile-tab-focus-Cadastro')), findsNothing);
+          checkFocus('Políticas', next);
+          await checkRingPixels('Políticas', next);
+          expect(await pixel(ringPoint(next)), (tester.widget<DecoratedBox>(find.byKey(const ValueKey('profile-tab-focus-Políticas'))).decoration as BoxDecoration).border!.top.color);
+          expect(await pixel(ringPoint(next)), isNot(nextBefore));
+          expect(rects(), initialRects);
+          expect(find.bySemanticsLabel('Cadastro'), findsWidgets);
+          expect(find.bySemanticsLabel('Políticas'), findsWidgets);
+          await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+          await tester.pumpAndSettle();
+          expect(rects(), initialRects);
+          expect(find.text('Validação de localização'), findsOneWidget);
+          expect(tester.takeException(), isNull);
+          semantics.dispose();
+        });
+      }
+    }
+  }
+  for (final dark in [false, true]) {
+    for (final highContrast in [false, true]) {
+      for (final width in [430.0, 1440.0]) {
+        testWidgets('profile selected tabs $dark $highContrast $width', (tester) async {
+          tester.view.physicalSize = Size(width, 1800);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.reset);
+          final base = dark ? AppTheme.darkTheme : AppTheme.lightTheme;
+          final theme = highContrast ? AppTheme.highContrastTheme(base) : base;
+          final semantics = tester.ensureSemantics();
+          await tester.pumpWidget(MaterialApp(theme: theme, home: AdminEmployeesPage(api: _FakeAdminApi(employee: _employeeResponse(pendingAdjustments: 1)))));
+          await tester.pumpAndSettle();
+          final selectedCard = find.ancestor(of: find.text('Renata Souza').first, matching: find.byType(InkWell)).first;
+          final cardBox = find.descendant(of: selectedCard, matching: find.byWidgetPredicate((w) => w is Container && w.decoration is BoxDecoration)).first;
+          final card = tester.widget<Container>(cardBox).decoration! as BoxDecoration;
+          final cardBorder = (card.border! as Border).top;
+          final labels = ['Cadastro', 'Políticas', 'Ponto', 'Notas'];
+          final failures = <String>[];
+          Finder button(String label) => find.ancestor(of: find.text(label).last, matching: find.byType(OutlinedButton)).first;
+          double contrast(Color a, Color b) {
+            final x = a.computeLuminance();
+            final y = b.computeLuminance();
+            return (x > y ? x + .05 : y + .05) / (x > y ? y + .05 : x + .05);
+          }
+          for (final label in labels) {
+            final target = button(label);
+            await tester.ensureVisible(target);
+            await tester.tap(target);
+            await tester.pumpAndSettle();
+            final style = tester.widget<OutlinedButton>(target).style!;
+            final side = style.side!.resolve({})!;
+            if (side != cardBorder) {
+              failures.add('$label $side != $cardBorder');
+              continue;
+            }
+            final bg = style.backgroundColor!.resolve({})!;
+            final section = find.ancestor(of: target, matching: find.byType(WorkspaceSectionCard)).first;
+            final panel = tester.widget<Material>(find.descendant(of: section, matching: find.byType(Material)).first);
+            final adjacent = Color.alphaBlend(panel.color!, theme.scaffoldBackgroundColor);
+            expect(contrast(side.color, Color.alphaBlend(bg, adjacent)), greaterThanOrEqualTo(3), reason: 'selected surface $label');
+            expect(contrast(side.color, adjacent), greaterThanOrEqualTo(3), reason: 'adjacent surface $label');
+            expect(contrast(style.foregroundColor!.resolve({})!, Color.alphaBlend(bg, adjacent)), greaterThanOrEqualTo(4.5), reason: 'selected text $label');
+            expect(find.bySemanticsLabel(label), findsWidgets);
+            for (final other in labels.where((item) => item != label)) {
+              final inactive = tester.widget<OutlinedButton>(button(other)).style!.side!.resolve({})!;
+              expect(inactive.width, 1);
+              expect(inactive.color, theme.colorScheme.outlineVariant);
+            }
+          }
+          final first = button('Cadastro');
+          await tester.ensureVisible(first);
+          final focus = Focus.of(tester.element(find.text('Cadastro').last));
+          focus.requestFocus();
+          await tester.pump();
+          expect(focus.hasFocus, isTrue);
+          final focused = tester.widget<OutlinedButton>(first).style!.side!.resolve({MaterialState.focused})!;
+          expect(focused.color, AppTheme.navigationColors(theme).focusRing);
+          expect(focused.width, 2);
+          await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+          await tester.pumpAndSettle();
+          expect(find.text('E-mail'), findsWidgets);
+          expect(tester.takeException(), isNull);
+          semantics.dispose();
+          expect(failures, isEmpty, reason: 'profile_tab_indicator_mismatch');
+        });
+      }
+    }
+  }
+  for (final dark in [false, true]) {
+    for (final highContrast in [false, true]) {
+      for (final width in [430.0, 1440.0]) {
+        testWidgets('team selected v2 $dark $highContrast $width', (tester) async {
+          tester.view.physicalSize = Size(width, 1800);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.reset);
+          final base = dark ? AppTheme.darkTheme : AppTheme.lightTheme;
+          final theme = highContrast ? AppTheme.highContrastTheme(base) : base;
+          final semantics = tester.ensureSemantics();
+          await tester.pumpWidget(MaterialApp(theme: theme, home: AdminEmployeesPage(api: _FakeAdminApi(employee: _employeeResponse(pendingAdjustments: 1)))));
+          await tester.pumpAndSettle();
+          BoxDecoration decoration(Finder child) => tester.widget<Container>(find.ancestor(of: child, matching: find.byWidgetPredicate((w) => w is Container && w.decoration is BoxDecoration)).first).decoration! as BoxDecoration;
+          final button = find.ancestor(of: find.text('Cadastro').last, matching: find.byType(OutlinedButton)).first;
+          final style = tester.widget<OutlinedButton>(button).style!;
+          expect(style.backgroundColor!.resolve({}), highContrast ? AppTheme.adminColors(theme).selectedContainer : theme.colorScheme.surfaceContainerHighest, reason: 'team_selected_v2 tab');
+          expect(style.side!.resolve({})!.color, AppTheme.adminColors(theme).selectedIndicator, reason: 'profile_tab_indicator_mismatch');
+          expect(style.side!.resolve({MaterialState.focused})!.width, 2);
+          expect((decoration(find.text('Acompanhamento')).border! as Border).top.color, theme.colorScheme.outlineVariant);
+          await tester.ensureVisible(find.text('Ponto').last);
+          await tester.tap(find.text('Ponto').last);
+          await tester.pumpAndSettle();
+          for (final label in ['Gestão de ponto', 'Nenhum ponto manual registrado.']) {
+            expect((decoration(find.text(label)).border! as Border).top.color, theme.colorScheme.outlineVariant, reason: 'team_selected_v2 $label');
+          }
+          expect(find.bySemanticsLabel('Ponto'), findsWidgets);
+          expect(tester.takeException(), isNull);
+          semantics.dispose();
+        });
+      }
+    }
+  }
+  for (final dark in [false, true]) {
+    for (final highContrast in [false, true]) {
+      for (final width in [430.0, 1440.0]) {
+        testWidgets('team normal surfaces $dark $highContrast $width', (tester) async {
+          tester.view.physicalSize = Size(width, 1800);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.reset);
+          final base = dark ? AppTheme.darkTheme : AppTheme.lightTheme;
+          final theme = highContrast ? AppTheme.highContrastTheme(base) : base;
+          await tester.pumpWidget(MaterialApp(
+            theme: theme,
+            home: AdminEmployeesPage(api: _FakeAdminApi(employee: _employeeResponse(pendingAdjustments: 1))),
+          ));
+          await tester.pumpAndSettle();
+          BoxDecoration decoration(Finder child) {
+            final container = find.ancestor(
+              of: child,
+              matching: find.byWidgetPredicate((w) => w is Container && w.decoration is BoxDecoration),
+            ).first;
+            return tester.widget<Container>(container).decoration! as BoxDecoration;
+          }
+          for (final label in ['Perfil selecionado', 'Jornada', 'E-mail', 'Atenção operacional']) {
+            final border = decoration(find.text(label).last).border! as Border;
+            expect(border.top.color, theme.colorScheme.outlineVariant, reason: 'team_surface_color $label');
+          }
+          final button = find.ancestor(of: find.text('Cadastro').last, matching: find.byType(OutlinedButton)).first;
+          final selected = tester.widget<OutlinedButton>(button).style!;
+          expect(selected.backgroundColor!.resolve({}), highContrast ? AppTheme.adminColors(theme).selectedContainer : theme.colorScheme.surfaceContainerHighest);
+          await tester.ensureVisible(find.text('Políticas').last);
+          await tester.tap(find.text('Políticas').last);
+          await tester.pumpAndSettle();
+          expect(find.text('Validação de localização'), findsOneWidget);
+          expect(tester.takeException(), isNull);
+        });
+      }
+    }
+  }
+  for (final dark in [false, true]) {
+    for (final width in [430.0, 1440.0]) {
+      for (final populated in [false, true]) {
+        testWidgets('profile tabs rounded $dark $width $populated',
+            (tester) async {
+          tester.view.physicalSize = Size(width, 1800);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.reset);
+          final semantics = tester.ensureSemantics();
+          final api = _FakeAdminApi(managedPunchesByEmployeeId: {
+            'emp-99': populated
+                ? [
+                    ManagedPunchRecord(
+                      id: 'test-punch',
+                      employeeId: 'emp-99',
+                      type: PunchType.checkIn,
+                      timestamp: DateTime(2026, 5, 1, 8),
+                      detail: 'Registro fictício',
+                      projectId: null,
+                      location: null,
+                    )
+                  ]
+                : [],
+          });
+          await tester.pumpWidget(MaterialApp(
+            theme: dark ? AppTheme.darkTheme : AppTheme.lightTheme,
+            home: AdminEmployeesPage(api: api),
+          ));
+          await tester.pumpAndSettle();
+          final failures = <String>[];
+          void radius(Finder child, double expected, {int ancestor = 0}) {
+            final containers = find.ancestor(
+                of: child,
+                matching: find.byWidgetPredicate(
+                    (w) => w is Container && w.decoration is BoxDecoration));
+            final decoration = tester
+                .widget<Container>(containers.at(ancestor))
+                .decoration! as BoxDecoration;
+            if (decoration.borderRadius != BorderRadius.circular(expected)) {
+              failures.add(
+                  '$child expected $expected got ${decoration.borderRadius}');
+            }
+          }
+
+          Future<void> tab(String label) async {
+            final button = find
+                .ancestor(
+                    of: find.text(label).last,
+                    matching: find.byType(OutlinedButton))
+                .first;
+            await tester.ensureVisible(button);
+            await tester.tap(button);
+            await tester.pumpAndSettle();
+            expect(find.bySemanticsLabel(label), findsWidgets);
+          }
+
+          await tab('Políticas');
+          for (final label in [
+            'Validação de localização',
+            'Dispositivo confiável',
+            'Ajustes pendentes'
+          ]) {
+            radius(find.text(label), 12);
+          }
+          for (final icon in [
+            Icons.location_searching_rounded,
+            Icons.verified_user_outlined,
+            Icons.task_alt_rounded
+          ]) {
+            radius(find.byIcon(icon), 8);
+          }
+          await tab('Notas');
+          radius(find.text('Notas da gestão'), 12);
+          expect(find.text('Nova contratação.'), findsOneWidget);
+          await tab('Ponto');
+          radius(find.text('Gestão de ponto'), 12);
+          if (populated) {
+            radius(find.text('Registro fictício'), 12);
+            radius(find.byIcon(Icons.login_rounded).first, 8);
+            radius(find.text('Entrada'), 8);
+            final menu = find.byIcon(Icons.more_horiz_rounded).last;
+            await tester.ensureVisible(menu);
+            await tester.tap(menu);
+            await tester.pumpAndSettle();
+            expect(find.text('Remover'), findsWidgets);
+            await tester.tap(find.text('Remover').last);
+            await tester.pumpAndSettle();
+            expect(find.text('Remover ponto'), findsOneWidget);
+            await tester.tap(find.text('Cancelar'));
+            await tester.pumpAndSettle();
+            expect(api.deletedPunches, isEmpty);
+          } else {
+            radius(find.text('Nenhum ponto manual registrado.'), 12);
+          }
+          expect(tester.takeException(), isNull);
+          semantics.dispose();
+          expect(failures, isEmpty, reason: 'profile_tabs_radius');
+        });
+      }
+    }
+  }
+  for (final dark in [false, true]) {
+    for (final width in [430.0, 1440.0]) {
+      testWidgets('profile surface radii $dark $width', (tester) async {
+        tester.view.physicalSize = Size(width, 1800);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(MaterialApp(
+          theme: dark ? AppTheme.darkTheme : AppTheme.lightTheme,
+          home: AdminEmployeesPage(
+            api: _FakeAdminApi(
+                employee: _employeeResponse(pendingAdjustments: 1)),
+          ),
+        ));
+        await tester.pumpAndSettle();
+        final profile = find
+            .ancestor(
+              of: find.text('Perfil selecionado'),
+              matching: find.byType(WorkspaceSectionCard),
+            )
+            .first;
+        Finder inside(Finder finder) =>
+            find.descendant(of: profile, matching: finder);
+        void radius(Finder child, double value, {int ancestor = 0}) {
+          final containers = find.ancestor(
+              of: child,
+              matching: find.byWidgetPredicate(
+                (widget) =>
+                    widget is Container && widget.decoration is BoxDecoration,
+              ));
+          final decoration = tester
+              .widget<Container>(containers.at(ancestor))
+              .decoration! as BoxDecoration;
+          expect(decoration.borderRadius, BorderRadius.circular(value),
+              reason: 'profile_surface_radius');
+        }
+
+        if (width >= 560) {
+          radius(inside(find.byIcon(Icons.manage_accounts_rounded)), 8);
+        }
+        for (final label in ['Ativo', 'Híbrido', 'Atenção operacional']) {
+          radius(inside(find.text(label)), 8);
+        }
+        for (final label in ['Jornada', 'Horas de hoje', 'Última batida']) {
+          radius(inside(find.text(label)), 12);
+        }
+        for (final icon in [
+          Icons.schedule_rounded,
+          Icons.av_timer_rounded,
+          Icons.history_toggle_off_rounded
+        ]) {
+          final cardIcon = inside(find.byIcon(icon)).first;
+          radius(cardIcon, 8);
+        }
+        radius(inside(find.text('E-mail')), 12);
+        expect(inside(find.byType(Divider)), findsOneWidget);
+        for (final label in ['Cadastro', 'Políticas', 'Ponto', 'Notas']) {
+          final button = find.ancestor(
+              of: inside(find.text(label)),
+              matching: find.byType(OutlinedButton));
+          final style = tester.widget<OutlinedButton>(button).style!;
+          final shape = style.shape!.resolve(<MaterialState>{})!
+              as RoundedRectangleBorder;
+          expect(shape.borderRadius, BorderRadius.circular(8),
+              reason: 'profile_surface_radius');
+          await tester.ensureVisible(button);
+          await tester.tap(button);
+          await tester.pumpAndSettle();
+          final selected = tester
+              .widget<OutlinedButton>(button)
+              .style!
+              .backgroundColor!
+              .resolve(<MaterialState>{});
+          expect(
+              selected,
+              Theme.of(tester.element(button)).colorScheme.surfaceContainerHighest);
+        }
+        await tester.ensureVisible(inside(find.text('Editar')));
+        await tester.tap(inside(find.text('Editar')));
+        await tester.pumpAndSettle();
+        expect(find.text('Editar funcionário'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      });
+    }
+  }
+  for (final isPunch in [false, true]) {
+    for (final dark in [false, true]) {
+      for (final width in [430.0, 1440.0]) {
+        testWidgets(
+            'removal confirmation safety and radius $isPunch $dark $width',
+            (tester) async {
+          tester.view.physicalSize = Size(width, 1200);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.reset);
+          final semantics = tester.ensureSemantics();
+          final api = _FakeAdminApi(managedPunchesByEmployeeId: {
+            'emp-99': [
+              ManagedPunchRecord(
+                id: 'punch-1',
+                employeeId: 'emp-99',
+                type: PunchType.checkIn,
+                timestamp: DateTime(2026, 5, 1, 8),
+                detail: 'Teste',
+                projectId: null,
+                location: null,
+              )
+            ],
+          });
+          await tester.pumpWidget(MaterialApp(
+            theme: dark ? AppTheme.darkTheme : AppTheme.lightTheme,
+            home: AdminEmployeesPage(api: api),
+          ));
+          await tester.pumpAndSettle();
+          if (isPunch) {
+            final tab = find.text('Ponto').last;
+            await tester.ensureVisible(tab);
+            await tester.tap(tab);
+            await tester.pumpAndSettle();
+          }
+          Future<void> openDialog() async {
+            if (isPunch) {
+              final menu = find.byIcon(Icons.more_horiz_rounded).last;
+              await tester.ensureVisible(menu);
+              await tester.tap(menu);
+              await tester.pumpAndSettle();
+              await tester.tap(find.text('Remover').last);
+            } else {
+              final remove = find.byTooltip('Remover funcionário');
+              await tester.ensureVisible(remove);
+              await tester.tap(remove);
+            }
+            await tester.pumpAndSettle();
+          }
+
+          await openDialog();
+          expect(find.text(isPunch ? 'Remover ponto' : 'Remover funcionário'),
+              findsOneWidget);
+          expect(find.textContaining('Esta ação não pode ser desfeita.'),
+              findsOneWidget);
+          expect(find.bySemanticsLabel('Cancelar'), findsWidgets);
+          expect(find.bySemanticsLabel('Remover'), findsWidgets);
+          expect(api.deletedEmployees, isEmpty);
+          expect(api.deletedPunches, isEmpty);
+          final shape = tester
+              .widget<AlertDialog>(find.byType(AlertDialog))
+              .shape as RoundedRectangleBorder;
+          await tester.tap(find.text('Cancelar'));
+          await tester.pumpAndSettle();
+          expect(api.deletedEmployees, isEmpty);
+          expect(api.deletedPunches, isEmpty);
+          await openDialog();
+          expect(api.deletedEmployees, isEmpty);
+          expect(api.deletedPunches, isEmpty);
+          await tester.tap(find.text('Remover').last);
+          await tester.pumpAndSettle();
+          expect(api.deletedEmployees, isPunch ? isEmpty : ['emp-99']);
+          expect(api.deletedPunches, isPunch ? ['emp-99/punch-1'] : isEmpty);
+          semantics.dispose();
+          expect(shape.borderRadius, BorderRadius.circular(12),
+              reason: 'removal_dialog_radius_12');
+          expect(tester.takeException(), isNull);
+        });
+      }
+    }
+  }
+  testWidgets('pending indicator at 200 percent on narrow viewport',
+      (tester) async {
+    tester.view.physicalSize = const Size(320, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final errors = <FlutterErrorDetails>[];
+    final previous = FlutterError.onError;
+    FlutterError.onError = errors.add;
+    addTearDown(() => FlutterError.onError = previous);
+    final semantics = tester.ensureSemantics();
+    await tester.pumpWidget(MaterialApp(
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context)
+            .copyWith(textScaler: const TextScaler.linear(2)),
+        child: child!,
+      ),
+      home: AdminEmployeesPage(
+          api: _FakeAdminApi(
+              employee: _employeeResponse(pendingAdjustments: 1))),
+    ));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Acompanhamento'));
+    await tester.pumpAndSettle();
+    FlutterError.onError = previous;
+    expect(errors, isEmpty, reason: errors.join('\n'));
+    final indicator = find.text('Acompanhamento');
+    expect(indicator, findsOneWidget);
+    final pill =
+        find.ancestor(of: indicator, matching: find.byType(Container)).first;
+    final icon = find.descendant(
+        of: pill, matching: find.byIcon(Icons.priority_high_rounded));
+    expect(icon, findsOneWidget);
+    final bounds = tester.getRect(pill);
+    for (final child in [indicator, icon]) {
+      final rect = tester.getRect(child);
+      expect(bounds.contains(rect.topLeft), isTrue);
+      expect(rect.right, lessThanOrEqualTo(bounds.right));
+      expect(rect.bottom, lessThanOrEqualTo(bounds.bottom));
+    }
+    expect(tester.getSemantics(indicator).label, contains('Acompanhamento'));
+    expect(find.bySemanticsLabel(RegExp('Acompanhamento')), findsOneWidget);
+    semantics.dispose();
+  });
+  testWidgets('profile identity hierarchy', (tester) async {
+    for (final width in [1440.0, 430.0]) {
+      tester.view.physicalSize = Size(width, 1800);
+      tester.view.devicePixelRatio = 1;
+      await tester.pumpWidget(
+        MaterialApp(home: AdminEmployeesPage(api: _FakeAdminApi())),
+      );
+      await tester.pumpAndSettle();
+      final profile = find
+          .ancestor(
+            of: find.text('Perfil selecionado'),
+            matching: find.byType(WorkspaceSectionCard),
+          )
+          .first;
+      final name =
+          find.descendant(of: profile, matching: find.text('Renata Souza'));
+      final status = find.descendant(of: profile, matching: find.text('Ativo'));
+      expect(
+          tester.getBottomLeft(name).dy, lessThan(tester.getTopLeft(status).dy),
+          reason: 'profile_identity_hierarchy');
+      expect(find.descendant(of: profile, matching: find.text('Editar')),
+          findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    }
+    addTearDown(tester.view.reset);
+  });
+  testWidgets('team toolbar composition', (tester) async {
+    tester.view.physicalSize = const Size(1800, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(home: AdminEmployeesPage(api: _FakeAdminApi())),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester.getTopLeft(find.text('Buscar funcionário')).dy,
+      lessThan(tester.getBottomLeft(find.text('Equipe')).dy + 20),
+      reason: 'team_toolbar_composition',
+    );
+    expect(tester.getTopLeft(find.text('Jornada')).dy,
+        closeTo(tester.getTopLeft(find.text('Última batida')).dy, 2));
+    expect(tester.getTopLeft(find.text('Cadastro')).dy,
+        closeTo(tester.getTopLeft(find.text('Notas')).dy, 2));
+    expect(tester.takeException(), isNull);
+  });
+  testWidgets('team directory stacks above selected profile', (tester) async {
+    tester.view.physicalSize = const Size(1800, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(home: AdminEmployeesPage(api: _FakeAdminApi())),
+    );
+    await tester.pumpAndSettle();
+
+    final directory = find
+        .ancestor(
+          of: find.text('Buscar funcionário'),
+          matching: find.byType(WorkspaceSectionCard),
+        )
+        .first;
+    final profile = find
+        .ancestor(
+          of: find.text('Perfil selecionado'),
+          matching: find.byType(WorkspaceSectionCard),
+        )
+        .first;
+    expect(
+      tester.getTopLeft(profile).dy,
+      greaterThan(tester.getBottomLeft(directory).dy),
+      reason: 'team_directory_layout',
+    );
+    expect(
+      tester.getSize(directory).width,
+      closeTo(tester.getSize(profile).width, 1),
+      reason: 'team_directory_full_width',
+    );
+
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Buscar funcionário'),
+      'Renata',
+    );
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Limpar busca'), findsOneWidget);
+    await tester.tap(find.byTooltip('Limpar busca'));
+    await tester.pumpAndSettle();
+    expect(find.text('Renata Souza'), findsWidgets);
+    await tester.tap(find.byTooltip('Editar funcionário'));
+    await tester.pumpAndSettle();
+    expect(find.text('Editar funcionário'), findsOneWidget);
+    expect(find.widgetWithText(TextFormField, 'Nome'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
   testWidgets(
     'employee editor accepts two characters for role, department and unit',
     (WidgetTester tester) async {
@@ -357,6 +1022,7 @@ EmployeeProfile _employeeResponse({
   bool? hasAccount = true,
   String? accessRole = 'manager',
   bool includeAccountMetadata = true,
+  int pendingAdjustments = 0,
 }) =>
     EmployeeProfile.fromJson(<String, dynamic>{
       'id': 'emp-99',
@@ -374,7 +1040,7 @@ EmployeeProfile _employeeResponse({
       'requiresLocationOnPunch': false,
       'trustedDeviceRequired': true,
       'todayWorkedMinutes': 0,
-      'pendingAdjustments': 0,
+      'pendingAdjustments': pendingAdjustments,
       'lastPunchAt': null,
       'notes': 'Nova contratação.',
       if (includeAccountMetadata) 'hasAccount': hasAccount,
@@ -390,6 +1056,14 @@ class _FakeAdminApi extends TouchInApi {
             managedPunchesByEmployeeId ?? <String, List<ManagedPunchRecord>>{};
 
   final EmployeeProfile employee;
+  final deletedEmployees = <String>[];
+  final deletedPunches = <String>[];
+
+  @override
+  Future<void> deleteEmployee(String employeeId) async {
+    deletedEmployees.add(employeeId);
+  }
+
   final Map<String, List<ManagedPunchRecord>> managedPunchesByEmployeeId;
 
   @override
@@ -484,5 +1158,7 @@ class _FakeAdminApi extends TouchInApi {
   Future<void> deleteManagedPunch({
     required String employeeId,
     required String punchId,
-  }) async {}
+  }) async {
+    deletedPunches.add('$employeeId/$punchId');
+  }
 }

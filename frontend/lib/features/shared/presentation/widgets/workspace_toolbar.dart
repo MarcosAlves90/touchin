@@ -16,7 +16,10 @@ class WorkspaceToolbar extends StatelessWidget {
     return Material(
       key: surfaceKey,
       color: colorScheme.surface,
-      shape: Border.all(color: colorScheme.outlineVariant),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: colorScheme.outlineVariant),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: child,

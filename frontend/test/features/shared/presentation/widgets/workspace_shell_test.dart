@@ -10,10 +10,176 @@ import 'package:touchin_flutter/features/auth/presentation/logout_navigation.dar
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
 import 'package:touchin_flutter/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  group('workspace visual system', () {
+    testWidgets('canvas uses the theme background', (tester) async {
+      final theme = AppTheme.darkTheme;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: theme,
+          home: WorkspaceScaffold(
+            contentBuilder: (_, __) => const Text('Workspace content'),
+          ),
+        ),
+      );
+
+      final scaffold = tester.widget<Scaffold>(find.byType(Scaffold).first);
+      expect(
+        scaffold.backgroundColor,
+        theme.scaffoldBackgroundColor,
+        reason: 'workspace_canvas_uses_theme_background',
+      );
+    });
+
+    testWidgets('workspace backdrop has no blur or ambient gradient', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.darkTheme,
+          home: WorkspaceScaffold(
+            contentBuilder: (_, __) => const Text('Workspace content'),
+          ),
+        ),
+      );
+
+      expect(
+        find.byType(BackdropFilter),
+        findsNothing,
+        reason: 'workspace_backdrop_filter_absent',
+      );
+      expect(find.byType(ImageFiltered), findsNothing);
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is DecoratedBox &&
+              widget.decoration is BoxDecoration &&
+              (widget.decoration as BoxDecoration).gradient != null,
+        ),
+        findsNothing,
+      );
+    });
+
+    testWidgets('section panel uses consistent theme surface alpha', (
+      tester,
+    ) async {
+      final theme = AppTheme.darkTheme;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: theme,
+          home: const Scaffold(
+            body: WorkspaceSectionCard(child: Text('Section')),
+          ),
+        ),
+      );
+
+      final section = tester.widget<Material>(
+        find.descendant(
+          of: find.byType(WorkspaceSectionCard),
+          matching: find.byType(Material),
+        ),
+      );
+      expect(
+        section.color,
+        theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.8),
+        reason: 'workspace_section_panel_uses_consistent_surface_alpha',
+      );
+    });
+
+    testWidgets('summary panel uses consistent theme surface alpha', (
+      tester,
+    ) async {
+      final theme = AppTheme.darkTheme;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: theme,
+          home: const Scaffold(
+            body: WorkspaceSummaryStripe(
+              label: 'Summary',
+              value: '12',
+              helper: 'Current value',
+            ),
+          ),
+        ),
+      );
+
+      final summary = tester.widget<Container>(
+        find.descendant(
+          of: find.byType(WorkspaceSummaryStripe),
+          matching: find.byType(Container),
+        ),
+      );
+      expect(
+        (summary.decoration! as BoxDecoration).color,
+        theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.8),
+        reason: 'workspace_summary_panel_uses_consistent_surface_alpha',
+      );
+    });
+
+    testWidgets('summary cards have rounded theme surfaces', (tester) async {
+      for (final theme in [AppTheme.lightTheme, AppTheme.darkTheme]) {
+        await tester.pumpWidget(MaterialApp(
+          theme: theme,
+          home: const Scaffold(
+            body: WorkspaceSummaryStripe(
+              label: 'Status',
+              value: 'Em jornada',
+              helper: 'Jornada em andamento.',
+            ),
+          ),
+        ));
+        await tester.pumpAndSettle();
+        final container = tester.widget<Container>(find.descendant(
+          of: find.byType(WorkspaceSummaryStripe),
+          matching: find.byType(Container),
+        ));
+        final decoration = container.decoration! as BoxDecoration;
+        expect(decoration.borderRadius, BorderRadius.circular(12),
+            reason: 'summary_radius');
+        expect(decoration.color,
+            theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.8));
+        expect(decoration.border,
+            Border.all(color: theme.colorScheme.outlineVariant));
+        expect(find.text('Status'), findsOneWidget);
+        expect(find.text('Em jornada'), findsOneWidget);
+        expect(find.text('Jornada em andamento.'), findsOneWidget);
+      }
+    });
+
+    testWidgets('metric card uses solid theme surface', (tester) async {
+      final theme = AppTheme.darkTheme;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: theme,
+          home: const Scaffold(
+            body: WorkspaceMetricCard(
+              icon: Icons.timer_outlined,
+              label: 'Hours',
+              value: '8h',
+              helper: 'Today',
+            ),
+          ),
+        ),
+      );
+
+      final metric = tester.widget<Container>(
+        find.descendant(
+          of: find.byType(WorkspaceMetricCard),
+          matching: find.byType(Container),
+        ),
+      );
+      expect(
+        (metric.decoration! as BoxDecoration).color,
+        theme.colorScheme.surface,
+        reason: 'workspace_metric_card_uses_solid_theme_surface',
+      );
+    });
+  });
+
   for (final visualCase in _visualCases) {
     testWidgets(
       'navigation visual review captures ${visualCase.name}',
@@ -120,6 +286,7 @@ void main() {
 
       const brandKey = ValueKey<String>('workspace-mobile-brand-block');
       final brand = find.byKey(brandKey);
+      final colors = Theme.of(tester.element(brand)).colorScheme;
       final menu = find.byTooltip('Abrir menu');
       expect(
         find.descendant(of: brand, matching: menu),
@@ -129,7 +296,11 @@ void main() {
 
       final decoration =
           tester.widget<Container>(brand).decoration! as BoxDecoration;
-      expect(decoration.color, AppTheme.accent);
+      expect(
+        decoration.color,
+        colors.surface,
+        reason: 'workspace_brand_surface',
+      );
       expect(
         decoration.borderRadius,
         isNull,
@@ -149,7 +320,7 @@ void main() {
       final menuIcon = tester.widget<IconButton>(menuButton).icon as Icon;
       expect(
         menuIcon.color,
-        Theme.of(tester.element(menu)).colorScheme.onPrimary,
+        colors.onSurface,
       );
       final mark = find.descendant(
         of: brand,
@@ -159,6 +330,11 @@ void main() {
           find.descendant(of: brand, matching: find.text('TOUCHIN'));
       expect(mark, findsOneWidget);
       expect(wordmark, findsOneWidget);
+      expect(tester.widget<Text>(wordmark).style?.color, colors.onSurface);
+      expect(
+        tester.widget<Icon>(mark).color,
+        colors.onPrimary,
+      );
       expect(tester.getTopLeft(menu).dx, lessThan(tester.getTopLeft(mark).dx));
 
       await tester.tap(menu);
@@ -216,6 +392,81 @@ void main() {
       expect(tester.takeException(), isNull);
     }
   });
+
+  for (final width in [300.0, 320.0, 480.0]) {
+    for (final scale in [1.0, 1.8, 1.99, 2.0, 2.5]) {
+      testWidgets('mobile header at 200 percent matrix $width $scale',
+          (tester) async {
+        await tester.binding.setSurfaceSize(Size(width, 640));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final semantics = tester.ensureSemantics();
+        var opened = false;
+        Widget header(double textScale) => MaterialApp(
+              theme: AppTheme.lightTheme,
+              builder: (context, child) => MediaQuery(
+                data: MediaQuery.of(context).copyWith(
+                  textScaler: TextScaler.linear(textScale),
+                ),
+                child: child!,
+              ),
+              home: Scaffold(
+                  body: WorkspaceMobileHeader(
+                currentRoute: '/admin/audit',
+                onOpenDrawer: () => opened = true,
+              )),
+            );
+        await tester.pumpWidget(header(scale));
+        expect(tester.takeException(), isNull);
+        final headerBox = find.byKey(const ValueKey('workspace-mobile-header'));
+        final brand =
+            find.byKey(const ValueKey('workspace-mobile-brand-block'));
+        final title = find.text('Trilha de Auditoria');
+        final badge = find.ancestor(
+          of: title,
+          matching: find.byWidgetPredicate((widget) =>
+              widget is Container &&
+              widget.decoration is BoxDecoration &&
+              (widget.decoration! as BoxDecoration).color ==
+                  WorkspaceNavigationColors.of(AppTheme.lightTheme)
+                      .selectedContainer),
+        );
+        expect(find.byIcon(Icons.fingerprint_rounded), findsOneWidget);
+        final wordmark = find.text('TOUCHIN');
+        expect(wordmark, findsOneWidget);
+        final rendered = tester.renderObject<RenderParagraph>(wordmark);
+        final painter = TextPainter(
+          text: rendered.text,
+          textDirection: rendered.textDirection,
+          textScaler: TextScaler.linear(scale),
+        )..layout();
+        expect(rendered.size.width, greaterThanOrEqualTo(painter.width - 0.01));
+        expect(rendered.size.height, closeTo(painter.height, 0.01));
+        expect(tester.getRect(brand).contains(tester.getRect(wordmark).topLeft),
+            isTrue);
+        expect(tester.getRect(wordmark).right,
+            lessThanOrEqualTo(tester.getRect(brand).right));
+        painter.dispose();
+        expect(badge, findsOneWidget);
+        expect(tester.getRect(brand).overlaps(tester.getRect(badge)), isFalse);
+        expect(tester.getRect(badge).right,
+            closeTo(tester.getRect(headerBox).right - 16, 0.01));
+        expect(find.bySemanticsLabel('Destino atual: Trilha de Auditoria'),
+            findsOneWidget);
+        final menu = find.byTooltip('Abrir menu');
+        final focus = Focus.of(tester.element(find.byIcon(Icons.menu_rounded)));
+        focus.requestFocus();
+        await tester.pump();
+        expect(focus.hasFocus, isTrue);
+        await tester.pumpWidget(header(scale == 1.0 ? 2.5 : 1.0));
+        await tester.pump();
+        expect(tester.takeException(), isNull);
+        expect(focus.hasFocus, isTrue);
+        await tester.tap(menu);
+        expect(opened, isTrue);
+        semantics.dispose();
+      });
+    }
+  }
 
   testWidgets('desktop panel uses one scroll for destinations and context', (
     tester,
@@ -712,7 +963,7 @@ void main() {
   );
 
   testWidgets(
-    'scrollable workspace content is painted outside the backdrop filter',
+    'scrollable workspace content uses the flat theme canvas',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(1440, 900));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -725,15 +976,9 @@ void main() {
         ),
       );
 
-      expect(find.byType(BackdropFilter), findsOneWidget);
+      expect(find.byType(BackdropFilter), findsNothing);
       expect(find.byType(SingleChildScrollView), findsNWidgets(2));
-      expect(
-        find.ancestor(
-          of: find.byType(SingleChildScrollView),
-          matching: find.byType(BackdropFilter),
-        ),
-        findsNothing,
-      );
+      expect(tester.takeException(), isNull);
     },
   );
 

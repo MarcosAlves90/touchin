@@ -656,15 +656,19 @@ class _EmployeeListTile extends StatelessWidget {
           onTap: onTap,
           child: Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
               color: selected
-                  ? adminColors.selectedContainer
+                  ? (theme.extension<HighContrastMarker>() != null
+                      ? adminColors.selectedContainer
+                      : colorScheme.surfaceContainerHighest)
                   : colorScheme.surface,
               border: Border.all(
                 color: selected
                     ? adminColors.selectedIndicator
-                    : colorScheme.outline,
+                    : colorScheme.outlineVariant,
+                width: selected ? 2 : 1,
               ),
             ),
             child: LayoutBuilder(
@@ -704,12 +708,14 @@ class _EmployeeListTile extends StatelessWidget {
             height: 40,
             decoration: BoxDecoration(
               color: selected
-                  ? adminColors.selectedContainer
+                  ? (theme.extension<HighContrastMarker>() != null
+                      ? adminColors.selectedContainer
+                      : colorScheme.surface)
                   : colorScheme.surfaceContainerHighest,
               border: Border.all(
-                color: selected
+                color: selected && theme.extension<HighContrastMarker>() != null
                     ? adminColors.selectedIndicator
-                    : colorScheme.outline,
+                    : colorScheme.outlineVariant,
               ),
             ),
             child: Icon(
@@ -775,16 +781,42 @@ class _EmployeeListTile extends StatelessWidget {
                   height: 1.2,
                 ),
               ),
-              if (hasSignals) ...<Widget>[
-                const SizedBox(height: 6),
-                Text(
-                  _compactSignalsLabel(),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
+              const SizedBox(height: 8),
+              Row(
+                children: <Widget>[
+                  Icon(Icons.apartment_rounded,
+                      size: 15, color: colorScheme.onSurfaceVariant),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      employee.unit,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall
+                          ?.copyWith(color: colorScheme.onSurfaceVariant),
+                    ),
                   ),
+                ],
+              ),
+              if (hasSignals) ...<Widget>[
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: <Widget>[
+                    if (employee.status != EmployeeStatus.active)
+                      _InlinePill(
+                          label: statusLabel,
+                          tone: statusColor,
+                          icon: statusIcon,
+                          teamSurface: true),
+                    if (needsAttention)
+                      _InlinePill(
+                          label: 'Acompanhamento',
+                          tone: adminColors.warning.foreground,
+                          icon: Icons.priority_high_rounded,
+                          teamSurface: true),
+                  ],
                 ),
               ],
             ],
@@ -793,22 +825,21 @@ class _EmployeeListTile extends StatelessWidget {
       ],
     );
   }
-
-  String _compactSignalsLabel() {
-    final labels = <String>[
-      if (employee.status != EmployeeStatus.active) statusLabel,
-      if (needsAttention) 'Acompanhamento',
-    ];
-    return labels.join(' • ');
-  }
 }
 
 class _InlinePill extends StatelessWidget {
-  const _InlinePill({required this.label, required this.tone, this.icon});
+  const _InlinePill(
+      {required this.label,
+      required this.tone,
+      this.icon,
+      this.rounded = false,
+      this.teamSurface = false});
 
   final String label;
   final Color tone;
   final IconData? icon;
+  final bool rounded;
+  final bool teamSurface;
 
   @override
   Widget build(BuildContext context) {
@@ -818,7 +849,11 @@ class _InlinePill extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest,
-        border: Border.all(color: theme.colorScheme.outline),
+        border: Border.all(
+            color: teamSurface
+                ? theme.colorScheme.outlineVariant
+                : theme.colorScheme.outline),
+        borderRadius: rounded ? BorderRadius.circular(8) : null,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -827,11 +862,13 @@ class _InlinePill extends StatelessWidget {
             Icon(icon, size: 14, color: tone),
             const SizedBox(width: 6),
           ],
-          Text(
-            label,
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: theme.colorScheme.onSurface,
-              fontWeight: FontWeight.w700,
+          Flexible(
+            child: Text(
+              label,
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: theme.colorScheme.onSurface,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ],
@@ -869,10 +906,11 @@ class _EmployeeDetailHero extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: colorScheme.surface,
-        border: Border.all(color: colorScheme.outline),
+        borderRadius: BorderRadius.circular(12),
+        color: colorScheme.surfaceContainerLow,
+        border: Border.all(color: colorScheme.outlineVariant),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -886,7 +924,8 @@ class _EmployeeDetailHero extends StatelessWidget {
                   height: 56,
                   decoration: BoxDecoration(
                     color: colorScheme.surfaceContainerHighest,
-                    border: Border.all(color: colorScheme.outline),
+                    border: Border.all(color: colorScheme.outlineVariant),
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(
                     Icons.manage_accounts_rounded,
@@ -909,30 +948,6 @@ class _EmployeeDetailHero extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 6),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: <Widget>[
-                        _InlinePill(
-                          label: statusLabel,
-                          tone: statusColor,
-                          icon: statusIcon,
-                        ),
-                        _InlinePill(
-                          label: workModeLabel,
-                          tone: colorScheme.onSurfaceVariant,
-                          icon: workModeIcon,
-                        ),
-                        if (needsAttention)
-                          _InlinePill(
-                            label: 'Atenção operacional',
-                            tone:
-                                AppTheme.adminColors(theme).warning.foreground,
-                            icon: Icons.priority_high_rounded,
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
                     Text(
                       employee.name,
                       style: theme.textTheme.titleLarge?.copyWith(
@@ -966,6 +981,37 @@ class _EmployeeDetailHero extends StatelessWidget {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 14),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: <Widget>[
+                        _InlinePill(
+                          label: statusLabel,
+                          tone: statusColor,
+                          icon: statusIcon,
+                          rounded: true,
+                          teamSurface: true,
+                        ),
+                        _InlinePill(
+                          label: workModeLabel,
+                          tone: colorScheme.onSurfaceVariant,
+                          icon: workModeIcon,
+                          rounded: true,
+                          teamSurface: true,
+                        ),
+                        if (needsAttention)
+                          _InlinePill(
+                            label: 'Atenção operacional',
+                            tone:
+                                AppTheme.adminColors(theme).warning.foreground,
+                            icon: Icons.priority_high_rounded,
+                            rounded: true,
+                            teamSurface: true,
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
                   ],
                 ),
               ),
@@ -1033,6 +1079,7 @@ class _EmployeeNarrativeCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest,
         border: Border.all(color: colorScheme.outline),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1087,7 +1134,8 @@ class _EmployeeOverviewCard extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: colorScheme.surface,
-        border: Border.all(color: colorScheme.outline),
+        border: Border.all(color: colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1097,7 +1145,8 @@ class _EmployeeOverviewCard extends StatelessWidget {
             height: 36,
             decoration: BoxDecoration(
               color: colorScheme.surfaceContainerHighest,
-              border: Border.all(color: colorScheme.outline),
+              border: Border.all(color: colorScheme.outlineVariant),
+              borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(icon, size: 18, color: colorScheme.onSurfaceVariant),
           ),
@@ -1202,6 +1251,7 @@ class _EmployeePolicyRow extends StatelessWidget {
       decoration: BoxDecoration(
         color: colorScheme.surface,
         border: Border.all(color: colorScheme.outline),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1212,6 +1262,7 @@ class _EmployeePolicyRow extends StatelessWidget {
             decoration: BoxDecoration(
               color: colorScheme.surfaceContainerHighest,
               border: Border.all(color: colorScheme.outline),
+              borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(icon, size: 18, color: tone),
           ),
@@ -1543,6 +1594,7 @@ class _ManagedPunchTile extends StatelessWidget {
       decoration: BoxDecoration(
         color: colorScheme.surface,
         border: Border.all(color: colorScheme.outline),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1553,6 +1605,7 @@ class _ManagedPunchTile extends StatelessWidget {
             decoration: BoxDecoration(
               color: colorScheme.surfaceContainerHighest,
               border: Border.all(color: colorScheme.outline),
+              borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(_punchTypeIcon(punch.type), size: 17, color: tone),
           ),
@@ -1567,6 +1620,7 @@ class _ManagedPunchTile extends StatelessWidget {
                       label: _punchTypeLabel(punch.type),
                       tone: tone,
                       icon: _punchTypeIcon(punch.type),
+                      rounded: true,
                     ),
                     const SizedBox(width: 6),
                     Expanded(

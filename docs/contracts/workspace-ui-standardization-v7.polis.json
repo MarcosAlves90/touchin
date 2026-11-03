@@ -1,0 +1,212 @@
+{
+  "schema_version": 6,
+  "kind": "feature",
+  "scope": {
+    "allowed_paths": [
+      "frontend/lib/features/shared/presentation/widgets/workspace_shell.dart",
+      "frontend/test/features/shared/presentation/widgets/workspace_shell_test.dart",
+      "docs/contracts/workspace-ui-standardization-v7.polis.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/features/shared/presentation/widgets/workspace_shell_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Standardize the six authenticated TouchIn workspace pages on the existing flat, warm-neutral design system by using a shared theme canvas and consistent theme-derived card surfaces while preserving all page content, routes, responsive behavior, and interactions.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "WorkspaceScaffold uses the theme's base canvas color without ambient gradients, glows, or backdrop blur layers."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "Shared workspace section and summary cards use surfaceContainerHighest with consistent 0.8 opacity, while metric cards use the solid surface color; all preserve square borders and semantic status colors."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "All six authenticated workspace routes retain their shared navigation scaffold, route-specific content and actions, existing light/dark theme behavior, and responsive layout."
+      },
+      {
+        "id": "REQ-004",
+        "statement": "The five authentication routes retain their existing AuthShell, shared AppTheme typography and accent, branding, keyboard accessibility, and authentication behavior."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "The workspace canvas equals ThemeData.scaffoldBackgroundColor and contains no BackdropFilter.",
+        "requirements": [
+          "REQ-001"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "Section and summary panels use surfaceContainerHighest at 0.8 opacity, and metric cards use surface at full opacity.",
+        "requirements": [
+          "REQ-002"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-003",
+        "statement": "The six workspace destinations remain reachable through the same shared responsive navigation, with their existing page behavior and theme settings unchanged.",
+        "requirements": [
+          "REQ-003"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-004",
+        "statement": "All configured POLIS gates pass, including full backend/frontend tests, Dart analysis, release web build, and first-paint/browser smoke; authentication routes remain keyboard-accessible and responsive.",
+        "requirements": [
+          "REQ-003",
+          "REQ-004"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "No route, navigation destination, API call, permission, authentication, logout, business action, page content, or user data behavior changes."
+      },
+      {
+        "id": "INV-002",
+        "statement": "Light and dark theme colors, accessible focus and semantic state colors, and square control geometry remain sourced from AppTheme."
+      },
+      {
+        "id": "INV-003",
+        "statement": "Authentication pages retain their current product imagery and editorial layout while continuing to use the shared AppTheme."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "The workspace canvas uses blurred, glowing, or gradient decoration that reduces contrast or departs from the supplied flat reference."
+      },
+      {
+        "id": "FORB-002",
+        "statement": "Shared cards use inconsistent or non-theme-derived surface colors, lose their defined section/summary opacity, or reduce text contrast."
+      },
+      {
+        "id": "FORB-003",
+        "statement": "A workspace route, authentication flow, responsive navigation, semantic state, or existing interaction changes or overflows."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "Existing AppTheme colors and six authenticated workspace routes."
+      },
+      {
+        "id": "IN-002",
+        "statement": "The supplied TouchIn time-clock design reference and existing shared workspace primitives."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "A consistent, flat workspace canvas and standardized theme-derived section, summary, and metric card surfaces shared by every authenticated workspace page."
+      },
+      {
+        "id": "OUT-002",
+        "statement": "Widget regression coverage for the shared workspace canvas and card surfaces."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "If the page cannot fit its existing responsive layout, the current narrow layout and scrolling behavior remain in place without clipping or overflow."
+      },
+      {
+        "id": "FAIL-002",
+        "statement": "When a theme surface is unavailable, the existing theme-derived scaffold background and page-level error behavior remain unchanged."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "e6d0f909da87b911e25b53cff3a8df8bbf25b06c",
+    "base_tree": "9fb20f6764e087bb669ed75709d507d76cb9cbb7",
+    "policy_sha256": "7714a10ab2b65f58941086f500de93fa62fc6acb6fd59d8b39292980364774dd",
+    "specification_sha256": "8063b5a5e1d94021f561eca0427bef0a58e4ddf69dbcc7d68448e09a8b7050e9"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "--exclude-tags",
+      "canonical-golden",
+      "test/features/shared/presentation/widgets/workspace_shell_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 300,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "--exclude-tags",
+      "canonical-golden",
+      "test/features/shared/presentation/widgets/workspace_shell_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 300,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "--exclude-tags",
+        "canonical-golden",
+        "test/features/shared/presentation/widgets/workspace_shell_test.dart"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 180,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "workspace_canvas_uses_theme_background",
+      "workspace_backdrop_filter_absent",
+      "workspace_section_panel_uses_consistent_surface_alpha",
+      "workspace_summary_panel_uses_consistent_surface_alpha",
+      "workspace_metric_card_uses_solid_theme_surface"
+    ]
+  }
+}

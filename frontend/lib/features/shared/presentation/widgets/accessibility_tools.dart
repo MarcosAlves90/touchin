@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:touchin_flutter/theme/app_theme.dart';
 
 class AccessibilityTools extends StatefulWidget {
   const AccessibilityTools({super.key, required this.child});
@@ -12,88 +13,101 @@ class AccessibilityTools extends StatefulWidget {
 class _AccessibilityToolsState extends State<AccessibilityTools> {
   double _textScale = 1;
   bool _reduceAnimations = false;
+  bool _highContrast = false;
   bool _isOpen = false;
+  final FocusNode _contrastFocus = FocusNode();
+
+  @override
+  void dispose() {
+    _contrastFocus.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Overlay(
-      initialEntries: <OverlayEntry>[
-        OverlayEntry(
-          builder: (entryContext) {
-            final media = MediaQuery.of(entryContext);
-            return MediaQuery(
-              data: media.copyWith(
-                textScaler: _textScale == 1
-                    ? media.textScaler
-                    : _AdjustedTextScaler(media.textScaler, _textScale),
-                disableAnimations: media.disableAnimations || _reduceAnimations,
-              ),
-              child: LayoutBuilder(
-                builder: (context, constraints) => Stack(
-                  children: <Widget>[
-                    widget.child,
-                    Align(
-                      alignment: Alignment.bottomRight,
-                      child: SafeArea(
-                        minimum: const EdgeInsets.all(12),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: <Widget>[
-                            if (_isOpen) ...<Widget>[
-                              SizedBox(
-                                width: constraints.maxWidth < 384
-                                    ? constraints.maxWidth - 24
-                                    : 360,
-                                child: ConstrainedBox(
-                                  constraints: BoxConstraints(
-                                    maxHeight: constraints.maxHeight * 0.8,
-                                  ),
-                                  child: _buildPanel(),
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                            ],
-                            Semantics(
-                              container: true,
-                              explicitChildNodes: true,
-                              button: true,
-                              label: _isOpen
-                                  ? 'Fechar acessibilidade'
-                                  : 'Acessibilidade',
-                              onTap: () => setState(() => _isOpen = !_isOpen),
-                              child: ExcludeSemantics(
-                                child: SizedBox(
-                                  width: 48,
-                                  height: 48,
-                                  child: IconButton.filledTonal(
-                                    tooltip: null,
-                                    icon: Icon(
-                                      _isOpen
-                                          ? Icons.close_rounded
-                                          : Icons.accessibility_new_rounded,
+    final theme = Theme.of(context);
+    return Theme(
+      data: _highContrast ? AppTheme.highContrastTheme(theme) : theme,
+      child: Overlay(
+        initialEntries: <OverlayEntry>[
+          OverlayEntry(
+            builder: (entryContext) {
+              final media = MediaQuery.of(entryContext);
+              return MediaQuery(
+                data: media.copyWith(
+                  textScaler: _textScale == 1
+                      ? media.textScaler
+                      : _AdjustedTextScaler(media.textScaler, _textScale),
+                  disableAnimations:
+                      media.disableAnimations || _reduceAnimations,
+                ),
+                child: LayoutBuilder(
+                  builder: (context, constraints) => Stack(
+                    children: <Widget>[
+                      widget.child,
+                      Align(
+                        alignment: Alignment.bottomRight,
+                        child: SafeArea(
+                          minimum: const EdgeInsets.all(12),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: <Widget>[
+                              if (_isOpen) ...<Widget>[
+                                SizedBox(
+                                  width: constraints.maxWidth < 384
+                                      ? constraints.maxWidth - 24
+                                      : 360,
+                                  child: ConstrainedBox(
+                                    constraints: BoxConstraints(
+                                      maxHeight: constraints.maxHeight * 0.8,
                                     ),
-                                    onPressed: () =>
-                                        setState(() => _isOpen = !_isOpen),
+                                    child: _buildPanel(context),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                              ],
+                              Semantics(
+                                container: true,
+                                explicitChildNodes: true,
+                                button: true,
+                                label: _isOpen
+                                    ? 'Fechar acessibilidade'
+                                    : 'Acessibilidade',
+                                onTap: () => setState(() => _isOpen = !_isOpen),
+                                child: ExcludeSemantics(
+                                  child: SizedBox(
+                                    width: 48,
+                                    height: 48,
+                                    child: IconButton.filledTonal(
+                                      tooltip: null,
+                                      icon: Icon(
+                                        _isOpen
+                                            ? Icons.close_rounded
+                                            : Icons.accessibility_new_rounded,
+                                      ),
+                                      onPressed: () =>
+                                          setState(() => _isOpen = !_isOpen),
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            );
-          },
-        ),
-      ],
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildPanel() {
+  Widget _buildPanel(BuildContext context) {
     return Card(
       key: const ValueKey<String>('accessibility-panel'),
       child: SingleChildScrollView(
@@ -138,6 +152,13 @@ class _AccessibilityToolsState extends State<AccessibilityTools> {
               ],
             ),
             SwitchListTile.adaptive(
+              focusNode: _contrastFocus,
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Alto contraste'),
+              value: _highContrast,
+              onChanged: (value) => setState(() => _highContrast = value),
+            ),
+            SwitchListTile.adaptive(
               contentPadding: EdgeInsets.zero,
               title: const Text('Reduzir animações'),
               value: _reduceAnimations,
@@ -147,6 +168,7 @@ class _AccessibilityToolsState extends State<AccessibilityTools> {
               onPressed: () => setState(() {
                 _textScale = 1;
                 _reduceAnimations = false;
+                _highContrast = false;
               }),
               child: const Text('Restaurar padrão'),
             ),

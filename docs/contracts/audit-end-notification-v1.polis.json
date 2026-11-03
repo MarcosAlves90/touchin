@@ -1,0 +1,174 @@
+{
+  "schema_version": 6,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      "frontend/lib/features/admin/presentation/admin_audit_page.dart",
+      "frontend/test/admin_audit_page_test.dart",
+      "frontend/test/admin_audit_export_test.dart",
+      "frontend/test/admin_contrast_test.dart",
+      "docs/contracts/audit-end-notification-v1.polis.json",
+      "frontend/lib/core/navigation/workspace_router.dart"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/admin_audit_page_test.dart",
+      "frontend/test/admin_audit_export_test.dart",
+      "frontend/test/admin_contrast_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Replace the persistent audit end-of-results notice with an accessible temporary notification.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "Notify once on a current successful end with results, temporarily and accessibly, including first and later pages; suppress empty and error responses and obsolete requests."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "Preserve pagination, filters, errors, details, other messages and routes; handle retry and keyboard focus without stealing changed focus, and suppress obsolete covered-route notices. A completion queued before a route is covered must remain suppressed after returning, without removing unrelated notifications. Detect route coverage even when push and pop occur in the same frame via Navigator events."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "Store an identical locked contract copy."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "Tests cover temporary notification, page transitions, empty and error, refresh, obsolete responses and themes and widths. Assert the notification text is exposed in the semantics tree.",
+        "requirements": [
+          "REQ-001"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "Regression tests exercise Navigator push/pop, unrelated messages, retry and keyboard focus including focus changes during requests. Exercise a queued completion across push and pop while an unrelated snackbar remains visible. Repeat push and pop without an intervening frame and verify unrelated snackbar semantics.",
+        "requirements": [
+          "REQ-002"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-003",
+        "statement": "The committed-path contract matches the lock byte-for-byte.",
+        "requirements": [
+          "REQ-003"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "Do not expose personal data or alter pagination, filters, error and detail behavior."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "Persistent notice, spurious stale notification or lost keyboard focus."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "Audit event responses and filters."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "Temporary accessible end notice and regression tests."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "Errors and empty datasets do not announce completion."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "2ff580f569418e7a9792019b0ace63b917c50a30",
+    "base_tree": "ad78fb16eab4193fb62d92ff85e5bf472347f3d2",
+    "policy_sha256": "7714a10ab2b65f58941086f500de93fa62fc6acb6fd59d8b39292980364774dd",
+    "specification_sha256": "2e71b079bc1b6abc9d815b175b9f486b95d6f535b15ccac1a3fe495735e76d8a"
+  },
+  "behavior": {
+    "argv": [
+      "python3",
+      "-c",
+      "from pathlib import Path; import sys; sys.exit(0 if Path(\"docs/contracts/audit-end-notification-v1.polis.json\").is_file() else 1)"
+    ],
+    "cwd": ".",
+    "timeout_seconds": 30,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "--reporter",
+      "expanded",
+      "test/admin_audit_page_test.dart",
+      "test/admin_audit_export_test.dart",
+      "test/admin_contrast_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "--reporter",
+        "expanded",
+        "test/admin_audit_page_test.dart",
+        "test/admin_audit_export_test.dart",
+        "test/admin_contrast_test.dart"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 600,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "audit_temporary_notification"
+    ]
+  }
+}

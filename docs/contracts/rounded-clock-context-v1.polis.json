@@ -1,0 +1,149 @@
+{
+  "schema_version": 6,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      "frontend/lib/features/time_tracking/presentation/time_clock_page.dart",
+      "frontend/test/features/time_tracking/presentation/time_clock_page_test.dart",
+      "docs/contracts/rounded-clock-context-v1.polis.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/features/time_tracking/presentation/time_clock_page_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Round time clock context information flags without changing data or theme colors.",
+    "requirements": [
+      {
+        "id": "REQ-ROUND-01",
+        "statement": "Time clock context information flags have 10 logical pixel corner radii in light and dark themes."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-ROUND-01",
+        "statement": "Four information flags render with 10 pixel radii in both themes while preserving content and theme colors.",
+        "requirements": [
+          "REQ-ROUND-01"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-CONTRACT-01",
+        "statement": "docs/contracts/rounded-clock-context-v1.polis.json is byte-for-byte identical to the locked contract.",
+        "requirements": [
+          "REQ-ROUND-01"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-ROUND-01",
+        "statement": "Preserve labels, values, layout, color and border; do not add dependencies."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-ROUND-01",
+        "statement": "Context information flags retain square corners."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-ROUND-01",
+        "statement": "Context labels, values and current theme."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-ROUND-01",
+        "statement": "Rounded information flags with unchanged content and theme colors."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-ROUND-01",
+        "statement": "Regression test reports context_flag_radius on square flags."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "efbe51bdac6a35b40e89ba46996b9156bb0482b3",
+    "base_tree": "51271921321db0ab38552173b23765cc18a01ad8",
+    "policy_sha256": "7714a10ab2b65f58941086f500de93fa62fc6acb6fd59d8b39292980364774dd",
+    "specification_sha256": "4b34088e54e041460790b2cd1a7dfddd75f568a2a5690ffd4a874bac18e60ed6"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/features/time_tracking/presentation/time_clock_page_test.dart",
+      "--plain-name",
+      "context flags have rounded theme surfaces"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 360,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/features/time_tracking/presentation/time_clock_page_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 360,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "test/features/time_tracking/presentation/time_clock_page_test.dart",
+        "--plain-name",
+        "context flags have rounded theme surfaces"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 360,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "context_flag_radius"
+    ]
+  }
+}

@@ -43,7 +43,7 @@ ThemeData _testTheme(Brightness brightness) {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('workspace navigation keeps all visible corners square', (
+  testWidgets('workspace navigation rounds interactive surfaces', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(420, 900));
@@ -67,9 +67,14 @@ void main() {
       ),
     );
 
-    const reason = 'navigation_square_corners';
+    const reason = 'navigation_rounded_corners';
     const brandKey = ValueKey<String>('workspace-mobile-brand-block');
     final brand = find.byKey(brandKey);
+    expect(
+      (tester.widget<Container>(brand).decoration! as BoxDecoration).color,
+      AppTheme.lightTheme.colorScheme.surface,
+      reason: 'navigation_brand_surface',
+    );
     expect(
       (tester.widget<Container>(brand).decoration! as BoxDecoration)
           .borderRadius,
@@ -87,8 +92,7 @@ void main() {
         (widget) =>
             widget is Container &&
             widget.decoration is BoxDecoration &&
-            (widget.decoration! as BoxDecoration).color ==
-                AppTheme.lightTheme.colorScheme.onPrimary,
+            (widget.decoration! as BoxDecoration).color == AppTheme.accent,
       ),
     );
     expect(
@@ -96,6 +100,15 @@ void main() {
           .borderRadius,
       isNull,
       reason: reason,
+    );
+    expect(
+      (tester.widget<Container>(markBox).decoration! as BoxDecoration).color,
+      AppTheme.accent,
+      reason: 'navigation_brand_mark_accent',
+    );
+    expect(
+      tester.widget<Icon>(markIcon).color,
+      AppTheme.lightTheme.colorScheme.onPrimary,
     );
 
     final header = find.byKey(
@@ -120,7 +133,7 @@ void main() {
     expect(
       (tester.widget<Container>(activeBadge).decoration! as BoxDecoration)
           .borderRadius,
-      isNull,
+      BorderRadius.circular(8),
       reason: reason,
     );
 
@@ -132,7 +145,7 @@ void main() {
     for (final background in itemBackgrounds) {
       expect(
         (background.decoration! as BoxDecoration).borderRadius,
-        isNull,
+        BorderRadius.circular(8),
         reason: reason,
       );
     }
@@ -142,7 +155,7 @@ void main() {
     );
     expect(itemInkWells, isNotEmpty, reason: reason);
     for (final item in itemInkWells) {
-      expect(item.borderRadius, isNull, reason: reason);
+      expect(item.borderRadius, BorderRadius.circular(8), reason: reason);
     }
   });
 
@@ -185,20 +198,21 @@ void main() {
         reason: '$label focus indicator against selected item',
       );
 
-      final brandBackground = AppTheme.accent;
+      final brandBackground = data.colorScheme.surface;
       expect(
-        _contrast(data.colorScheme.onPrimary, brandBackground),
+        _contrast(data.colorScheme.onSurface, brandBackground),
         greaterThanOrEqualTo(4.5),
         reason: '$label brand wordmark',
       );
-      final brandMuted = Color.alphaBlend(
-        data.colorScheme.onPrimary.withValues(alpha: 0.82),
-        brandBackground,
-      );
       expect(
-        _contrast(brandMuted, brandBackground),
+        _contrast(data.colorScheme.onSurfaceVariant, brandBackground),
         greaterThanOrEqualTo(4.5),
         reason: '$label brand subtitle',
+      );
+      expect(
+        _contrast(data.colorScheme.onPrimary, AppTheme.accent),
+        greaterThanOrEqualTo(3),
+        reason: '$label fingerprint mark',
       );
     });
 
@@ -221,6 +235,34 @@ void main() {
       );
 
       final navigation = WorkspaceNavigationColors.of(data);
+      final brand = find.byType(WorkspaceNavigationBrand);
+      final brandSurface = find.descendant(
+        of: brand,
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Container &&
+              widget.decoration is BoxDecoration &&
+              (widget.decoration! as BoxDecoration).color ==
+                  data.colorScheme.surface,
+        ),
+      );
+      expect(brandSurface, findsOneWidget);
+      expect(
+        tester.widget<Text>(find.text('TOUCHIN')).style?.color,
+        data.colorScheme.onSurface,
+      );
+      expect(
+        tester.widget<Text>(find.text('CONTROLE DE PONTO')).style?.color,
+        data.colorScheme.onSurfaceVariant,
+      );
+      final fingerprint = find.descendant(
+        of: brand,
+        matching: find.byIcon(Icons.fingerprint_rounded),
+      );
+      expect(
+        tester.widget<Icon>(fingerprint).color,
+        data.colorScheme.onPrimary,
+      );
       final selectedText = tester.widget<Text>(find.text('Kanban'));
       final unselectedText = tester.widget<Text>(find.text('Bater Ponto'));
       expect(selectedText.style!.color, navigation.selectedForeground);
@@ -235,6 +277,53 @@ void main() {
           )
           .decoration! as BoxDecoration;
       expect(selectedDecoration.color, navigation.selectedContainer);
+    });
+
+    testWidgets('$label collapsed brand uses theme surface colors',
+        (tester) async {
+      final data = theme();
+      await tester.pumpWidget(MaterialApp(
+        theme: data,
+        home: Scaffold(
+          body: SizedBox(
+            width: 88,
+            height: 140,
+            child: WorkspaceNavigationBrand(
+              collapsed: true,
+              onToggleCollapse: () {},
+            ),
+          ),
+        ),
+      ));
+
+      final brand = find.byType(WorkspaceNavigationBrand);
+      final brandSurface = find.descendant(
+        of: brand,
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Container &&
+              widget.decoration is BoxDecoration &&
+              (widget.decoration! as BoxDecoration).color ==
+                  data.colorScheme.surface,
+        ),
+      );
+      expect(brandSurface, findsOneWidget);
+      final fingerprint = find.descendant(
+        of: brand,
+        matching: find.byIcon(Icons.fingerprint_rounded),
+      );
+      expect(
+        tester.widget<Icon>(fingerprint).color,
+        data.colorScheme.onPrimary,
+      );
+      final expandButton = find.ancestor(
+        of: find.byTooltip('Expandir navegação'),
+        matching: find.byType(IconButton),
+      );
+      expect(
+        (tester.widget<IconButton>(expandButton).icon as Icon).color,
+        data.colorScheme.onSurface,
+      );
     });
   }
 }

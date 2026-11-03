@@ -195,8 +195,9 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
 
   Widget _buildWorkspaceHeader(bool isWide) {
     return WorkspaceHeader(
+      kicker: 'PROJETOS',
       title: 'Administrar projetos',
-      description: '',
+      description: 'Organize projetos, tarefas e participantes em um só lugar.',
       maxContentWidth: 620,
       actions: _buildHeaderActions(isWide),
       compact: !isWide,
@@ -210,8 +211,8 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
 
     return <Widget>[
       SizedBox(
-        width: isWide ? 210 : double.infinity,
-        child: ElevatedButton.icon(
+        width: isWide ? null : double.infinity,
+        child: FilledButton.icon(
           onPressed: _controller.isMutating ? null : _openCreateProject,
           icon: const Icon(Icons.create_new_folder_outlined),
           label: const Text('Novo projeto'),
@@ -295,29 +296,13 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
   }
 
   Widget _buildProjectsSection(bool isWide) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final useSplitLayout = isWide && constraints.maxWidth >= 980;
-        if (useSplitLayout) {
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Expanded(flex: 11, child: _buildProjectsListCard()),
-              const SizedBox(width: 20),
-              Expanded(flex: 9, child: _buildSelectedProjectCard()),
-            ],
-          );
-        }
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            _buildProjectsListCard(),
-            const SizedBox(height: 20),
-            _buildSelectedProjectCard(),
-          ],
-        );
-      },
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        _buildProjectsListCard(),
+        const SizedBox(height: 20),
+        _buildSelectedProjectCard(),
+      ],
     );
   }
 
@@ -499,29 +484,13 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
   }
 
   Widget _buildTaskWorkspace(bool isWide) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final useSplitLayout = isWide && constraints.maxWidth >= 980;
-        if (useSplitLayout) {
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Expanded(flex: 11, child: _buildTasksCard()),
-              const SizedBox(width: 20),
-              Expanded(flex: 9, child: _buildMembershipCard()),
-            ],
-          );
-        }
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            _buildTasksCard(),
-            const SizedBox(height: 20),
-            _buildMembershipCard(),
-          ],
-        );
-      },
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        _buildTasksCard(),
+        const SizedBox(height: 20),
+        _buildMembershipCard(),
+      ],
     );
   }
 
@@ -1041,13 +1010,14 @@ class _ProjectListTile extends StatelessWidget {
           onTap: onTap,
           child: Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
               color: selected
-                  ? AppTheme.accent.withValues(alpha: 0.08)
+                  ? colorScheme.primary.withValues(alpha: 0.08)
                   : colorScheme.surface.withValues(alpha: 0.8),
               border: Border.all(
-                color: selected ? AppTheme.accent : colorScheme.outlineVariant,
+                color: selected ? colorScheme.primary : colorScheme.outlineVariant,
               ),
             ),
             child: LayoutBuilder(
@@ -1062,12 +1032,12 @@ class _ProjectListTile extends StatelessWidget {
                         height: 40,
                         decoration: BoxDecoration(
                           color: selected
-                              ? AppTheme.accent.withValues(alpha: 0.16)
+                              ? colorScheme.primary.withValues(alpha: 0.16)
                               : colorScheme.surfaceContainerHighest
                                   .withValues(alpha: 0.72),
                           border: Border.all(
                             color: selected
-                                ? AppTheme.accent.withValues(alpha: 0.36)
+                                ? colorScheme.primary.withValues(alpha: 0.36)
                                 : colorScheme.outlineVariant,
                           ),
                         ),
@@ -1075,7 +1045,7 @@ class _ProjectListTile extends StatelessWidget {
                           Icons.folder_open_rounded,
                           size: 20,
                           color: selected
-                              ? AppTheme.accent
+                              ? colorScheme.primary
                               : colorScheme.onSurface,
                         ),
                       ),
@@ -1170,8 +1140,9 @@ class _ProjectDetailHero extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final success = theme.extension<AdminSemanticColors>()?.success;
     final statusColor = project.status == ProjectStatus.active
-        ? const Color(0xFF2F8F46)
+        ? success?.foreground ?? const Color(0xFF2F8F46)
         : colorScheme.onSurfaceVariant;
     final showIdentityIcon = MediaQuery.sizeOf(context).width >= 560;
 
@@ -1228,6 +1199,9 @@ class _ProjectDetailHero extends StatelessWidget {
                               ? 'Ativo'
                               : 'Inativo',
                           tone: statusColor,
+                          background: project.status == ProjectStatus.active
+                              ? success?.container
+                              : null,
                           icon: project.status == ProjectStatus.active
                               ? Icons.check_circle_outline_rounded
                               : Icons.pause_circle_outline_rounded,
@@ -1302,10 +1276,12 @@ class _ProjectPill extends StatelessWidget {
     required this.label,
     required this.tone,
     required this.icon,
+    this.background,
   });
 
   final String label;
   final Color tone;
+  final Color? background;
   final IconData icon;
 
   @override
@@ -1314,7 +1290,7 @@ class _ProjectPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: tone.withValues(alpha: 0.12),
+        color: background ?? tone.withValues(alpha: 0.12),
         border: Border.all(color: tone.withValues(alpha: 0.22)),
       ),
       child: Row(

@@ -1,0 +1,172 @@
+{
+  "schema_version": 6,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      "frontend/lib/features/admin/presentation/admin_employees_page_widgets.dart",
+      "frontend/test/admin_contrast_test.dart",
+      "docs/contracts/team-normal-surfaces-v5.polis.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/admin_contrast_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Supersede v4 normal border color and RED oracle: use the standard outline token with accessible contrast against the actual selected and composited adjacent panel.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "Normal selected border uses site outline token and contrasts at least 3:1 against actual selected and composited adjacent surfaces; retain high contrast."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "Preserve semantics, keyboard focus and activation, light/dark and compact/desktop behavior; keep text contrast at least 4.5:1."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "Supersede v4 oracle with unique assertion failure text and execute both complete test files; archive this lock byte-identically."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "Selected border uses outline in normal themes and has at least 3:1 contrast with selected and actual composited adjacent panel in all themes and sizes; semantics and keyboard work.",
+        "requirements": [
+          "REQ-001",
+          "REQ-002"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "Full contrast and employee widget test files including global toggle and Enter execute as regression; text contrast thresholds remain unchanged.",
+        "requirements": [
+          "REQ-002",
+          "REQ-003"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-003",
+        "statement": "Archived v5 contract is byte-identical to external lock.",
+        "requirements": [
+          "REQ-003"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "High contrast colors, 4.5:1 text contrast, unrelated surfaces and selection interactions remain unchanged."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "Normal selected employee card restores strong yellow background or weakens high contrast."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "Employee list and profile widgets and global theme."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "Normalized scoped surfaces and regression coverage."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "Widget regression fails on insufficient selected border contrast."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "7cd7a9c9ef2585955ee0e98fa0d87c985637ef21",
+    "base_tree": "c176ed830f2f8823774b7b5f0d8f31913c60d09b",
+    "policy_sha256": "7714a10ab2b65f58941086f500de93fa62fc6acb6fd59d8b39292980364774dd",
+    "specification_sha256": "8d0ebfad3bcb3f8d65ba0a2e5754732a22b1c6b46afa20b41292a06fcf77cbd2"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "--reporter",
+      "expanded",
+      "test/admin_contrast_test.dart",
+      "test/admin_employees_page_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "--reporter",
+      "expanded",
+      "test/admin_contrast_test.dart",
+      "test/admin_employees_page_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "--reporter",
+        "expanded",
+        "test/admin_contrast_test.dart",
+        "test/admin_employees_page_test.dart"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 600,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "Normal selection must use the shared outline token"
+    ]
+  }
+}

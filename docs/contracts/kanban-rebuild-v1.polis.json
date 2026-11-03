@@ -1,0 +1,173 @@
+{
+  "schema_version": 6,
+  "kind": "feature",
+  "scope": {
+    "allowed_paths": [
+      "frontend/lib/features/projects/presentation/project_kanban_page.dart",
+      "frontend/lib/features/projects/presentation/widgets/project_kanban_board.dart",
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart",
+      "docs/contracts/kanban-rebuild-v1.polis.json",
+      "frontend/test/features/projects/presentation/project_kanban_board_test.dart"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart",
+      "frontend/test/features/projects/presentation/project_kanban_board_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Rebuild the Kanban central composition in the reference workspace language without sacrificing usable board space or interaction.",
+    "requirements": [
+      {
+        "id": "REQ-01",
+        "statement": "Recompose the desktop overview with a separate project summary strip above the project selector and view switch, and refine board lane and card presentation."
+      },
+      {
+        "id": "REQ-02",
+        "statement": "Preserve project selection, board and backlog controls, drag and drop, accessibility, responsive usability, existing states, data and themes."
+      },
+      {
+        "id": "REQ-03",
+        "statement": "Persist the exact locked contract in docs/contracts/kanban-rebuild-v1.polis.json."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-01",
+        "statement": "A desktop widget regression checks that the summary precedes the selector and the selector precedes the view switch without framework errors.",
+        "requirements": [
+          "REQ-01",
+          "REQ-02"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-02",
+        "statement": "Existing Kanban page, board and accessibility tests and configured gates pass; persisted contract equals the lock byte-for-byte.",
+        "requirements": [
+          "REQ-02",
+          "REQ-03"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-03",
+        "statement": "A populated card regression verifies the title is above its type badge without framework errors.",
+        "requirements": [
+          "REQ-01",
+          "REQ-02"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-01",
+        "statement": "Do not change API calls, data, authorization, navigation or theme persistence."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-01",
+        "statement": "Controls disappear, overflow, or become inaccessible in supported responsive layouts."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-01",
+        "statement": "Existing Kanban implementation, widget tests and user-provided reference."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-01",
+        "statement": "Responsive Kanban composition and regression evidence."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-01",
+        "statement": "The summary composition and populated card title geometry regressions fail baseline geometry and pass after redesign."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "8df9da780b11baae1806f7f7fba0b29ea307fe6e",
+    "base_tree": "1a31d8778715cc45955127e79536e0d53f0dab1e",
+    "policy_sha256": "7714a10ab2b65f58941086f500de93fa62fc6acb6fd59d8b39292980364774dd",
+    "specification_sha256": "281b34eccf4bf4c960bd7a9f5e400dc586622f40fc5b30a87cd07d84de4c51ae"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/features/projects/presentation/project_kanban_page_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/features/projects/presentation/project_kanban_page_test.dart",
+      "test/features/projects/presentation/project_kanban_board_test.dart",
+      "test/features/projects/presentation/accessibility_projects_kanban_board_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "test/features/projects/presentation/project_kanban_page_test.dart",
+        "test/features/projects/presentation/project_kanban_board_test.dart",
+        "--name",
+        "kanban (summary composition|card title geometry)"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 300,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "kanban_summary_composition",
+      "kanban_card_title_geometry"
+    ]
+  }
+}

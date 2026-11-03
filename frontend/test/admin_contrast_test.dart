@@ -2,6 +2,9 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/accessibility_tools.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:touchin_flutter/contracts/auth.dart';
 import 'package:touchin_flutter/contracts/audit.dart';
@@ -14,6 +17,57 @@ import 'package:touchin_flutter/theme/app_theme.dart';
 
 void main() {
   for (final brightness in Brightness.values) {
+    for (final highContrast in [false, true]) {
+      for (final width in [430.0, 1440.0]) {
+        testWidgets('team_selection_indicator $brightness $highContrast $width', (tester) async {
+          tester.view.physicalSize = Size(width, 1800);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.reset);
+          final semantics = tester.ensureSemantics();
+          final base = brightness == Brightness.light ? AppTheme.lightTheme : AppTheme.darkTheme;
+          final theme = highContrast ? AppTheme.highContrastTheme(base) : base;
+          await tester.pumpWidget(MaterialApp(theme: theme, home: AdminEmployeesPage(api: _ContrastApi(employees: _employees))));
+          await tester.pumpAndSettle();
+          final active = find.text('Active Employee').first;
+          final inactive = find.text('Inactive Employee').first;
+          await tester.ensureVisible(active);
+          await tester.tap(active);
+          await tester.pumpAndSettle();
+          final tile = find.ancestor(of: active, matching: find.byType(InkWell)).first;
+          final box = find.descendant(of: tile, matching: find.byWidgetPredicate((w) => w is Container && w.decoration is BoxDecoration)).first;
+          final decoration = tester.widget<Container>(box).decoration! as BoxDecoration;
+          final border = (decoration.border! as Border).top;
+          final localTheme = Theme.of(tester.element(active));
+          final section = find.ancestor(of: tile, matching: find.byType(WorkspaceSectionCard)).first;
+          final panel = tester.widget<Material>(find.descendant(of: section, matching: find.byType(Material)).first);
+          final adjacent = Color.alphaBlend(panel.color!, localTheme.scaffoldBackgroundColor);
+          expect(border.color, AppTheme.adminColors(localTheme).selectedIndicator, reason: 'Employee selection border must use accessible theme yellow');
+          expect(border.width, 2, reason: 'Selected border width is independent of contrast mode');
+          final inactiveTile = find.ancestor(of: inactive, matching: find.byType(InkWell)).first;
+          final inactiveBox = find.descendant(of: inactiveTile, matching: find.byWidgetPredicate((w) => w is Container && w.decoration is BoxDecoration)).first;
+          final inactiveDecoration = tester.widget<Container>(inactiveBox).decoration! as BoxDecoration;
+          final inactiveBorder = (inactiveDecoration.border! as Border).top;
+          expect(inactiveBorder.color, localTheme.colorScheme.outlineVariant);
+          expect(inactiveBorder.width, 1);
+          expect(_contrast(border.color, decoration.color!), greaterThanOrEqualTo(3), reason: 'selected surface');
+          expect(_contrast(border.color, adjacent), greaterThanOrEqualTo(3), reason: 'composited adjacent panel');
+          final selected = find.ancestor(of: active, matching: find.byWidgetPredicate((w) => w is Semantics && w.properties.selected == true));
+          expect(selected, findsWidgets);
+          await tester.ensureVisible(inactive);
+          final focus = Focus.of(tester.element(inactive));
+          focus.requestFocus();
+          await tester.pump();
+          expect(focus.hasFocus, isTrue);
+          await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+          await tester.pumpAndSettle();
+          expect(find.ancestor(of: inactive, matching: find.byWidgetPredicate((w) => w is Semantics && w.properties.selected == true)), findsWidgets);
+          expect(find.ancestor(of: active, matching: find.byWidgetPredicate((w) => w is Semantics && w.properties.selected == false)), findsWidgets);
+          expect(tester.takeException(), isNull);
+          semantics.dispose();
+        });
+      }
+    }
+
     testWidgets(
         '${brightness.name} input borders distinguish enabled and focused controls',
         (tester) async {
@@ -88,6 +142,44 @@ void main() {
           .pumpWidget(MaterialApp(theme: theme, home: const SizedBox()));
     });
 
+    testWidgets('${brightness.name} team global contrast and keyboard activation', (tester) async {
+      tester.view.physicalSize = const Size(1440, 1200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final theme = brightness == Brightness.light ? AppTheme.lightTheme : AppTheme.darkTheme;
+      await tester.pumpWidget(MaterialApp(
+        theme: theme,
+        builder: (context, child) => AccessibilityTools(child: child!),
+        home: AdminEmployeesPage(api: _ContrastApi(employees: _employees)),
+      ));
+      await tester.pumpAndSettle();
+      final name = find.text('Active Employee').first;
+      await tester.tap(name);
+      await tester.pumpAndSettle();
+      expect(_decorationColorAncestor(tester, name, theme.colorScheme.surfaceContainerHighest), isNotNull);
+      await tester.tap(find.bySemanticsLabel('Acessibilidade'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Alto contraste'));
+      await tester.pumpAndSettle();
+      final high = Theme.of(tester.element(name));
+      expect(high.extension<HighContrastMarker>(), isNotNull);
+      final selected = AppTheme.adminColors(high).selectedContainer;
+      expect(_decorationColorAncestor(tester, name, selected), selected);
+      expect(_contrast(_renderedTextColor(tester, name), selected), greaterThanOrEqualTo(4.5));
+      await tester.tap(find.bySemanticsLabel('Acessibilidade'));
+      await tester.pumpAndSettle();
+      final button = find.widgetWithText(OutlinedButton, 'Ponto').last;
+      await tester.ensureVisible(button);
+      final focus = Focus.of(tester.element(find.text('Ponto').last));
+      focus.requestFocus();
+      await tester.pump();
+      expect(focus.hasFocus, isTrue);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(tester.widget<OutlinedButton>(button).style!.backgroundColor!.resolve({}), selected);
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('${brightness.name} employee states render accessible colors',
         (tester) async {
       tester.view.physicalSize = const Size(1440, 1200);
@@ -107,15 +199,14 @@ void main() {
       await tester.tap(activeName);
       await tester.pumpAndSettle();
       final localTheme = Theme.of(tester.element(activeName));
-      final localColors = AppTheme.adminColors(localTheme);
+      final selectedBackground = localTheme.colorScheme.surfaceContainerHighest;
+      expect(selectedBackground, isNot(localTheme.colorScheme.surface));
       expect(
-        _decorationColorAncestor(
-            tester, activeName, localColors.selectedContainer),
-        localColors.selectedContainer,
+        _decorationColorAncestor(tester, activeName, selectedBackground),
+        selectedBackground,
       );
       expect(
-        _contrast(_renderedTextColor(tester, activeName),
-            localColors.selectedContainer),
+        _contrast(_renderedTextColor(tester, activeName), selectedBackground),
         greaterThanOrEqualTo(4.5),
       );
       final pillBackground = localTheme.colorScheme.surfaceContainerHighest;
@@ -140,9 +231,8 @@ void main() {
       await tester.pumpAndSettle();
       final selectedInactive = find.text('Inactive Employee').first;
       expect(
-        _decorationColorAncestor(
-            tester, selectedInactive, localColors.selectedContainer),
-        localColors.selectedContainer,
+        _decorationColorAncestor(tester, selectedInactive, selectedBackground),
+        selectedBackground,
       );
       final inactiveLabel = find.text('Inativo').last;
       expect(
@@ -218,6 +308,24 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
+    testWidgets('page header audit filter rendered contrast in ${brightness.name}',
+        (tester) async {
+      tester.view.physicalSize = const Size(1200, 1000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final theme = brightness == Brightness.light
+          ? AppTheme.lightTheme
+          : AppTheme.darkTheme;
+      await tester.pumpWidget(MaterialApp(
+          theme: theme, home: AdminAuditPage(api: _ContrastApi())));
+      await tester.pumpAndSettle();
+      final button = find.byKey(const ValueKey<String>('audit-filters-button'));
+      final label = find.descendant(of: button, matching: find.text('Filtros'));
+      final background = Theme.of(tester.element(button)).scaffoldBackgroundColor;
+      expect(_contrast(_renderedTextColor(tester, label), background),
+          greaterThanOrEqualTo(4.5));
+    });
+
     testWidgets(
         '${brightness.name} audit filters and event indicators use rendered colors',
         (tester) async {
@@ -279,33 +387,16 @@ void main() {
       await tester.tap(filtersButton);
       await tester.pumpAndSettle();
       await tester.tap(find.text('Carregar mais eventos'));
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
       final endText = find.text('Todos os eventos carregados.');
       expect(endText, findsOneWidget);
-      final endFocus = tester.widget<Focus>(
-        find.ancestor(of: endText, matching: find.byType(Focus)).first,
-      );
-      endFocus.focusNode!.requestFocus();
+      final snack = tester.widget<SnackBar>(find.byType(SnackBar));
+      expect(snack.content, isA<Text>());
       await tester.pumpAndSettle();
-      expect(endFocus.focusNode!.hasFocus, isTrue);
-      final endContainer = tester.widget<Container>(
-        find.ancestor(
-          of: endText,
-          matching: find.byWidgetPredicate(
-            (widget) =>
-                widget is Container &&
-                widget.decoration is BoxDecoration &&
-                ((widget.decoration! as BoxDecoration).border?.top.width == 2),
-          ),
-        ),
-      );
-      final focusColor =
-          (endContainer.decoration! as BoxDecoration).border!.top.color;
-      expect(focusColor, AppTheme.adminColors(auditTheme).selectedIndicator);
-      expect(
-        _contrast(focusColor, auditTheme.scaffoldBackgroundColor),
-        greaterThanOrEqualTo(3),
-      );
+      await tester.pump(const Duration(seconds: 4));
+      await tester.pumpAndSettle();
+      expect(endText, findsNothing);
       expect(tester.takeException(), isNull);
     });
   }

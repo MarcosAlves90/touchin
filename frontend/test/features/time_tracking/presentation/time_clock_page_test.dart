@@ -5,6 +5,7 @@ import 'package:touchin_flutter/core/network/touchin_api.dart';
 import 'package:touchin_flutter/features/time_tracking/application/punch_location_service.dart';
 import 'package:touchin_flutter/features/time_tracking/presentation/time_clock_controller.dart';
 import 'package:touchin_flutter/features/time_tracking/presentation/time_clock_page.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -125,6 +126,162 @@ TimeClockState _timelineState({
 }
 
 void main() {
+  testWidgets('clock status badge is rounded without changing content or tone',
+      (tester) async {
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    for (final brightness in Brightness.values) {
+      for (final width in [400.0, 1600.0]) {
+        tester.view.physicalSize = Size(width, 1600);
+        final controller = _FakeTimeClockController(<int, TimeClockState>{
+          1: _timelineState(
+              page: 1, records: const <PunchRecord>[], totalPages: 1),
+        })
+          ..isLoadingState = false
+          ..status = ShiftStatus.working;
+        await tester.pumpWidget(MaterialApp(
+          theme: ThemeData(brightness: brightness),
+          home: TimeClockPage(controller: controller),
+        ));
+        await tester.pump();
+        final badge = tester
+            .widget<WorkspaceStatusBadge>(find.byType(WorkspaceStatusBadge));
+        expect(badge.label, 'Em jornada');
+        final container = tester.widget<Container>(find
+            .descendant(
+              of: find.byType(WorkspaceStatusBadge),
+              matching: find.byType(Container),
+            )
+            .first);
+        final decoration = container.decoration! as BoxDecoration;
+        expect(decoration.color, badge.tone.withValues(alpha: 0.14));
+        expect(decoration.border,
+            Border.all(color: badge.tone.withValues(alpha: 0.28)));
+        expect(
+            find.descendant(
+                of: find.byType(WorkspaceStatusBadge),
+                matching: find.text('Em jornada')),
+            findsOneWidget);
+        expect(decoration.borderRadius, BorderRadius.circular(8),
+            reason: 'clock_status_badge_radius_8 $brightness $width');
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+        controller.dispose();
+      }
+    }
+  });
+  testWidgets('context flags have rounded theme surfaces', (tester) async {
+    tester.view.physicalSize = const Size(1600, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    for (final brightness in Brightness.values) {
+      final controller = _FakeTimeClockController(<int, TimeClockState>{
+        1: _timelineState(
+            page: 1, records: const <PunchRecord>[], totalPages: 1),
+      })
+        ..isLoadingState = false;
+      final theme = ThemeData(brightness: brightness);
+      await tester.pumpWidget(MaterialApp(
+        theme: theme,
+        home: TimeClockPage(controller: controller),
+      ));
+      await tester.pump();
+      for (final label in [
+        'Permissão',
+        'Última coordenada',
+        'Precisão',
+        'Modo'
+      ]) {
+        final flag = find
+            .ancestor(
+              of: find.text(label),
+              matching: find.byWidgetPredicate((widget) =>
+                  widget is Container &&
+                  widget.padding ==
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 14)),
+            )
+            .first;
+        final decoration =
+            tester.widget<Container>(flag).decoration! as BoxDecoration;
+        expect(decoration.borderRadius, BorderRadius.circular(10),
+            reason: 'context_flag_radius $brightness $label');
+        expect(
+            decoration.color, theme.colorScheme.surface.withValues(alpha: 0.8));
+        expect(decoration.border,
+            Border.all(color: theme.colorScheme.outlineVariant));
+      }
+      expect(find.text('Aguardando batida'), findsOneWidget);
+      expect(find.text('Presencial rastreado'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      controller.dispose();
+    }
+  });
+
+  testWidgets('time clock history composition', (tester) async {
+    final controller = _FakeTimeClockController(<int, TimeClockState>{
+      1: _timelineState(page: 1, records: const <PunchRecord>[], totalPages: 1),
+    })
+      ..isLoadingState = false;
+    tester.view.physicalSize = const Size(1600, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester
+        .pumpWidget(MaterialApp(home: TimeClockPage(controller: controller)));
+    await tester.pump();
+    final history = find
+        .ancestor(
+          of: find.text('Jornada do dia'),
+          matching: find.byType(WorkspaceSectionCard),
+        )
+        .first;
+    expect(find.descendant(of: history, matching: find.text('Permissão')),
+        findsOneWidget,
+        reason: 'time_clock_history_composition');
+    expect(tester.takeException(), isNull);
+    controller.dispose();
+  });
+
+  testWidgets('hero actions follow clock and location', (tester) async {
+    final controller = _FakeTimeClockController(<int, TimeClockState>{
+      1: _timelineState(page: 1, records: const <PunchRecord>[], totalPages: 1),
+    })
+      ..isLoadingState = false
+      ..status = ShiftStatus.working;
+    tester.view.physicalSize = const Size(1600, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester
+        .pumpWidget(MaterialApp(home: TimeClockPage(controller: controller)));
+    await tester.pump();
+    final actions =
+        find.byKey(const ValueKey<String>('time-clock-hero-actions'));
+    expect(actions, findsOneWidget, reason: 'time_clock_action_placement');
+    final location = find
+        .byKey(const ValueKey<String>('time-clock-location-status-heading'));
+    final banner = find
+        .ancestor(
+          of: location,
+          matching: find.byWidgetPredicate((widget) =>
+              widget is Container &&
+              widget.padding == const EdgeInsets.all(18)),
+        )
+        .first;
+    expect(
+        (tester.widget<Container>(banner).decoration! as BoxDecoration)
+            .borderRadius,
+        BorderRadius.circular(12),
+        reason: 'location_rounded_corners');
+    expect(tester.getTopLeft(actions).dy,
+        greaterThan(tester.getBottomLeft(location).dy));
+    expect(find.descendant(of: actions, matching: find.text('Iniciar pausa')),
+        findsOneWidget);
+    expect(find.descendant(of: actions, matching: find.text('Registrar saída')),
+        findsOneWidget);
+    expect(tester.takeException(), isNull);
+    controller.dispose();
+  });
+
   testWidgets('time clock does not claim a trusted device without validation',
       (WidgetTester tester) async {
     final controller = _FakeTimeClockController(<int, TimeClockState>{
@@ -195,8 +352,50 @@ void main() {
       find.byKey(const ValueKey<String>('time-clock-history-skeleton')),
       findsOneWidget,
     );
+    final iconContainers = tester
+        .widgetList<Container>(find.descendant(
+          of: find.byKey(const ValueKey<String>('time-clock-state-skeleton')),
+          matching: find.byType(Container),
+        ))
+        .where((c) =>
+            c.constraints?.maxWidth == 58 && c.constraints?.maxHeight == 58);
+    expect(iconContainers, isNotEmpty);
+    expect((iconContainers.first.decoration! as BoxDecoration).borderRadius,
+        BorderRadius.circular(12),
+        reason: 'skeleton_radius_rounded');
     expect(find.byType(CircularProgressIndicator), findsNothing);
   });
+
+  for (final brightness in Brightness.values) {
+    testWidgets('loading message panel is rounded in $brightness',
+        (tester) async {
+      tester.view.physicalSize = const Size(1400, 1800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final controller = _LoadingTimeClockController();
+      await tester.pumpWidget(MaterialApp(
+        theme: ThemeData(brightness: brightness),
+        home: TimeClockPage(controller: controller),
+      ));
+      await tester.pump();
+
+      final text = find.text('Carregando estado do ponto...');
+      final panel = tester.widgetList<Container>(find.ancestor(
+        of: text,
+        matching: find.byType(Container),
+      )).singleWhere((container) => container.child is Text &&
+          (container.child! as Text).data == 'Carregando estado do ponto...');
+      final decoration = panel.decoration! as BoxDecoration;
+      final colors = Theme.of(tester.element(text)).colorScheme;
+      expect(decoration.color, colors.surface.withValues(alpha: 0.8));
+      expect(decoration.border, Border.all(color: colors.outlineVariant));
+      expect(decoration.borderRadius, BorderRadius.circular(12),
+          reason: 'skeleton_message_panel_rounded $brightness');
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      controller.dispose();
+    });
+  }
 
   testWidgets('tap on register entry calls punch handler',
       (WidgetTester tester) async {
@@ -280,5 +479,75 @@ void main() {
     expect(find.text('Registro 5'), findsNothing);
     expect(find.text('Registro 1'), findsOneWidget);
     expect(find.text('Página 2 de 2'), findsOneWidget);
+  });
+
+  testWidgets('time-clock reference layout adapts across viewport sizes',
+      (WidgetTester tester) async {
+    final controller = _FakeTimeClockController(<int, TimeClockState>{
+      1: _timelineState(page: 1, records: const <PunchRecord>[], totalPages: 1),
+    })
+      ..isLoadingState = false
+      ..now = DateTime(2026, 5, 24, 9);
+
+    tester.view.physicalSize = const Size(1668, 1100);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      MaterialApp(home: TimeClockPage(controller: controller)),
+    );
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey<String>('time-clock-page-kicker')),
+      findsOneWidget,
+      reason: 'time_clock_reference_header_missing',
+    );
+    expect(find.text('CONTROLE DE PONTO'), findsWidgets);
+    expect(find.byType(WorkspaceMetricCard), findsNWidgets(4));
+    expect(
+      (tester.widget<Flex>(find.byKey(
+        const ValueKey<String>('time-clock-hero-layout'),
+      ))).direction,
+      Axis.horizontal,
+    );
+    final metricLabels = <Finder>[
+      find.text('Horas hoje'),
+      find.text('Pausa acumulada'),
+      find.text('Primeira entrada'),
+      find.text('Último evento'),
+    ];
+    final firstMetricTop = tester.getTopLeft(metricLabels.first).dy;
+    for (final label in metricLabels.skip(1)) {
+      expect(tester.getTopLeft(label).dy, closeTo(firstMetricTop, 1));
+    }
+    expect(
+      find.byKey(const ValueKey<String>('time-clock-timeline-date')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('time-clock-empty-state')),
+      findsOneWidget,
+    );
+
+    tester.view.physicalSize = const Size(390, 844);
+    await tester.pumpWidget(
+      MaterialApp(home: TimeClockPage(controller: controller)),
+    );
+    await tester.pump();
+
+    expect(
+      (tester.widget<Flex>(find.byKey(
+        const ValueKey<String>('time-clock-hero-layout'),
+      ))).direction,
+      Axis.vertical,
+    );
+    var previousTop = double.negativeInfinity;
+    for (final label in metricLabels) {
+      final top = tester.getTopLeft(label).dy;
+      expect(top, greaterThan(previousTop));
+      previousTop = top;
+    }
+    controller.dispose();
   });
 }
