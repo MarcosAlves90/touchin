@@ -6,6 +6,8 @@ import 'package:touchin_flutter/core/network/touchin_api.dart';
 import 'package:touchin_flutter/features/admin/presentation/admin_employees_page.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
 import 'package:touchin_flutter/theme/app_theme.dart';
+import 'dart:ui' as ui;
+import 'package:flutter/rendering.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -20,7 +22,9 @@ void main() {
           addTearDown(tester.view.reset);
           final base = dark ? AppTheme.darkTheme : AppTheme.lightTheme;
           final theme = highContrast ? AppTheme.highContrastTheme(base) : base;
-          await tester.pumpWidget(MaterialApp(theme: theme, home: AdminEmployeesPage(api: _FakeAdminApi(employee: _employeeResponse(pendingAdjustments: 1)))));
+          final semantics = tester.ensureSemantics();
+          final boundaryKey = GlobalKey();
+          await tester.pumpWidget(RepaintBoundary(key: boundaryKey, child: MaterialApp(theme: theme, home: AdminEmployeesPage(api: _FakeAdminApi(employee: _employeeResponse(pendingAdjustments: 1))))));
           await tester.pumpAndSettle();
           final selected = find.ancestor(of: find.text('Cadastro').last, matching: find.byType(OutlinedButton)).first;
           final next = find.ancestor(of: find.text('Políticas').last, matching: find.byType(OutlinedButton)).first;
@@ -42,6 +46,23 @@ void main() {
             expect(tester.getRect(button).contains(tester.getRect(indicator).bottomRight - const Offset(0.1, 0.1)), isTrue);
           }
           await tester.ensureVisible(selected);
+          await tester.pumpAndSettle();
+          final labels = ['Cadastro', 'Políticas', 'Ponto', 'Notas'];
+          Finder tab(String label) => find.ancestor(of: find.text(label).last, matching: find.byType(OutlinedButton)).first;
+          List<Rect> rects() => labels.map((label) => tester.getRect(tab(label))).toList();
+          final initialRects = rects();
+          Future<Color> pixel(Offset point) async {
+            final boundary = boundaryKey.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+            final image = await boundary.toImage();
+            final bytes = (await image.toByteData(format: ui.ImageByteFormat.rawRgba))!;
+            final offset = (point.dy.floor() * image.width + point.dx.floor()) * 4;
+            final result = Color.fromARGB(bytes.getUint8(offset + 3), bytes.getUint8(offset), bytes.getUint8(offset + 1), bytes.getUint8(offset + 2));
+            image.dispose();
+            return result;
+          }
+          Offset ringPoint(Finder button) => tester.getRect(button).topCenter + const Offset(0, 5);
+          final selectedBefore = await pixel(ringPoint(selected));
+          final nextBefore = await pixel(ringPoint(next));
           final selectedFocus = Focus.of(tester.element(find.text('Cadastro').last));
           final nextFocus = Focus.of(tester.element(find.text('Políticas').last));
           for (var i = 0; i < 80 && !selectedFocus.hasFocus; i++) {
