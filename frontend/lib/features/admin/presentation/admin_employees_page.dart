@@ -1181,11 +1181,29 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
           foregroundColor: MaterialStateProperty.resolveWith((_) {
             return selected ? selectedTabForeground : colorScheme.onSurface;
           }),
+          backgroundBuilder: (context, states, child) {
+            if (!states.contains(MaterialState.focused)) return child!;
+            return Stack(fit: StackFit.passthrough, children: [
+              child!,
+              Positioned.fill(
+                left: 4, top: 4, right: 4, bottom: 4,
+                child: IgnorePointer(
+                  child: DecoratedBox(
+                    key: ValueKey('profile-tab-focus-$label'),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: selected ? selectedTabForeground : colorScheme.onSurface, width: 2),
+                    ),
+                  ),
+                ),
+              ),
+            ]);
+          },
           side: MaterialStateProperty.resolveWith((states) => BorderSide(
-                color: states.contains(MaterialState.focused)
-                    ? AppTheme.navigationColors(Theme.of(context)).focusRing
-                    : selected
-                        ? adminColors.selectedIndicator
+                color: selected
+                    ? adminColors.selectedIndicator
+                    : states.contains(MaterialState.focused)
+                        ? AppTheme.navigationColors(Theme.of(context)).focusRing
                         : colorScheme.outlineVariant,
                 width: states.contains(MaterialState.focused) || selected ? 2 : 1,
               )),

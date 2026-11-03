@@ -14,6 +14,61 @@ void main() {
   for (final dark in [false, true]) {
     for (final highContrast in [false, true]) {
       for (final width in [430.0, 1440.0]) {
+        testWidgets('profile keyboard focus $dark $highContrast $width', (tester) async {
+          tester.view.physicalSize = Size(width, 1800);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.reset);
+          final base = dark ? AppTheme.darkTheme : AppTheme.lightTheme;
+          final theme = highContrast ? AppTheme.highContrastTheme(base) : base;
+          await tester.pumpWidget(MaterialApp(theme: theme, home: AdminEmployeesPage(api: _FakeAdminApi(employee: _employeeResponse(pendingAdjustments: 1)))));
+          await tester.pumpAndSettle();
+          final selected = find.ancestor(of: find.text('Cadastro').last, matching: find.byType(OutlinedButton)).first;
+          final next = find.ancestor(of: find.text('Políticas').last, matching: find.byType(OutlinedButton)).first;
+          void checkFocus(String label, Finder button) {
+            final indicator = find.byKey(ValueKey('profile-tab-focus-$label'));
+            expect(indicator, findsOneWidget, reason: 'profile_tab_focus_invisible');
+            final box = tester.widget<DecoratedBox>(indicator);
+            final border = (box.decoration as BoxDecoration).border! as Border;
+            expect(border.top.width, greaterThanOrEqualTo(2));
+            final style = tester.widget<OutlinedButton>(button).style!;
+            final section = find.ancestor(of: button, matching: find.byType(WorkspaceSectionCard)).first;
+            final panel = tester.widget<Material>(find.descendant(of: section, matching: find.byType(Material)).first);
+            final adjacent = Color.alphaBlend(panel.color!, theme.scaffoldBackgroundColor);
+            final background = Color.alphaBlend(style.backgroundColor!.resolve({})!, adjacent);
+            final a = border.top.color.computeLuminance();
+            final b = background.computeLuminance();
+            expect((a > b ? a + .05 : b + .05) / (a > b ? b + .05 : a + .05), greaterThanOrEqualTo(3));
+            expect(tester.getRect(button).contains(tester.getRect(indicator).topLeft), isTrue);
+            expect(tester.getRect(button).contains(tester.getRect(indicator).bottomRight - const Offset(0.1, 0.1)), isTrue);
+          }
+          await tester.ensureVisible(selected);
+          final selectedFocus = Focus.of(tester.element(find.text('Cadastro').last));
+          final nextFocus = Focus.of(tester.element(find.text('Políticas').last));
+          for (var i = 0; i < 80 && !selectedFocus.hasFocus; i++) {
+            await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+            await tester.pumpAndSettle();
+          }
+          expect(selectedFocus.hasFocus, isTrue);
+          checkFocus('Cadastro', selected);
+          final selectedSide = tester.widget<OutlinedButton>(selected).style!.side!.resolve({MaterialState.focused})!;
+          expect(selectedSide.color, AppTheme.adminColors(theme).selectedIndicator);
+          expect(selectedSide.width, 2);
+          await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+          await tester.pumpAndSettle();
+          expect(nextFocus.hasFocus, isTrue);
+          expect(find.byKey(const ValueKey('profile-tab-focus-Cadastro')), findsNothing);
+          checkFocus('Políticas', next);
+          await tester.sendKeyEvent(LogicalKeyboardKey.space);
+          await tester.pumpAndSettle();
+          expect(find.text('Validação de localização'), findsOneWidget);
+          expect(tester.takeException(), isNull);
+        });
+      }
+    }
+  }
+  for (final dark in [false, true]) {
+    for (final highContrast in [false, true]) {
+      for (final width in [430.0, 1440.0]) {
         testWidgets('profile selected tabs $dark $highContrast $width', (tester) async {
           tester.view.physicalSize = Size(width, 1800);
           tester.view.devicePixelRatio = 1;
