@@ -21,6 +21,13 @@ def _canonical_golden_job() -> str:
     )
 
 
+def _functional_frontend_job() -> str:
+    return _named_block(
+        r"^  frontend-tests:\n(?P<body>.*?)(?=^  [A-Za-z0-9_-]+:\n|\Z)",
+        WORKFLOW,
+    )
+
+
 def _job_step(job: str, name: str) -> str:
     return _named_block(
         rf"^      - name: {re.escape(name)}\n(?P<body>.*?)(?=^      - name:|^  [A-Za-z0-9_-]+:|\Z)",
@@ -41,8 +48,20 @@ class FlutterGoldenCiContractTest(unittest.TestCase):
         self.assertRegex(WORKFLOW, r"flutter test[^\n]*--tags\s+canonical-golden")
 
     def test_functional_suites_exclude_only_the_golden_tag(self):
-        self.assertRegex(POLIS_TESTS, r"flutter test[^\n]*--exclude-tags\s+canonical-golden")
+        self.assertRegex(POLIS_TESTS, r'"--exclude-tags",\s*"canonical-golden"')
         self.assertRegex(WORKFLOW, r"flutter test[^\n]*--exclude-tags\s+canonical-golden")
+
+    def test_functional_coverage_runs_serially_and_cannot_stall_ci_forever(self):
+        job = _functional_frontend_job()
+        test_step = _job_step(job, "Run frontend tests")
+        runtime_step = _job_step(job, "Confirm Flutter test runtime")
+
+        self.assertRegex(job, r"(?m)^    timeout-minutes: 60$")
+        self.assertRegex(test_step, r"timeout --signal=TERM --kill-after=30s 15m flutter test --coverage\s+--exclude-tags\s+canonical-golden\s+--concurrency=1\s+--reporter\s+expanded")
+        self.assertRegex(runtime_step, r"(?m)^        run: flutter --version$")
+        self.assertIn('"--concurrency=1"', POLIS_TESTS)
+        self.assertIn('"--reporter"', POLIS_TESTS)
+        self.assertIn('"expanded"', POLIS_TESTS)
 
     def test_canonical_job_binds_runtime_golden_and_failure_artifact_steps(self):
         job = _canonical_golden_job()

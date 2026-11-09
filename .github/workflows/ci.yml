@@ -103,6 +103,7 @@ jobs:
   frontend-tests:
     name: Frontend tests
     runs-on: ubuntu-latest
+    timeout-minutes: 60
 
     defaults:
       run:
@@ -123,6 +124,9 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Confirm Flutter test runtime
+        run: flutter --version
+
       - name: Install frontend dependencies
         run: flutter pub get
 
@@ -130,7 +134,10 @@ jobs:
         run: sudo apt-get update && sudo apt-get install --no-install-recommends --yes lcov
 
       - name: Run frontend tests
-        run: flutter test --coverage --exclude-tags canonical-golden
+        # Linux flutter_tester has crashed during coverage finalization when
+        # multiple Kanban test files finished concurrently. Kill a stalled test
+        # subprocess without cutting short the later build and smoke steps.
+        run: timeout --signal=TERM --kill-after=30s 15m flutter test --coverage --exclude-tags canonical-golden --concurrency=1 --reporter expanded
 
       - name: Generate frontend HTML coverage report
         run: genhtml coverage/lcov.info --output-directory coverage/html --title "TouchIn Flutter coverage" --legend
