@@ -134,10 +134,40 @@ jobs:
         run: sudo apt-get update && sudo apt-get install --no-install-recommends --yes lcov
 
       - name: Run frontend tests
-        # Linux flutter_tester has crashed during coverage finalization when
-        # multiple Kanban test files finished concurrently. Kill a stalled test
-        # subprocess without cutting short the later build and smoke steps.
+        id: flutter_suite
+        # Hosted Linux flutter_tester has crashed while finalizing the Kanban
+        # test file even with concurrency=1. Bound any resulting CLI deadlock.
         run: timeout --signal=TERM --kill-after=30s 15m flutter test --coverage --exclude-tags canonical-golden --concurrency=1 --reporter expanded
+
+      - name: Diagnose native Flutter tester failure on Ubuntu
+        if: failure() && steps.flutter_suite.outcome == 'failure'
+        run: |
+          echo "Kernel: $(uname -a)"
+          echo "Core dump handler: $(cat /proc/sys/kernel/core_pattern)"
+          echo 'Recent native process faults (no core files uploaded):'
+          sudo dmesg --ctime 2>&1 | grep -Ei 'flutter_tester|segfault|SIGSEGV|general protection|out of memory' | tail -n 50 || true
+          echo 'Remaining Flutter tester processes:'
+          ps -eo pid,ppid,stat,comm | grep '[f]lutter_tester' || true
+
+      # Only after a full-suite failure: probe the native engine separately,
+      # without changing the test order, coverage, or outcome of normal runs.
+      - name: Probe isolated Kanban tester without coverage
+        if: failure() && steps.flutter_suite.outcome == 'failure'
+        continue-on-error: true
+        run: >-
+          timeout --signal=TERM --kill-after=30s 3m
+          flutter test --no-pub --concurrency=1 --reporter expanded
+          test/features/projects/presentation/project_kanban_board_test.dart
+
+      - name: Probe isolated Kanban tester with coverage
+        if: failure() && steps.flutter_suite.outcome == 'failure'
+        continue-on-error: true
+        run: >-
+          timeout --signal=TERM --kill-after=30s 3m
+          flutter test --no-pub --coverage
+          --coverage-path="$RUNNER_TEMP/kanban-probe.lcov"
+          --concurrency=1 --reporter expanded
+          test/features/projects/presentation/project_kanban_board_test.dart
 
       - name: Generate frontend HTML coverage report
         run: genhtml coverage/lcov.info --output-directory coverage/html --title "TouchIn Flutter coverage" --legend
