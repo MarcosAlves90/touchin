@@ -1,5 +1,6 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
-import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
 
 part 'auth_form_widgets.dart';
 
@@ -63,7 +64,7 @@ class AuthShell extends StatelessWidget {
             return Row(
               children: [
                 Expanded(
-                  flex: 40,
+                  flex: 53,
                   child: _AuthBrandPanel(
                     headline: brandHeadline,
                     description: brandDescription,
@@ -73,7 +74,7 @@ class AuthShell extends StatelessWidget {
                   ),
                 ),
                 Expanded(
-                  flex: 60,
+                  flex: 47,
                   child: _AuthFormStage(child: formPanel),
                 ),
               ],
@@ -141,7 +142,10 @@ class AuthCompactBrandBadge extends StatelessWidget {
           height: 42,
           width: 42,
           alignment: Alignment.center,
-          color: colors.primary,
+          decoration: BoxDecoration(
+            color: colors.primary,
+            borderRadius: BorderRadius.circular(8),
+          ),
           child: Icon(
             Icons.fingerprint_rounded,
             color: colors.onPrimary,
@@ -190,65 +194,249 @@ class _AuthBrandPanel extends StatelessWidget {
   final String imageUrl;
   final String step;
 
+  static const _amber = Color(0xFFFFB020);
+  static const _ivory = Color(0xFFF8F4E9);
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    return Container(
-      key: const Key('auth-editorial-hero'),
-      decoration: BoxDecoration(
-        color: Color.lerp(
-            theme.scaffoldBackgroundColor, colors.surfaceContainerHighest, 0.5),
-        border: Border(right: BorderSide(color: colors.outlineVariant)),
-      ),
-      child: LayoutBuilder(builder: (context, constraints) {
-        return SingleChildScrollView(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: constraints.maxHeight),
-            child: Padding(
-              padding: const EdgeInsets.all(32),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const AuthCompactBrandBadge(),
-                  const SizedBox(height: 64),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(14),
-                    child: SizedBox(
-                      height: 150,
-                      width: double.infinity,
-                      child: Image.network(imageUrl,
-                          fit: BoxFit.cover,
-                          excludeFromSemantics: true,
-                          errorBuilder: (context, error, stackTrace) =>
-                              ColoredBox(color: colors.surfaceContainerHigh)),
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final narrow = constraints.maxWidth < 580;
+        final inset = narrow ? 34.0 : 54.0;
+
+        return Container(
+          key: const Key('auth-editorial-hero'),
+          color: const Color(0xFF201914),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Positioned.fill(
+                child: ClipRect(
+                  child: ImageFiltered(
+                    imageFilter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                    child: Transform.scale(
+                      scale: 1.06,
+                      child: Image.network(
+                        imageUrl,
+                        fit: BoxFit.cover,
+                        filterQuality: FilterQuality.medium,
+                        excludeFromSemantics: true,
+                        errorBuilder: (context, error, stackTrace) =>
+                            const SizedBox.expand(),
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 28),
-                  Text(headline,
-                      style: theme.textTheme.headlineMedium
-                          ?.copyWith(fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 16),
-                  Text(description,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                          color: colors.onSurfaceVariant, height: 1.5)),
-                  const SizedBox(height: 24),
-                  Wrap(spacing: 8, runSpacing: 8, children: [
-                    for (final tag in tags)
-                      Chip(
-                          label: Text(tag),
-                          visualDensity: VisualDensity.compact),
-                  ]),
-                  const SizedBox(height: 32),
-                  Text('$step  /  04',
-                      style: theme.textTheme.labelSmall
-                          ?.copyWith(color: colors.onSurfaceVariant)),
-                ],
+                ),
               ),
-            ),
+              const Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      stops: [0.0, 0.38, 0.72, 1.0],
+                      colors: [
+                        Color(0xBF15100D),
+                        Color(0x775F3417),
+                        Color(0xC61F1813),
+                        Color(0xF2161513),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topRight,
+                      end: Alignment.bottomLeft,
+                      colors: [
+                        _amber.withValues(alpha: 0.28),
+                        Colors.transparent,
+                        const Color(0xFF0F0E0D).withValues(alpha: 0.35),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 0,
+                right: 0,
+                bottom: 0,
+                child:
+                    Container(width: 1, color: _ivory.withValues(alpha: 0.14)),
+              ),
+              SingleChildScrollView(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(inset, 42, inset, 44),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              height: 42,
+                              width: 42,
+                              decoration: BoxDecoration(
+                                color: _amber,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              alignment: Alignment.center,
+                              child: const Icon(
+                                Icons.fingerprint_rounded,
+                                size: 23,
+                                color: Color(0xFF24170B),
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'TOUCHIN',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style:
+                                        theme.textTheme.titleMedium?.copyWith(
+                                      color: _ivory,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 2.2,
+                                    ),
+                                  ),
+                                  Text(
+                                    'WORKSPACE',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      color: _ivory.withValues(alpha: 0.64),
+                                      letterSpacing: 2.0,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Text(
+                              '$step  /  04',
+                              style: theme.textTheme.labelMedium?.copyWith(
+                                color: _ivory.withValues(alpha: 0.76),
+                                letterSpacing: 2.0,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(width: 29, height: 3, color: _amber),
+                                const SizedBox(width: 12),
+                                Flexible(
+                                  child: Text(
+                                    'SEU ESPAÇO DE OPERAÇÃO',
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      color: _amber,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 2.1,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 22),
+                            Text(
+                              headline,
+                              style: theme.textTheme.displayMedium?.copyWith(
+                                color: _ivory,
+                                fontSize: narrow ? 36 : 46,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: -1.8,
+                                height: 1.09,
+                              ),
+                            ),
+                            const SizedBox(height: 22),
+                            ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 500),
+                              child: Text(
+                                description,
+                                style: theme.textTheme.bodyLarge?.copyWith(
+                                  color: _ivory.withValues(alpha: 0.83),
+                                  height: 1.6,
+                                  fontSize: 15,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 34),
+                            Container(
+                                height: 1,
+                                color: _ivory.withValues(alpha: 0.22)),
+                            const SizedBox(height: 22),
+                            Wrap(
+                              spacing: 9,
+                              runSpacing: 9,
+                              children: [
+                                for (final tag in tags)
+                                  _AuthHighlightTag(label: tag)
+                              ],
+                            ),
+                            const SizedBox(height: 29),
+                            Text(
+                              'TOUCHIN  /  PLATAFORMA CORPORATIVA',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: _ivory.withValues(alpha: 0.5),
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 1.55,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         );
-      }),
+      },
+    );
+  }
+}
+
+class _AuthHighlightTag extends StatelessWidget {
+  const _AuthHighlightTag({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      decoration: BoxDecoration(
+        color: const Color(0xFF11100D).withValues(alpha: 0.23),
+        borderRadius: BorderRadius.circular(8),
+        border:
+            Border.all(color: const Color(0xFFF8F4E9).withValues(alpha: 0.27)),
+      ),
+      child: Text(
+        label,
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: const Color(0xFFF8F4E9),
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.5,
+        ),
+      ),
     );
   }
 }

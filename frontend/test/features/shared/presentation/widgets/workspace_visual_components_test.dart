@@ -6,7 +6,7 @@ import 'package:touchin_flutter/theme/app_theme.dart';
 import 'package:touchin_flutter/features/auth/presentation/widgets/auth_shell.dart';
 
 void main() {
-  testWidgets('page header auth shares workspace typography and back action', (tester) async {
+  testWidgets('auth heading preserves main typography and back action', (tester) async {
     var backs = 0;
     await tester.binding.setSurfaceSize(const Size(1200, 800));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -14,9 +14,19 @@ void main() {
       const WorkspaceHeader(title: 'Workspace', description: ''),
       AuthPageHeading(title: 'Autenticação', onBack: () => backs++),
     ]))));
-    expect(tester.widget<Text>(find.text('Autenticação')).style,
-        tester.widget<Text>(find.text('Workspace')).style);
-    expect(find.ancestor(of: find.text('Autenticação'), matching: find.byType(WorkspaceHeader)), findsOneWidget);
+    final heading = find.text('Autenticação');
+    final context = tester.element(heading);
+    final styles = Theme.of(context).textTheme;
+    final expected = (MediaQuery.sizeOf(context).width < 920
+            ? styles.headlineMedium
+            : styles.headlineLarge)?.copyWith(
+      fontWeight: FontWeight.w700,
+      letterSpacing: -0.9,
+      height: 1.12,
+    );
+    expect(tester.widget<Text>(heading).style, expected);
+    expect(find.ancestor(of: heading, matching: find.byType(WorkspaceHeader)),
+        findsNothing, reason: 'auth_heading_uses_main_typography');
     await tester.tap(find.byTooltip('Voltar'));
     expect(backs, 1);
   });

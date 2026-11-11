@@ -174,7 +174,7 @@ class _LoginPageState extends State<LoginPage>
                   controlAffinity: ListTileControlAffinity.leading,
                   contentPadding: EdgeInsets.zero,
                   checkboxShape: const RoundedRectangleBorder(
-                    borderRadius: BorderRadius.zero,
+                    borderRadius: BorderRadius.all(Radius.circular(4)),
                   ),
                   title: Text(
                     'Manter conectado',

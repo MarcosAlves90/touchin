@@ -16,11 +16,21 @@ class AuthFormFrame extends StatelessWidget {
     final compactShort = compact && MediaQuery.sizeOf(context).height < 700;
 
     return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 600),
+      constraints: const BoxConstraints(maxWidth: 560),
       child: Padding(
-        padding: EdgeInsets.symmetric(
-          horizontal: compact ? 16 : 32,
-          vertical: compactShort ? 12 : 32,
+        padding: EdgeInsets.fromLTRB(
+          compact ? 24 : 48,
+          compactShort
+              ? 12
+              : compact
+                  ? 30
+                  : 64,
+          compact ? 24 : 48,
+          compactShort
+              ? 24
+              : compact
+                  ? 36
+                  : 56,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -28,50 +38,49 @@ class AuthFormFrame extends StatelessWidget {
           children: [
             if (compact) ...[
               const AuthCompactBrandBadge(key: Key('auth-mobile-masthead')),
-              SizedBox(height: compactShort ? 8 : 24),
+              SizedBox(height: compactShort ? 10 : 38),
             ],
-            Card(
-              margin: EdgeInsets.zero,
-              elevation: 0,
-              color: Color.lerp(Theme.of(context).scaffoldBackgroundColor,
-                  colors.surfaceContainerHighest, 0.5),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-                side: BorderSide(color: colors.outlineVariant),
-              ),
-              child: Padding(
-                padding: EdgeInsets.all(compactShort
-                    ? 12
-                    : compact
-                        ? 20
-                        : 32),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('PORTAL CORPORATIVO',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: colors.onSurfaceVariant,
-                          letterSpacing: 1.2,
-                          fontWeight: FontWeight.w700,
-                        )),
-                    SizedBox(height: compactShort ? 8 : 20),
-                    child,
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
             Row(
               children: [
-                Icon(Icons.shield_outlined,
-                    color: colors.onSurfaceVariant, size: 17),
+                Container(width: 24, height: 3, color: colors.primary),
+                const SizedBox(width: 12),
+                Flexible(
+                  child: Text(
+                    'PORTAL CORPORATIVO',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: colors.primary,
+                      letterSpacing: 2.1,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: compactShort ? 10 : 23),
+            child,
+            SizedBox(height: compactShort ? 24 : 44),
+            Container(
+                height: 1,
+                color: colors.outlineVariant.withValues(alpha: 0.75)),
+            const SizedBox(height: 19),
+            Row(
+              children: [
+                Icon(
+                  Icons.shield_outlined,
+                  color: colors.onSurfaceVariant.withValues(alpha: 0.72),
+                  size: 17,
+                ),
                 const SizedBox(width: 9),
                 Expanded(
-                    child: Text('TOUCHIN  /  ÁREA EMPRESARIAL',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                            color: colors.onSurfaceVariant,
-                            letterSpacing: 1.0))),
+                  child: Text(
+                    'TOUCHIN  /  ÁREA EMPRESARIAL',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: colors.onSurfaceVariant.withValues(alpha: 0.72),
+                      letterSpacing: 1.0,
+                      fontSize: 10,
+                    ),
+                  ),
+                ),
               ],
             ),
           ],
@@ -94,7 +103,10 @@ class AuthPageHeading extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (onBack == null) {
-      return WorkspaceHeader(title: title, description: '');
+      return Semantics(
+        header: true,
+        child: Text(title, style: authPageTitleStyle(context)),
+      );
     }
 
     return Row(
@@ -110,7 +122,10 @@ class AuthPageHeading extends StatelessWidget {
         ),
         const SizedBox(width: 12),
         Expanded(
-          child: WorkspaceHeader(title: title, description: ''),
+          child: Semantics(
+            header: true,
+            child: Text(title, style: authPageTitleStyle(context)),
+          ),
         ),
       ],
     );
