@@ -40,17 +40,20 @@ void main() {
       final bg = style.backgroundColor!.resolve(disabled)!;
       final fg = style.foregroundColor!.resolve(disabled)!;
       final side = style.side?.resolve(disabled);
-      final frame = tester.widget<Card>(find
-          .descendant(
-              of: find.byType(AuthFormFrame), matching: find.byType(Card))
-          .first);
-      final card = frame.color ?? high.cardColor;
+      // AuthFormFrame matches main: the form sits directly on the scaffold,
+      // without the Card introduced by the reverted authentication redesign.
+      expect(
+          find.descendant(
+              of: find.byType(AuthFormFrame), matching: find.byType(Card)),
+          findsNothing);
+      final surface = Theme.of(tester.element(find.byType(ElevatedButton)))
+          .scaffoldBackgroundColor;
       expect(button.onPressed, isNull);
       expect(contrast(fg, bg), greaterThanOrEqualTo(4.5),
           reason: 'contrast_v3_regression text');
       expect(
-          math.max(contrast(bg, card),
-              side == null ? 0 : contrast(side.color, card)),
+          math.max(contrast(bg, surface),
+              side == null ? 0 : contrast(side.color, surface)),
           greaterThanOrEqualTo(3),
           reason: 'contrast_v3_regression button outline');
       expect(bg, isNot(style.backgroundColor!.resolve(<WidgetState>{})),
