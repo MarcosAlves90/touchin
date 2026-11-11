@@ -135,9 +135,10 @@ jobs:
 
       - name: Run frontend tests
         id: flutter_suite
-        # Hosted Linux flutter_tester has crashed while finalizing the Kanban
-        # test file even with concurrency=1. Bound any resulting CLI deadlock.
-        run: timeout --signal=TERM --kill-after=30s 15m flutter test --coverage --exclude-tags canonical-golden --concurrency=1 --reporter expanded
+        # Hosted Linux flutter_tester consistently SIGSEGVs after ~280 tests
+        # in one coverage session; isolated tests and WSL suites pass. Run all
+        # files in bounded sessions and merge their LCOV reports afterward.
+        run: python3 ../scripts/run_frontend_coverage.py
 
       - name: Diagnose native Flutter tester failure on Ubuntu
         if: failure() && steps.flutter_suite.outcome == 'failure'

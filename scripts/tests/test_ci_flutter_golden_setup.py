@@ -5,6 +5,7 @@ from pathlib import Path
 
 WORKFLOW = Path(".github/workflows/ci.yml").read_text(encoding="utf-8")
 POLIS_TESTS = Path("scripts/polis_tests.py").read_text(encoding="utf-8")
+FRONTEND_COVERAGE = Path("scripts/run_frontend_coverage.py").read_text(encoding="utf-8")
 
 
 def _named_block(pattern: str, source: str) -> str:
@@ -49,7 +50,8 @@ class FlutterGoldenCiContractTest(unittest.TestCase):
 
     def test_functional_suites_exclude_only_the_golden_tag(self):
         self.assertRegex(POLIS_TESTS, r'"--exclude-tags",\s*"canonical-golden"')
-        self.assertRegex(WORKFLOW, r"flutter test[^\n]*--exclude-tags\s+canonical-golden")
+        self.assertRegex(WORKFLOW, r"run: python3 ../scripts/run_frontend_coverage.py")
+        self.assertRegex(FRONTEND_COVERAGE, r'"--exclude-tags",\s*"canonical-golden"')
 
     def test_functional_coverage_runs_serially_and_cannot_stall_ci_forever(self):
         job = _functional_frontend_job()
@@ -57,7 +59,13 @@ class FlutterGoldenCiContractTest(unittest.TestCase):
         runtime_step = _job_step(job, "Confirm Flutter test runtime")
 
         self.assertRegex(job, r"(?m)^    timeout-minutes: 60$")
-        self.assertRegex(test_step, r"timeout --signal=TERM --kill-after=30s 15m flutter test --coverage\s+--exclude-tags\s+canonical-golden\s+--concurrency=1\s+--reporter\s+expanded")
+        self.assertRegex(test_step, r"run: python3 ../scripts/run_frontend_coverage.py")
+        self.assertRegex(FRONTEND_COVERAGE, r'"timeout",\s*"--signal=TERM",\s*"--kill-after=30s",\s*"15m"')
+        self.assertIn('"--coverage"', FRONTEND_COVERAGE)
+        self.assertIn('"--concurrency=1"', FRONTEND_COVERAGE)
+        self.assertRegex(FRONTEND_COVERAGE, r'"--reporter",\s*"expanded"')
+        self.assertIn('"--add-tracefile"', FRONTEND_COVERAGE)
+        self.assertIn('"*_test.dart"', FRONTEND_COVERAGE)
         self.assertRegex(runtime_step, r"(?m)^        run: flutter --version$")
         self.assertIn('"--concurrency=1"', POLIS_TESTS)
         self.assertIn('"--reporter"', POLIS_TESTS)
