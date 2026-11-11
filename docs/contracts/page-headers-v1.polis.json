@@ -1,0 +1,217 @@
+{
+  "schema_version": 6,
+  "kind": "feature",
+  "scope": {
+    "allowed_paths": [
+      "frontend/lib/features/admin/presentation/admin_audit_page.dart",
+      "frontend/lib/features/admin/presentation/admin_employees_page.dart",
+      "frontend/lib/features/auth/presentation/widgets/auth_form_widgets.dart",
+      "frontend/lib/features/auth/presentation/widgets/auth_shell.dart",
+      "frontend/lib/features/projects/presentation/project_kanban_page.dart",
+      "frontend/lib/features/projects/presentation/project_tasks_page.dart",
+      "frontend/lib/features/settings/presentation/settings_page.dart",
+      "frontend/lib/features/shared/presentation/widgets/workspace_shell.dart",
+      "frontend/lib/features/time_tracking/presentation/time_clock_page.dart",
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart",
+      "frontend/test/features/shared/presentation/widgets/workspace_visual_components_test.dart",
+      "docs/contracts/page-headers-v1.polis.json",
+      "frontend/test/admin_contrast_test.dart",
+      "frontend/test/admin_audit_page_test.dart"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart",
+      "frontend/test/features/shared/presentation/widgets/workspace_visual_components_test.dart",
+      "frontend/test/admin_contrast_test.dart",
+      "frontend/test/admin_audit_page_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Standardize authenticated page headers without changing internal section headings or authentication flow.",
+    "requirements": [
+      {
+        "id": "REQ-1",
+        "statement": "All six authenticated page headers use consistent typography, sizing, spacing and action button tokens across matching responsive layouts and themes, with a small uppercase accent kicker, action title, description and desktop actions at the right edge."
+      },
+      {
+        "id": "REQ-2",
+        "statement": "Keep section headings, page actions, accessibility and authentication behavior intact."
+      },
+      {
+        "id": "REQ-3",
+        "statement": "Audit filter button preserves accessible app and admin theme styles in light and dark; desktop audit header uses scaffold wide inset independent of filter breakpoint."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-1",
+        "statement": "The shared page header renders kicker and title hierarchy and aligns an action at the desktop right edge; remains usable on narrow screens.",
+        "requirements": [
+          "REQ-1"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-2",
+        "statement": "All six authenticated routes use the page heading pattern; section headings and existing actions remain intact.",
+        "requirements": [
+          "REQ-1",
+          "REQ-2"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-3",
+        "statement": "docs/contracts/page-headers-v1.polis.json matches the locked contract byte for byte.",
+        "requirements": [
+          "REQ-1"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-4",
+        "statement": "Kanban mobile displays the standard heading without overflow while retaining a usable board, scrolling and actions at narrow and short viewports and enlarged text.",
+        "requirements": [
+          "REQ-1",
+          "REQ-2"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-5",
+        "statement": "Across all six routes page header typography and spacing match at the same viewport; primary and secondary header actions share sizing while preserving semantic variants, enabled states and interactions.",
+        "requirements": [
+          "REQ-1",
+          "REQ-2"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-6",
+        "statement": "Rendered audit filter label contrasts at least 4.5 to 1 in both themes, with 32px desktop heading inset at 1200px and compact filters unchanged.",
+        "requirements": [
+          "REQ-3"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-1",
+        "statement": "Preserve existing actions, routing, authentication and data behavior."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-1",
+        "statement": "Internal section headings are styled as top-level page headings."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-1",
+        "statement": "Viewport, page copy and existing action widgets."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-1",
+        "statement": "Responsive accessible page headings."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-1",
+        "statement": "Widget test reports page_header_alignment on an improperly aligned action."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "a43db8ea2e027e181813f22d60dc1f275fd4b63e",
+    "base_tree": "1f2dc4891bd2100954d645026d789ee2a1808dd6",
+    "policy_sha256": "7714a10ab2b65f58941086f500de93fa62fc6acb6fd59d8b39292980364774dd",
+    "specification_sha256": "0566fd4181dd947252a4d703467e304218b0bf4f7c5a5f1595689a3aa2a7e2f4"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/features/shared/presentation/widgets/workspace_visual_components_test.dart",
+      "test/features/projects/presentation/project_kanban_page_test.dart",
+      "test/admin_audit_page_test.dart",
+      "test/admin_contrast_test.dart",
+      "--name",
+      "page header"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/features/shared/presentation/widgets/workspace_visual_components_test.dart",
+      "test/features/projects/presentation/project_kanban_page_test.dart",
+      "test/admin_audit_page_test.dart",
+      "test/admin_contrast_test.dart",
+      "--name",
+      "page header"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "test/features/shared/presentation/widgets/workspace_visual_components_test.dart",
+        "test/features/projects/presentation/project_kanban_page_test.dart",
+        "test/admin_audit_page_test.dart",
+        "test/admin_contrast_test.dart",
+        "--name",
+        "page header"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 600,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "page_header_alignment"
+    ]
+  }
+}

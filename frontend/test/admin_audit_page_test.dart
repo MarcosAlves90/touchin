@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:touchin_flutter/features/admin/presentation/admin_audit_page.dart';
+import 'package:touchin_flutter/features/admin/presentation/admin_audit_page_widgets.dart';
 import 'package:touchin_flutter/contracts/audit.dart';
 import 'package:touchin_flutter/core/network/api_client.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
@@ -113,6 +114,191 @@ Future<void> selectAuditFilter(
 }
 
 void main() {
+  testWidgets('page header audit desktop inset follows scaffold width',
+      (tester) async {
+    tester.view.physicalSize = const Size(1200, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(MaterialApp(home: AdminAuditPage(api: FakeTouchInApi())));
+    await tester.pumpAndSettle();
+    final scroll = find.byKey(const ValueKey<String>('audit-header-scroll'));
+    final heading = find.text('Eventos de auditoria');
+    expect(tester.getTopLeft(heading).dx - tester.getTopLeft(scroll).dx, 32);
+    await tester.tap(find.byKey(const ValueKey<String>('audit-filters-button')));
+    await tester.pumpAndSettle();
+    expect(find.byType(BottomSheet), findsOneWidget);
+  });
+  testWidgets('audit temporary completion notification', (tester) async {
+    final api = FakeTouchInApi()..mockEvents = [AuditEventResponse(
+      id: 'event', timestamp: DateTime.utc(2026), companyId: 'company',
+      actorUserId: null, projectId: null, action: 'card.created',
+      entityType: 'card', entityId: 'entity', result: 'success',
+      metadataPayload: null,
+    )];
+    await tester.pumpWidget(MaterialApp(home: AdminAuditPage(api: api)));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byType(SnackBar), findsOneWidget,
+        reason: 'audit_temporary_notification');
+    expect(find.text('Todos os eventos carregados.'), findsOneWidget);
+    final semantics = tester.ensureSemantics();
+    expect(find.bySemanticsLabel('Todos os eventos carregados.'), findsOneWidget);
+    semantics.dispose();
+    expect(find.byKey(const ValueKey<String>('audit-end-of-list')), findsNothing);
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+    expect(find.text('Todos os eventos carregados.'), findsNothing);
+  });
+
+  testWidgets('audit completion suppressed for empty and error responses',
+      (tester) async {
+    for (final api in [FakeTouchInApi(), FakeTouchInApi()..firstError = Exception()]) {
+      await tester.pumpWidget(MaterialApp(key: UniqueKey(), home: AdminAuditPage(api: api)));
+      await tester.pumpAndSettle();
+      expect(find.text('Todos os eventos carregados.'), findsNothing);
+      expect(find.byType(SnackBar), findsNothing);
+    }
+  });
+
+  testWidgets('audit outer surface radii', (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    for (final theme in [AppTheme.lightTheme, AppTheme.darkTheme]) {
+      for (final mobile in [false, true]) {
+        await tester.binding.setSurfaceSize(Size(mobile ? 390 : 1280, 800));
+        final api = FakeTouchInApi()
+          ..mockEvents = [AuditEventResponse(
+            id: 'rounded', timestamp: DateTime.utc(2026), companyId: 'company',
+            actorUserId: null, projectId: null, action: 'card.created',
+            entityType: 'card', entityId: 'entity', result: 'success',
+            metadataPayload: null,
+          )];
+        await tester.pumpWidget(MaterialApp(key: UniqueKey(), theme: theme,
+            home: AdminAuditPage(api: api)));
+        await tester.pumpAndSettle();
+        expect(api.requestedPages, contains(1));
+        final event = find.byKey(ValueKey<String>(mobile
+            ? 'audit-event-card-rounded' : 'audit-event-row-rounded'));
+        expect(event, findsOneWidget);
+        if (!mobile) {
+          final table = tester.widget<Container>(find.byKey(
+              const ValueKey<String>('audit-events-table')));
+          expect((table.decoration! as BoxDecoration).borderRadius,
+              BorderRadius.circular(12), reason: 'audit_outer_surface_radius');
+          expect(table.clipBehavior, isNot(Clip.none),
+              reason: 'audit_outer_surface_radius');
+        }
+        expect(find.byKey(const ValueKey<String>('audit-end-of-list')), findsNothing);
+        await tester.tap(event);
+        await tester.pumpAndSettle();
+        expect(find.byType(AuditEventDetailsDialog), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      }
+    }
+  });
+  testWidgets('compact audit skeleton cards have rounded corners',
+      (tester) async {
+    await tester.pumpWidget(const MaterialApp(
+      home: Scaffold(body: AuditLoadingSkeleton(compact: true)),
+    ));
+    final cards = tester
+        .widgetList<Container>(find.descendant(
+          of: find.byType(AuditLoadingSkeleton),
+          matching: find.byType(Container),
+        ))
+        .where((container) => container.padding == const EdgeInsets.all(14));
+    expect(cards, isNotEmpty);
+    for (final card in cards) {
+      expect((card.decoration! as BoxDecoration).borderRadius,
+          BorderRadius.circular(12),
+          reason: 'skeleton_radius_rounded');
+    }
+  });
+  testWidgets('audit event content hierarchy', (tester) async {
+    final event = AuditEventResponse(
+      id: 'event',
+      timestamp: DateTime.utc(2026, 10, 20),
+      companyId: 'company',
+      actorUserId: 'actor',
+      projectId: 'project',
+      action: 'card.created',
+      entityType: 'card',
+      entityId: 'entity',
+      result: 'success',
+      metadataPayload: null,
+    );
+    for (final theme in [AppTheme.lightTheme, AppTheme.darkTheme]) {
+      for (final mobile in [false, true]) {
+        var opened = false;
+        await tester.binding.setSurfaceSize(Size(mobile ? 360 : 1280, 800));
+        await tester.pumpWidget(MaterialApp(
+            theme: theme,
+            home: Scaffold(
+                body: Center(
+              child: mobile
+                  ? AuditEventCard(
+                      event: event,
+                      actionLabel: 'Tarefa criada',
+                      resultLabel: 'Sucesso',
+                      onTap: () => opened = true)
+                  : AuditEventTableRow(
+                      event: event,
+                      actionLabel: 'Tarefa criada',
+                      resultLabel: 'Sucesso',
+                      onTap: () => opened = true),
+            ))));
+        await tester.pumpAndSettle();
+        final action = find.text('Tarefa criada');
+        final date = find.text(mobile
+            ? auditLocalDateTime(event.timestamp)
+            : auditLocalDate(event.timestamp));
+        expect(action, findsOneWidget);
+        expect(date, findsOneWidget);
+        if (mobile) {
+          expect(tester.getTopLeft(action).dy,
+              lessThan(tester.getTopLeft(date).dy),
+              reason: 'audit_event_content_hierarchy');
+        } else {
+          expect(tester.getTopLeft(action).dx,
+              lessThan(tester.getTopLeft(date).dx),
+              reason: 'audit_event_content_hierarchy');
+        }
+        expect(find.text('Sucesso'), findsOneWidget);
+        expect(find.text('entity'), findsOneWidget);
+        await tester.tap(action);
+        expect(opened, isTrue);
+        expect(tester.takeException(), isNull);
+      }
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+  testWidgets('audit redesign results have a section heading', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final api = FakeTouchInApi()
+      ..mockEvents = [
+        AuditEventResponse(
+          id: 'redesign',
+          timestamp: DateTime.utc(2026),
+          companyId: 'company',
+          actorUserId: null,
+          projectId: null,
+          action: 'card.created',
+          entityType: 'card',
+          entityId: 'entity',
+          result: 'success',
+          metadataPayload: null,
+        )
+      ];
+    await tester.pumpWidget(MaterialApp(home: AdminAuditPage(api: api)));
+    await tester.pumpAndSettle();
+    expect(find.text('Histórico de eventos'), findsOneWidget,
+        reason: 'audit_redesign_hierarchy');
+    expect(find.byKey(const ValueKey<String>('audit-events-table')),
+        findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   AuditEventResponse pageEvent(int index) => AuditEventResponse(
         id: 'evt_$index',
         timestamp: DateTime.utc(2026, 10, 20),
@@ -266,7 +452,7 @@ void main() {
   });
 
   testWidgets(
-      'audit date picker uses the shared square dialog shape in dark theme on desktop and mobile',
+      'audit date picker uses the shared rounded dialog shape in dark theme on desktop and mobile',
       (tester) async {
     for (final size in [const Size(1280, 800), const Size(360, 760)]) {
       await tester.binding.setSurfaceSize(size);
@@ -285,7 +471,7 @@ void main() {
         expect(
             dialog.shape,
             const RoundedRectangleBorder(
-              borderRadius: BorderRadius.zero,
+              borderRadius: BorderRadius.all(Radius.circular(8)),
             ));
         expect(find.text('Cancel'), findsOneWidget);
         expect(find.text('OK'), findsOneWidget);
@@ -378,11 +564,206 @@ void main() {
     final list = tester.widget<ListView>(find.byType(ListView));
     final delegate = list.childrenDelegate as SliverChildBuilderDelegate;
     expect(delegate.estimatedChildCount, 51);
-    expect(
-      find.byKey(const ValueKey<String>('audit-end-of-list')),
-      findsOneWidget,
-    );
+    expect(find.byKey(const ValueKey<String>('audit-end-of-list')), findsNothing);
     expect(find.text('Todos os eventos carregados.'), findsOneWidget);
+  });
+
+  testWidgets('covered audit route does not announce on return', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 760));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final api = FakeTouchInApi()
+      ..mockEvents = List.generate(50, pageEvent)
+      ..secondPageResponse = Completer<List<AuditEventResponse>>();
+    final nav = GlobalKey<NavigatorState>();
+    await tester.pumpWidget(MaterialApp(navigatorKey: nav, navigatorObservers: [RouteObserver<ModalRoute<dynamic>>()], home: AdminAuditPage(api: api)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Carregar mais eventos'));
+    await tester.pump();
+    nav.currentState!.push(MaterialPageRoute<void>(builder: (_) => const Scaffold(body: Text('Other route'))));
+    await tester.pumpAndSettle();
+    api.secondPageResponse!.complete([pageEvent(50)]);
+    await tester.pumpAndSettle();
+    expect(find.text('Other route'), findsOneWidget);
+    expect(find.byType(SnackBar), findsNothing);
+    nav.currentState!.pop();
+    await tester.pumpAndSettle();
+    expect(find.text('Todos os eventos carregados.'), findsNothing);
+  });
+
+  testWidgets('queued completion stays suppressed after route push and pop', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 760));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final api = FakeTouchInApi()..mockEvents = List.generate(51, pageEvent);
+    final nav = GlobalKey<NavigatorState>();
+    await tester.pumpWidget(MaterialApp(navigatorKey: nav, navigatorObservers: [RouteObserver<ModalRoute<dynamic>>()], home: AdminAuditPage(api: api)));
+    await tester.pumpAndSettle();
+    final messenger = ScaffoldMessenger.of(tester.element(
+        find.byKey(const ValueKey<String>('audit-filters-button'))));
+    final other = messenger.showSnackBar(const SnackBar(
+      duration: Duration(minutes: 1), content: Text('Other message')));
+    await tester.pumpAndSettle();
+    final loadMore = tester.widget<OutlinedButton>(
+        find.byKey(const ValueKey<String>('audit-load-more')));
+    loadMore.focusNode!.requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(api.requestedPages, [1, 2]);
+    expect(find.text('Other message'), findsOneWidget);
+    nav.currentState!.push(MaterialPageRoute<void>(builder: (_) => const Scaffold(body: Text('Other route'))));
+    await tester.pumpAndSettle();
+    nav.currentState!.pop();
+    await tester.pumpAndSettle();
+    expect(find.text('Other message'), findsOneWidget);
+    other.close();
+    await tester.pumpAndSettle();
+    expect(find.text('Todos os eventos carregados.'), findsNothing,
+        reason: 'queued_route_stale_completion');
+  });
+
+  testWidgets('same-frame push and pop suppresses queued completion', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 760));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final api = FakeTouchInApi()..mockEvents = List.generate(51, pageEvent);
+    final nav = GlobalKey<NavigatorState>();
+    await tester.pumpWidget(MaterialApp(navigatorKey: nav, navigatorObservers: [RouteObserver<ModalRoute<dynamic>>()], home: AdminAuditPage(api: api)));
+    await tester.pumpAndSettle();
+    final semantics = tester.ensureSemantics();
+    final messenger = ScaffoldMessenger.of(tester.element(
+        find.byKey(const ValueKey<String>('audit-filters-button'))));
+    final other = messenger.showSnackBar(const SnackBar(
+        duration: Duration(minutes: 1), content: Text('Other message')));
+    await tester.pumpAndSettle();
+    final loadMore = tester.widget<OutlinedButton>(
+        find.byKey(const ValueKey<String>('audit-load-more')));
+    loadMore.focusNode!.requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(api.requestedPages, [1, 2]);
+    expect(find.bySemanticsLabel('Other message'), findsOneWidget);
+    nav.currentState!.push(MaterialPageRoute<void>(
+        builder: (_) => const Scaffold(body: Text('Other route'))));
+    nav.currentState!.pop();
+    await tester.pumpAndSettle();
+    expect(find.text('Other message'), findsOneWidget);
+    expect(find.bySemanticsLabel('Other message'), findsOneWidget);
+    other.close();
+    await tester.pumpAndSettle();
+    expect(find.text('Todos os eventos carregados.'), findsNothing,
+        reason: 'same_frame_stale_completion');
+    expect(find.bySemanticsLabel('Todos os eventos carregados.'), findsNothing);
+    semantics.dispose();
+  });
+
+  testWidgets('refresh preserves an unrelated snackbar', (tester) async {
+    final api = FakeTouchInApi()..mockEvents = [pageEvent(0)];
+    await tester.pumpWidget(MaterialApp(home: AdminAuditPage(api: api)));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+    final messenger = ScaffoldMessenger.of(tester.element(
+        find.byKey(const ValueKey<String>('audit-filters-button'))));
+    messenger.showSnackBar(const SnackBar(
+      duration: Duration(minutes: 1), content: Text('Unrelated notification')));
+    await tester.pumpAndSettle();
+    await openAuditFilters(tester);
+    await applyAuditFilters(tester);
+    expect(find.text('Unrelated notification'), findsOneWidget,
+        reason: 'audit_preserves_unrelated_snackbar');
+  });
+
+  testWidgets('refresh suppresses completion queued behind another snackbar', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 760));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final api = FakeTouchInApi()..mockEvents = List.generate(51, pageEvent);
+    await tester.pumpWidget(MaterialApp(home: AdminAuditPage(api: api)));
+    await tester.pumpAndSettle();
+    final messenger = ScaffoldMessenger.of(tester.element(
+        find.byKey(const ValueKey<String>('audit-filters-button'))));
+    final other = messenger.showSnackBar(const SnackBar(
+      duration: Duration(minutes: 1), content: Text('Other message')));
+    await tester.pumpAndSettle();
+    final loadMore = tester.widget<OutlinedButton>(
+        find.byKey(const ValueKey<String>('audit-load-more')));
+    loadMore.focusNode!.requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(api.requestedPages, [1, 2]);
+    api.mockEvents = [];
+    await openAuditFilters(tester);
+    await applyAuditFilters(tester);
+    expect(find.text('Other message'), findsOneWidget);
+    other.close();
+    await tester.pumpAndSettle();
+    expect(find.text('Todos os eventos carregados.'), findsNothing,
+        reason: 'queued_stale_completion');
+  });
+
+  for (final changeFocus in [false, true]) {
+    testWidgets('keyboard retry respects focus change: $changeFocus', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 760));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final outside = FocusNode();
+      addTearDown(outside.dispose);
+      final api = FakeTouchInApi()
+        ..mockEvents = List.generate(51, pageEvent)
+        ..secondPageError = Exception('offline');
+      await tester.pumpWidget(MaterialApp(home: Focus(
+        focusNode: outside, child: AdminAuditPage(api: api))));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Carregar mais eventos'));
+      await tester.pumpAndSettle();
+      final retry = find.widgetWithText(TextButton, 'Tentar novamente');
+      await tester.ensureVisible(retry);
+      final retryNode = tester.widget<TextButton>(retry).focusNode!;
+      retryNode.requestFocus();
+      await tester.pump();
+      expect(retryNode.hasPrimaryFocus, isTrue);
+      final pending = Completer<List<AuditEventResponse>>();
+      api.secondPageResponse = pending;
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      expect(api.requestedPages, [1, 2, 2]);
+      if (changeFocus) {
+        outside.requestFocus();
+        await tester.pump();
+        expect(outside.hasPrimaryFocus, isTrue);
+      }
+      pending.complete([pageEvent(50)]);
+      await tester.pumpAndSettle();
+      if (changeFocus) {
+        expect(outside.hasPrimaryFocus, isTrue, reason: 'user_focus_preserved');
+      } else {
+        final filter = tester.widget<OutlinedButton>(
+            find.byKey(const ValueKey<String>('audit-filters-button')));
+        expect(filter.focusNode!.hasPrimaryFocus, isTrue,
+            reason: 'keyboard_retry_focus_restored');
+      }
+    });
+  }
+
+  testWidgets('retry completion preserves keyboard focus', (tester) async {
+    final api = FakeTouchInApi()
+      ..mockEvents = List.generate(51, pageEvent)
+      ..secondPageError = Exception('offline');
+    await tester.binding.setSurfaceSize(const Size(1200, 760));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(MaterialApp(home: AdminAuditPage(api: api)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Carregar mais eventos'));
+    await tester.pumpAndSettle();
+    final retry = find.widgetWithText(TextButton, 'Tentar novamente');
+    await tester.ensureVisible(retry);
+    await tester.tap(retry);
+    await tester.pumpAndSettle();
+    expect(api.requestedPages, [1, 2, 2]);
+    expect(FocusManager.instance.primaryFocus, isNotNull);
+    expect(FocusManager.instance.primaryFocus!.context, isNotNull);
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    expect(FocusManager.instance.primaryFocus!.context, isNotNull);
   });
 
   testWidgets('refresh discards pending page 2 failure and resets loading',
@@ -593,20 +974,11 @@ void main() {
         );
       } else {
         expect(loadMoreFinder, findsNothing);
-        final endLabel = find.text('Todos os eventos carregados.');
-        expect(endLabel, findsOneWidget);
-        expect(Focus.of(tester.element(endLabel)).hasFocus, isTrue);
-        final focusedDecoration = tester
-            .widget<Container>(
-              find
-                  .ancestor(of: endLabel, matching: find.byType(Container))
-                  .first,
-            )
-            .decoration! as BoxDecoration;
-        expect(
-            (focusedDecoration.border! as Border).top.color,
-            AppTheme.adminColors(Theme.of(tester.element(endLabel)))
-                .selectedIndicator);
+        expect(find.text('Todos os eventos carregados.'), findsOneWidget);
+        final filter = tester.widget<OutlinedButton>(
+          find.byKey(const ValueKey<String>('audit-filters-button')),
+        );
+        expect(filter.focusNode!.hasFocus, isTrue);
       }
 
       final focusedAtCompletion = FocusManager.instance.primaryFocus;
@@ -618,6 +990,24 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets('audit filter panel surface', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester
+        .pumpWidget(MaterialApp(home: AdminAuditPage(api: FakeTouchInApi())));
+    await tester.pumpAndSettle();
+    await openAuditFilters(tester);
+    final panel = tester.widget<Container>(
+      find.byKey(const ValueKey<String>('audit-filter-panel')),
+    );
+    final decoration = panel.decoration! as BoxDecoration;
+    expect(decoration.borderRadius, BorderRadius.circular(16));
+    expect(decoration.border, isA<Border>());
+    expect(find.text('Filtros da auditoria'), findsOneWidget);
+    expect(find.text('ID do usuário (ator)'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('AdminAuditPage keeps filters usable in a narrow viewport',
       (WidgetTester tester) async {

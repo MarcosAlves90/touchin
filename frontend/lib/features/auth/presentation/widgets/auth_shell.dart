@@ -142,7 +142,10 @@ class AuthCompactBrandBadge extends StatelessWidget {
           height: 42,
           width: 42,
           alignment: Alignment.center,
-          color: colors.primary,
+          decoration: BoxDecoration(
+            color: colors.primary,
+            borderRadius: BorderRadius.circular(8),
+          ),
           child: Icon(
             Icons.fingerprint_rounded,
             color: colors.onPrimary,
@@ -280,7 +283,10 @@ class _AuthBrandPanel extends StatelessWidget {
                             Container(
                               height: 42,
                               width: 42,
-                              color: _amber,
+                              decoration: BoxDecoration(
+                                color: _amber,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
                               alignment: Alignment.center,
                               child: const Icon(
                                 Icons.fingerprint_rounded,
@@ -419,6 +425,7 @@ class _AuthHighlightTag extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
       decoration: BoxDecoration(
         color: const Color(0xFF11100D).withValues(alpha: 0.23),
+        borderRadius: BorderRadius.circular(8),
         border:
             Border.all(color: const Color(0xFFF8F4E9).withValues(alpha: 0.27)),
       ),

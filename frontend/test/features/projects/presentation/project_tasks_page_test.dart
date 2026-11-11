@@ -15,6 +15,25 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('project directory and details use full width sections', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1600, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(MaterialApp(home: ProjectTasksPage(api: _ProjectSaveApi())));
+    await tester.pumpAndSettle();
+    final directory = find.ancestor(
+      of: find.text('Selecione um projeto para consultar dados, acessos e tarefas.'),
+      matching: find.byType(WorkspaceSectionCard),
+    ).first;
+    final details = find.ancestor(
+      of: find.text('Resumo rápido'),
+      matching: find.byType(WorkspaceSectionCard),
+    ).first;
+    final a = tester.getRect(directory);
+    final b = tester.getRect(details);
+    expect(b.top, greaterThanOrEqualTo(a.bottom), reason: 'project_sections_layout');
+    expect(b.width, closeTo(a.width, 1), reason: 'project_sections_layout');
+    expect(tester.takeException(), isNull);
+  });
   testWidgets('page loading keeps workspace shell and renders skeletons', (
     tester,
   ) async {
@@ -468,6 +487,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.byTooltip('Editar projeto'));
     await tester.tap(find.byTooltip('Editar projeto'));
     await tester.pumpAndSettle();
 
@@ -536,7 +556,7 @@ void main() {
     expect(dialogFinder, findsOneWidget);
     final dialog = tester.widget<Dialog>(dialogFinder);
     final shape = dialog.shape as RoundedRectangleBorder;
-    expect(shape.borderRadius, BorderRadius.zero);
+    expect(shape.borderRadius, BorderRadius.circular(12));
     expect(find.text('Detalhes da tarefa'), findsOneWidget);
     expect(find.text('Projeto atual'), findsNothing);
     final taskNameField = tester.widget<InputDecorator>(

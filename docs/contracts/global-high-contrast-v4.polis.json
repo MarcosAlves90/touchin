@@ -1,0 +1,150 @@
+{
+  "schema_version": 6,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      "docs/contracts/global-high-contrast-v4.polis.json",
+      "frontend/lib/theme/app_theme.dart",
+      "frontend/test/global_high_contrast_v3_test.dart"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/global_high_contrast_v3_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Supersedes global-high-contrast-v3 specifically for normal focus: restore accessible focus colors while preserving high contrast, semantic preference and other v3 behavior.",
+    "requirements": [
+      {
+        "id": "REQ-01",
+        "statement": "Normal and high contrast focused fields on team and login have at least 3:1 contrast against their fill in light and dark and remain keyboard accessible."
+      },
+      {
+        "id": "REQ-02",
+        "statement": "Preserve high contrast disabled authentication button and active project status behavior."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-01",
+        "statement": "Regression tests cover keyboard focus and contrast in team and login fields for normal and high contrast, both brightnesses, and retain existing disabled and status checks.",
+        "requirements": [
+          "REQ-01",
+          "REQ-02"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-02",
+        "statement": "docs/contracts/global-high-contrast-v4.polis.json is byte-identical to the lock.",
+        "requirements": [
+          "REQ-01"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-01",
+        "statement": "Preserve high contrast mode and user preference, audit-specific theming, and unrelated behavior."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-01",
+        "statement": "Focused input border contrast below 3:1 against fill."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-01",
+        "statement": "Theme brightness, accessibility mode, and UI state."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-01",
+        "statement": "Accessible controls and project status."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-01",
+        "statement": "Regression tests fail when requirements are violated."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "83a18fbe31f4a0cb38b3922a063cedd1f11c254a",
+    "base_tree": "bd2b7cc67ed964b91078777fc9026eff47b6a77a",
+    "policy_sha256": "7714a10ab2b65f58941086f500de93fa62fc6acb6fd59d8b39292980364774dd",
+    "specification_sha256": "4d2a694ddd0cdf3a7521e357e7ddc626888c53ee77e719203145edc26504d0f9"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/global_high_contrast_v3_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 360,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/global_high_contrast_v3_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 360,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "test/global_high_contrast_v3_test.dart"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 360,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "contrast_v4_regression"
+    ]
+  }
+}

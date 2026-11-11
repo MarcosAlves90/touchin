@@ -5,11 +5,39 @@ import 'package:touchin_flutter/contracts/task.dart';
 import 'package:touchin_flutter/features/projects/presentation/widgets/project_kanban_board.dart';
 
 void main() {
+  testWidgets('kanban card title geometry', (tester) async {
+    await _setUpBoardSurface(tester);
+    await tester.pumpWidget(_host(_board()));
+    final card = find.byKey(const ValueKey<String>('kanban-card-task-01'));
+    final title = find.descendant(of: card, matching: find.text('Implementar tela'));
+    final type = find.descendant(of: card, matching: find.text('Feature'));
+    expect(tester.getBottomLeft(title).dy, lessThanOrEqualTo(tester.getTopLeft(type).dy),
+        reason: 'kanban_card_title_geometry');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('kanban redesign surfaces', (tester) async {
+    await _setUpBoardSurface(tester);
+    await tester.pumpWidget(_host(_board()));
+    final lane = tester.widget<AnimatedContainer>(
+      find.byKey(const ValueKey<String>('kanban-column-column-a')),
+    );
+    final card = find.byKey(const ValueKey<String>('kanban-card-task-01'));
+    final surface = tester.widget<AnimatedContainer>(find.descendant(
+      of: card, matching: find.byType(AnimatedContainer),
+    ).first);
+    expect((lane.decoration! as BoxDecoration).borderRadius, isNotNull,
+        reason: 'kanban_redesign_surfaces lane');
+    expect((surface.decoration! as BoxDecoration).borderRadius, isNotNull,
+        reason: 'kanban_redesign_surfaces card');
+    expect(find.text('Implementar tela'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('uses native slivers and no legacy drag/reorder primitives', (
     tester,
   ) async {
-    await tester.binding.setSurfaceSize(const Size(1000, 700));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await _setUpBoardSurface(tester);
 
     await tester.pumpWidget(_host(_board()));
 
@@ -44,8 +72,7 @@ void main() {
   testWidgets('raw pointer drag emits a stable card-to-column intent', (
     tester,
   ) async {
-    await tester.binding.setSurfaceSize(const Size(1000, 700));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await _setUpBoardSurface(tester);
 
     String? movedTaskId;
     String? movedColumnId;
@@ -82,8 +109,7 @@ void main() {
   });
 
   testWidgets('column reorder action reports the column identity', (tester) async {
-    await tester.binding.setSurfaceSize(const Size(1000, 700));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await _setUpBoardSurface(tester);
 
     String? movedColumn;
     int? targetIndex;
@@ -105,6 +131,16 @@ void main() {
 
     expect(movedColumn, 'column-a');
     expect(targetIndex, 1);
+  });
+}
+
+Future<void> _setUpBoardSurface(WidgetTester tester) async {
+  await tester.binding.setSurfaceSize(const Size(1000, 700));
+  addTearDown(() async {
+    // Unmount the board while the test binding is still active, disposing its
+    // scroll controllers and animation listeners before the shell exits.
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.binding.setSurfaceSize(null);
   });
 }
 

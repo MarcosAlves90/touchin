@@ -1,0 +1,156 @@
+{
+  "schema_version": 6,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      "docs/contracts/global-high-contrast-v2.polis.json",
+      "frontend/lib/theme/app_theme.dart",
+      "frontend/lib/features/admin/presentation/admin_audit_page.dart",
+      "frontend/lib/features/admin/presentation/admin_employees_page.dart",
+      "frontend/lib/features/projects/presentation/project_tasks_page.dart",
+      "frontend/lib/features/time_tracking/presentation/time_clock_page.dart",
+      "frontend/lib/features/settings/presentation/settings_page.dart",
+      "frontend/lib/features/shared/presentation/widgets/workspace_navigation.dart",
+      "frontend/test/accessibility_tools_test.dart"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/accessibility_tools_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Supersede global-high-contrast-v1: correct disabled controls, live audit picker theme, semantic accent contrast and team focus without changing normal visuals.",
+    "requirements": [
+      {
+        "id": "REQ-01",
+        "statement": "High contrast has distinguishable disabled controls, accessible semantic indicators and live audit picker theme."
+      },
+      {
+        "id": "REQ-02",
+        "statement": "Normal mode preserves normal themed focus and visuals."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-01",
+        "statement": "Regression tests cover real control states and contrast, focus, route and live picker theme in light and dark.",
+        "requirements": [
+          "REQ-01",
+          "REQ-02"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-02",
+        "statement": "docs/contracts/global-high-contrast-v2.polis.json is byte-for-byte identical to the lock.",
+        "requirements": [
+          "REQ-01"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-01",
+        "statement": "Preserve audit-specific theme, accessibility controls and normal appearance."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-01",
+        "statement": "Indistinguishable disabled controls or low contrast important indicators in high contrast."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-01",
+        "statement": "Theme mode, accessibility settings and routes."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-01",
+        "statement": "Optional high contrast across the application."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-01",
+        "statement": "Tests fail when contrast cannot be enabled or reverted."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "877acfc58d0715dd327db8ccc66cb8bc1440a98b",
+    "base_tree": "db0ae19e0c612ca1041290d176e7a8e8466d9216",
+    "policy_sha256": "7714a10ab2b65f58941086f500de93fa62fc6acb6fd59d8b39292980364774dd",
+    "specification_sha256": "91f4e77dd7d77ed04c9ccbc9f52f2014fea941cb057bf841a76cad355c6786b6"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/accessibility_tools_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 360,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/accessibility_tools_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 360,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "test/accessibility_tools_test.dart"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 360,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "high_contrast_disabled_state"
+    ]
+  }
+}

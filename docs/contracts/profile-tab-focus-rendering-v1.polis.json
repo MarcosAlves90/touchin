@@ -1,0 +1,157 @@
+{
+  "schema_version": 6,
+  "kind": "behavior_preserving",
+  "scope": {
+    "allowed_paths": [
+      "frontend/test/admin_employees_page_test.dart",
+      "docs/contracts/profile-tab-focus-rendering-v1.polis.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/admin_employees_page_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Characterize rendered keyboard focus and stable geometry of profile tabs without production changes.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "Test actual rendered focus pixels and contrast on selected and unselected profile tabs."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "Test tab geometry, semantics, keyboard traversal and activation across light and dark, normal and high contrast, mobile and desktop."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "Archive the locked contract byte-identically."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "Widget tests compare rendered pixels and tab rectangles before and after keyboard focus and activation, exercising selection and semantics across themes and viewports.",
+        "requirements": [
+          "REQ-001",
+          "REQ-002"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "Archived contract is byte-identical to locked contract.",
+        "requirements": [
+          "REQ-003"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "No global changes or changes to unrelated tabs, content or behavior."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "Focus and selection are visually indistinguishable."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "Theme, viewport, employee and selection actions."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "Accessible profile tab selection."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "Regression fails on incorrect selected indicator."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "2a416ba67f58a56e74f9d782987ae07587d654c7",
+    "base_tree": "9de480c61d933ac9eebedaa4e8595964ceea7c76",
+    "policy_sha256": "7714a10ab2b65f58941086f500de93fa62fc6acb6fd59d8b39292980364774dd",
+    "specification_sha256": "f8ec435492672f3246099998523b31bac304bcfc3049b9f8c09adb4fe8ef1769"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "--reporter",
+      "expanded",
+      "test/admin_employees_page_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "--reporter",
+      "expanded",
+      "test/admin_employees_page_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "green_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "--reporter",
+        "expanded",
+        "--plain-name",
+        "profile selected tabs",
+        "test/admin_employees_page_test.dart"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 600,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    }
+  }
+}

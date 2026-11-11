@@ -22,7 +22,8 @@ virtual_env_python = BACKEND / ".venv" / (
 )
 backend_python = str(virtual_env_python) if virtual_env_python.is_file() else sys.executable
 flutter_executable = shutil.which("flutter.bat") or shutil.which("flutter") or "flutter"
-# The frontend command is "flutter test --exclude-tags canonical-golden".
+# Keep coverage collection serial so each flutter_tester finishes before the
+# next test file starts. CI and POLIS must use the same test-runner settings.
 
 for name, command, directory in (
     (
@@ -46,7 +47,16 @@ for name, command, directory in (
     ),
     (
         "frontend",
-        [flutter_executable, "test", "--coverage", "--exclude-tags", "canonical-golden"],
+        [
+            flutter_executable,
+            "test",
+            "--coverage",
+            "--exclude-tags",
+            "canonical-golden",
+            "--concurrency=1",
+            "--reporter",
+            "expanded",
+        ],
         FRONTEND,
     ),
 ):

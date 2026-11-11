@@ -1,0 +1,217 @@
+{
+  "schema_version": 6,
+  "kind": "feature",
+  "scope": {
+    "allowed_paths": [
+      "frontend/lib/features/shared/presentation/widgets/workspace_navigation.dart",
+      "frontend/test/features/shared/presentation/widgets/workspace_shell_test.dart",
+      "frontend/test/features/shared/presentation/workspace_navigation_contrast_test.dart",
+      "docs/contracts/workspace-navigation-brand-v1.polis.json",
+      "docs/validation/issue-119/README.md",
+      "docs/validation/issue-119/desktop-dark.png",
+      "docs/validation/issue-119/desktop-light.png",
+      "docs/validation/issue-119/mobile-dark.png",
+      "docs/validation/issue-119/mobile-light.png"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/features/shared/presentation/widgets/workspace_shell_test.dart",
+      "frontend/test/features/shared/presentation/workspace_navigation_contrast_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Align the shared TouchIn workspace brand header with the supplied visual reference on every authenticated workspace route, preserving page content, theme modes, navigation, and authentication behavior.",
+    "requirements": [
+      {
+        "id": "REQ-BRAND-01",
+        "statement": "Expanded, compact, mobile, and collapsed workspace brand containers use the current theme surface; the amber accent is confined to the square fingerprint mark."
+      },
+      {
+        "id": "REQ-BRAND-02",
+        "statement": "The fingerprint mark uses the theme's onPrimary color on the amber accent tile; wordmark and descriptor use onSurface and onSurfaceVariant respectively; menu and collapse controls use onSurface."
+      },
+      {
+        "id": "REQ-BRAND-03",
+        "statement": "All six authenticated workspace destinations continue to use the shared responsive navigation without changing route behavior, dimensions, page content, or interactions; the separate AuthShell remains unchanged."
+      },
+      {
+        "id": "REQ-BRAND-04",
+        "statement": "Canonical desktop/mobile light/dark navigation snapshots and their provenance hashes match the resulting shared brand in the Ubuntu 24.04 / Flutter 3.47.2 CI environment."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-BRAND-01",
+        "statement": "Widget tests in light and dark themes verify surface-backed brand containers, an amber fingerprint tile with contrasting icon, and theme-derived wordmark/descriptor colors; wordmark and descriptor contrast is at least 4.5:1 and the fingerprint graphic contrast is at least 3:1.",
+        "requirements": [
+          "REQ-BRAND-01",
+          "REQ-BRAND-02"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-BRAND-02",
+        "statement": "Mobile menu and collapsed expand controls remain accessible, functional, and theme-contrasting, and existing narrow-width navigation tests pass without layout exceptions.",
+        "requirements": [
+          "REQ-BRAND-02",
+          "REQ-BRAND-03"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-BRAND-03",
+        "statement": "All six authenticated routes render the shared header consistently at desktop and 390x844 mobile viewport, with no horizontal overflow and existing page actions intact; AuthShell behavior is unchanged.",
+        "requirements": [
+          "REQ-BRAND-03"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-BRAND-04",
+        "statement": "All four canonical navigation snapshots are regenerated/verified in the repository's Ubuntu CI job using Flutter 3.47.2, and docs/validation/issue-119/README.md records their actual provenance and SHA-256 hashes.",
+        "requirements": [
+          "REQ-BRAND-04"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-BRAND-01",
+        "statement": "No route, destination, API call, permission check, session, logout behavior, page data, page action, or AuthShell layout changes."
+      },
+      {
+        "id": "INV-BRAND-02",
+        "statement": "Light/dark theme settings, keyboard/touch target sizes, focus treatment, responsive breakpoints, sidebar width, and compact-navigation behavior remain intact."
+      },
+      {
+        "id": "INV-BRAND-03",
+        "statement": "The amber accent remains meaningful and restrained; no gradients, glows, new dependencies, invented content, or decorative effects are introduced."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-BRAND-01",
+        "statement": "The brand header paints a full-width amber band instead of the theme surface with a compact amber fingerprint tile."
+      },
+      {
+        "id": "FORB-BRAND-02",
+        "statement": "Wordmark, descriptor, menu, collapse control, or fingerprint icon has insufficient contrast in either theme."
+      },
+      {
+        "id": "FORB-BRAND-03",
+        "statement": "A workspace destination, authentication route, navigation action, responsive behavior, or page content changes or overflows."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-BRAND-01",
+        "statement": "The existing AppTheme light/dark color schemes, shared WorkspaceNavigationBrand, and six authenticated workspace destinations."
+      },
+      {
+        "id": "IN-BRAND-02",
+        "statement": "The user-supplied TouchIn UI reference image and canonical navigation test fixtures."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-BRAND-01",
+        "statement": "A theme-consistent shared workspace brand header with a restrained amber logo tile across desktop, mobile, and collapsed navigation."
+      },
+      {
+        "id": "OUT-BRAND-02",
+        "statement": "Widget, contrast, canonical screenshot, and route-level visual evidence for the shared change."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-BRAND-01",
+        "statement": "A theme or state that does not meet required text/graphic contrast fails a labeled widget or contrast assertion before the change is accepted."
+      },
+      {
+        "id": "FAIL-BRAND-02",
+        "statement": "Canonical screenshots that differ from the resulting shared brand fail the Ubuntu Flutter 3.47.2 golden job; do not regenerate them on macOS or Windows."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "d9069dfabf23e03a4e9d0d0206751553dcb3cdfb",
+    "base_tree": "4953e65dc650f301186cf25370aba93de44fdab5",
+    "policy_sha256": "7714a10ab2b65f58941086f500de93fa62fc6acb6fd59d8b39292980364774dd",
+    "specification_sha256": "51aebaddcd2f18e683645f6000c48e544403712bac10db186768eb3eaf62ce88"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/features/shared/presentation/widgets/workspace_shell_test.dart",
+      "--plain-name",
+      "mobile header puts the contrasting menu inside the square brand block"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 300,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "--exclude-tags",
+      "canonical-golden",
+      "test/features/shared/presentation/widgets/workspace_shell_test.dart",
+      "test/features/shared/presentation/workspace_navigation_contrast_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "test/features/shared/presentation/widgets/workspace_shell_test.dart",
+        "--plain-name",
+        "mobile header puts the contrasting menu inside the square brand block"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 300,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "workspace_brand_surface"
+    ]
+  }
+}

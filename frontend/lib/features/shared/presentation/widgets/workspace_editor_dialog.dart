@@ -78,7 +78,7 @@ class WorkspaceEditorDialog extends StatelessWidget {
       elevation: 0,
       backgroundColor: colorScheme.surface,
       surfaceTintColor: Colors.transparent,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       clipBehavior: Clip.hardEdge,
       child: ConstrainedBox(
         constraints: BoxConstraints(

@@ -1,0 +1,181 @@
+{
+  "schema_version": 6,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      "frontend/lib/features/admin/presentation/admin_employees_page.dart",
+      "frontend/lib/features/admin/presentation/admin_employees_page_widgets.dart",
+      "frontend/test/admin_employees_page_test.dart",
+      "docs/contracts/team-normal-surfaces-v2.polis.json",
+      "frontend/lib/theme/app_theme.dart"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/admin_employees_page_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Supersede team-normal-surfaces-v1: soften selected team cards, icons, tabs and remaining profile surfaces in normal themes while preserving high contrast and accessibility.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "Supersede v1 selection: normal selected team cards, icons and tabs use subtle theme colors distinct from unselected; high contrast preserves strong selected colors."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "Preserve responsive layout, semantic information, interaction, focus and unrelated shared components."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "Exercise selected and unselected cards, icons, badges, tabs, real global contrast toggle, light/dark, keyboard focus and semantics."
+      },
+      {
+        "id": "REQ-004",
+        "statement": "Store byte-identical locked contract at declared path."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "Employee surfaces and selection use correct theme tokens in normal and high contrast across brightness and viewport.",
+        "requirements": [
+          "REQ-001",
+          "REQ-003"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "Interaction, focus and semantics are preserved without collateral changes.",
+        "requirements": [
+          "REQ-002",
+          "REQ-003"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-003",
+        "statement": "The committed-scope contract copy equals the locked bytes.",
+        "requirements": [
+          "REQ-004"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "Content, responsive layout and unrelated shared component behavior remain unchanged."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "Normal employee surfaces use high-contrast-style outlines or explicit high contrast is weakened."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "Employee list and profile widgets and global theme."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "Normalized scoped surfaces and regression coverage."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "Widget regression fails if employee surfaces use wrong theme colors."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "a8a52d5afaabc50fda3e7a9c4c5d8ea8fecffdcf",
+    "base_tree": "0164d6a516dcdf07efb597cb64e8e11758df69a9",
+    "policy_sha256": "7714a10ab2b65f58941086f500de93fa62fc6acb6fd59d8b39292980364774dd",
+    "specification_sha256": "a24a2e0c875de5d0800ba39eb89c26588f52205b07daf184ff0813267e016c63"
+  },
+  "behavior": {
+    "argv": [
+      "python3",
+      "-c",
+      "from pathlib import Path; import sys; p=Path('docs/contracts/team-normal-surfaces-v2.polis.json'); print('contract_present' if p.is_file() else 'contract_missing'); sys.exit(0 if p.is_file() else 1)"
+    ],
+    "cwd": ".",
+    "timeout_seconds": 30,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "--exclude-tags",
+      "canonical-golden",
+      "--reporter",
+      "expanded",
+      "--plain-name",
+      "team selected v2",
+      "test/admin_employees_page_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "--exclude-tags",
+        "canonical-golden",
+        "--reporter",
+        "expanded",
+        "--plain-name",
+        "team selected v2",
+        "test/admin_employees_page_test.dart"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 600,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "team_selected_v2"
+    ]
+  }
+}

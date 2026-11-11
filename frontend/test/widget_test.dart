@@ -606,6 +606,18 @@ void main() {
     await tester.pump();
     expect(find.byKey(const ValueKey<String>('route-session-skeleton')),
         findsOneWidget);
+    final routeCards = tester
+        .widgetList<Container>(find.descendant(
+          of: find.byKey(const ValueKey<String>('route-session-skeleton')),
+          matching: find.byType(Container),
+        ))
+        .where((c) => c.padding == const EdgeInsets.all(20));
+    expect(routeCards, isNotEmpty);
+    for (final card in routeCards) {
+      expect((card.decoration! as BoxDecoration).borderRadius,
+          BorderRadius.circular(12),
+          reason: 'skeleton_radius_rounded');
+    }
     expect(
       find.text('Administrar Equipe'),
       findsNothing,

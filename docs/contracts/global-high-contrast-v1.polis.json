@@ -1,0 +1,165 @@
+{
+  "schema_version": 6,
+  "kind": "feature",
+  "scope": {
+    "allowed_paths": [
+      "docs/contracts/global-high-contrast-v1.polis.json",
+      "frontend/lib/main.dart",
+      "frontend/lib/theme/app_theme.dart",
+      "frontend/lib/core/theme/theme_mode_controller.dart",
+      "frontend/lib/features/shared/presentation/widgets/accessibility_tools.dart",
+      "frontend/lib/features/admin/presentation/admin_employees_page.dart",
+      "frontend/test/accessibility_tools_test.dart",
+      "frontend/test/admin_contrast_test.dart",
+      "frontend/test/theme_mode_controller_test.dart"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/accessibility_tools_test.dart",
+      "frontend/test/admin_contrast_test.dart",
+      "frontend/test/theme_mode_controller_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Provide optional site-wide high contrast in accessibility settings and remove the forced team contrast theme.",
+    "requirements": [
+      {
+        "id": "REQ-01",
+        "statement": "Offer keyboard accessible optional global high contrast for text, surfaces and controls in light and dark, preserving theme choice, semantic states and focus."
+      },
+      {
+        "id": "REQ-02",
+        "statement": "Use normal controls on the team page by default without weakening semantic text contrast."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-01",
+        "statement": "Tests measure actual foreground, surfaces and control contrast, light and dark, navigation, nested dialogs, keyboard focus and reset.",
+        "requirements": [
+          "REQ-01"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-02",
+        "statement": "Team page inherits the normal theme by default and existing accessibility tests remain valid.",
+        "requirements": [
+          "REQ-02"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-03",
+        "statement": "docs/contracts/global-high-contrast-v1.polis.json is byte-for-byte identical to the external lock.",
+        "requirements": [
+          "REQ-01"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-01",
+        "statement": "Preserve accessible semantic colors, focus, text scaling, motion settings, existing theme mode and audit behavior."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-01",
+        "statement": "Forced high contrast on team by default or inaccessible controls."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-01",
+        "statement": "Theme mode, accessibility settings and routes."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-01",
+        "statement": "Optional high contrast across the application."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-01",
+        "statement": "Tests fail when contrast cannot be enabled or reverted."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "32abe738dcdc361f44294a5a486f2d8acae53443",
+    "base_tree": "888a30992b6440123de9aea41ef16599dfba4b51",
+    "policy_sha256": "7714a10ab2b65f58941086f500de93fa62fc6acb6fd59d8b39292980364774dd",
+    "specification_sha256": "51149525cb6a2c2ec820ed6d33a2731efef92c1049fe74bffda7e199b506512a"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/accessibility_tools_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 360,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/accessibility_tools_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 360,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "test/accessibility_tools_test.dart"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 360,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "global_contrast_toggle"
+    ]
+  }
+}

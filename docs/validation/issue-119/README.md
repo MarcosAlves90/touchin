@@ -24,7 +24,8 @@ The generated images were inspected at native size. The panel and drawer fit
 their viewports; the desktop panel remains 360 px wide; the drawer overlays the
 mobile content without horizontal overflow; the active-page badge stays pinned
 to the right edge and truncates only its label; the navigation labels remain
-legible in both palettes; and the brand accent is confined to the brand block.
+legible in both palettes; and the amber accent is confined to the fingerprint
+mark while the surrounding brand container uses the theme surface.
 The fixture keeps the drawer open in mobile captures so the complete destination
 list and logout action can be checked.
 
@@ -37,19 +38,16 @@ are not represented by these captures.
 
 ## Canonical baseline provenance
 
-The desktop screenshots remain the actual images from CI run
-[40753762985](https://github.com/MarcosAlves90/touchin/actions/runs/40753762985),
-which tested candidate commit `34657a6c751d1e2a571264d6060383a99d07c903` on
-Ubuntu 24.04.5 x64 with Flutter 3.47.2. The mobile screenshots were refreshed
-from the actual images in the canonical-golden failure artifact from CI run
-[40879439641](https://github.com/MarcosAlves90/touchin/actions/runs/40879439641),
-which tested candidate commit `cd385fabd2e0a17a3a4c3d0a68f21e240cf21161` on
-Ubuntu with Flutter 3.47.2. Actuals and diffs were reviewed at native size; the
-mobile badge is right-anchored and its label truncates to available space.
+All four snapshots were copied from the `testImage` outputs of the canonical
+job in CI run [41735260737](https://github.com/MarcosAlves90/touchin/actions/runs/41735260737),
+job 126262702491, for candidate commit `1ba1c58c89bec15f3630f327c76321afe52823ee`.
+The job ran on Ubuntu 24.04.5 LTS (`ubuntu-24.04`, image `20261025.353.1`)
+with Flutter 3.47.2. The actual images and diffs were reviewed before copying;
+they reflect the intended rounding. Canonical CI must validate the final commit.
 
 | Snapshot | SHA-256 |
 | --- | --- |
-| `desktop-light.png` | `0fbd81206cbda83be64b857cd49b911f8d1e4b2301d57a3ef8e27d32cea5555e` |
-| `desktop-dark.png` | `affba68411d49357cbb55e6d5d098d4ee8061f40f936eee99a7e54031999dd57` |
-| `mobile-light.png` | `ecd902b63a8941a409052f0a091b98d20621000f25c5cb65925ef2b382528593` |
-| `mobile-dark.png` | `02e891e6438bb78088474dd0cea0a1fbdaa3a30e5cc59959d891c1c71fb95705` |
+| `desktop-light.png` | `812f2e063228743b2ad0363baa36b7b6af5fa2566e512691eba2035d565058fb` |
+| `desktop-dark.png` | `b25b96e8d8e3a684c4afa29f813f085a4d6a6b01e002b8fd7f9422aa43c8a5c3` |
+| `mobile-light.png` | `de883f6edd77e75de539f976b73a8660e251a9a7bb97e7ab00d8247c573ad233` |
+| `mobile-dark.png` | `6d46b0f99d1cac41a465e667a9dfadd4e3ddaa677cd9ac1e5eed01868145adb0` |

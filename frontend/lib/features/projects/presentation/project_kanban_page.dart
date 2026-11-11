@@ -26,6 +26,7 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
   late final ProjectKanbanController _controller;
   late final bool _ownsController;
   bool _showBacklog = false;
+  final GlobalKey _boardKey = GlobalKey();
 
   @override
   void initState() {
@@ -50,12 +51,22 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
     return WorkspaceScaffold(
       contentScrollable: false,
       contentBuilder: (context, isWide) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           if (!isWide) _KanbanTopBar(controller: _controller),
+          if (isWide)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(32, 28, 32, 0),
+              child: const WorkspaceHeader(
+                  kicker: 'KANBAN',
+                  title: 'Acompanhar tarefas',
+                  description: 'Visualize e organize as tarefas do projeto.',
+                  compact: true),
+            ),
           Expanded(
             child: AnimatedBuilder(
               animation: _controller,
-              builder: (context, _) => _buildPageBody(),
+              builder: (context, _) => _buildPageBody(isWide),
             ),
           ),
         ],
@@ -63,28 +74,49 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
     );
   }
 
-  Widget _buildPageBody() {
+  Widget _buildPageBody(bool pageIsWide) {
+    Widget withMobileHeader(Widget child) => pageIsWide
+        ? child
+        : LayoutBuilder(builder: (context, constraints) => SingleChildScrollView(
+          child: SizedBox(height: constraints.maxHeight < (MediaQuery.textScalerOf(context).scale(1) > 1 ? 1050 : 750)
+              ? (MediaQuery.textScalerOf(context).scale(1) > 1 ? 1050 : 750)
+              : constraints.maxHeight,
+          child: Column(children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(24, 28, 24, 0),
+              child: WorkspaceHeader(kicker: 'KANBAN', title: 'Acompanhar tarefas',
+                description: 'Visualize e organize as tarefas do projeto.', compact: true),
+            ),
+            Expanded(child: child),
+          ]))));
     if (_controller.isLoading) {
-      return const _KanbanPageSkeleton();
+      return withMobileHeader(LayoutBuilder(
+        builder: (context, constraints) => SingleChildScrollView(
+          child: SizedBox(
+            height: constraints.maxHeight < 500 ? 500 : constraints.maxHeight,
+            child: const _KanbanPageSkeleton(),
+          ),
+        ),
+      ));
     }
 
     if (_controller.loadError != null) {
-      return _KanbanPageMessage(
+      return withMobileHeader(_KanbanPageMessage(
         title: 'Não foi possível carregar o Kanban',
         message: _controller.loadError!,
         actionLabel: 'Tentar novamente',
         onAction: _controller.retry,
-      );
+      ));
     }
 
     if (_controller.projects.isEmpty) {
-      return const _KanbanPageMessage(
+      return withMobileHeader(const _KanbanPageMessage(
         title: 'Nenhum projeto disponível',
         message: 'Crie ou obtenha acesso a um projeto antes de usar o Kanban.',
-      );
+      ));
     }
 
-    return LayoutBuilder(
+    return withMobileHeader(LayoutBuilder(
       builder: (context, constraints) {
         final isCompact = constraints.maxWidth < 600;
         final isWide = constraints.maxWidth >= 980;
@@ -92,7 +124,8 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
         final verticalPadding = isCompact ? 8.0 : 14.0;
         final gap = isCompact ? 8.0 : 12.0;
 
-        return Padding(
+        final enlarged = MediaQuery.textScalerOf(context).scale(1) > 1;
+        final body = Padding(
           padding: EdgeInsets.fromLTRB(
             horizontalPadding,
             verticalPadding,
@@ -102,14 +135,25 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              _buildProjectOverview(compact: isCompact),
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                    maxHeight:
+                        (constraints.maxHeight - 440).clamp(enlarged ? 280.0 : 40.0, enlarged ? 360.0 : 260.0)),
+                child: SingleChildScrollView(
+                  child: _buildProjectOverview(compact: isCompact),
+                ),
+              ),
               SizedBox(height: gap),
               Expanded(child: _buildBoardContent()),
             ],
           ),
         );
+        return enlarged
+            ? SingleChildScrollView(
+                child: SizedBox(height: constraints.maxHeight + 180, child: body))
+            : body;
       },
-    );
+    ));
   }
 
   Widget _buildProjectOverview({required bool compact}) {
@@ -167,49 +211,32 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
     );
     final viewSwitch = _buildProjectViewSwitch(compact: compact);
 
-    return Material(
-      key: const ValueKey<String>('kanban-project-overview'),
-      color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.28),
-      shape: RoundedRectangleBorder(
-        side: BorderSide(color: colorScheme.outlineVariant),
-      ),
-      child: Padding(
-        padding: EdgeInsets.all(compact ? 7 : 8),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            if (!compact && constraints.maxWidth >= 980) {
-              return Row(
-                children: <Widget>[
-                  Expanded(child: selector),
-                  const SizedBox(width: 8),
-                  viewSwitch,
-                  const SizedBox(width: 8),
-                  SizedBox(width: 292, child: metrics),
-                  const SizedBox(width: 2),
-                  refresh,
-                ],
-              );
-            }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
 
-            return Column(
+        metrics,
+        const SizedBox(height: 8),
+        Material(
+          key: const ValueKey<String>('kanban-project-overview'),
+          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.28),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: colorScheme.outlineVariant),
+          ),
+          child: Padding(
+            padding: EdgeInsets.all(compact ? 8 : 10),
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
-                Row(
-                  children: <Widget>[
-                    Expanded(child: selector),
-                    const SizedBox(width: 4),
-                    _buildProjectViewSwitch(compact: true),
-                    const SizedBox(width: 2),
-                    refresh,
-                  ],
-                ),
+                Row(children: <Widget>[Expanded(child: selector), refresh]),
                 const SizedBox(height: 6),
-                metrics,
+                Align(alignment: Alignment.centerLeft, child: viewSwitch),
               ],
-            );
-          },
+            ),
+          ),
         ),
-      ),
+      ],
     );
   }
 
@@ -217,7 +244,7 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
     final colors = Theme.of(context).colorScheme;
     return ToggleButtons(
       key: const ValueKey<String>('project-view-switch'),
-      borderRadius: BorderRadius.zero,
+      borderRadius: BorderRadius.circular(8),
       constraints: BoxConstraints(
         minWidth: compact ? 48 : 94,
         minHeight: 50,
@@ -313,26 +340,30 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
               const SizedBox(height: 8),
             ],
             Expanded(
-              child: RepaintBoundary(
-                child: ProjectKanbanBoard(
-                  board: board,
-                  isBusy: isMutating,
-                  canMoveCards: _controller.canMoveCards,
-                  canManageStructure: _controller.canManageStructure,
-                  canManageCards: _controller.canManageCards,
-                  canManageAssignees: _controller.canManageAssignees,
-                  onMoveCard: _moveCardWithFeedback,
-                  onMoveColumn: (columnId, index) => _controller.moveColumn(
-                    columnId: columnId,
-                    toIndex: index,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 60),
+                child: RepaintBoundary(
+                  child: ProjectKanbanBoard(
+                    key: _boardKey,
+                    board: board,
+                    isBusy: isMutating,
+                    canMoveCards: _controller.canMoveCards,
+                    canManageStructure: _controller.canManageStructure,
+                    canManageCards: _controller.canManageCards,
+                    canManageAssignees: _controller.canManageAssignees,
+                    onMoveCard: _moveCardWithFeedback,
+                    onMoveColumn: (columnId, index) => _controller.moveColumn(
+                      columnId: columnId,
+                      toIndex: index,
+                    ),
+                    onCreateColumn: _openCreateKanbanColumn,
+                    onRenameColumn: _openRenameKanbanColumn,
+                    onDeleteColumn: _confirmDeleteKanbanColumn,
+                    onCreateCard: _openCreateKanbanCard,
+                    onEditCard: _openEditKanbanCard,
+                    onDeleteCard: _confirmDeleteKanbanCard,
+                    onManageAssignees: _openManageKanbanAssignees,
                   ),
-                  onCreateColumn: _openCreateKanbanColumn,
-                  onRenameColumn: _openRenameKanbanColumn,
-                  onDeleteColumn: _confirmDeleteKanbanColumn,
-                  onCreateCard: _openCreateKanbanCard,
-                  onEditCard: _openEditKanbanCard,
-                  onDeleteCard: _confirmDeleteKanbanCard,
-                  onManageAssignees: _openManageKanbanAssignees,
                 ),
               ),
             ),
@@ -845,6 +876,7 @@ class _KanbanLaneSkeleton extends StatelessWidget {
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.32),
         border: Border.all(color: colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Padding(
         padding: const EdgeInsets.all(10),
@@ -883,6 +915,7 @@ class _KanbanCardSkeleton extends StatelessWidget {
       decoration: BoxDecoration(
         color: colorScheme.surface.withValues(alpha: 0.72),
         border: Border.all(color: colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Padding(
         padding: const EdgeInsets.all(10),
@@ -1051,6 +1084,7 @@ class _KanbanMetricsStrip extends StatelessWidget {
       decoration: BoxDecoration(
         color: colorScheme.surface.withValues(alpha: 0.58),
         border: Border.all(color: colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         children: <Widget>[

@@ -1,11 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+class HighContrastMarker extends ThemeExtension<HighContrastMarker> {
+  const HighContrastMarker();
+
+  @override
+  HighContrastMarker copyWith() => this;
+
+  @override
+  HighContrastMarker lerp(
+          ThemeExtension<HighContrastMarker>? other, double t) =>
+      this;
+}
+
 class AppTheme {
   AppTheme._();
 
   static const Color accent = Color(0xFFFFB020);
-  static const BorderRadius _radius = BorderRadius.zero;
+  static const BorderRadius _radius = BorderRadius.all(Radius.circular(8));
 
   static const Color _lightBackground = Color(0xFFFAFAF7);
   static const Color _lightSurface = Color(0xFFFFFFFF);
@@ -70,6 +82,51 @@ class AppTheme {
       (theme.brightness == Brightness.dark
           ? _darkAdminColors
           : _lightAdminColors);
+
+  static ThemeData highContrastTheme(ThemeData theme) {
+    final dark = theme.brightness == Brightness.dark;
+    final surface = dark ? Colors.black : Colors.white;
+    final foreground = dark ? Colors.white : Colors.black;
+    final panel = dark ? const Color(0xFF202020) : const Color(0xFFF0F0F0);
+    final primary = dark ? const Color(0xFFFFD180) : const Color(0xFF704600);
+    final onPrimary = dark ? Colors.black : Colors.white;
+    final scheme = theme.colorScheme.copyWith(
+      primary: primary,
+      onPrimary: onPrimary,
+      secondary: primary,
+      onSecondary: onPrimary,
+      surface: surface,
+      onSurface: foreground,
+      surfaceContainerLowest: surface,
+      surfaceContainerLow: panel,
+      surfaceContainer: panel,
+      surfaceContainerHigh: panel,
+      surfaceContainerHighest: panel,
+      onSurfaceVariant: foreground,
+      outline: foreground,
+      outlineVariant: foreground,
+    );
+    final base = _buildTheme(colorScheme: scheme, backgroundColor: surface);
+    return adminContrastTheme(base.copyWith(
+      extensions: [...base.extensions.values, const HighContrastMarker()],
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: base.elevatedButtonTheme.style?.copyWith(
+          backgroundColor: WidgetStateProperty.resolveWith((states) =>
+              states.contains(WidgetState.disabled) ? panel : primary),
+          foregroundColor: WidgetStateProperty.resolveWith((states) =>
+              states.contains(WidgetState.disabled) ? foreground : onPrimary),
+          side: WidgetStateProperty.resolveWith((states) =>
+              states.contains(WidgetState.disabled)
+                  ? BorderSide(color: foreground)
+                  : BorderSide.none),
+        ),
+      ),
+      floatingActionButtonTheme: base.floatingActionButtonTheme.copyWith(
+        backgroundColor: primary,
+        foregroundColor: onPrimary,
+      ),
+    ));
+  }
 
   static ThemeData adminContrastTheme(ThemeData theme) {
     final scheme = theme.colorScheme;
@@ -220,7 +277,12 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: _radius,
-          borderSide: const BorderSide(color: accent, width: 1.5),
+          borderSide: BorderSide(
+            color: colorScheme.brightness == Brightness.dark
+                ? _darkAdminColors.selectedIndicator
+                : _lightAdminColors.selectedIndicator,
+            width: 1.5,
+          ),
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(

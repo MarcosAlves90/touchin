@@ -48,7 +48,7 @@ class ThemeSettingsPage extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final padding = EdgeInsets.fromLTRB(
       isWide ? 32 : 24,
-      isWide ? 32 : 24,
+      28,
       isWide ? 32 : 24,
       isWide ? 40 : 32,
     );
@@ -66,6 +66,7 @@ class ThemeSettingsPage extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               WorkspaceHeader(
+                kicker: 'PREFERÊNCIAS',
                 title: 'Configurações',
                 description:
                     'Ajuste preferências globais da interface e mantenha a experiência do jeito que preferir.',
@@ -113,28 +114,64 @@ class ThemeSettingsPage extends StatelessWidget {
                           unawaited(_controller.setThemeMode(value));
                         }
                       },
-                      child: Column(
-                        children: const [
-                          RadioListTile<ThemeMode>(
-                            contentPadding: EdgeInsets.zero,
-                            value: ThemeMode.light,
-                            title: Text('Tema claro'),
-                            subtitle: Text('Força a interface clara.'),
-                          ),
-                          RadioListTile<ThemeMode>(
-                            contentPadding: EdgeInsets.zero,
-                            value: ThemeMode.dark,
-                            title: Text('Tema escuro'),
-                            subtitle: Text('Força a interface escura.'),
-                          ),
-                          RadioListTile<ThemeMode>(
-                            contentPadding: EdgeInsets.zero,
-                            value: ThemeMode.system,
-                            title: Text('Seguir sistema'),
-                            subtitle:
-                                Text('Segue a preferência do dispositivo.'),
-                          ),
-                        ],
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final options = <Widget>[
+                            RadioListTile<ThemeMode>(
+                              contentPadding: EdgeInsets.zero,
+                              value: ThemeMode.light,
+                              title: Text('Tema claro'),
+                              subtitle: Text('Força a interface clara.'),
+                            ),
+                            RadioListTile<ThemeMode>(
+                              contentPadding: EdgeInsets.zero,
+                              value: ThemeMode.dark,
+                              title: Text('Tema escuro'),
+                              subtitle: Text('Força a interface escura.'),
+                            ),
+                            RadioListTile<ThemeMode>(
+                              contentPadding: EdgeInsets.zero,
+                              value: ThemeMode.system,
+                              title: Text('Seguir sistema'),
+                              subtitle:
+                                  Text('Segue a preferência do dispositivo.'),
+                            ),
+                          ];
+                          if (constraints.maxWidth < 720 ||
+                              MediaQuery.textScalerOf(context).scale(1) > 1.3) {
+                            return Column(children: options);
+                          }
+                          return Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: options
+                                .map((option) => Expanded(
+                                      child: Padding(
+                                        padding:
+                                            const EdgeInsets.only(right: 8),
+                                        child: DecoratedBox(
+                                          decoration: BoxDecoration(
+                                            color: colorScheme
+                                                .surfaceContainerHighest
+                                                .withValues(alpha: 0.35),
+                                            border: Border.all(
+                                                color:
+                                                    colorScheme.outlineVariant),
+                                            borderRadius:
+                                                BorderRadius.circular(10),
+                                          ),
+                                          child: Material(
+                                            color: Colors.transparent,
+                                            child: Padding(
+                                              padding: const EdgeInsets.all(8),
+                                              child: option,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ))
+                                .toList(),
+                          );
+                        },
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -148,6 +185,7 @@ class ThemeSettingsPage extends StatelessWidget {
                                 alpha: 0.72,
                               ),
                         border: Border.all(color: colorScheme.outlineVariant),
+                        borderRadius: BorderRadius.circular(10),
                       ),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -159,7 +197,7 @@ class ThemeSettingsPage extends StatelessWidget {
                                     ? Icons.nightlight_round_rounded
                                     : Icons.brightness_auto_rounded,
                             color: isLightMode
-                                ? AppTheme.accent
+                                ? colorScheme.primary
                                 : colorScheme.onSurfaceVariant,
                           ),
                           const SizedBox(width: 12),

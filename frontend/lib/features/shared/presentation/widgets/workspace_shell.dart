@@ -1,9 +1,6 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:touchin_flutter/features/auth/presentation/logout_navigation.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_navigation.dart';
-import 'package:touchin_flutter/theme/app_theme.dart';
 
 export 'package:touchin_flutter/features/shared/presentation/widgets/workspace_navigation.dart';
 
@@ -23,7 +20,8 @@ class WorkspaceScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final currentRoute = workspaceCurrentRoute(context);
 
     return LayoutBuilder(
@@ -31,6 +29,7 @@ class WorkspaceScaffold extends StatelessWidget {
         final isWide = constraints.maxWidth >= WorkspaceBreakpoints.wide;
 
         return Scaffold(
+          backgroundColor: theme.scaffoldBackgroundColor,
           drawer: isWide
               ? null
               : WorkspaceNavigationDrawer(
@@ -38,79 +37,29 @@ class WorkspaceScaffold extends StatelessWidget {
                   onLogoutRequested: onLogoutRequested,
                 ),
           body: Builder(
-            builder: (bodyContext) => DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: <Color>[
-                    colorScheme.surface,
-                    colorScheme.surfaceContainerHighest.withValues(alpha: 0.84),
-                  ],
+            builder: (bodyContext) => SafeArea(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: colorScheme.outlineVariant.withValues(alpha: 0.6),
+                  ),
                 ),
-              ),
-              child: Stack(
-                children: <Widget>[
-                  Positioned(
-                    top: -120,
-                    right: -40,
-                    child: _AmbientGlow(
-                      color: AppTheme.accent.withValues(alpha: 0.22),
-                      size: 280,
-                    ),
-                  ),
-                  Positioned(
-                    bottom: -120,
-                    left: -60,
-                    child: _AmbientGlow(
-                      color: colorScheme.secondary.withValues(alpha: 0.14),
-                      size: 260,
-                    ),
-                  ),
-                  _buildStaticBackdrop(colorScheme),
-                  SafeArea(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        border: Border.all(
-                          color: colorScheme.outlineVariant.withValues(
-                            alpha: 0.6,
-                          ),
-                        ),
+                child: isWide
+                    ? _buildWideLayout(
+                        bodyContext,
+                        constraints,
+                        currentRoute,
+                      )
+                    : _buildNarrowLayout(
+                        bodyContext,
+                        constraints,
+                        currentRoute,
                       ),
-                      child: isWide
-                          ? _buildWideLayout(
-                              bodyContext,
-                              constraints,
-                              currentRoute,
-                            )
-                          : _buildNarrowLayout(
-                              bodyContext,
-                              constraints,
-                              currentRoute,
-                            ),
-                    ),
-                  ),
-                ],
               ),
             ),
           ),
         );
       },
-    );
-  }
-
-  Widget _buildStaticBackdrop(ColorScheme colorScheme) {
-    return Positioned.fill(
-      child: IgnorePointer(
-        child: ClipRect(
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-            child: ColoredBox(
-              color: colorScheme.surface.withValues(alpha: 0.74),
-            ),
-          ),
-        ),
-      ),
     );
   }
 
@@ -229,6 +178,8 @@ class WorkspaceHeader extends StatelessWidget {
     super.key,
     required this.title,
     required this.description,
+    this.kicker,
+    this.kickerKey,
     this.maxContentWidth = 560,
     this.actions = const <Widget>[],
     this.compact = false,
@@ -236,6 +187,8 @@ class WorkspaceHeader extends StatelessWidget {
 
   final String title;
   final String description;
+  final String? kicker;
+  final Key? kickerKey;
   final double maxContentWidth;
   final List<Widget> actions;
   final bool compact;
@@ -245,48 +198,84 @@ class WorkspaceHeader extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    return Wrap(
-      alignment: WrapAlignment.spaceBetween,
-      spacing: 12,
-      runSpacing: 12,
-      children: <Widget>[
-        ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: maxContentWidth),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Semantics(
+    final heading = ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: maxContentWidth),
+      child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            if (kicker != null) ...<Widget>[
+              Text(kicker!,
+                  key: kickerKey,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                      color: colorScheme.brightness == Brightness.light
+                          ? colorScheme.onSurfaceVariant
+                          : colorScheme.secondary,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.3)),
+              const SizedBox(height: 6),
+            ],
+            Semantics(
                 header: true,
-                child: Text(
-                  title,
-                  style: (compact
-                          ? theme.textTheme.headlineSmall
-                          : theme.textTheme.headlineMedium)
-                      ?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              if (description.trim().isNotEmpty) ...<Widget>[
-                const SizedBox(height: 8),
-                Text(
-                  description,
-                  style: (compact
+                child: Text(title,
+                    style: (compact && kicker == null
+                            ? theme.textTheme.headlineSmall
+                            : theme.textTheme.headlineMedium)
+                        ?.copyWith(fontWeight: FontWeight.w700))),
+            if (description.trim().isNotEmpty) ...<Widget>[
+              const SizedBox(height: 8),
+              Text(description,
+                  style: (compact && kicker == null
                           ? theme.textTheme.bodyMedium
                           : theme.textTheme.bodyLarge)
                       ?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    height: 1.45,
-                  ),
-                ),
-              ],
+                          color: colorScheme.onSurfaceVariant, height: 1.45)),
             ],
-          ),
-        ),
-        if (actions.isNotEmpty)
-          Wrap(spacing: 12, runSpacing: 12, children: actions),
-      ],
+          ]),
     );
+    final actionTheme = theme.copyWith(
+      filledButtonTheme: FilledButtonThemeData(
+        style: (theme.filledButtonTheme.style ?? const ButtonStyle()).copyWith(
+          minimumSize: const WidgetStatePropertyAll(Size(0, 48)),
+          padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 16)),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: (theme.outlinedButtonTheme.style ?? const ButtonStyle()).copyWith(
+          minimumSize: const WidgetStatePropertyAll(Size(0, 48)),
+          padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 16)),
+        ),
+      ),
+    );
+    Widget actionWrap(WrapAlignment alignment) => Theme(
+      data: actionTheme,
+      child: Wrap(alignment: alignment, spacing: 12, runSpacing: 12, children: actions),
+    );
+    return LayoutBuilder(builder: (context, constraints) {
+      if (actions.isNotEmpty && (!compact || kicker != null) && constraints.maxWidth >= 540) {
+        return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Expanded(child: heading),
+              const SizedBox(width: 12),
+              ConstrainedBox(
+                constraints:
+                    BoxConstraints(maxWidth: constraints.maxWidth * 0.5),
+                child: actionWrap(WrapAlignment.end),
+              ),
+            ]);
+      }
+      return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            heading,
+            if (actions.isNotEmpty) ...<Widget>[
+              const SizedBox(height: 12),
+              actionWrap(WrapAlignment.start),
+            ],
+          ]);
+    });
   }
 }
 
@@ -300,8 +289,9 @@ class WorkspaceSectionCard extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Material(
-      color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.56),
+      color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.8),
       shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
         side: BorderSide(color: colorScheme.outlineVariant),
       ),
       child: SizedBox(
@@ -332,52 +322,56 @@ class WorkspaceMetricCard extends StatelessWidget {
     final colorScheme = theme.colorScheme;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: colorScheme.surface.withValues(alpha: 0.78),
+        color: colorScheme.surface,
         border: Border.all(color: colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(16),
       ),
-      child: Column(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Icon(icon, size: 18, color: colorScheme.onSurfaceVariant),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
+          DecoratedBox(
+            key: const ValueKey<String>('workspace-metric-icon-tile'),
+            decoration: BoxDecoration(
+              color: colorScheme.primary.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(10),
+              child: Icon(icon, size: 20, color: colorScheme.onSurface),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
                   label,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.labelLarge?.copyWith(
                     color: colorScheme.onSurfaceVariant,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Flexible(
-                child: Text(
+                const SizedBox(height: 4),
+                Text(
                   value,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.end,
                   style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            helper,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-              height: 1.35,
+                const SizedBox(height: 8),
+                Text(
+                  helper,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    height: 1.35,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -407,8 +401,9 @@ class WorkspaceSummaryStripe extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.56),
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.8),
         border: Border.all(color: colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -459,6 +454,7 @@ class WorkspaceStatusBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: tone.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(color: tone.withValues(alpha: 0.28)),
       ),
       child: Text(
@@ -466,29 +462,6 @@ class WorkspaceStatusBadge extends StatelessWidget {
         style: theme.textTheme.labelLarge?.copyWith(
           color: tone,
           fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
-}
-
-class _AmbientGlow extends StatelessWidget {
-  const _AmbientGlow({required this.color, required this.size});
-
-  final Color color;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: RadialGradient(
-            colors: <Color>[color, color.withValues(alpha: 0)],
-          ),
         ),
       ),
     );

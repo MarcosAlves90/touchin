@@ -145,6 +145,7 @@ class _RegisterPageState extends State<RegisterPage>
                 color: colorScheme.surfaceContainerHighest.withValues(
                   alpha: 0.72,
                 ),
+                borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: colorScheme.outlineVariant),
               ),
               child: Row(
@@ -353,7 +354,7 @@ class _RegisterPageState extends State<RegisterPage>
               contentPadding: EdgeInsets.zero,
               controlAffinity: ListTileControlAffinity.leading,
               checkboxShape: const RoundedRectangleBorder(
-                borderRadius: BorderRadius.zero,
+                borderRadius: BorderRadius.all(Radius.circular(4)),
               ),
               title: Text(
                 'Aceito os termos e autorizo o contato comercial para ativação da conta.',

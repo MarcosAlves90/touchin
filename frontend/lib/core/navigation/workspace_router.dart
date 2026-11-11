@@ -59,6 +59,7 @@ class WorkspaceRouter extends RouterDelegate<WorkspaceLocation>
 
   @override
   final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+  final RouteObserver<ModalRoute<dynamic>> routeObserver = RouteObserver<ModalRoute<dynamic>>();
 
   final List<String> _history;
   final List<String> _entryIds;
@@ -327,6 +328,7 @@ class WorkspaceRouter extends RouterDelegate<WorkspaceLocation>
   Widget build(BuildContext context) {
     return Navigator(
       key: navigatorKey,
+      observers: [routeObserver],
       pages: <Page<void>>[
         for (var index = 0; index <= _currentIndex; index++)
           if (_history[index] == '/')

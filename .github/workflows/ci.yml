@@ -103,6 +103,7 @@ jobs:
   frontend-tests:
     name: Frontend tests
     runs-on: ubuntu-latest
+    timeout-minutes: 60
 
     defaults:
       run:
@@ -123,6 +124,9 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Confirm Flutter test runtime
+        run: flutter --version
+
       - name: Install frontend dependencies
         run: flutter pub get
 
@@ -130,7 +134,41 @@ jobs:
         run: sudo apt-get update && sudo apt-get install --no-install-recommends --yes lcov
 
       - name: Run frontend tests
-        run: flutter test --coverage --exclude-tags canonical-golden
+        id: flutter_suite
+        # Hosted Linux flutter_tester consistently SIGSEGVs after ~280 tests
+        # in one coverage session; isolated tests and WSL suites pass. Run all
+        # files in bounded sessions and merge their LCOV reports afterward.
+        run: python3 ../scripts/run_frontend_coverage.py
+
+      - name: Diagnose native Flutter tester failure on Ubuntu
+        if: failure() && steps.flutter_suite.outcome == 'failure'
+        run: |
+          echo "Kernel: $(uname -a)"
+          echo "Core dump handler: $(cat /proc/sys/kernel/core_pattern)"
+          echo 'Recent native process faults (no core files uploaded):'
+          sudo dmesg --ctime 2>&1 | grep -Ei 'flutter_tester|segfault|SIGSEGV|general protection|out of memory' | tail -n 50 || true
+          echo 'Remaining Flutter tester processes:'
+          ps -eo pid,ppid,stat,comm | grep '[f]lutter_tester' || true
+
+      # Only after a full-suite failure: probe the native engine separately,
+      # without changing the test order, coverage, or outcome of normal runs.
+      - name: Probe isolated Kanban tester without coverage
+        if: failure() && steps.flutter_suite.outcome == 'failure'
+        continue-on-error: true
+        run: >-
+          timeout --signal=TERM --kill-after=30s 3m
+          flutter test --no-pub --concurrency=1 --reporter expanded
+          test/features/projects/presentation/project_kanban_board_test.dart
+
+      - name: Probe isolated Kanban tester with coverage
+        if: failure() && steps.flutter_suite.outcome == 'failure'
+        continue-on-error: true
+        run: >-
+          timeout --signal=TERM --kill-after=30s 3m
+          flutter test --no-pub --coverage
+          --coverage-path="$RUNNER_TEMP/kanban-probe.lcov"
+          --concurrency=1 --reporter expanded
+          test/features/projects/presentation/project_kanban_board_test.dart
 
       - name: Generate frontend HTML coverage report
         run: genhtml coverage/lcov.info --output-directory coverage/html --title "TouchIn Flutter coverage" --legend

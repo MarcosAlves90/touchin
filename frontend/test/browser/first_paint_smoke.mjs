@@ -109,10 +109,16 @@ async function readCsp() {
 }
 
 async function serveBuild(csp) {
+  let bootstrapHold = null;
   const server = createServer(async (request, response) => {
     try {
       const url = new URL(request.url, 'http://localhost');
       const pathname = decodeURIComponent(url.pathname);
+      if (pathname === '/flutter_bootstrap.js' && bootstrapHold) {
+        const hold = bootstrapHold;
+        hold.seen = true;
+        await hold.gate;
+      }
       const filename = resolve(buildDir, `.${pathname === '/' ? '/index.html' : pathname}`);
       const rel = relative(buildDir, filename);
       if (rel.startsWith(`..${sep}`) || rel === '..' || isAbsolute(rel)) {
@@ -139,7 +145,25 @@ async function serveBuild(csp) {
     server.once('error', fail);
     server.listen(0, '127.0.0.1', ok);
   });
-  return { server, url: `http://127.0.0.1:${server.address().port}/` };
+  return {
+    server,
+    url: `http://127.0.0.1:${server.address().port}/`,
+    holdBootstrap() {
+      assert.equal(bootstrapHold, null, 'A previous Flutter bootstrap request is still held');
+      let resume;
+      const hold = {
+        seen: false,
+        gate: new Promise((done) => { resume = done; }),
+        release() {
+          if (bootstrapHold === hold) bootstrapHold = null;
+          resume();
+        },
+      };
+      bootstrapHold = hold;
+      return hold;
+    },
+    releaseBootstrap() { bootstrapHold?.release(); },
+  };
 }
 
 async function startChrome(chromeExecutable) {
@@ -433,32 +457,26 @@ async function expectPreFlutter(cdp, mode, expected, label) {
   console.log(`  PASS ${label} — screenshot pixels ${(100 * (expected === 'light' ? pixels.lightBackgroundRatio : pixels.darkBackgroundRatio)).toFixed(1)}% ${expected}`);
 }
 
-async function navigateSuspended(cdp, url) {
-  const waiting = new Set();
-  let released = false;
-  const stopListening = cdp.on('Fetch.requestPaused', ({ requestId, request }) => {
-    if (!released && /\/(?:flutter_bootstrap|main\.dart)\.js(?:\?|$)/.test(request.url)) {
-      waiting.add(requestId);
+async function navigateSuspended({ cdp, url, holdBootstrap }) {
+  // The test server holds the actual response before Flutter can execute.
+  // This avoids depending on Chrome's CDP Fetch.requestPaused event delivery.
+  const hold = holdBootstrap();
+  try {
+    // Navigating from /#/login to / changes only the fragment in Chrome.
+    // Reload the document so that the bootstrap request reaches the server.
+    const current = new URL(await cdp.evaluate('location.href'));
+    const target = new URL(url);
+    if (current.origin === target.origin && current.pathname === target.pathname && current.search === target.search) {
+      await cdp.send('Page.reload', { ignoreCache: true });
     } else {
-      void cdp.send('Fetch.continueRequest', { requestId });
+      await cdp.send('Page.navigate', { url });
     }
-  });
-  await cdp.send('Fetch.enable', { patterns: [
-    { urlPattern: '*flutter_bootstrap.js*', requestStage: 'Request' },
-    { urlPattern: '*main.dart.js*', requestStage: 'Request' },
-  ] });
-  await cdp.send('Page.navigate', { url });
-  await waitFor(async () => waiting.size > 0, 'held Flutter bootstrap request');
-  return async () => {
-    released = true;
-    for (const id of waiting) await cdp.send('Fetch.continueRequest', { requestId: id });
-    // Subsequent main.dart.js fetches are automatically released by the
-    // event handler. The caller disables interception once Flutter is live.
-    return async () => {
-      await cdp.send('Fetch.disable');
-      stopListening();
-    };
-  };
+    await waitFor(() => hold.seen, 'held Flutter bootstrap request');
+  } catch (error) {
+    hold.release();
+    throw error;
+  }
+  return () => hold.release();
 }
 
 async function waitForFlutter(cdp, label) {
@@ -480,12 +498,8 @@ async function releaseAndObserveFlutter({ cdp }, release, label) {
   const filmstrip = new FrameFilmstrip(cdp, label);
   await filmstrip.start();
   try {
-    const disableInterception = await release();
-    try {
-      await waitForFlutter(cdp, label);
-    } finally {
-      await disableInterception();
-    }
+    release();
+    await waitForFlutter(cdp, label);
   } finally {
     await filmstrip.stopAndVerify();
   }
@@ -520,15 +534,27 @@ async function checkScreenshotDifference(cdp, before, after, label) {
 }
 
 async function scenarioColdBoot(ctx) {
-  const { cdp, url } = ctx;
+  const { cdp } = ctx;
   await cdp.media('dark');
-  const release = await navigateSuspended(cdp, url);
+  const release = await navigateSuspended(ctx);
   await expectPreFlutter(cdp, 'dark', 'dark', 'cold default dark');
   await releaseAndObserveFlutter(ctx, release, 'cold boot');
 }
 
+async function scenarioHashRouteReload(ctx) {
+  const { cdp } = ctx;
+  const hash = await cdp.evaluate(`(() => {
+    history.replaceState(history.state, '', '#/login');
+    return location.hash;
+  })()`);
+  assert.equal(hash, '#/login', 'Hash route regression did not set up the existing document');
+  const release = await navigateSuspended(ctx);
+  await expectPreFlutter(cdp, 'dark', 'dark', 'hash route: first paint after reload');
+  await releaseAndObserveFlutter(ctx, release, 'hash route hard reload');
+}
+
 async function scenarioThemeReloads(ctx) {
-  const { cdp, url } = ctx;
+  const { cdp } = ctx;
   const cases = [
     { hint: 'dark', media: 'light', expected: 'dark' },
     { hint: 'light', media: 'dark', expected: 'light' },
@@ -538,7 +564,7 @@ async function scenarioThemeReloads(ctx) {
   for (const scenario of cases) {
     await installHint(cdp, scenario.hint);
     await cdp.media(scenario.media);
-    const release = await navigateSuspended(cdp, url);
+    const release = await navigateSuspended(ctx);
     await expectPreFlutter(cdp, scenario.hint, scenario.expected,
       `reload hint=${scenario.hint} media=${scenario.media}`);
     if (scenario.hint === 'system' && scenario.media === 'light') {
@@ -557,10 +583,10 @@ async function scenarioThemeReloads(ctx) {
 }
 
 async function scenarioStaleHint(ctx) {
-  const { cdp, url } = ctx;
+  const { cdp } = ctx;
   await installHint(cdp, 'light');
   await cdp.media('dark');
-  const release = await navigateSuspended(cdp, url);
+  const release = await navigateSuspended(ctx);
   await expectPreFlutter(cdp, 'light', 'light', 'legacy mismatched hint before Flutter');
   await releaseAndObserveFlutter(ctx, release, 'legacy hint boot');
   await waitFor(async () => (await documentState(cdp)).mode === 'dark', 'legacy hint reconciliation');
@@ -570,7 +596,7 @@ async function scenarioStaleHint(ctx) {
 }
 
 async function scenarioLiveSystemAndPreviewAPI(ctx) {
-  const { cdp, url } = ctx;
+  const { cdp } = ctx;
   assert.equal((await documentState(cdp)).stored, 'dark');
   await cdp.evaluate(`window.touchinSetThemeMode('system', false)`);
   await cdp.media('light');
@@ -581,7 +607,7 @@ async function scenarioLiveSystemAndPreviewAPI(ctx) {
   assert.equal((await documentState(cdp)).background, 'rgb(22, 22, 22)');
   // An immediate reload while secure storage is still pending must begin
   // with the last committed hint, not the optimistic theme preview.
-  const release = await navigateSuspended(cdp, url);
+  const release = await navigateSuspended(ctx);
   await expectPreFlutter(cdp, 'dark', 'dark', 'reload during uncommitted theme preview');
   await releaseAndObserveFlutter(ctx, release, 'reload after uncommitted preview');
   assert.equal((await documentState(cdp)).stored, 'dark');
@@ -787,7 +813,7 @@ async function scenarioKeyboardAccessibility(ctx) {
 }
 
 async function scenarioEncryptedLegacyMigration(ctx) {
-  const { cdp, url } = ctx;
+  const { cdp } = ctx;
   // flutter_secure_storage_web uses a 256-bit AES-GCM key and a split base64
   // IV/ciphertext value. This reproduces the plugin's actual storage encoding.
   const legacySeed = await cdp.evaluate(`(async () => {
@@ -804,7 +830,7 @@ async function scenarioEncryptedLegacyMigration(ctx) {
   })()`);
   assert.deepEqual(legacySeed, {keyPresent:true, encryptedPreferencePresent:true, hintMissing:true});
   await cdp.media('light');
-  let release = await navigateSuspended(cdp, url);
+  let release = await navigateSuspended(ctx);
   await expectPreFlutter(cdp, 'dark', 'dark', 'encrypted legacy light: unavailable during synchronous first paint');
   await releaseAndObserveFlutter(ctx, release, 'encrypted legacy light: Flutter boot');
   await waitFor(async () => {
@@ -813,14 +839,14 @@ async function scenarioEncryptedLegacyMigration(ctx) {
   }, 'encrypted legacy light: secure preference reconciled', 15000);
   await cdp.frame('encrypted legacy light: reconciled');
   console.log('  PASS encrypted legacy light storage reconciled after Flutter boot');
-  release = await navigateSuspended(cdp, url);
+  release = await navigateSuspended(ctx);
   await expectPreFlutter(cdp, 'light', 'light', 'encrypted legacy light: second load');
   await releaseAndObserveFlutter(ctx, release, 'encrypted legacy light: second Flutter boot');
   assert.equal((await documentState(cdp)).mode, 'light', 'Encrypted legacy light was not preserved on reload');
 }
 
 async function scenarioBlockedLocalStorage(ctx) {
-  const { cdp, url } = ctx;
+  const { cdp } = ctx;
   const secretMarker = 'INTERNAL_STORAGE_EXCEPTION_DETAIL_NEVER_LOG';
   const consoleWarnings = [];
   const offConsole = cdp.on('Runtime.consoleAPICalled', ({ type, args }) => {
@@ -836,7 +862,7 @@ async function scenarioBlockedLocalStorage(ctx) {
   });
   try {
     await cdp.media('dark');
-    const release = await navigateSuspended(cdp, url);
+    const release = await navigateSuspended(ctx);
     await waitFor(() => cdp.evaluate(`document.readyState !== 'loading' &&
       document.documentElement.getAttribute('data-touchin-theme') === 'dark'`),
     'dark fallback when storage access is blocked', 12000);
@@ -895,7 +921,7 @@ async function smoke() {
   await stat(join(buildDir, 'index.html'));
   await stat(join(buildDir, 'flutter_bootstrap.js'));
   const csp = await readCsp();
-  const { server, url } = await serveBuild(csp);
+  const { server, url, holdBootstrap, releaseBootstrap } = await serveBuild(csp);
   let chrome;
   let cdp;
   try {
@@ -913,8 +939,9 @@ async function smoke() {
       });
     ` });
     console.log(`Browser: ${chromeExecutable}; build: ${buildDir}`);
-    const context = { cdp, url, getBootstrapRequests: () => bootstrapRequests };
+    const context = { cdp, url, holdBootstrap, getBootstrapRequests: () => bootstrapRequests };
     await scenarioColdBoot(context);
+    await scenarioHashRouteReload(context);
     await scenarioThemeReloads(context);
     await scenarioStaleHint(context);
     await scenarioLiveSystemAndPreviewAPI(context);
@@ -947,6 +974,7 @@ async function smoke() {
       });
       chrome.processHandle.stderr?.destroy();
     }
+    releaseBootstrap();
     server.closeAllConnections();
     await new Promise((done) => server.close(done));
   }
