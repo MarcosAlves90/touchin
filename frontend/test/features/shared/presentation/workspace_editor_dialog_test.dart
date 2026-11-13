@@ -36,6 +36,17 @@ void main() {
         expect((dialog.shape! as RoundedRectangleBorder).borderRadius,
             BorderRadius.circular(12), reason: 'dialog_radius_12');
         expect(dialog.clipBehavior, Clip.hardEdge);
+        final iconTile = find.ancestor(
+          of: find.byIcon(Icons.edit),
+          matching: find.byType(Container),
+        );
+        expect(iconTile, findsOneWidget);
+        expect(
+          (tester.widget<Container>(iconTile).decoration! as BoxDecoration)
+              .borderRadius,
+          BorderRadius.circular(8),
+          reason: 'dialog_icon_tile_radius_8',
+        );
         expect(find.byTooltip('Fechar'), findsOneWidget);
         await tester.enterText(find.byType(TextField), 'Example');
         await tester.drag(find.byType(SingleChildScrollView).first, const Offset(0, -500));
@@ -49,5 +60,36 @@ void main() {
         expect(tester.takeException(), isNull);
       });
     }
+
+    testWidgets('editor error panel rounds its surface in $brightness',
+        (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        theme: ThemeData(brightness: brightness),
+        home: Scaffold(
+          body: WorkspaceEditorDialog(
+            title: 'Editor',
+            subtitle: 'Details',
+            icon: Icons.edit,
+            primaryLabel: 'Save',
+            onPrimary: () {},
+            errorMessage: 'Falha ao salvar',
+            child: const Text('Form'),
+          ),
+        ),
+      ));
+
+      final errorPanel = find.ancestor(
+        of: find.text('Falha ao salvar'),
+        matching: find.byType(Container),
+      );
+      expect(errorPanel, findsOneWidget);
+      expect(
+        (tester.widget<Container>(errorPanel).decoration! as BoxDecoration)
+            .borderRadius,
+        BorderRadius.circular(8),
+        reason: 'dialog_error_panel_radius_8',
+      );
+      expect(tester.takeException(), isNull);
+    });
   }
 }

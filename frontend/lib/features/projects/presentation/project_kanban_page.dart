@@ -947,7 +947,10 @@ class _KanbanMutationStatus extends StatelessWidget {
       child: ExcludeSemantics(
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          color: colorScheme.surfaceContainerHighest,
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(8),
+          ),
           child: Text(
             'Atualizando o quadro…',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -1032,6 +1035,7 @@ class _KanbanSyncStatus extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
           decoration: BoxDecoration(
             color: Colors.black.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: Colors.black.withValues(alpha: 0.08),
             ),
@@ -1247,6 +1251,7 @@ class _KanbanNotice extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: colorScheme.secondaryContainer.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: colorScheme.outlineVariant),
       ),
       child: Row(

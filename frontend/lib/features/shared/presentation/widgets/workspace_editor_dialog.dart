@@ -106,6 +106,7 @@ class WorkspaceEditorDialog extends StatelessWidget {
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
                       color: colorScheme.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
                       border: Border.all(
                         color: colorScheme.primary.withValues(alpha: 0.28),
                       ),
@@ -228,6 +229,7 @@ class _InlineErrorMessage extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: colorScheme.errorContainer,
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(color: colorScheme.error),
       ),
       child: Row(

@@ -118,6 +118,7 @@ class _WorkspaceInstantSelectFieldState<T>
       color: Theme.of(context).colorScheme.surface,
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
         side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
       ),
       popUpAnimationStyle: AnimationStyle.noAnimation,

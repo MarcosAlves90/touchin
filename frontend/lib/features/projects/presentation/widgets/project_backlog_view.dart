@@ -806,7 +806,7 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
         padding: const EdgeInsets.all(6),
         tapTargetSize: MaterialTapTargetSize.padded,
         foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
-        shape: const RoundedRectangleBorder(),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       )),
       child: Row(mainAxisSize: MainAxisSize.min, children: actionButtons),
     );

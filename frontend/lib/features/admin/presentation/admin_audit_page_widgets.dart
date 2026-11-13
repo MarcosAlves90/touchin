@@ -814,8 +814,10 @@ class AuditEventDetailsDialog extends StatelessWidget {
       ),
       backgroundColor: colors.surface,
       shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
         side: BorderSide(color: colors.outline),
       ),
+      clipBehavior: Clip.hardEdge,
       child: ConstrainedBox(
         constraints: BoxConstraints(
           maxWidth: 720,

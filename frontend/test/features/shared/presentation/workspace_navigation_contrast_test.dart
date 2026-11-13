@@ -78,7 +78,7 @@ void main() {
     expect(
       (tester.widget<Container>(brand).decoration! as BoxDecoration)
           .borderRadius,
-      isNull,
+      BorderRadius.circular(8),
       reason: reason,
     );
 
@@ -98,7 +98,7 @@ void main() {
     expect(
       (tester.widget<Container>(markBox).decoration! as BoxDecoration)
           .borderRadius,
-      isNull,
+      BorderRadius.circular(8),
       reason: reason,
     );
     expect(
@@ -262,6 +262,22 @@ void main() {
       expect(
         tester.widget<Icon>(fingerprint).color,
         data.colorScheme.onPrimary,
+      );
+      final markBox = find.ancestor(
+        of: fingerprint,
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Container &&
+              widget.decoration is BoxDecoration &&
+              (widget.decoration! as BoxDecoration).color ==
+                  data.colorScheme.primary,
+        ),
+      );
+      expect(markBox, findsOneWidget);
+      expect(
+        (tester.widget<Container>(markBox).decoration! as BoxDecoration)
+            .borderRadius,
+        BorderRadius.circular(8),
       );
       final selectedText = tester.widget<Text>(find.text('Kanban'));
       final unselectedText = tester.widget<Text>(find.text('Bater Ponto'));

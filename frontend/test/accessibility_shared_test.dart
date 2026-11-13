@@ -42,6 +42,46 @@ void main() {
     semantics.dispose();
   });
 
+  for (final dark in [false, true]) {
+    for (final width in [360.0, 1200.0]) {
+      testWidgets('select menu radius on $width width dark=$dark',
+          (tester) async {
+        tester.view.physicalSize = Size(width, 800);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+
+        await tester.pumpWidget(MaterialApp(
+          theme: dark ? ThemeData.dark() : ThemeData.light(),
+          home: Scaffold(
+            body: WorkspaceInstantSelectField<String>(
+              value: null,
+              options: const [
+                WorkspaceSelectOption(value: 'one', label: 'Primeiro projeto'),
+              ],
+              decoration: const InputDecoration(labelText: 'Projeto'),
+              onChanged: (_) {},
+            ),
+          ),
+        ));
+        await tester.tap(find.byType(WorkspaceInstantSelectField<String>));
+        await tester.pumpAndSettle();
+
+        final menuMaterials = tester.widgetList<Material>(find.ancestor(
+          of: find.byType(PopupMenuItem<String>),
+          matching: find.byType(Material),
+        ));
+        expect(
+          menuMaterials.any((material) =>
+              material.shape is RoundedRectangleBorder &&
+              (material.shape! as RoundedRectangleBorder).borderRadius ==
+                  BorderRadius.circular(8)),
+          isTrue,
+          reason: 'instant_select_menu_radius_8',
+        );
+      });
+    }
+  }
+
   testWidgets('compact workspace menu has an accessible name', (tester) async {
     final semantics = tester.ensureSemantics();
     await tester.pumpWidget(

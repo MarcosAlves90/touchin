@@ -267,7 +267,7 @@ void main() {
   });
 
   testWidgets(
-    'mobile header puts the contrasting menu inside the square brand block',
+    'mobile header puts the contrasting menu inside the rounded brand block',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(390, 844));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -303,8 +303,8 @@ void main() {
       );
       expect(
         decoration.borderRadius,
-        isNull,
-        reason: 'navigation_square_corners',
+        BorderRadius.circular(8),
+        reason: 'navigation_brand_corners',
       );
       final header = tester.widget<Container>(
         find.byKey(const ValueKey<String>('workspace-mobile-header')),
@@ -334,6 +334,21 @@ void main() {
       expect(
         tester.widget<Icon>(mark).color,
         colors.onPrimary,
+      );
+      final markTile = find.ancestor(
+        of: mark,
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Container &&
+              widget.decoration is BoxDecoration &&
+              (widget.decoration! as BoxDecoration).color == colors.primary,
+        ),
+      );
+      expect(markTile, findsOneWidget);
+      expect(
+        (tester.widget<Container>(markTile).decoration! as BoxDecoration)
+            .borderRadius,
+        BorderRadius.circular(8),
       );
       expect(tester.getTopLeft(menu).dx, lessThan(tester.getTopLeft(mark).dx));
 
@@ -531,6 +546,39 @@ void main() {
       isSemantics(isSelected: false),
     );
     semantics.dispose();
+  });
+
+  testWidgets('mobile drawer rounds its trailing corners in both themes', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    for (final theme in <ThemeData>[AppTheme.lightTheme, AppTheme.darkTheme]) {
+      await tester.pumpWidget(MaterialApp(
+        theme: theme,
+        home: WorkspaceScaffold(
+          contentBuilder: (_, __) => const SizedBox.shrink(),
+        ),
+      ));
+      await tester.tap(find.byTooltip('Abrir menu'));
+      await tester.pumpAndSettle();
+
+      final drawer = tester.widget<Drawer>(find.byKey(
+        const ValueKey<String>('workspace-navigation-drawer'),
+      ));
+      expect(
+        (drawer.shape! as RoundedRectangleBorder).borderRadius,
+        const BorderRadiusDirectional.only(
+          topEnd: Radius.circular(16),
+          bottomEnd: Radius.circular(16),
+        ),
+      );
+      expect(drawer.backgroundColor, theme.colorScheme.surface);
+      expect(tester.takeException(), isNull);
+
+      await tester.tapAt(const Offset(380, 400));
+      await tester.pumpAndSettle();
+    }
   });
 
   testWidgets('unknown active route selects no destination', (tester) async {
