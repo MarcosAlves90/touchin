@@ -4,6 +4,12 @@ Aplicação web para registro de ponto e gestão de equipes, com frontend Flutte
 
 O TouchIn reúne registro e consulta de jornada, gestão de funcionários, projetos e tarefas, quadro Kanban e recursos administrativos.
 
+## Integrantes
+
+- **Lyntter de Jesus Paiva**
+- **Marcos Alves Lopes Júnior**
+- **Matheus Souza Rodrigues**
+
 ## Arquitetura
 
 ```mermaid
