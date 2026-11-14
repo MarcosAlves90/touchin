@@ -1152,7 +1152,7 @@ Future<void> _captureVisualCase(
   await expectLater(
     find.byType(WorkspaceScaffold),
     matchesGoldenFile(
-      '../../../../../../docs/validation/issue-119/${visualCase.name}.png',
+      '../../../../goldens/rounded_workspace_navigation/${visualCase.name}.png',
     ),
   );
 }
