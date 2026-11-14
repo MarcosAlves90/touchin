@@ -524,6 +524,7 @@ class _TimeClockPageState extends State<TimeClockPage> {
               height: 58,
               decoration: BoxDecoration(
                 color: AppTheme.accent.withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: AppTheme.accent.withValues(alpha: 0.28),
                 ),
@@ -866,6 +867,7 @@ class _TimeClockPageState extends State<TimeClockPage> {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(color: colorScheme.outlineVariant),
       ),
       child: Row(
@@ -1172,6 +1174,7 @@ class _TimelineTile extends StatelessWidget {
           height: 42,
           decoration: BoxDecoration(
             color: AppTheme.accent.withValues(alpha: 0.14),
+            borderRadius: BorderRadius.circular(8),
             border: Border.all(color: AppTheme.accent.withValues(alpha: 0.24)),
           ),
           child: Icon(record.icon, size: 20),

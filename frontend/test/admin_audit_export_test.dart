@@ -222,6 +222,16 @@ void main() {
       find.byKey(const ValueKey<String>('audit-event-details')),
       findsOneWidget,
     );
+    final details = tester.widget<Dialog>(
+      find.byKey(const ValueKey<String>('audit-event-details')),
+    );
+    expect(
+      (details.shape! as RoundedRectangleBorder).borderRadius,
+      BorderRadius.circular(12),
+      reason: 'audit_details_dialog_radius_12',
+    );
+    expect(details.clipBehavior, Clip.hardEdge,
+        reason: 'audit_details_header_clipped_to_rounded_dialog');
     expect(find.text('Detalhes do evento'), findsOneWidget);
     expect(find.textContaining('"from": "todo"'), findsOneWidget);
     expect(find.byTooltip('Copiar ID do evento'), findsOneWidget);

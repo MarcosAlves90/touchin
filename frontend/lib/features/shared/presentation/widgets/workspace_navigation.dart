@@ -54,6 +54,7 @@ class WorkspaceNavigationBrand extends StatelessWidget {
       height: compact || collapsed ? 28 : 42,
       decoration: BoxDecoration(
         color: colors.primary,
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Icon(
         Icons.fingerprint_rounded,
@@ -146,7 +147,10 @@ class WorkspaceNavigationBrand extends StatelessWidget {
       key: compact && onOpenDrawer != null
           ? const ValueKey<String>('workspace-mobile-brand-block')
           : null,
-      decoration: BoxDecoration(color: colors.surface),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: compact ? BorderRadius.circular(8) : null,
+      ),
       padding: compact
           ? const EdgeInsets.symmetric(horizontal: 8, vertical: 6)
           : const EdgeInsets.fromLTRB(20, 18, 20, 18),
@@ -434,7 +438,12 @@ class WorkspaceNavigationDrawer extends StatelessWidget {
     return Drawer(
       key: const ValueKey<String>('workspace-navigation-drawer'),
       width: 280,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadiusDirectional.only(
+          topEnd: Radius.circular(16),
+          bottomEnd: Radius.circular(16),
+        ),
+      ),
       backgroundColor: colors.surface,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

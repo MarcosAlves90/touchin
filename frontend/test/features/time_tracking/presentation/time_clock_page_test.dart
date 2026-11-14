@@ -472,6 +472,19 @@ void main() {
     expect(find.text('Registro 2'), findsOneWidget);
     expect(find.text('Registro 1'), findsNothing);
     expect(find.text('Página 1 de 2'), findsOneWidget);
+    final timelineIcons = tester
+        .widgetList<Container>(find.byType(Container))
+        .where((container) =>
+            container.constraints?.maxWidth == 42 &&
+            container.constraints?.maxHeight == 42 &&
+            container.decoration is BoxDecoration)
+        .toList();
+    expect(timelineIcons, isNotEmpty);
+    for (final timelineIcon in timelineIcons) {
+      expect((timelineIcon.decoration! as BoxDecoration).borderRadius,
+          BorderRadius.circular(8),
+          reason: 'timeline_icon_radius_8');
+    }
 
     await tester.tap(find.text('Próxima'));
     await tester.pumpAndSettle();
@@ -525,6 +538,21 @@ void main() {
       find.byKey(const ValueKey<String>('time-clock-timeline-date')),
       findsOneWidget,
     );
+    final dateBadge = tester.widget<Container>(
+      find.byKey(const ValueKey<String>('time-clock-timeline-date')),
+    );
+    expect((dateBadge.decoration! as BoxDecoration).borderRadius,
+        BorderRadius.circular(8),
+        reason: 'timeline_date_radius_8');
+    final heroIcon = tester
+        .widgetList<Container>(find.byType(Container))
+        .singleWhere((container) =>
+            container.constraints?.maxWidth == 58 &&
+            container.constraints?.maxHeight == 58 &&
+            container.decoration is BoxDecoration);
+    expect((heroIcon.decoration! as BoxDecoration).borderRadius,
+        BorderRadius.circular(12),
+        reason: 'time_clock_hero_icon_radius_12');
     expect(
       find.byKey(const ValueKey<String>('time-clock-empty-state')),
       findsOneWidget,

@@ -773,6 +773,50 @@ void main() {
     expect(find.byIcon(Icons.badge_rounded), findsNothing);
   });
 
+  for (final dark in [false, true]) {
+    for (final width in [430.0, 1440.0]) {
+      testWidgets('employee and punch editor dialog radii $dark $width',
+          (tester) async {
+        tester.view.physicalSize = Size(width, 1200);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+
+        await tester.pumpWidget(MaterialApp(
+          theme: dark ? AppTheme.darkTheme : AppTheme.lightTheme,
+          home: AdminEmployeesPage(api: _FakeAdminApi()),
+        ));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Novo funcionário'));
+        await tester.pumpAndSettle();
+        final employeeDialog = tester.widget<Dialog>(find.byType(Dialog).last);
+        expect(
+          (employeeDialog.shape! as RoundedRectangleBorder).borderRadius,
+          BorderRadius.circular(12),
+          reason: 'employee_editor_radius_12',
+        );
+
+        Navigator.of(tester.element(find.byType(Dialog).last)).pop();
+        await tester.pumpAndSettle();
+        final punchTab = find.text('Ponto').last;
+        await tester.ensureVisible(punchTab);
+        await tester.tap(punchTab);
+        await tester.pumpAndSettle();
+        final addPunch = find.text('Novo ponto').last;
+        await tester.ensureVisible(addPunch);
+        await tester.tap(addPunch);
+        await tester.pumpAndSettle();
+        final punchDialog = tester.widget<Dialog>(find.byType(Dialog).last);
+        expect(
+          (punchDialog.shape! as RoundedRectangleBorder).borderRadius,
+          BorderRadius.circular(12),
+          reason: 'punch_editor_radius_12',
+        );
+        expect(tester.takeException(), isNull);
+      });
+    }
+  }
+
   testWidgets('renders company data from auth context in the sidebar', (
     WidgetTester tester,
   ) async {

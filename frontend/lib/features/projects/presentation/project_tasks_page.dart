@@ -334,6 +334,7 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 color: colorScheme.surface.withValues(alpha: 0.8),
+                borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: colorScheme.outlineVariant),
               ),
               child: Column(
@@ -1007,6 +1008,7 @@ class _ProjectListTile extends StatelessWidget {
       child: Semantics(
         selected: selected,
         child: InkWell(
+          borderRadius: BorderRadius.circular(8),
           onTap: onTap,
           child: Container(
             width: double.infinity,
@@ -1031,6 +1033,7 @@ class _ProjectListTile extends StatelessWidget {
                         width: 40,
                         height: 40,
                         decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
                           color: selected
                               ? colorScheme.primary.withValues(alpha: 0.16)
                               : colorScheme.surfaceContainerHighest
@@ -1151,6 +1154,7 @@ class _ProjectDetailHero extends StatelessWidget {
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: colorScheme.surface.withValues(alpha: 0.82),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: colorScheme.outlineVariant),
       ),
       child: LayoutBuilder(
@@ -1165,6 +1169,7 @@ class _ProjectDetailHero extends StatelessWidget {
                   height: 56,
                   decoration: BoxDecoration(
                     color: statusColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
                     border: Border.all(
                       color: statusColor.withValues(alpha: 0.28),
                     ),
@@ -1291,6 +1296,7 @@ class _ProjectPill extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: background ?? tone.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(color: tone.withValues(alpha: 0.22)),
       ),
       child: Row(
@@ -1334,6 +1340,7 @@ class _ProjectOverviewCard extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: colorScheme.surface.withValues(alpha: 0.82),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: colorScheme.outlineVariant),
       ),
       child: Row(
@@ -1345,6 +1352,7 @@ class _ProjectOverviewCard extends StatelessWidget {
             decoration: BoxDecoration(
               color:
                   colorScheme.surfaceContainerHighest.withValues(alpha: 0.88),
+              borderRadius: BorderRadius.circular(8),
               border: Border.all(color: colorScheme.outlineVariant),
             ),
             child: Icon(icon, size: 18, color: colorScheme.onSurfaceVariant),
@@ -1402,14 +1410,17 @@ class _TaskTile extends StatelessWidget {
       color: selected
           ? colorScheme.primaryContainer.withValues(alpha: 0.5)
           : colorScheme.surface.withValues(alpha: 0.72),
+      borderRadius: BorderRadius.circular(12),
       child: Semantics(
         selected: selected,
         child: InkWell(
+          borderRadius: BorderRadius.circular(12),
           onTap: onSelected,
           child: Container(
             width: double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
               border: Border.all(
                 color:
                     selected ? colorScheme.primary : colorScheme.outlineVariant,
@@ -1973,6 +1984,7 @@ class _InfoBanner extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: colorScheme.secondaryContainer.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: colorScheme.outlineVariant),
       ),
       child: Row(

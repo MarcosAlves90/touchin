@@ -126,7 +126,7 @@ class _EmployeeEditorDialogState extends State<_EmployeeEditorDialog> {
     return Dialog(
       insetPadding: const EdgeInsets.all(24),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.zero,
+        borderRadius: BorderRadius.circular(12),
         side: BorderSide(
           color: Theme.of(context).colorScheme.outline,
         ),
@@ -832,7 +832,7 @@ class _InlinePill extends StatelessWidget {
       {required this.label,
       required this.tone,
       this.icon,
-      this.rounded = false,
+      this.rounded = true,
       this.teamSurface = false});
 
   final String label;
@@ -1413,7 +1413,7 @@ class _ManagedPunchEditorDialogState extends State<_ManagedPunchEditorDialog> {
     return Dialog(
       insetPadding: const EdgeInsets.all(16),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.zero,
+        borderRadius: BorderRadius.circular(12),
         side: BorderSide(color: colorScheme.outline),
       ),
       child: ConstrainedBox(

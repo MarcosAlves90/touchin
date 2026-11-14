@@ -192,6 +192,7 @@ class _ProjectKanbanBoardState extends State<ProjectKanbanBoard> {
           color: theme.colorScheme.surface,
           shadowColor: theme.colorScheme.shadow,
           shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
             side: BorderSide(
               color: theme.colorScheme.primary,
               width: 1.5,
@@ -374,6 +375,7 @@ class _ProjectKanbanBoardState extends State<ProjectKanbanBoard> {
                         child: Material(
                           color: colorScheme.primaryContainer,
                           shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
                             side: BorderSide(color: colorScheme.primary),
                           ),
                           child: Padding(
