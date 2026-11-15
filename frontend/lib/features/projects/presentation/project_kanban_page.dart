@@ -287,8 +287,11 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
       if (query.textTerms.isNotEmpty) 'Texto: ${query.textTerms.join(' ')}',
     ];
     final active = _taskSearchText.trim().isNotEmpty;
+    final matchCountValue = query.isActive
+        ? matches.length
+        : columns.fold<int>(0, (count, column) => count + column.cards.length);
     final matchCount =
-        '${matches.length} ${matches.length == 1 ? 'correspondência' : 'correspondências'}';
+        '$matchCountValue ${matchCountValue == 1 ? 'correspondência' : 'correspondências'}';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -403,6 +406,7 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
         key: ValueKey<String>('project-backlog-${board.projectId}'),
         board: board,
         matchedCardIds: matchedCardIds,
+        sharedSearchQuery: _taskSearchText,
         projectName: _controller.selectedProject?.name ?? '',
         projectMembers: _controller.projectMembers,
         canManageStructure: _controller.canManageStructure,

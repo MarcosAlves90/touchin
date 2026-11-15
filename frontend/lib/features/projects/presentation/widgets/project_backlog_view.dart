@@ -11,6 +11,7 @@ class ProjectBacklogView extends StatefulWidget {
     super.key,
     required this.board,
     this.matchedCardIds,
+    this.sharedSearchQuery = '',
     required this.projectName,
     required this.projectMembers,
     required this.canManageStructure,
@@ -30,6 +31,7 @@ class ProjectBacklogView extends StatefulWidget {
 
   final KanbanBoard board;
   final Set<String>? matchedCardIds;
+  final String sharedSearchQuery;
   final String projectName;
   final List<ProjectMemberSummary> projectMembers;
   final bool canManageStructure;
@@ -76,6 +78,14 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
     if (_tableScroll.hasClients) _tableScroll.jumpTo(0);
   }
 
+  bool _sameCardIds(Set<String>? left, Set<String>? right) {
+    if (identical(left, right)) return true;
+    if (left == null || right == null || left.length != right.length) {
+      return false;
+    }
+    return left.containsAll(right);
+  }
+
   void _changePage(int page) {
     setState(() => _page = page);
     if (_tableScroll.hasClients) _tableScroll.jumpTo(0);
@@ -92,6 +102,9 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
       _sort = 'kanban';
       _sortAscending = true;
       _columnFilters.clear();
+      _resetPage();
+    } else if (widget.sharedSearchQuery != oldWidget.sharedSearchQuery ||
+        !_sameCardIds(widget.matchedCardIds, oldWidget.matchedCardIds)) {
       _resetPage();
     }
     if (!widget.board.columns.any((column) => column.id == _status)) {
@@ -422,26 +435,24 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
     final colors = theme.colorScheme;
     final buttonStyle = workspaceToolbarActionStyle(theme);
     final controls = <({int flex, double width, Widget child})>[
-      if (widget.matchedCardIds == null)
-        (
-          flex: 2,
-          width: 260,
-          child: TextField(
-            key: const ValueKey<String>('backlog-search'),
-            controller: _searchController,
-            decoration: const InputDecoration(
-              hintText: 'Buscar por título ou #número',
-              prefixIcon: Icon(Icons.search_rounded, size: 18),
-              constraints: BoxConstraints.tightFor(height: 48),
-              contentPadding:
-                  EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-            ),
-            onChanged: (value) => setState(() {
-              _query = value.trim();
-              _resetPage();
-            }),
+      (
+        flex: 2,
+        width: 260,
+        child: TextField(
+          key: const ValueKey<String>('backlog-search'),
+          controller: _searchController,
+          decoration: const InputDecoration(
+            hintText: 'Buscar por título ou #número',
+            prefixIcon: Icon(Icons.search_rounded, size: 18),
+            constraints: BoxConstraints.tightFor(height: 48),
+            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
           ),
+          onChanged: (value) => setState(() {
+            _query = value.trim();
+            _resetPage();
+          }),
         ),
+      ),
       (
         flex: 1,
         width: 180,

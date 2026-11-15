@@ -30,18 +30,15 @@ class TaskSearchQuery {
     if (cardNumber != null) searchable[numberMatches.single] = '';
 
     final typePositions = <int, TaskType>{};
+    final explicitTypePositions = <int>{};
     for (var i = 0; i < searchable.length; i++) {
       final token = searchable[i];
       final explicit = RegExp(r'^(?:tipo|type):(.+)$').firstMatch(token);
       final type =
           explicit == null ? _types[token] : _types[explicit.group(1)!];
-      if (type != null) typePositions[i] = type;
-    }
-    final uniqueTypes = typePositions.values.toSet();
-    final types = uniqueTypes.length == 1 ? uniqueTypes : <TaskType>{};
-    if (types.isNotEmpty) {
-      for (final position in typePositions.keys) {
-        searchable[position] = '';
+      if (type != null) {
+        typePositions[i] = type;
+        if (explicit != null) explicitTypePositions.add(i);
       }
     }
 
@@ -52,33 +49,70 @@ class TaskSearchQuery {
         statuses.putIfAbsent(name, () => <String>{}).add(column.id);
       }
     }
+    final statusSearchable = List<String>.of(searchable);
     final statusPositions = <int, Set<String>>{};
+    final statusPhrasePositions = <Set<int>>[];
     for (final entry in statuses.entries) {
       final nameTokens = entry.key.split(' ');
       for (var start = 0;
-          start <= searchable.length - nameTokens.length;
+          start <= statusSearchable.length - nameTokens.length;
           start++) {
         final candidate =
-            searchable.skip(start).take(nameTokens.length).toList();
+            statusSearchable.skip(start).take(nameTokens.length).toList();
         if (candidate.length == nameTokens.length &&
             List<bool>.generate(
               nameTokens.length,
               (offset) => candidate[offset] == nameTokens[offset],
             ).every((matches) => matches)) {
+          final phrasePositions = <int>{};
           for (var offset = 0; offset < nameTokens.length; offset++) {
+            final position = start + offset;
+            phrasePositions.add(position);
             statusPositions.update(
-              start + offset,
+              position,
               (ids) => <String>{...ids, ...entry.value},
               ifAbsent: () => entry.value,
             );
           }
+          statusPhrasePositions.add(phrasePositions);
         }
       }
     }
-    final statusIds = statusPositions.values.expand((ids) => ids).toSet();
+
+    final ambiguousTypePositions = typePositions.keys
+        .where((position) =>
+            !explicitTypePositions.contains(position) &&
+            statusPositions.containsKey(position))
+        .toSet();
+    final ambiguousStatusPositions = statusPhrasePositions
+        .where((positions) => positions.any(ambiguousTypePositions.contains))
+        .expand((positions) => positions)
+        .toSet();
+    final uniqueTypes = typePositions.entries
+        .where((entry) => !ambiguousTypePositions.contains(entry.key))
+        .map((entry) => entry.value)
+        .toSet();
+    final types = uniqueTypes.length == 1 ? uniqueTypes : <TaskType>{};
+    if (types.isNotEmpty) {
+      for (final position in typePositions.keys) {
+        if (!ambiguousTypePositions.contains(position)) {
+          searchable[position] = '';
+        }
+      }
+    }
+
+    final unambiguousStatusPositions = Map<int, Set<String>>.fromEntries(
+      statusPositions.entries.where(
+        (entry) =>
+            !ambiguousTypePositions.contains(entry.key) &&
+            !ambiguousStatusPositions.contains(entry.key),
+      ),
+    );
+    final statusIds =
+        unambiguousStatusPositions.values.expand((ids) => ids).toSet();
     final columnIds = statusIds.length == 1 ? statusIds : <String>{};
     if (columnIds.isNotEmpty) {
-      for (final position in statusPositions.keys) {
+      for (final position in unambiguousStatusPositions.keys) {
         searchable[position] = '';
       }
     }

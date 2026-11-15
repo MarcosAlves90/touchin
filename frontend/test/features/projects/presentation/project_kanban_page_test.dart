@@ -1298,6 +1298,7 @@ void main() {
     expect(board.isSearchActive, isFalse);
     expect(find.text('Implementar tela'), findsOneWidget);
     expect(find.text('Card 2'), findsOneWidget);
+    expect(find.text('6 correspondências'), findsOneWidget);
     expect(find.bySemanticsLabel('Correspondência da busca'), findsNothing);
     expect(find.text('Encontrado'), findsNothing);
   });

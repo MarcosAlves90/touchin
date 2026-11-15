@@ -109,6 +109,54 @@ void main() {
     expect(query.matches(_card(name: 'bug only'), columns[0]), isFalse);
   });
 
+  test('keeps a bare type token literal when it matches a current status', () {
+    final bugColumn = _column('bug-status', 'Bug', 2);
+    final allColumns = <KanbanColumn>[...columns, bugColumn];
+    final query = TaskSearchQuery.parse('bug', columns: allColumns);
+
+    expect(query.types, isEmpty);
+    expect(query.columnIds, isEmpty);
+    expect(query.textTerms, <String>['bug']);
+    expect(
+      query.matches(
+        _card(
+          name: 'Existing task',
+          type: TaskType.feature,
+          columnId: bugColumn.id,
+        ),
+        bugColumn,
+      ),
+      isFalse,
+    );
+    expect(
+      query.matches(
+        _card(name: 'Bug report', type: TaskType.feature),
+        columns[0],
+      ),
+      isTrue,
+    );
+    expect(
+      TaskSearchQuery.parse('type:bug', columns: allColumns).types,
+      <TaskType>{TaskType.bug},
+    );
+  });
+
+  test('keeps a full status phrase literal when it collides with a bare type', () {
+    final allColumns = <KanbanColumn>[
+      ...columns,
+      _column('bug-status', 'Bug Status', 2),
+    ];
+    final literal = TaskSearchQuery.parse('bug status', columns: allColumns);
+
+    expect(literal.types, isEmpty);
+    expect(literal.columnIds, isEmpty);
+    expect(literal.textTerms, <String>['bug', 'status']);
+    expect(
+      TaskSearchQuery.parse('type:bug', columns: allColumns).types,
+      <TaskType>{TaskType.bug},
+    );
+  });
+
   test('matches title or description without case or accent sensitivity', () {
     final query = TaskSearchQuery.parse('login', columns: columns);
     final titleCard = _card(name: 'Falha no LOGIN');
