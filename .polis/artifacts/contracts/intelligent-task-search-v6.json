@@ -1,0 +1,253 @@
+{
+  "schema_version": 6,
+  "kind": "feature",
+  "scope": {
+    "allowed_paths": [
+      "frontend/lib/features/projects/presentation/task_search_query.dart",
+      "frontend/lib/features/projects/presentation/project_kanban_page.dart",
+      "frontend/lib/features/projects/presentation/widgets/project_backlog_view.dart",
+      "frontend/lib/features/projects/presentation/widgets/project_kanban_board.dart",
+      "frontend/test/features/projects/presentation/task_search_query_test.dart",
+      "frontend/test/features/projects/presentation/project_backlog_view_test.dart",
+      "frontend/test/features/projects/presentation/project_kanban_board_test.dart",
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart",
+      ".polis/artifacts/contracts/intelligent-task-search-v6.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/features/projects/presentation/task_search_query_test.dart",
+      "frontend/test/features/projects/presentation/project_backlog_view_test.dart",
+      "frontend/test/features/projects/presentation/project_kanban_board_test.dart",
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Implement a deterministic, local task search shared by project Backlog and Kanban, using the selected project's already-loaded authorized board data and preserving existing board behavior outside the search presentation.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "One query state is owned by ProjectKanbanPage, remains active when switching between Backlog and Kanban, and is cleared or safely re-evaluated when the selected project changes."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "A small pure Dart query interpreter normalizes case, accents, whitespace and predictable Portuguese connector words; recognizes existing task types, explicit type:bug syntax, matching status names from the current board, #number, and remaining text terms; unknown or ambiguous terms remain text rather than silently applying unsupported filters."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "The query evaluator matches the same card IDs in both views using task type, current-board column ID, card number, and text in title or description, with text matching case-insensitively and accent-insensitively."
+      },
+      {
+        "id": "REQ-004",
+        "statement": "Backlog combines shared-query matches with its existing manual query/status/assignee/column filters, sorting, pagination, hierarchy, and card actions."
+      },
+      {
+        "id": "REQ-005",
+        "statement": "Kanban retains every column and card in its original order and keeps drag-and-drop behavior; active query matches are highlighted accessibly without making non-matches illegible."
+      },
+      {
+        "id": "REQ-006",
+        "statement": "Both views expose a comprehensible match count, applied criteria, empty-result state, and an accessible way to clear the shared query; no query or task data is sent to an external service or logged."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "Unit tests show plain text, #number, recognized task types, explicit type:bug, dynamic current-board statuses, accent/case normalization, connector handling, and unknown/ambiguous terms produce deterministic query criteria and matches.",
+        "requirements": [
+          "REQ-002",
+          "REQ-003"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "Widget tests verify the shared query survives view switching, does not reuse a prior project's column ID, and clearing restores the unfiltered result set.",
+        "requirements": [
+          "REQ-001",
+          "REQ-006"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-003",
+        "statement": "Backlog query results compose with existing manual filters and retain sorting, paging, hierarchy and actions; query matching covers title and description and #number.",
+        "requirements": [
+          "REQ-003",
+          "REQ-004"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-004",
+        "statement": "Kanban tests verify query matches are highlighted, non-matching cards remain legible, card/column counts and order are unchanged, and drag-and-drop callback behavior remains available with a query active.",
+        "requirements": [
+          "REQ-003",
+          "REQ-005"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-005",
+        "statement": "Both views display an accessible count and criteria and provide a clear-query action and understandable zero-results state.",
+        "requirements": [
+          "REQ-006"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "Search is read-only: it does not mutate tasks, columns, persisted order, permissions, or server state."
+      },
+      {
+        "id": "INV-002",
+        "statement": "Status recognition uses only current project column IDs/names and never assumes universal status names."
+      },
+      {
+        "id": "INV-003",
+        "statement": "The same interpreter and evaluator determine shared-query matches in both views; Backlog-only manual filters remain local to Backlog."
+      },
+      {
+        "id": "INV-004",
+        "statement": "Search uses only already-loaded, authorized task data and makes no network or external-service calls."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "Kanban search removes or reorders cards/columns or changes drag-and-drop behavior."
+      },
+      {
+        "id": "FORB-002",
+        "statement": "A hard-coded global status list, untested synonym, or uncertain parse silently hides cards."
+      },
+      {
+        "id": "FORB-003",
+        "statement": "Backlog manual filters, sorting, pagination, hierarchy, or task actions regress when shared search is active."
+      },
+      {
+        "id": "FORB-004",
+        "statement": "Search sends task descriptions or queries externally, adds an external dependency, or changes backend/API/database behavior."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "Baseline commit 6a55d638ae83bf63fbe79298d4517e9479a54302 with tree 6892dcfee17160d7ca87db6c50df592795476925."
+      },
+      {
+        "id": "IN-002",
+        "statement": "User-provided proposal at /Users/marcos.lopes/Downloads/TOUCHIN_PLN_BUSCA_INTELIGENTE.md."
+      },
+      {
+        "id": "IN-003",
+        "statement": "ProjectKanbanPage shares one KanbanBoard between ProjectBacklogView and ProjectKanbanBoard; Backlog currently owns its own title/# search and filter state."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "A pure Dart task search interpreter/evaluator and unit tests."
+      },
+      {
+        "id": "OUT-002",
+        "statement": "A shared query control and criteria/result state in ProjectKanbanPage integrated with Backlog and Kanban presentation."
+      },
+      {
+        "id": "OUT-003",
+        "statement": "Regression tests covering parsing, match consistency, project/view transitions, preservation of Backlog controls, and Kanban order/drag behavior."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "The focused regression test command fails on the immutable baseline because the new task-search implementation is absent and passes on the completed target."
+      },
+      {
+        "id": "FAIL-002",
+        "statement": "A failing test, analyzer error, or Flutter compile/layout failure is not accepted as proof of a passing regression; preserve the exact Red probe and fix the implementation or test defect."
+      },
+      {
+        "id": "FAIL-003",
+        "statement": "Ambiguous/unrecognized query fragments fall back to literal text matching instead of applying an inferred type or status filter."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "6a55d638ae83bf63fbe79298d4517e9479a54302",
+    "base_tree": "6892dcfee17160d7ca87db6c50df592795476925",
+    "policy_sha256": "5563facc34ae2a1a07cf7ec7ec2f115cb8d250c49dd6e2bd5c7a3de4c977d450",
+    "specification_sha256": "e1036b5cf7e4c2512748f3b1c996e5ee394a4e73e6dde7d72ee0244c0c075ade"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/features/projects/presentation/task_search_query_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 300,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/features/projects/presentation/task_search_query_test.dart",
+      "test/features/projects/presentation/project_kanban_page_test.dart",
+      "test/features/projects/presentation/project_backlog_view_test.dart",
+      "test/features/projects/presentation/project_kanban_board_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "test/features/projects/presentation/task_search_query_test.dart"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 300,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "task_search_query.dart"
+    ]
+  }
+}
