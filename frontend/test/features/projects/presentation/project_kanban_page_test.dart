@@ -17,11 +17,14 @@ import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_e
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_instant_select_field.dart';
 import 'package:touchin_flutter/theme/app_theme.dart';
 
-Future<void> _visibleDrag(WidgetTester tester, Finder target, Rect viewport, Offset delta) async {
-  final visible = tester.getRect(target).intersect(viewport).intersect(Offset.zero & tester.view.physicalSize / tester.view.devicePixelRatio);
+Future<void> _visibleDrag(
+    WidgetTester tester, Finder target, Rect viewport, Offset delta) async {
+  final visible = tester.getRect(target).intersect(viewport).intersect(
+      Offset.zero & tester.view.physicalSize / tester.view.devicePixelRatio);
   expect(visible.width, greaterThan(0));
   expect(visible.height, greaterThan(0));
-  final start = Offset(delta.dx < 0 ? visible.right - 8 : visible.center.dx, visible.center.dy);
+  final start = Offset(
+      delta.dx < 0 ? visible.right - 8 : visible.center.dx, visible.center.dy);
   expect(viewport.contains(start), isTrue);
   expect(viewport.contains(start + delta), isTrue);
   final gesture = await tester.startGesture(start);
@@ -32,61 +35,80 @@ Future<void> _visibleDrag(WidgetTester tester, Finder target, Rect viewport, Off
 }
 
 void main() {
-  testWidgets('page header appears once at desktop sidebar breakpoint and during mobile loading', (tester) async {
+  testWidgets(
+      'page header appears once at desktop sidebar breakpoint and during mobile loading',
+      (tester) async {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.binding.setSurfaceSize(const Size(390, 844));
-    await tester.pumpWidget(MaterialApp(home: ProjectKanbanPage(api: _DelayedProjectsKanbanApi())));
+    await tester.pumpWidget(
+        MaterialApp(home: ProjectKanbanPage(api: _DelayedProjectsKanbanApi())));
     await tester.pump();
     await tester.pump();
     expect(find.text('Acompanhar tarefas'), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.binding.setSurfaceSize(const Size(1200, 800));
-    await tester.pumpWidget(MaterialApp(home: ProjectKanbanPage(api: _FakeKanbanApi(columnCount: 3, cardsPerColumn: 0))));
+    await tester.pumpWidget(MaterialApp(
+        home: ProjectKanbanPage(
+            api: _FakeKanbanApi(columnCount: 3, cardsPerColumn: 0))));
     await tester.pumpAndSettle();
     expect(find.text('Acompanhar tarefas'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
-  testWidgets('page header enlarged text remains visible and actions work', (tester) async {
+  testWidgets('page header enlarged text remains visible and actions work',
+      (tester) async {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.binding.setSurfaceSize(const Size(300, 540));
     await tester.pumpWidget(MaterialApp(
       builder: (context, child) => MediaQuery(
-        data: MediaQuery.of(context).copyWith(textScaler: const TextScaler.linear(1.5)),
+        data: MediaQuery.of(context)
+            .copyWith(textScaler: const TextScaler.linear(1.5)),
         child: child!,
       ),
-      home: ProjectKanbanPage(api: _FakeKanbanApi(columnCount: 3, cardsPerColumn: 0)),
+      home: ProjectKanbanPage(
+          api: _FakeKanbanApi(columnCount: 3, cardsPerColumn: 0)),
     ));
     await tester.pumpAndSettle();
     final title = find.text('Acompanhar tarefas');
     expect(title, findsOneWidget, reason: 'page_header_mobile');
-    final scrollable = find.ancestor(of: title, matching: find.byType(Scrollable)).first;
+    final scrollable =
+        find.ancestor(of: title, matching: find.byType(Scrollable)).first;
     await tester.ensureVisible(title);
     await tester.pumpAndSettle();
-    final viewport = tester.getRect(find.byWidget(tester.state<ScrollableState>(scrollable).widget));
+    final viewport = tester.getRect(
+        find.byWidget(tester.state<ScrollableState>(scrollable).widget));
     final bounds = tester.getRect(title);
     expect(bounds.left, greaterThanOrEqualTo(viewport.left));
     expect(bounds.right, lessThanOrEqualTo(viewport.right));
     expect(bounds.top, greaterThanOrEqualTo(viewport.top));
-    expect(bounds.bottom, lessThanOrEqualTo(viewport.bottom), reason: 'page_header_visible');
-    final description = find.text('Visualize e organize as tarefas do projeto.');
+    expect(bounds.bottom, lessThanOrEqualTo(viewport.bottom),
+        reason: 'page_header_visible');
+    final description =
+        find.text('Visualize e organize as tarefas do projeto.');
     await tester.ensureVisible(description);
     await tester.pumpAndSettle();
     expect(tester.getRect(description).top, greaterThanOrEqualTo(viewport.top));
-    expect(tester.getRect(description).bottom, lessThanOrEqualTo(viewport.bottom));
+    expect(
+        tester.getRect(description).bottom, lessThanOrEqualTo(viewport.bottom));
     final backlog = find.byTooltip('Backlog');
     await tester.ensureVisible(backlog);
     await tester.pumpAndSettle();
     await tester.tap(backlog);
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey<String>('project-backlog-project-01')), findsOneWidget);
+    expect(find.byKey(const ValueKey<String>('project-backlog-project-01')),
+        findsOneWidget);
     expect(tester.takeException(), isNull);
   });
   testWidgets('page header mobile Kanban geometry and board', (tester) async {
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    for (final size in [const Size(300, 540), const Size(320, 540), const Size(390, 844)]) {
+    for (final size in [
+      const Size(300, 540),
+      const Size(320, 540),
+      const Size(390, 844)
+    ]) {
       await tester.binding.setSurfaceSize(size);
       await tester.pumpWidget(MaterialApp(
-        home: ProjectKanbanPage(api: _FakeKanbanApi(columnCount: 3, cardsPerColumn: 5)),
+        home: ProjectKanbanPage(
+            api: _FakeKanbanApi(columnCount: 3, cardsPerColumn: 5)),
       ));
       await tester.pumpAndSettle();
       final title = find.text('Acompanhar tarefas');
@@ -94,54 +116,71 @@ void main() {
       final rect = tester.getRect(title);
       expect(rect.left, greaterThanOrEqualTo(0));
       expect(rect.right, lessThanOrEqualTo(size.width));
-      for (final scrollable in find.ancestor(of: title, matching: find.byType(Scrollable)).evaluate()) {
+      for (final scrollable in find
+          .ancestor(of: title, matching: find.byType(Scrollable))
+          .evaluate()) {
         final viewport = tester.getRect(find.byWidget(scrollable.widget));
-        expect(rect.top, greaterThanOrEqualTo(viewport.top), reason: 'page_header_initial_visibility');
-        expect(rect.bottom, lessThanOrEqualTo(viewport.bottom), reason: 'page_header_initial_visibility');
+        expect(rect.top, greaterThanOrEqualTo(viewport.top),
+            reason: 'page_header_initial_visibility');
+        expect(rect.bottom, lessThanOrEqualTo(viewport.bottom),
+            reason: 'page_header_initial_visibility');
       }
-      final lane = find.byKey(const ValueKey<String>('kanban-column-scroll-column-01'));
+      final lane =
+          find.byKey(const ValueKey<String>('kanban-column-scroll-column-01'));
       expect(tester.getSize(lane).height, greaterThanOrEqualTo(100));
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     }
   });
-  testWidgets('page header real gestures reach and operate mobile board', (tester) async {
+  testWidgets('page header real gestures reach and operate mobile board',
+      (tester) async {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     for (final scale in [1.0, 1.5]) {
       await tester.binding.setSurfaceSize(const Size(320, 540));
       await tester.pumpWidget(MaterialApp(
         builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(scale)),
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: TextScaler.linear(scale)),
           child: child!,
         ),
         // shortcut: enlarged card layout overflows independently, add cards when fixed.
-        home: ProjectKanbanPage(api: _FakeKanbanApi(columnCount: 5, cardsPerColumn: scale == 1 ? 5 : 0)),
+        home: ProjectKanbanPage(
+            api: _FakeKanbanApi(
+                columnCount: 5, cardsPerColumn: scale == 1 ? 5 : 0)),
       ));
       await tester.pumpAndSettle();
       final title = find.text('Acompanhar tarefas');
-      final page = find.ancestor(of: title, matching: find.byType(Scrollable)).first;
+      final page =
+          find.ancestor(of: title, matching: find.byType(Scrollable)).first;
       final pagePosition = tester.state<ScrollableState>(page).position;
       final viewport = tester.getRect(page);
       expect(tester.getRect(title).top, greaterThanOrEqualTo(viewport.top));
       expect(tester.getRect(title).bottom, lessThanOrEqualTo(viewport.bottom));
       expect(pagePosition.pixels, 0);
-      final pageGesture = await tester.startGesture(Offset(viewport.left + 16, viewport.bottom - 70));
+      final pageGesture = await tester
+          .startGesture(Offset(viewport.left + 16, viewport.bottom - 70));
       await pageGesture.moveBy(const Offset(0, -30));
       await tester.pump();
       await pageGesture.moveBy(Offset(0, -(viewport.height - 120)));
       await pageGesture.up();
       await tester.pumpAndSettle();
       expect(pagePosition.pixels, greaterThan(0));
-      final lane = find.byKey(const ValueKey<String>('kanban-column-scroll-column-01'));
+      final lane =
+          find.byKey(const ValueKey<String>('kanban-column-scroll-column-01'));
       final board = find.byKey(const ValueKey<String>('kanban-board-scroll'));
       if (scale == 1) {
         await _visibleDrag(tester, lane, viewport, const Offset(0, -90));
         await tester.pumpAndSettle();
-        expect(_scrollOffset(tester, const ValueKey<String>('kanban-column-scroll-column-01')), greaterThan(0));
+        expect(
+            _scrollOffset(tester,
+                const ValueKey<String>('kanban-column-scroll-column-01')),
+            greaterThan(0));
       }
       await _visibleDrag(tester, board, viewport, const Offset(-200, 0));
       await tester.pumpAndSettle();
-      expect(_scrollOffset(tester, const ValueKey<String>('kanban-board-scroll')), greaterThan(0));
+      expect(
+          _scrollOffset(tester, const ValueKey<String>('kanban-board-scroll')),
+          greaterThan(0));
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     }
@@ -1192,6 +1231,133 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('shared task search persists across Backlog and Kanban',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(MaterialApp(
+      home: ProjectKanbanPage(
+        api: _FakeKanbanApi(columnCount: 2, cardsPerColumn: 3),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    final search = find.byKey(const ValueKey<String>('task-search-shared'));
+    await tester.enterText(search, '#1');
+    await tester.pumpAndSettle();
+    expect(find.textContaining('1 correspondência'), findsOneWidget);
+    expect(find.text('Card 2'), findsOneWidget);
+
+    await tester.tap(find.text('Backlog'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<TextField>(search).controller!.text, '#1');
+    expect(find.text('1 de 6 cards'), findsOneWidget);
+    expect(find.text('Implementar tela'), findsOneWidget);
+    expect(find.text('Card 2'), findsNothing);
+
+    await tester.tap(find.descendant(
+      of: find.byKey(const ValueKey<String>('project-view-switch')),
+      matching: find.text('Kanban'),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('1 correspondência'), findsOneWidget);
+    expect(find.text('Card 2'), findsOneWidget);
+    expect(find.text('Encontrado'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey<String>('task-search-clear')));
+    await tester.pumpAndSettle();
+    expect(tester.widget<TextField>(search).controller!.text, isEmpty);
+    expect(
+        find.byKey(const ValueKey<String>('task-search-clear')), findsNothing);
+    expect(find.text('Implementar tela'), findsOneWidget);
+    expect(find.text('Card 2'), findsOneWidget);
+    expect(find.bySemanticsLabel('Correspondência da busca'), findsNothing);
+    expect(find.text('Encontrado'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('connector-only query is inactive in Kanban', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(MaterialApp(
+      home: ProjectKanbanPage(
+        api: _FakeKanbanApi(columnCount: 2, cardsPerColumn: 3),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('task-search-shared')),
+      'e de',
+    );
+    await tester.pumpAndSettle();
+
+    final board = tester.widget<ProjectKanbanBoard>(
+      find.byType(ProjectKanbanBoard),
+    );
+    expect(board.isSearchActive, isFalse);
+    expect(find.text('Implementar tela'), findsOneWidget);
+    expect(find.text('Card 2'), findsOneWidget);
+    expect(find.bySemanticsLabel('Correspondência da busca'), findsNothing);
+    expect(find.text('Encontrado'), findsNothing);
+  });
+
+  testWidgets('clears shared search when switching projects', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(MaterialApp(
+      home: ProjectKanbanPage(api: _TwoProjectKanbanApi()),
+    ));
+    await tester.pumpAndSettle();
+
+    final search = find.byKey(const ValueKey<String>('task-search-shared'));
+    await tester.enterText(search, 'A fazer');
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Status: A fazer'), findsOneWidget);
+
+    await tester.tap(find.text('Backlog'));
+    await tester.pumpAndSettle();
+    expect(find.text('2 de 4 cards'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey<String?>('project-01')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Projeto secundário'));
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<TextField>(search).controller!.text, isEmpty);
+    expect(find.textContaining('Status: A fazer'), findsNothing);
+    expect(find.text('4 de 4 cards'), findsOneWidget);
+    expect(find.text('Etapa custom 1'), findsNWidgets(2));
+    expect(
+        find.byKey(const ValueKey<String>('task-search-clear')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('shared search can be cleared by keyboard', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(MaterialApp(
+      home: ProjectKanbanPage(api: _FakeKanbanApi(includeCard: false)),
+    ));
+    await tester.pumpAndSettle();
+
+    final search = find.byKey(const ValueKey<String>('task-search-shared'));
+    await tester.tap(search);
+    await tester.enterText(search, 'texto inexistente');
+    await tester.pumpAndSettle();
+    expect(find.textContaining('0 correspondências'), findsOneWidget);
+    expect(find.byTooltip('Limpar busca'), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<TextField>(search).controller!.text, isEmpty);
+    expect(find.textContaining('0 correspondências'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('renders Backlog for the selected project', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1440, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -1652,7 +1818,7 @@ void main() {
         .size;
 
     final searchField = tester.widget<TextField>(
-      find.byKey(const ValueKey<String>('backlog-search')),
+      find.byKey(const ValueKey<String>('task-search-shared')),
     );
     expect(
       searchField.decoration?.isDense ?? false,
@@ -1661,7 +1827,7 @@ void main() {
     );
 
     for (final key in <String>[
-      'backlog-search',
+      'task-search-shared',
       'backlog-status-filter',
       'backlog-assignee-filter',
       'backlog-sort',
@@ -2444,6 +2610,39 @@ class _FakeKanbanApi extends TouchInApi {
       return 'Implementar tela';
     }
     return 'Card ${columnIndex * cardsPerColumn + cardIndex + 1}';
+  }
+}
+
+class _TwoProjectKanbanApi extends _FakeKanbanApi {
+  _TwoProjectKanbanApi() : super(columnCount: 2, cardsPerColumn: 2);
+
+  bool _showCustomStatuses = false;
+
+  @override
+  Future<KanbanBoard> getKanbanBoard(String projectId) {
+    _showCustomStatuses = projectId == 'project-02';
+    return super.getKanbanBoard(projectId);
+  }
+
+  @override
+  String _columnName(int index) => _showCustomStatuses
+      ? 'Etapa custom ${index + 1}'
+      : super._columnName(index);
+
+  @override
+  Future<List<ProjectSummary>> listProjects({ProjectStatus? status}) async {
+    return <ProjectSummary>[
+      ...(await super.listProjects(status: status)),
+      ProjectSummary(
+        id: 'project-02',
+        name: 'Projeto secundário',
+        description: 'Projeto alternativo',
+        taskEmployeeLimit: 3,
+        status: ProjectStatus.active,
+        createdAt: DateTime(2026, 9, 9),
+        updatedAt: DateTime(2026, 9, 9),
+      ),
+    ];
   }
 }
 

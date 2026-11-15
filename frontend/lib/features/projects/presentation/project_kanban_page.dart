@@ -4,6 +4,7 @@ import 'package:touchin_flutter/contracts/task.dart';
 import 'package:touchin_flutter/core/network/api_client.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
 import 'package:touchin_flutter/features/projects/presentation/kanban_controller.dart';
+import 'package:touchin_flutter/features/projects/presentation/task_search_query.dart';
 import 'package:touchin_flutter/features/projects/presentation/widgets/project_backlog_view.dart';
 import 'package:touchin_flutter/features/projects/presentation/widgets/project_kanban_board.dart';
 import 'package:touchin_flutter/features/projects/presentation/widgets/task_editor_dialog.dart';
@@ -26,6 +27,9 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
   late final ProjectKanbanController _controller;
   late final bool _ownsController;
   bool _showBacklog = false;
+  String _taskSearchText = '';
+  String? _searchProjectId;
+  final TextEditingController _taskSearchController = TextEditingController();
   final GlobalKey _boardKey = GlobalKey();
 
   @override
@@ -40,6 +44,7 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
 
   @override
   void dispose() {
+    _taskSearchController.dispose();
     if (_ownsController) {
       _controller.dispose();
     }
@@ -77,18 +82,29 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
   Widget _buildPageBody(bool pageIsWide) {
     Widget withMobileHeader(Widget child) => pageIsWide
         ? child
-        : LayoutBuilder(builder: (context, constraints) => SingleChildScrollView(
-          child: SizedBox(height: constraints.maxHeight < (MediaQuery.textScalerOf(context).scale(1) > 1 ? 1050 : 750)
-              ? (MediaQuery.textScalerOf(context).scale(1) > 1 ? 1050 : 750)
-              : constraints.maxHeight,
-          child: Column(children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(24, 28, 24, 0),
-              child: WorkspaceHeader(kicker: 'KANBAN', title: 'Acompanhar tarefas',
-                description: 'Visualize e organize as tarefas do projeto.', compact: true),
-            ),
-            Expanded(child: child),
-          ]))));
+        : LayoutBuilder(
+            builder: (context, constraints) => SingleChildScrollView(
+                child: SizedBox(
+                    height: constraints.maxHeight <
+                            (MediaQuery.textScalerOf(context).scale(1) > 1
+                                ? 1050
+                                : 750)
+                        ? (MediaQuery.textScalerOf(context).scale(1) > 1
+                            ? 1050
+                            : 750)
+                        : constraints.maxHeight,
+                    child: Column(children: [
+                      const Padding(
+                        padding: EdgeInsets.fromLTRB(24, 28, 24, 0),
+                        child: WorkspaceHeader(
+                            kicker: 'KANBAN',
+                            title: 'Acompanhar tarefas',
+                            description:
+                                'Visualize e organize as tarefas do projeto.',
+                            compact: true),
+                      ),
+                      Expanded(child: child),
+                    ]))));
     if (_controller.isLoading) {
       return withMobileHeader(LayoutBuilder(
         builder: (context, constraints) => SingleChildScrollView(
@@ -137,20 +153,23 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
             children: <Widget>[
               ConstrainedBox(
                 constraints: BoxConstraints(
-                    maxHeight:
-                        (constraints.maxHeight - 440).clamp(enlarged ? 280.0 : 40.0, enlarged ? 360.0 : 260.0)),
+                    maxHeight: (constraints.maxHeight - 440).clamp(
+                        enlarged ? 280.0 : 40.0, enlarged ? 360.0 : 260.0)),
                 child: SingleChildScrollView(
                   child: _buildProjectOverview(compact: isCompact),
                 ),
               ),
-              SizedBox(height: gap),
+              SizedBox(height: isCompact ? 0 : gap),
+              _buildTaskSearch(_controller.board),
+              SizedBox(height: isCompact ? 0 : gap),
               Expanded(child: _buildBoardContent()),
             ],
           ),
         );
         return enlarged
             ? SingleChildScrollView(
-                child: SizedBox(height: constraints.maxHeight + 180, child: body))
+                child:
+                    SizedBox(height: constraints.maxHeight + 180, child: body))
             : body;
       },
     ));
@@ -158,6 +177,12 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
 
   Widget _buildProjectOverview({required bool compact}) {
     final colorScheme = Theme.of(context).colorScheme;
+    final selectedProjectId = _controller.selectedProjectId;
+    if (_searchProjectId != selectedProjectId) {
+      _searchProjectId = selectedProjectId;
+      _taskSearchText = '';
+      _taskSearchController.clear();
+    }
     final board = _controller.board;
     final cardCount = board?.columns.fold<int>(
           0,
@@ -214,7 +239,6 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-
         metrics,
         const SizedBox(height: 8),
         Material(
@@ -236,6 +260,80 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
             ),
           ),
         ),
+      ],
+    );
+  }
+
+  Widget _buildTaskSearch(KanbanBoard? board) {
+    final columns = board?.columns ?? const <KanbanColumn>[];
+    final query = TaskSearchQuery.parse(_taskSearchText, columns: columns);
+    final matches = <String>{
+      if (board != null && query.isActive)
+        for (final column in board.columns)
+          for (final card in column.cards)
+            if (query.matches(card, column)) card.id,
+    };
+    final criteria = <String>[
+      for (final type in query.types)
+        'Tipo: ${switch (type) {
+          TaskType.bug => 'Bug',
+          TaskType.improvement => 'Melhoria',
+          TaskType.feature => 'Funcionalidade',
+        }}',
+      for (final column
+          in columns.where((column) => query.columnIds.contains(column.id)))
+        'Status: ${column.name}',
+      if (query.cardNumber case final number?) 'Número: #$number',
+      if (query.textTerms.isNotEmpty) 'Texto: ${query.textTerms.join(' ')}',
+    ];
+    final active = _taskSearchText.trim().isNotEmpty;
+    final matchCount =
+        '${matches.length} ${matches.length == 1 ? 'correspondência' : 'correspondências'}';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        TextField(
+          key: const ValueKey<String>('task-search-shared'),
+          controller: _taskSearchController,
+          textInputAction: TextInputAction.search,
+          decoration: InputDecoration(
+            labelText: 'Buscar tarefas',
+            hintText: 'Ex.: bugs de login em andamento',
+            constraints: const BoxConstraints.tightFor(height: 48),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            prefixIcon: const Icon(Icons.search_rounded),
+            suffixIcon: active
+                ? IconButton(
+                    key: const ValueKey<String>('task-search-clear'),
+                    tooltip: 'Limpar busca',
+                    onPressed: () => setState(() {
+                      _taskSearchText = '';
+                      _taskSearchController.clear();
+                    }),
+                    icon: const Icon(Icons.clear_rounded),
+                  )
+                : null,
+          ),
+          onChanged: (value) => setState(() => _taskSearchText = value),
+        ),
+        if (active)
+          Semantics(
+            liveRegion: true,
+            label: '$matchCount. '
+                '${criteria.isEmpty ? 'Sem filtros reconhecidos.' : criteria.join('. ')}',
+            child: Padding(
+              padding: const EdgeInsets.only(top: 4, left: 12),
+              child: Text(
+                '$matchCount'
+                '${criteria.isEmpty ? '' : ' · ${criteria.join(' · ')}'}',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -294,9 +392,17 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
     }
 
     if (_showBacklog) {
+      final query =
+          TaskSearchQuery.parse(_taskSearchText, columns: board.columns);
+      final matchedCardIds = <String>{
+        for (final column in board.columns)
+          for (final card in column.cards)
+            if (query.matches(card, column)) card.id,
+      };
       final backlog = ProjectBacklogView(
         key: ValueKey<String>('project-backlog-${board.projectId}'),
         board: board,
+        matchedCardIds: matchedCardIds,
         projectName: _controller.selectedProject?.name ?? '',
         projectMembers: _controller.projectMembers,
         canManageStructure: _controller.canManageStructure,
@@ -327,6 +433,14 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
     }
 
     final isMutating = _controller.isMutating;
+    final query =
+        TaskSearchQuery.parse(_taskSearchText, columns: board.columns);
+    final matchedCardIds = <String>{
+      if (query.isActive)
+        for (final column in board.columns)
+          for (final card in column.cards)
+            if (query.matches(card, column)) card.id,
+    };
     return Stack(
       children: <Widget>[
         Column(
@@ -346,6 +460,8 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
                   child: ProjectKanbanBoard(
                     key: _boardKey,
                     board: board,
+                    matchedCardIds: matchedCardIds,
+                    isSearchActive: query.isActive,
                     isBusy: isMutating,
                     canMoveCards: _controller.canMoveCards,
                     canManageStructure: _controller.canManageStructure,

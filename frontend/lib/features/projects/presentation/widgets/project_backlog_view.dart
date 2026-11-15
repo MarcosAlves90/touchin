@@ -10,6 +10,7 @@ class ProjectBacklogView extends StatefulWidget {
   const ProjectBacklogView({
     super.key,
     required this.board,
+    this.matchedCardIds,
     required this.projectName,
     required this.projectMembers,
     required this.canManageStructure,
@@ -28,6 +29,7 @@ class ProjectBacklogView extends StatefulWidget {
   });
 
   final KanbanBoard board;
+  final Set<String>? matchedCardIds;
   final String projectName;
   final List<ProjectMemberSummary> projectMembers;
   final bool canManageStructure;
@@ -420,24 +422,26 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
     final colors = theme.colorScheme;
     final buttonStyle = workspaceToolbarActionStyle(theme);
     final controls = <({int flex, double width, Widget child})>[
-      (
-        flex: 2,
-        width: 260,
-        child: TextField(
-          key: const ValueKey<String>('backlog-search'),
-          controller: _searchController,
-          decoration: const InputDecoration(
-            hintText: 'Buscar por título ou #número',
-            prefixIcon: Icon(Icons.search_rounded, size: 18),
-            constraints: BoxConstraints.tightFor(height: 48),
-            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      if (widget.matchedCardIds == null)
+        (
+          flex: 2,
+          width: 260,
+          child: TextField(
+            key: const ValueKey<String>('backlog-search'),
+            controller: _searchController,
+            decoration: const InputDecoration(
+              hintText: 'Buscar por título ou #número',
+              prefixIcon: Icon(Icons.search_rounded, size: 18),
+              constraints: BoxConstraints.tightFor(height: 48),
+              contentPadding:
+                  EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            ),
+            onChanged: (value) => setState(() {
+              _query = value.trim();
+              _resetPage();
+            }),
           ),
-          onChanged: (value) => setState(() {
-            _query = value.trim();
-            _resetPage();
-          }),
         ),
-      ),
       (
         flex: 1,
         width: 180,
@@ -813,6 +817,10 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
   }
 
   bool _matches(KanbanCard card, KanbanColumn column) {
+    if (widget.matchedCardIds != null &&
+        !widget.matchedCardIds!.contains(card.id)) {
+      return false;
+    }
     for (final filter in _columnFilters.entries) {
       final value = filter.value.toLowerCase();
       if (filter.key == 'number') {
