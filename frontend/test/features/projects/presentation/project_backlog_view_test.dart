@@ -13,22 +13,38 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(1440, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     for (final theme in [AppTheme.darkTheme, AppTheme.lightTheme]) {
-      await tester.pumpWidget(MaterialApp(theme: theme, home: Scaffold(
-        body: ProjectBacklogView(
-          board: _board(hierarchical: true), projectName: 'Projeto Alpha',
-          projectMembers: const [], canManageStructure: true, canManageCards: true,
-          canManageAssignees: true, canMoveCards: true, isBusy: false,
-          onManageColumns: () {}, onCreateColumn: () {}, onCreateCard: (_) {},
-          onMoveCard: (_, __, ___) {}, onEditCard: (_) {}, onDeleteCard: (_) {},
-          onManageAssignees: (_) {}, onOpenDetails: (_) {},
-        ),
-      )));
+      await tester.pumpWidget(MaterialApp(
+          theme: theme,
+          home: Scaffold(
+            body: ProjectBacklogView(
+              board: _board(hierarchical: true),
+              projectName: 'Projeto Alpha',
+              projectMembers: const [],
+              canManageStructure: true,
+              canManageCards: true,
+              canManageAssignees: true,
+              canMoveCards: true,
+              isBusy: false,
+              onManageColumns: () {},
+              onCreateColumn: () {},
+              onCreateCard: (_) {},
+              onMoveCard: (_, __, ___) {},
+              onEditCard: (_) {},
+              onDeleteCard: (_) {},
+              onManageAssignees: (_) {},
+              onOpenDetails: (_) {},
+            ),
+          )));
       await tester.pumpAndSettle();
       final tableSurface = find.byKey(const ValueKey('backlog-table-surface'));
-      expect(tableSurface, findsOneWidget, reason: 'backlog_redesign_hierarchy');
-      final decoration = tester.widget<DecoratedBox>(tableSurface).decoration as BoxDecoration;
-      expect(decoration.borderRadius, isNotNull, reason: 'backlog_redesign_hierarchy');
-      expect(find.byKey(const ValueKey('hierarchy-indicator-task-2')), findsOneWidget);
+      expect(tableSurface, findsOneWidget,
+          reason: 'backlog_redesign_hierarchy');
+      final decoration =
+          tester.widget<DecoratedBox>(tableSurface).decoration as BoxDecoration;
+      expect(decoration.borderRadius, isNotNull,
+          reason: 'backlog_redesign_hierarchy');
+      expect(find.byKey(const ValueKey('hierarchy-indicator-task-2')),
+          findsOneWidget);
       expect(find.byKey(const ValueKey('backlog-search')), findsOneWidget);
       expect(tester.takeException(), isNull);
     }
@@ -392,6 +408,170 @@ void main() {
     await tester.tap(find.text('Ana Souza').last);
     await tester.pumpAndSettle();
     expect(find.text('Corrigir defeito'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('shared search intersects the local Backlog query',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: ProjectBacklogView(
+          board: _board(),
+          matchedCardIds: const <String>{'task-1'},
+          projectName: 'Projeto Alpha',
+          projectMembers: const <ProjectMemberSummary>[],
+          canManageStructure: false,
+          canManageCards: false,
+          canManageAssignees: false,
+          canMoveCards: false,
+          isBusy: false,
+          onManageColumns: () {},
+          onCreateColumn: () {},
+          onCreateCard: (_) {},
+          onMoveCard: (_, __, ___) {},
+          onEditCard: (_) {},
+          onDeleteCard: (_) {},
+          onManageAssignees: (_) {},
+          onOpenDetails: (_) {},
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    final localSearch = find.byKey(const ValueKey('backlog-search'));
+    expect(localSearch, findsOneWidget);
+    expect(find.text('Preparar proposta'), findsOneWidget);
+    expect(find.text('Corrigir defeito'), findsNothing);
+
+    await tester.enterText(localSearch, 'defeito');
+    await tester.pumpAndSettle();
+    expect(find.text('Nenhum card corresponde aos filtros.'), findsOneWidget);
+
+    await tester.enterText(localSearch, 'proposta');
+    await tester.pumpAndSettle();
+    expect(find.text('Preparar proposta'), findsOneWidget);
+    expect(find.text('Corrigir defeito'), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('backlog-status-filter')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Em andamento').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Nenhum card corresponde aos filtros.'), findsOneWidget);
+    expect(find.text('Preparar proposta'), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('backlog-status-filter')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Todos os status'));
+    await tester.pumpAndSettle();
+    expect(find.text('Preparar proposta'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('shared search retains Backlog pagination', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 850));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: ProjectBacklogView(
+          board: _boardWithManyCards(120),
+          matchedCardIds: <String>{
+            for (var index = 1; index <= 51; index++) 'task-$index',
+          },
+          projectName: 'Projeto Alpha',
+          projectMembers: const <ProjectMemberSummary>[],
+          canManageStructure: false,
+          canManageCards: false,
+          canManageAssignees: false,
+          canMoveCards: false,
+          isBusy: false,
+          onManageColumns: () {},
+          onCreateColumn: () {},
+          onCreateCard: (_) {},
+          onMoveCard: (_, __, ___) {},
+          onEditCard: (_) {},
+          onDeleteCard: (_) {},
+          onManageAssignees: (_) {},
+          onOpenDetails: (_) {},
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    var table = tester.widget<DataTable>(find.byType(DataTable));
+    expect(table.rows, hasLength(50));
+    expect(find.text('Página 1 de 2'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('backlog-page-next')));
+    await tester.pumpAndSettle();
+    table = tester.widget<DataTable>(find.byType(DataTable));
+    expect(table.rows, hasLength(1));
+    expect(table.rows.single.key, const ValueKey('backlog-card-task-51'));
+
+    await tester.tap(find.byKey(const ValueKey('backlog-header-number')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ordenar decrescente'));
+    await tester.pumpAndSettle();
+    table = tester.widget<DataTable>(find.byType(DataTable));
+    expect(table.rows, hasLength(50));
+    expect(table.rows.first.key, const ValueKey('backlog-card-task-51'));
+    expect(find.text('Página 1 de 2'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('backlog-page-next')));
+    await tester.pumpAndSettle();
+    table = tester.widget<DataTable>(find.byType(DataTable));
+    expect(table.rows, hasLength(1));
+    expect(table.rows.single.key, const ValueKey('backlog-card-task-1'));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('shared search resets Backlog pagination when matches change',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 850));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final board = _boardWithManyCards(120);
+    Widget backlog(Set<String> matches, String sharedSearchQuery) =>
+        MaterialApp(
+          home: Scaffold(
+            body: ProjectBacklogView(
+              board: board,
+              matchedCardIds: matches,
+              sharedSearchQuery: sharedSearchQuery,
+              projectName: 'Projeto Alpha',
+              projectMembers: const <ProjectMemberSummary>[],
+              canManageStructure: false,
+              canManageCards: false,
+              canManageAssignees: false,
+              canMoveCards: false,
+              isBusy: false,
+              onManageColumns: () {},
+              onCreateColumn: () {},
+              onCreateCard: (_) {},
+              onMoveCard: (_, __, ___) {},
+              onEditCard: (_) {},
+              onDeleteCard: (_) {},
+              onManageAssignees: (_) {},
+              onOpenDetails: (_) {},
+            ),
+          ),
+        );
+
+    await tester.pumpWidget(backlog(<String>{
+      for (var index = 1; index <= 51; index++) 'task-$index',
+    }, 'first query'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('backlog-page-next')));
+    await tester.pumpAndSettle();
+    expect(find.text('Página 2 de 2'), findsOneWidget);
+
+    await tester.pumpWidget(backlog(<String>{
+      for (var index = 52; index <= 111; index++) 'task-$index',
+    }, 'second query'));
+    await tester.pumpAndSettle();
+
+    final table = tester.widget<DataTable>(find.byType(DataTable));
+    expect(find.text('Página 1 de 2'), findsOneWidget);
+    expect(table.rows, hasLength(50));
+    expect(table.rows.first.key, const ValueKey('backlog-card-task-52'));
     expect(tester.takeException(), isNull);
   });
 

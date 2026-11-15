@@ -9,6 +9,8 @@ class ProjectKanbanBoard extends StatefulWidget {
   const ProjectKanbanBoard({
     super.key,
     required this.board,
+    this.matchedCardIds = const <String>{},
+    this.isSearchActive = false,
     required this.isBusy,
     required this.canMoveCards,
     required this.canManageStructure,
@@ -26,6 +28,8 @@ class ProjectKanbanBoard extends StatefulWidget {
   });
 
   final KanbanBoard board;
+  final Set<String> matchedCardIds;
+  final bool isSearchActive;
   final bool isBusy;
   final bool canMoveCards;
   final bool canManageStructure;
@@ -62,7 +66,8 @@ class _ProjectKanbanBoardState extends State<ProjectKanbanBoard> {
   @override
   void didUpdateWidget(covariant ProjectKanbanBoard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final liveColumnIds = widget.board.columns.map((column) => column.id).toSet();
+    final liveColumnIds =
+        widget.board.columns.map((column) => column.id).toSet();
     final staleControllers = _laneScrollControllers.keys
         .where((columnId) => !liveColumnIds.contains(columnId))
         .toList();
@@ -136,7 +141,8 @@ class _ProjectKanbanBoardState extends State<ProjectKanbanBoard> {
                                   itemExtent: laneWidth + _laneGap,
                                   delegate: SliverChildBuilderDelegate(
                                     (context, index) {
-                                      final column = widget.board.columns[index];
+                                      final column =
+                                          widget.board.columns[index];
                                       return Padding(
                                         padding: const EdgeInsets.only(
                                           right: _laneGap,
@@ -161,8 +167,7 @@ class _ProjectKanbanBoardState extends State<ProjectKanbanBoard> {
                 ),
               ],
             ),
-            if (_dragSession != null)
-              _buildDragPreview(theme, _dragSession!),
+            if (_dragSession != null) _buildDragPreview(theme, _dragSession!),
           ],
         );
       },
@@ -268,9 +273,8 @@ class _ProjectKanbanBoardState extends State<ProjectKanbanBoard> {
         color: colorScheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isDropTarget
-              ? colorScheme.primary
-              : colorScheme.outlineVariant,
+            color:
+                isDropTarget ? colorScheme.primary : colorScheme.outlineVariant,
           width: isDropTarget ? 2 : 1,
         ),
         boxShadow: isDropTarget
@@ -307,7 +311,8 @@ class _ProjectKanbanBoardState extends State<ProjectKanbanBoard> {
                 key: laneKey,
                 children: <Widget>[
                   CustomScrollView(
-                    key: ValueKey<String>('kanban-column-scroll-${column.id}'),
+                      key:
+                          ValueKey<String>('kanban-column-scroll-${column.id}'),
                     controller: laneController,
                     physics: const ClampingScrollPhysics(),
                     cacheExtent: _cardExtent * 2,
@@ -335,6 +340,10 @@ class _ProjectKanbanBoardState extends State<ProjectKanbanBoard> {
                                     ),
                                     card: card,
                                     column: column,
+                                      isSearchActive: widget.isSearchActive ||
+                                          widget.matchedCardIds.isNotEmpty,
+                                      isSearchMatch: widget.matchedCardIds
+                                          .contains(card.id),
                                     position: index,
                                     columns: widget.board.columns,
                                     isBusy: widget.isBusy,
@@ -353,8 +362,8 @@ class _ProjectKanbanBoardState extends State<ProjectKanbanBoard> {
                                     onDelete: () => widget.onDeleteCard(card),
                                     onManageAssignees: () =>
                                         widget.onManageAssignees(card),
-                                    onMove: (columnId, index) =>
-                                        widget.onMoveCard(card.id, columnId, index),
+                                      onMove: (columnId, index) => widget
+                                          .onMoveCard(card.id, columnId, index),
                                   ),
                                 );
                               },
@@ -397,7 +406,8 @@ class _ProjectKanbanBoardState extends State<ProjectKanbanBoard> {
                                     'Solte aqui · posição ${(_dragSession?.targetIndex ?? 0) + 1}',
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: theme.textTheme.labelMedium?.copyWith(
+                                      style:
+                                          theme.textTheme.labelMedium?.copyWith(
                                       color: colorScheme.onPrimaryContainer,
                                       fontWeight: FontWeight.w700,
                                     ),
@@ -801,6 +811,8 @@ class _KanbanCardTile extends StatefulWidget {
     super.key,
     required this.card,
     required this.column,
+    required this.isSearchActive,
+    required this.isSearchMatch,
     required this.position,
     required this.columns,
     required this.isBusy,
@@ -820,6 +832,8 @@ class _KanbanCardTile extends StatefulWidget {
 
   final KanbanCard card;
   final KanbanColumn column;
+  final bool isSearchActive;
+  final bool isSearchMatch;
   final int position;
   final List<KanbanColumn> columns;
   final bool isBusy;
@@ -866,9 +880,12 @@ class _KanbanCardTileState extends State<_KanbanCardTile> {
                 : colorScheme.surface,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: _hovered
+                color: widget.isSearchMatch
+                    ? colorScheme.primary
+                    : _hovered
                   ? colorScheme.primary.withValues(alpha: 0.7)
                   : colorScheme.outlineVariant,
+                width: widget.isSearchMatch ? 2 : 1,
             ),
             boxShadow: _hovered
                 ? <BoxShadow>[
@@ -887,7 +904,10 @@ class _KanbanCardTileState extends State<_KanbanCardTile> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  Text(
+                    Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: Text(
                     widget.card.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -896,6 +916,27 @@ class _KanbanCardTileState extends State<_KanbanCardTile> {
                       height: 1.2,
                     ),
                   ),
+                        ),
+                        if (widget.isSearchActive &&
+                            widget.isSearchMatch) ...<Widget>[
+                          const SizedBox(width: 4),
+                          Semantics(
+                            container: true,
+                            label: 'Correspondência da busca',
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: <Widget>[
+                                Icon(Icons.check_circle_outline_rounded,
+                                    size: 14, color: colorScheme.primary),
+                                const SizedBox(width: 2),
+                                Text('Encontrado',
+                                    style: theme.textTheme.labelSmall),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                   const SizedBox(height: 2),
                   Row(
                     children: <Widget>[
@@ -915,7 +956,8 @@ class _KanbanCardTileState extends State<_KanbanCardTile> {
                           label: 'Arrastar card #${widget.card.cardNumber}. '
                               'Para mover com teclado, use ações do card.',
                           child: Tooltip(
-                            message: 'Arraste para mover ou use ações do card',
+                              message:
+                                  'Arraste para mover ou use ações do card',
                             child: MouseRegion(
                               cursor: SystemMouseCursors.grab,
                               child: Listener(
@@ -1047,7 +1089,8 @@ class _KanbanCardTileState extends State<_KanbanCardTile> {
                           ),
                           onPressed:
                               widget.isBusy ? null : widget.onManageAssignees,
-                          icon: const Icon(Icons.group_add_outlined, size: 17),
+                            icon:
+                                const Icon(Icons.group_add_outlined, size: 17),
                         ),
                     ],
                   ),
@@ -1144,9 +1187,8 @@ class _AssigneeSummary extends StatelessWidget {
     }
 
     final first = assignees.first.employeeName;
-    final label = assignees.length == 1
-        ? first
-        : '$first +${assignees.length - 1}';
+    final label =
+        assignees.length == 1 ? first : '$first +${assignees.length - 1}';
     return Row(
       children: <Widget>[
         Container(
@@ -1195,7 +1237,9 @@ class _AssigneeSummary extends StatelessWidget {
       return '?';
     }
     if (parts.length == 1) {
-      return parts.first.substring(0, math.min(2, parts.first.length)).toUpperCase();
+      return parts.first
+          .substring(0, math.min(2, parts.first.length))
+          .toUpperCase();
     }
     return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
   }

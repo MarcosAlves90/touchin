@@ -75,3 +75,4 @@ O `.polis/policy.json` é a fonte dos gates locais: `test.complete`, `lint`, `bu
 - [Deploy](DEPLOYMENT.md): o que a configuração versionada cobre e o que depende do ambiente externo.
 - [Contexto](../CONTEXT.md): resumo de arquitetura e convenções.
 - [Contratos POLIS](contracts/): especificações versionadas de mudanças; não são documentação de operação.
+- [Evidências de validação](validation/): provas de regressão e relatórios POLIS retidos por mudança.
