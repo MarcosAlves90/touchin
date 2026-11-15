@@ -1,0 +1,215 @@
+{
+  "schema_version": 6,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      ".polis/artifacts/contracts/intelligent-task-search-review-fixes-v2.json",
+      "docs/validation/intelligent-task-search-review-fixes/README.md",
+      "docs/validation/intelligent-task-search-review-fixes/polis/red-regression.patch",
+      "docs/validation/intelligent-task-search-review-fixes/polis/workspace-validation.json",
+      "frontend/lib/features/projects/presentation/task_search_query.dart",
+      "frontend/lib/features/projects/presentation/project_kanban_page.dart",
+      "frontend/lib/features/projects/presentation/widgets/project_backlog_view.dart",
+      "frontend/test/features/projects/presentation/task_search_query_test.dart",
+      "frontend/test/features/projects/presentation/project_backlog_view_test.dart",
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/features/projects/presentation/task_search_query_test.dart",
+      "frontend/test/features/projects/presentation/project_backlog_view_test.dart",
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Correct four verified regressions in the shared task search while preserving existing Backlog behavior and accessible result reporting.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "A bare query token that is both a task-type synonym and a current-board column name remains literal text; explicit type: syntax continues to select a task type."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "Backlog keeps its local title/card-number search available and intersects it with shared-query matches and existing manual filters."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "For connector-only input whose parsed query is inactive, the accessible result count reflects the unfiltered cards rather than announcing zero matches."
+      },
+      {
+        "id": "REQ-004",
+        "statement": "When shared query text changes while Backlog is visible, pagination returns to its first page without clearing the local query or other Backlog state."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "A parser test uses a current-board column named Bug and proves bare bug is literal text while explicit type:bug remains a type filter.",
+        "requirements": [
+          "REQ-001"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "A Backlog widget test keeps the local search visible with shared matches and proves local and shared criteria intersect.",
+        "requirements": [
+          "REQ-002"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-003",
+        "statement": "A page test enters only connector words, confirms the query remains inactive, and verifies the announced count equals all cards.",
+        "requirements": [
+          "REQ-003"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-004",
+        "statement": "A Backlog widget test starts on page two, receives a changed shared query with multiple pages of matches, and verifies that pagination returns to page one.",
+        "requirements": [
+          "REQ-004"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "Search remains local and read-only; it does not mutate the board or send query/task data externally."
+      },
+      {
+        "id": "INV-002",
+        "statement": "Manual Backlog filters and shared-query matching are conjunctive; neither silently disables the other."
+      },
+      {
+        "id": "INV-003",
+        "statement": "The result count announced to assistive technology matches the result set implied by the parsed query."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "A bare ambiguous type/status token silently filters tasks by type or status."
+      },
+      {
+        "id": "FORB-002",
+        "statement": "Shared search hides or bypasses Backlog's local title/card-number search."
+      },
+      {
+        "id": "FORB-003",
+        "statement": "An inactive parsed query announces zero results while the board remains unfiltered."
+      },
+      {
+        "id": "FORB-004",
+        "statement": "Changing shared query text leaves the user on a stale Backlog page or clears unrelated Backlog filters."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "The current PR #138 implementation at the locked baseline."
+      },
+      {
+        "id": "IN-002",
+        "statement": "Verified review scenarios for Backlog filtering, parser ambiguity, accessible counts, and pagination."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "Minimal corrections in the shared search parser/page and Backlog view."
+      },
+      {
+        "id": "OUT-002",
+        "statement": "Focused regression tests and retained POLIS Red/validation evidence."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "The Red probe fails on the locked baseline because the bare token bug is parsed as a task type even though Bug is also a current-board status; target tests pass after correction."
+      },
+      {
+        "id": "FAIL-002",
+        "statement": "Compilation/setup errors are not accepted as behavioral Red evidence."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "c01955aaca43018b4da239ba2faae0a5e13380ca",
+    "base_tree": "614d91f4c1defbcff2d8c59e079e7c81a5904b53",
+    "policy_sha256": "5563facc34ae2a1a07cf7ec7ec2f115cb8d250c49dd6e2bd5c7a3de4c977d450",
+    "specification_sha256": "e15c4bc0ac52fccc2ec0720ee25913ab932ad765a734e7f2af394b3a43f0d55a"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/features/projects/presentation/"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/features/projects/presentation/"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "test/features/projects/presentation/task_search_query_test.dart"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 300,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "Expected: empty",
+      "Actual: Set:[TaskType:TaskType.bug]"
+    ]
+  }
+}
