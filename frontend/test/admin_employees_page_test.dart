@@ -817,6 +817,44 @@ void main() {
     }
   }
 
+  for (final dark in [false, true]) {
+    testWidgets('employee directory leading icon radius dark=$dark',
+        (tester) async {
+      tester.view.physicalSize = const Size(1440, 1200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(MaterialApp(
+        theme: dark ? AppTheme.darkTheme : AppTheme.lightTheme,
+        home: AdminEmployeesPage(api: _FakeAdminApi()),
+      ));
+      await tester.pumpAndSettle();
+
+      final icons = find.byIcon(Icons.badge_rounded);
+      expect(icons, findsWidgets);
+      for (final element in icons.evaluate()) {
+        final container = element.findAncestorWidgetOfExactType<Container>()!;
+        final decoration = container.decoration! as BoxDecoration;
+        expect(
+          decoration.borderRadius,
+          BorderRadius.circular(8),
+          reason: 'employee_list_icon_radius_8',
+        );
+        expect(
+          decoration.border,
+          isNotNull,
+          reason: 'employee_list_icon_border_kept',
+        );
+        expect(
+          container.constraints,
+          const BoxConstraints.tightFor(width: 40, height: 40),
+          reason: 'employee_list_icon_size_40',
+        );
+      }
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('renders company data from auth context in the sidebar', (
     WidgetTester tester,
   ) async {
