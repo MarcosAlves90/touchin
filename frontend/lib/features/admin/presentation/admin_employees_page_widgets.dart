@@ -712,6 +712,7 @@ class _EmployeeListTile extends StatelessWidget {
                       ? adminColors.selectedContainer
                       : colorScheme.surface)
                   : colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(8),
               border: Border.all(
                 color: selected && theme.extension<HighContrastMarker>() != null
                     ? adminColors.selectedIndicator
