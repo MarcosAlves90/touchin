@@ -202,13 +202,56 @@ class _WorkspaceNavigationItemState extends State<WorkspaceNavigationItem> {
         (widget.selected
             ? navigation.selectedForeground
             : navigation.itemForeground);
-    final background = widget.selected
-        ? navigation.selectedContainer
-        : _hovered
+    final background = widget.iconOnly
+        ? (_hovered
             ? Color.alphaBlend(navigation.hoverOverlay, colors.surface)
-            : Colors.transparent;
+            : Colors.transparent)
+        : widget.selected
+            ? navigation.selectedContainer
+            : _hovered
+                ? Color.alphaBlend(navigation.hoverOverlay, colors.surface)
+                : Colors.transparent;
     final child = widget.iconOnly
-        ? Center(child: Icon(widget.icon, size: 24, color: foreground))
+        ? Row(
+            children: <Widget>[
+              ExcludeSemantics(
+                child: AnimatedContainer(
+                  key: widget.selected
+                      ? const ValueKey<String>(
+                          'workspace-navigation-active-indicator',
+                        )
+                      : null,
+                  duration: const Duration(milliseconds: 120),
+                  curve: Curves.easeOut,
+                  width: widget.selected ? 3 : 0,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    color: widget.selected
+                        ? navigation.focusRing
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Center(
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 120),
+                    curve: Curves.easeOut,
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: widget.selected
+                          ? navigation.selectedContainer
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(widget.icon, size: 22, color: foreground),
+                  ),
+                ),
+              ),
+            ],
+          )
         : Row(
             children: <Widget>[
               Icon(widget.icon, size: 24, color: foreground),

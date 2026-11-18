@@ -198,7 +198,8 @@ void main() {
               )
               .first,
         );
-        expect(toolbarPadding.padding, const EdgeInsets.all(12));
+        expect(
+            toolbarPadding.padding, const EdgeInsets.symmetric(horizontal: 12));
         expect(
           tester.getSize(find.byKey(const ValueKey('backlog-search'))).height,
           48,
@@ -251,8 +252,14 @@ void main() {
           );
           expect(tester.getSize(button).width, lessThan(210));
           expect(tester.getSize(button).height, greaterThanOrEqualTo(48));
-          expect(tester.getRect(button).top,
-              tester.getRect(find.byKey(const ValueKey('backlog-search'))).top);
+          expect(
+            tester.getRect(button).top,
+            greaterThanOrEqualTo(
+              tester
+                  .getRect(find.byKey(const ValueKey('backlog-search')))
+                  .bottom,
+            ),
+          );
         }
         expect(
             find.byType(WorkspaceInstantSelectField<String>), findsNWidgets(3));
@@ -303,8 +310,14 @@ void main() {
           expect(select.decoration.labelText, isNull);
           expect(select.decoration.prefixIcon, isNotNull);
           expect(select.semanticLabel, isNotEmpty);
-          expect(tester.getRect(field).top,
-              tester.getRect(find.byKey(const ValueKey('backlog-search'))).top);
+          expect(
+            tester.getRect(field).top,
+            greaterThanOrEqualTo(
+              tester
+                  .getRect(find.byKey(const ValueKey('backlog-search')))
+                  .bottom,
+            ),
+          );
         }
         expect(
             tester.getSize(find.byKey(const ValueKey('backlog-table'))).width,

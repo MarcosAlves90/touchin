@@ -6,6 +6,13 @@ import 'package:touchin_flutter/contracts/task.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_toolbar.dart';
 
 class ProjectKanbanBoard extends StatefulWidget {
+  static const double laneGap = 12;
+
+  static double laneWidthFor(double maxWidth) {
+    if (maxWidth < 560) return math.max(240.0, maxWidth - 2).toDouble();
+    return math.min(320.0, math.max(280.0, maxWidth - 16)).toDouble();
+  }
+
   const ProjectKanbanBoard({
     super.key,
     required this.board,
@@ -51,8 +58,6 @@ class ProjectKanbanBoard extends StatefulWidget {
 }
 
 class _ProjectKanbanBoardState extends State<ProjectKanbanBoard> {
-  static const double _laneWidth = 320;
-  static const double _laneGap = 12;
   static const double _cardExtent = 154;
 
   final ScrollController _boardScrollController = ScrollController();
@@ -97,12 +102,8 @@ class _ProjectKanbanBoardState extends State<ProjectKanbanBoard> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isCompact = constraints.maxWidth < 560;
-        final laneWidth = isCompact
-            ? math.max(240.0, constraints.maxWidth - 2)
-            : math.min(
-                _laneWidth,
-                math.max(280.0, constraints.maxWidth - 16),
-              );
+        final laneWidth =
+            ProjectKanbanBoard.laneWidthFor(constraints.maxWidth);
         return Stack(
           clipBehavior: Clip.hardEdge,
           children: <Widget>[
@@ -136,16 +137,19 @@ class _ProjectKanbanBoardState extends State<ProjectKanbanBoard> {
                             cacheExtent: laneWidth,
                             slivers: <Widget>[
                               SliverPadding(
-                                padding: const EdgeInsets.only(right: _laneGap),
+                                padding: const EdgeInsets.only(
+                                  right: ProjectKanbanBoard.laneGap,
+                                ),
                                 sliver: SliverFixedExtentList(
-                                  itemExtent: laneWidth + _laneGap,
+                                  itemExtent:
+                                      laneWidth + ProjectKanbanBoard.laneGap,
                                   delegate: SliverChildBuilderDelegate(
                                     (context, index) {
                                       final column =
                                           widget.board.columns[index];
                                       return Padding(
                                         padding: const EdgeInsets.only(
-                                          right: _laneGap,
+                                          right: ProjectKanbanBoard.laneGap,
                                         ),
                                         child: _buildLane(
                                           context,

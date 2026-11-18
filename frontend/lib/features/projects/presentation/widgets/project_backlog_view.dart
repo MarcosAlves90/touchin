@@ -11,6 +11,7 @@ class ProjectBacklogView extends StatefulWidget {
     super.key,
     required this.board,
     this.matchedCardIds,
+    this.sharedSearchField,
     this.sharedSearchQuery = '',
     required this.projectName,
     required this.projectMembers,
@@ -31,6 +32,7 @@ class ProjectBacklogView extends StatefulWidget {
 
   final KanbanBoard board;
   final Set<String>? matchedCardIds;
+  final Widget? sharedSearchField;
   final String sharedSearchQuery;
   final String projectName;
   final List<ProjectMemberSummary> projectMembers;
@@ -434,11 +436,8 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final buttonStyle = workspaceToolbarActionStyle(theme);
-    final controls = <({int flex, double width, Widget child})>[
-      (
-        flex: 2,
-        width: 260,
-        child: TextField(
+    final searchField = widget.sharedSearchField ??
+        TextField(
           key: const ValueKey<String>('backlog-search'),
           controller: _searchController,
           decoration: const InputDecoration(
@@ -451,10 +450,10 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
             _query = value.trim();
             _resetPage();
           }),
-        ),
-      ),
+        );
+    final controls = <({int flex, double width, Widget child})>[
       (
-        flex: 1,
+        flex: 10,
         width: 180,
         child: WorkspaceInstantSelectField<String>(
           key: const ValueKey<String>('backlog-status-filter'),
@@ -475,7 +474,7 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
         ),
       ),
       (
-        flex: 1,
+        flex: 10,
         width: 180,
         child: WorkspaceInstantSelectField<String>(
           key: const ValueKey<String>('backlog-assignee-filter'),
@@ -496,7 +495,7 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
         ),
       ),
       (
-        flex: 1,
+        flex: 10,
         width: 210,
         child: WorkspaceInstantSelectField<String>(
           key: const ValueKey<String>('backlog-sort'),
@@ -524,7 +523,7 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
       ),
       if (widget.canManageStructure)
         (
-          flex: 1,
+          flex: 7,
           width: 190,
           child: OutlinedButton.icon(
             style: buttonStyle,
@@ -536,7 +535,7 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
         ),
       if (widget.canManageStructure)
         (
-          flex: 1,
+          flex: 7,
           width: 150,
           child: OutlinedButton.icon(
             style: buttonStyle,
@@ -548,7 +547,7 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
         ),
       if (widget.canManageCards && widget.board.columns.isNotEmpty)
         (
-          flex: 1,
+          flex: 7,
           width: 140,
           child: FilledButton.icon(
             style: buttonStyle,
@@ -562,9 +561,13 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
         ),
     ];
 
-    return WorkspaceToolbar(
+    return WorkspaceFilterSection(
+      key: const ValueKey<String>('workspace-task-filter-section'),
       surfaceKey: const ValueKey<String>('backlog-toolbar'),
-      child: LayoutBuilder(
+      title: 'Filtros do projeto',
+      description: 'Encontre e organize as tarefas do projeto',
+      searchField: searchField,
+      filters: LayoutBuilder(
         builder: (context, constraints) {
           final fillsWidth = constraints.maxWidth >= 1100;
           final row = Row(
@@ -585,77 +588,41 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
               ],
             ],
           );
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              Row(children: <Widget>[
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: colors.primaryContainer.withValues(alpha: .45),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(Icons.filter_list_rounded,
-                      size: 20, color: colors.primary),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                    child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text('Filtros do backlog',
-                        style: theme.textTheme.titleSmall
-                            ?.copyWith(fontWeight: FontWeight.w700)),
-                    Text('Encontre e organize os cards do projeto',
-                        style: theme.textTheme.bodySmall
-                            ?.copyWith(color: colors.onSurfaceVariant),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis),
-                  ],
-                )),
-              ]),
-              const SizedBox(height: 12),
-              if (fillsWidth)
-                SizedBox(height: 48, child: row)
-              else
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: SizedBox(height: 48, child: row),
-                ),
-              const SizedBox(height: 8),
-              Row(children: <Widget>[
-                Text(
-                  '$visible de $total cards',
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: colors.onSurfaceVariant,
-                  ),
-                ),
-                if (pageCount > 1) ...<Widget>[
-                  const Spacer(),
-                  IconButton(
-                    key: const ValueKey<String>('backlog-page-previous'),
-                    tooltip: 'Página anterior',
-                    visualDensity: VisualDensity.standard,
-                    onPressed: page == 0 ? null : () => _changePage(page - 1),
-                    icon: const Icon(Icons.chevron_left_rounded),
-                  ),
-                  Text('Página ${page + 1} de $pageCount',
-                      key: const ValueKey<String>('backlog-page-label')),
-                  IconButton(
-                    key: const ValueKey<String>('backlog-page-next'),
-                    tooltip: 'Próxima página',
-                    visualDensity: VisualDensity.standard,
-                    onPressed: page == pageCount - 1
-                        ? null
-                        : () => _changePage(page + 1),
-                    icon: const Icon(Icons.chevron_right_rounded),
-                  ),
-                ],
-              ]),
-            ],
+          if (fillsWidth) return SizedBox(height: 48, child: row);
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: SizedBox(height: 48, child: row),
           );
         },
       ),
+      footer: Row(children: <Widget>[
+        Text(
+          '$visible de $total cards',
+          style: theme.textTheme.labelMedium?.copyWith(
+            color: colors.onSurfaceVariant,
+          ),
+        ),
+        if (pageCount > 1) ...<Widget>[
+          const Spacer(),
+          IconButton(
+            key: const ValueKey<String>('backlog-page-previous'),
+            tooltip: 'Página anterior',
+            visualDensity: VisualDensity.standard,
+            onPressed: page == 0 ? null : () => _changePage(page - 1),
+            icon: const Icon(Icons.chevron_left_rounded),
+          ),
+          Text('Página ${page + 1} de $pageCount',
+              key: const ValueKey<String>('backlog-page-label')),
+          IconButton(
+            key: const ValueKey<String>('backlog-page-next'),
+            tooltip: 'Próxima página',
+            visualDensity: VisualDensity.standard,
+            onPressed:
+                page == pageCount - 1 ? null : () => _changePage(page + 1),
+            icon: const Icon(Icons.chevron_right_rounded),
+          ),
+        ],
+      ]),
     );
   }
 
