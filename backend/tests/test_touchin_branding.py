@@ -152,10 +152,7 @@ def _main() -> int:
     offenders = _find_offenders()
     if offenders:
         print(RED_TOKEN)
-        for offender in offenders[:100]:
-            print(offender)
-        if len(offenders) > 100:
-            print(f"... and {len(offenders) - 100} more")
+        print("Repository checks failed; offender details are intentionally omitted.")
         return 1
     print(GREEN_TOKEN)
     return 0
