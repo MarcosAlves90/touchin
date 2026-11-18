@@ -6,6 +6,7 @@ import 'package:touchin_flutter/contracts/employee.dart';
 import 'package:touchin_flutter/contracts/project.dart';
 import 'package:touchin_flutter/contracts/punch.dart';
 import 'package:touchin_flutter/contracts/task.dart';
+import 'package:touchin_flutter/contracts/task_recommendations.dart';
 import 'package:touchin_flutter/contracts/time_clock.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
 import 'package:touchin_flutter/features/time_tracking/application/punch_location_service.dart';
@@ -16,12 +17,24 @@ class _WorkLogApi extends TouchInApi {
   _WorkLogApi({
     this.status = ShiftStatus.working,
     this.projectsCompleter,
+    this.recommendationCompleter,
+    this.recommendationCompleters = const <Completer<TaskRecommendations>>[],
+    this.recommendationResult = const TaskRecommendations(
+      status: 'available',
+      items: <TaskRecommendation>[
+        TaskRecommendation(taskId: 'task-a', taskName: 'Tarefa A'),
+      ],
+    ),
   });
 
   final ShiftStatus status;
   final Completer<List<ProjectSummary>>? projectsCompleter;
+  final Completer<TaskRecommendations>? recommendationCompleter;
+  final List<Completer<TaskRecommendations>> recommendationCompleters;
+  final TaskRecommendations recommendationResult;
   Map<String, dynamic>? lastPunchJson;
   int listProjectsCalls = 0;
+  final List<String> recommendationProjects = <String>[];
 
   final List<ProjectSummary> projects = <ProjectSummary>[
     _project('project-a', 'Projeto A'),
@@ -82,6 +95,22 @@ class _WorkLogApi extends TouchInApi {
   @override
   Future<List<TaskRecord>> listTasks(String projectId) async {
     return tasks[projectId] ?? const <TaskRecord>[];
+  }
+
+  @override
+  Future<TaskRecommendations> recommendTasks({
+    required String projectId,
+    required String description,
+  }) async {
+    final requestIndex = recommendationProjects.length;
+    recommendationProjects.add(projectId);
+    if (requestIndex < recommendationCompleters.length) {
+      return recommendationCompleters[requestIndex].future;
+    }
+    if (recommendationCompleter != null) {
+      return recommendationCompleter!.future;
+    }
+    return recommendationResult;
   }
 
   @override
@@ -158,10 +187,22 @@ Future<_WorkLogApi> _pumpPage(
   WidgetTester tester, {
   ShiftStatus status = ShiftStatus.working,
   Completer<List<ProjectSummary>>? projectsCompleter,
+  Completer<TaskRecommendations>? recommendationCompleter,
+  List<Completer<TaskRecommendations>> recommendationCompleters =
+      const <Completer<TaskRecommendations>>[],
+  TaskRecommendations recommendationResult = const TaskRecommendations(
+    status: 'available',
+    items: <TaskRecommendation>[
+      TaskRecommendation(taskId: 'task-a', taskName: 'Tarefa A'),
+    ],
+  ),
 }) async {
   final api = _WorkLogApi(
     status: status,
     projectsCompleter: projectsCompleter,
+    recommendationCompleter: recommendationCompleter,
+    recommendationCompleters: recommendationCompleters,
+    recommendationResult: recommendationResult,
   );
   final controller = _TestTimeClockController(
     api: api,
@@ -260,7 +301,8 @@ void main() {
     expect(api.lastPunchJson, isNull);
   });
 
-  testWidgets('with projects available the employee must choose a project or Nenhum',
+  testWidgets(
+      'with projects available the employee must choose a project or Nenhum',
       (tester) async {
     await _pumpPage(tester);
     await tester.tap(find.text('Iniciar pausa'));
@@ -272,17 +314,22 @@ void main() {
     );
     await tester.pump();
     expect(
-      tester.widget<FilledButton>(find.byKey(const Key('work-log-submit'))).onPressed,
+      tester
+          .widget<FilledButton>(find.byKey(const Key('work-log-submit')))
+          .onPressed,
       isNull,
     );
     await _openProject(tester, 'Nenhum');
     expect(
-      tester.widget<FilledButton>(find.byKey(const Key('work-log-submit'))).onPressed,
+      tester
+          .widget<FilledButton>(find.byKey(const Key('work-log-submit')))
+          .onPressed,
       isNotNull,
     );
   });
 
-  testWidgets('employee without projects sees Nenhum selected and can submit only a description',
+  testWidgets(
+      'employee without projects sees Nenhum selected and can submit only a description',
       (tester) async {
     final api = await _pumpPage(tester);
     api.projects.clear();
@@ -294,7 +341,9 @@ void main() {
     expect(find.text('Nenhum'), findsOneWidget);
     expect(find.byKey(const Key('work-log-task-task-a')), findsNothing);
     expect(
-      tester.widget<FilledButton>(find.byKey(const Key('work-log-submit'))).onPressed,
+      tester
+          .widget<FilledButton>(find.byKey(const Key('work-log-submit')))
+          .onPressed,
       isNull,
     );
 
@@ -304,7 +353,9 @@ void main() {
     );
     await tester.pump();
     expect(
-      tester.widget<FilledButton>(find.byKey(const Key('work-log-submit'))).onPressed,
+      tester
+          .widget<FilledButton>(find.byKey(const Key('work-log-submit')))
+          .onPressed,
       isNotNull,
     );
     await tester.tap(find.byKey(const Key('work-log-submit')));
@@ -319,7 +370,8 @@ void main() {
     });
   });
 
-  testWidgets('Nenhum clears selected project tasks and requires only description',
+  testWidgets(
+      'Nenhum clears selected project tasks and requires only description',
       (tester) async {
     final api = await _pumpPage(tester);
     await tester.tap(find.text('Registrar saída'));
@@ -383,6 +435,97 @@ void main() {
     expect(find.byKey(const Key('work-log-task-task-a')), findsNothing);
     expect(find.byKey(const Key('work-log-task-task-b')), findsOneWidget);
     expect(api.lastPunchJson, isNull);
+  });
+
+  testWidgets(
+      'suggestions require explicit selection before work-log submission',
+      (tester) async {
+    final api = await _pumpPage(tester);
+    await tester.tap(find.text('Iniciar pausa'));
+    await tester.pumpAndSettle();
+    await _openProject(tester, 'Projeto A');
+    await tester.enterText(
+      find.byKey(const Key('work-log-description')),
+      'Corrigi o problema de sessão',
+    );
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pumpAndSettle();
+
+    expect(api.recommendationProjects, <String>['project-a']);
+    expect(find.byKey(const Key('work-log-task-suggestion-task-a')),
+        findsOneWidget);
+    expect(
+      tester
+          .getTopLeft(find.byKey(const Key('work-log-task-suggestion-task-a')))
+          .dy,
+      lessThan(
+        tester.getTopLeft(find.byKey(const Key('work-log-task-task-a'))).dy,
+      ),
+    );
+    expect(
+      tester
+          .widget<CheckboxListTile>(
+            find.byKey(const Key('work-log-task-task-a')),
+          )
+          .value,
+      isFalse,
+    );
+    expect(
+      tester
+          .widget<FilledButton>(find.byKey(const Key('work-log-submit')))
+          .onPressed,
+      isNull,
+    );
+
+    await tester.tap(find.byKey(const Key('work-log-task-suggestion-task-a')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('work-log-submit')));
+    await tester.pumpAndSettle();
+
+    expect(api.lastPunchJson?['workLog'], <String, dynamic>{
+      'description': 'Corrigi o problema de sessão',
+      'taskIds': <String>['task-a'],
+    });
+  });
+
+  testWidgets('out-of-order recommendation responses are discarded',
+      (tester) async {
+    final older = Completer<TaskRecommendations>();
+    final newer = Completer<TaskRecommendations>();
+    final api = await _pumpPage(
+      tester,
+      recommendationCompleters: <Completer<TaskRecommendations>>[older, newer],
+    );
+    await tester.tap(find.text('Iniciar pausa'));
+    await tester.pumpAndSettle();
+    await _openProject(tester, 'Projeto A');
+    final description = find.byKey(const Key('work-log-description'));
+    await tester.enterText(description, 'Primeira descrição da tarefa');
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.enterText(description, 'Descrição atualizada da tarefa');
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(api.recommendationProjects, <String>['project-a', 'project-a']);
+    expect(
+        find.bySemanticsLabel('Buscando sugestões de tarefas'), findsOneWidget);
+
+    newer.complete(const TaskRecommendations(
+      status: 'available',
+      items: <TaskRecommendation>[
+        TaskRecommendation(taskId: 'new-task', taskName: 'Sugestão atual'),
+      ],
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('Sugestão atual'), findsOneWidget);
+
+    older.complete(const TaskRecommendations(
+      status: 'available',
+      items: <TaskRecommendation>[
+        TaskRecommendation(taskId: 'old-task', taskName: 'Sugestão obsoleta'),
+      ],
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('Sugestão atual'), findsOneWidget);
+    expect(find.text('Sugestão obsoleta'), findsNothing);
   });
 
   testWidgets('break end remains available without work log', (tester) async {

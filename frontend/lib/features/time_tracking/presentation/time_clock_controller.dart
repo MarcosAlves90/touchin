@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:touchin_flutter/contracts/punch.dart';
 import 'package:touchin_flutter/contracts/project.dart';
 import 'package:touchin_flutter/contracts/task.dart';
+import 'package:touchin_flutter/contracts/task_recommendations.dart';
 import 'package:touchin_flutter/contracts/time_clock.dart';
 import 'package:touchin_flutter/core/network/api_client.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
@@ -46,6 +47,9 @@ class TimeClockController extends ChangeNotifier {
   bool recordsHasNext = false;
   List<ProjectSummary> workLogProjects = const <ProjectSummary>[];
   List<TaskRecord> workLogTasks = const <TaskRecord>[];
+  List<TaskRecommendation> workLogRecommendations =
+      const <TaskRecommendation>[];
+  String workLogRecommendationStatus = 'idle';
   String? selectedWorkLogProjectId;
   bool isLoadingWorkLogProjects = false;
   bool isLoadingWorkLogTasks = false;
@@ -56,6 +60,7 @@ class TimeClockController extends ChangeNotifier {
   Timer? _clockTimer;
   bool _isDisposed = false;
   int _workLogTaskRequestVersion = 0;
+  int _workLogRecommendationRequestVersion = 0;
   int _stateRequestVersion = 0;
 
   Future<void> start() async {
@@ -232,6 +237,9 @@ class TimeClockController extends ChangeNotifier {
     }
 
     final requestVersion = ++_workLogTaskRequestVersion;
+    _workLogRecommendationRequestVersion += 1;
+    workLogRecommendations = const <TaskRecommendation>[];
+    workLogRecommendationStatus = 'idle';
     selectedWorkLogProjectId = projectId;
     workLogTasks = const <TaskRecord>[];
     isLoadingWorkLogTasks = true;
@@ -268,13 +276,66 @@ class TimeClockController extends ChangeNotifier {
     }
   }
 
+  Future<void> loadWorkLogRecommendations({
+    required String projectId,
+    required String description,
+  }) async {
+    if (_isDisposed) return;
+    final query = description.trim();
+    final requestVersion = ++_workLogRecommendationRequestVersion;
+    workLogRecommendations = const <TaskRecommendation>[];
+    workLogRecommendationStatus = query.isEmpty ? 'idle' : 'loading';
+    notifyListeners();
+    if (query.isEmpty) return;
+
+    try {
+      final result = await _api.recommendTasks(
+        projectId: projectId,
+        description: query,
+      );
+      if (_isDisposed ||
+          requestVersion != _workLogRecommendationRequestVersion ||
+          selectedWorkLogProjectId != projectId) {
+        return;
+      }
+      workLogRecommendations = result.items;
+      workLogRecommendationStatus = result.status;
+    } catch (_) {
+      if (requestVersion == _workLogRecommendationRequestVersion) {
+        workLogRecommendations = const <TaskRecommendation>[];
+        workLogRecommendationStatus = 'unavailable';
+      }
+    } finally {
+      if (!_isDisposed &&
+          requestVersion == _workLogRecommendationRequestVersion) {
+        notifyListeners();
+      }
+    }
+  }
+
+  void cancelWorkLogRecommendations() {
+    if (_isDisposed) return;
+    _workLogRecommendationRequestVersion += 1;
+  }
+
+  void clearWorkLogRecommendations() {
+    if (_isDisposed) return;
+    _workLogRecommendationRequestVersion += 1;
+    workLogRecommendations = const <TaskRecommendation>[];
+    workLogRecommendationStatus = 'idle';
+    notifyListeners();
+  }
+
   void clearWorkLogProjectSelection() {
     if (_isDisposed) {
       return;
     }
     _workLogTaskRequestVersion += 1;
+    _workLogRecommendationRequestVersion += 1;
     selectedWorkLogProjectId = null;
     workLogTasks = const <TaskRecord>[];
+    workLogRecommendations = const <TaskRecommendation>[];
+    workLogRecommendationStatus = 'idle';
     isLoadingWorkLogTasks = false;
     workLogLoadError = null;
     notifyListeners();

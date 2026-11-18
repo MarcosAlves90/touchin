@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:touchin_flutter/contracts/time_clock.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_skeleton.dart';
@@ -32,6 +34,8 @@ class _WorkLogDialogState extends State<WorkLogDialog> {
   final Set<String> _selectedTaskIds = <String>{};
   String? _selectedProjectId;
   String? _loadError;
+  Timer? _recommendationDebounce;
+  String _recommendationSnapshot = '';
 
   bool get _canSubmit =>
       _selectedProjectId != null &&
@@ -41,6 +45,8 @@ class _WorkLogDialogState extends State<WorkLogDialog> {
   @override
   void initState() {
     super.initState();
+    widget.controller.addListener(_controllerChanged);
+    _recommendationSnapshot = _currentRecommendationSnapshot;
     if (widget.controller.workLogProjects.isEmpty) {
       _selectedProjectId = _noProjectOption;
     }
@@ -49,16 +55,49 @@ class _WorkLogDialogState extends State<WorkLogDialog> {
 
   @override
   void dispose() {
+    widget.controller.removeListener(_controllerChanged);
     _descriptionController
       ..removeListener(_descriptionChanged)
       ..dispose();
+    _recommendationDebounce?.cancel();
+    widget.controller.cancelWorkLogRecommendations();
     super.dispose();
   }
 
+  String get _currentRecommendationSnapshot =>
+      '${widget.controller.workLogRecommendationStatus}:'
+      '${widget.controller.workLogRecommendations.map((item) => '${item.taskId}=${item.taskName}').join('|')}';
+
+  void _controllerChanged() {
+    if (!mounted) return;
+    final snapshot = _currentRecommendationSnapshot;
+    if (snapshot == _recommendationSnapshot) return;
+    setState(() => _recommendationSnapshot = snapshot);
+  }
+
   void _descriptionChanged() {
-    if (mounted) {
-      setState(() {});
+    if (!mounted) return;
+    setState(() {});
+    _recommendationDebounce?.cancel();
+    final projectId = _selectedProjectId;
+    final description = _descriptionController.text.trim();
+    widget.controller.clearWorkLogRecommendations();
+    if (projectId == null ||
+        projectId == _noProjectOption ||
+        description.isEmpty) {
+      return;
     }
+    _recommendationDebounce = Timer(const Duration(milliseconds: 450), () {
+      if (!mounted ||
+          _selectedProjectId != projectId ||
+          _descriptionController.text.trim() != description) {
+        return;
+      }
+      unawaited(widget.controller.loadWorkLogRecommendations(
+        projectId: projectId,
+        description: description,
+      ));
+    });
   }
 
   Future<void> _selectProject(String? projectId) async {
@@ -84,6 +123,13 @@ class _WorkLogDialogState extends State<WorkLogDialog> {
     setState(() {
       _loadError = error;
     });
+    final description = _descriptionController.text.trim();
+    if (error == null && description.isNotEmpty) {
+      unawaited(widget.controller.loadWorkLogRecommendations(
+        projectId: projectId,
+        description: description,
+      ));
+    }
   }
 
   void _submit() {
@@ -93,9 +139,8 @@ class _WorkLogDialogState extends State<WorkLogDialog> {
 
     Navigator.of(context).pop(
       WorkLogSubmission(
-        projectId: _selectedProjectId == _noProjectOption
-            ? null
-            : _selectedProjectId,
+        projectId:
+            _selectedProjectId == _noProjectOption ? null : _selectedProjectId,
         workLog: WorkLogPayload(
           description: _descriptionController.text.trim(),
           taskIds: _selectedTaskIds.toList(growable: false),
@@ -142,6 +187,14 @@ class _WorkLogDialogState extends State<WorkLogDialog> {
                 onChanged: _selectProject,
               ),
               const SizedBox(height: 16),
+              Semantics(
+                liveRegion: true,
+                child: Text(
+                  'Se a empresa habilitou recomendações, a descrição e as tarefas deste projeto podem ser enviadas ao provedor de embeddings configurado. Revise e selecione as tarefas manualmente.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+              const SizedBox(height: 8),
               TextField(
                 key: const Key('work-log-description'),
                 controller: _descriptionController,
@@ -153,6 +206,66 @@ class _WorkLogDialogState extends State<WorkLogDialog> {
                 ),
               ),
               const SizedBox(height: 16),
+              if (_selectedProjectId != null &&
+                  _selectedProjectId != _noProjectOption &&
+                  controller.workLogRecommendationStatus != 'idle' &&
+                  controller.workLogRecommendationStatus != 'disabled') ...[
+                const SizedBox(height: 16),
+                if (controller.workLogRecommendationStatus == 'loading')
+                  const WorkspaceSkeletonRegion(
+                    label: 'Buscando sugestões de tarefas',
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: <Widget>[
+                        WorkspaceSkeleton(width: 164, height: 36),
+                        WorkspaceSkeleton(width: 132, height: 36),
+                      ],
+                    ),
+                  )
+                else if (controller.workLogRecommendationStatus ==
+                    'unavailable')
+                  Text(
+                    'Sugestões indisponíveis no momento. Você ainda pode selecionar as tarefas manualmente.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  )
+                else if (controller.workLogRecommendations.isNotEmpty)
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Sugestões para revisar e selecionar',
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: controller.workLogRecommendations.map((item) {
+                          final selected =
+                              _selectedTaskIds.contains(item.taskId);
+                          return FilterChip(
+                            key: Key('work-log-task-suggestion-${item.taskId}'),
+                            selected: selected,
+                            label: Text(item.taskName),
+                            onSelected: (value) => setState(() {
+                              if (value) {
+                                _selectedTaskIds.add(item.taskId);
+                              } else {
+                                _selectedTaskIds.remove(item.taskId);
+                              }
+                            }),
+                          );
+                        }).toList(growable: false),
+                      ),
+                    ],
+                  )
+                else if (controller.workLogRecommendationStatus == 'no_match')
+                  Text(
+                    'Nenhuma sugestão encontrada. Você ainda pode escolher manualmente.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+              ],
               if (_selectedProjectId == null)
                 const Text('Selecione um projeto ou Nenhum.')
               else if (_selectedProjectId == _noProjectOption)
