@@ -83,6 +83,7 @@ def test_two_connections_can_consume_the_same_token_only_once(tmp_path):
         stored = db.scalar(select(UserAccount).where(UserAccount.email_hash == lookup_digest(email, secret)))
         token_row = db.scalar(select(PasswordResetToken))
         assert stored is not None and token_row is not None
+        assert stored.password_hash.startswith("pbkdf2_sha256$")
         assert verify_password(accepted_password, stored.password_hash)
         assert token_row.consumed_at is not None
     engine.dispose()
