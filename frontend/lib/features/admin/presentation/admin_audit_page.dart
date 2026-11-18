@@ -716,45 +716,64 @@ class _AdminAuditPageState extends State<AdminAuditPage> with RouteAware {
       contentScrollable: false,
       contentBuilder: (context, isWide) => LayoutBuilder(
         builder: (context, constraints) {
-          final compact = constraints.maxWidth < 860 ||
-              MediaQuery.textScalerOf(context).scale(1) > 1.3;
-          final maxHeaderHeight =
-              MediaQuery.sizeOf(context).height * 0.64;
+          final largeText = MediaQuery.textScalerOf(context).scale(1) > 1.3;
+          final compact = constraints.maxWidth < 860 || !isWide || largeText;
+          final pageScroll = !isWide || largeText;
+          final header = Padding(
+            padding: EdgeInsets.fromLTRB(
+              isWide ? 24 : 16,
+              28,
+              isWide ? 24 : 16,
+              8,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: _buildHeader(compact: compact),
+                ),
+                const SizedBox(height: 14),
+                _buildActiveFilters(),
+                if (_filterPanelOpen && !compact) ...[
+                  const SizedBox(height: 12),
+                  _buildDesktopFilterPanel(),
+                ],
+                if (_isExporting || _exportStatus != null) ...[
+                  const SizedBox(height: 10),
+                  _buildExportFeedback(),
+                ],
+              ],
+            ),
+          );
+          if (pageScroll) {
+            return SingleChildScrollView(
+              key: const ValueKey<String>('audit-page-scroll'),
+              controller: _scrollController,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  header,
+                  _buildResults(compact: compact, pageScroll: true),
+                ],
+              ),
+            );
+          }
           return Column(
             children: [
               ConstrainedBox(
-                constraints: BoxConstraints(maxHeight: maxHeaderHeight),
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.sizeOf(context).height * 0.64,
+                ),
                 child: SingleChildScrollView(
                   key: const ValueKey<String>('audit-header-scroll'),
                   controller: _headerScrollController,
-                  padding: EdgeInsets.fromLTRB(
-                    isWide ? 24 : 16,
-                    28,
-                    isWide ? 24 : 16,
-                    8,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        child: _buildHeader(compact: compact),
-                      ),
-                      const SizedBox(height: 14),
-                      _buildActiveFilters(),
-                      if (_filterPanelOpen && !compact) ...[
-                        const SizedBox(height: 12),
-                        _buildDesktopFilterPanel(),
-                      ],
-                      if (_isExporting || _exportStatus != null) ...[
-                        const SizedBox(height: 10),
-                        _buildExportFeedback(),
-                      ],
-                    ],
-                  ),
+                  child: header,
                 ),
               ),
-              Expanded(child: _buildResults(compact: compact)),
+              Expanded(
+                child: _buildResults(compact: compact, pageScroll: false),
+              ),
             ],
           );
         },
@@ -1285,7 +1304,7 @@ class _AdminAuditPageState extends State<AdminAuditPage> with RouteAware {
     );
   }
 
-  Widget _buildResults({required bool compact}) {
+  Widget _buildResults({required bool compact, required bool pageScroll}) {
     return Padding(
       padding: EdgeInsets.fromLTRB(
         compact ? 16 : 24,
@@ -1323,9 +1342,12 @@ class _AdminAuditPageState extends State<AdminAuditPage> with RouteAware {
                                     ))),
                           ]),
                         ),
-                        Expanded(
-                          child: compact ? _buildCards() : _buildTable(),
-                        ),
+                        if (compact && pageScroll)
+                          _buildCards(pageScroll: true)
+                        else if (compact)
+                          Expanded(child: _buildCards(pageScroll: false))
+                        else
+                          Expanded(child: _buildTable()),
                         _buildFooter(),
                       ],
                     ),
@@ -1367,10 +1389,13 @@ class _AdminAuditPageState extends State<AdminAuditPage> with RouteAware {
     );
   }
 
-  Widget _buildCards() {
+  Widget _buildCards({required bool pageScroll}) {
     return ListView.separated(
       key: const ValueKey<String>('audit-events-cards'),
-      controller: _scrollController,
+      controller: pageScroll ? null : _scrollController,
+      primary: false,
+      shrinkWrap: pageScroll,
+      physics: pageScroll ? const NeverScrollableScrollPhysics() : null,
       padding: const EdgeInsets.only(bottom: 4),
       itemCount: _events.length,
       separatorBuilder: (_, __) => const SizedBox(height: 10),

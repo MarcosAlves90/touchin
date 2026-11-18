@@ -45,6 +45,7 @@ void main() {
     await tester.pump();
     await tester.pump();
     expect(find.text('Acompanhar tarefas'), findsOneWidget);
+    expect(find.text('Sincronizando'), findsNothing);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.binding.setSurfaceSize(const Size(1200, 800));
     await tester.pumpWidget(MaterialApp(
@@ -96,6 +97,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey<String>('project-backlog-project-01')),
         findsOneWidget);
+    expect(
+        find.byKey(const ValueKey<String>('task-search-shared')), findsNothing);
+    expect(
+        find.byKey(const ValueKey<String>('backlog-search')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
   testWidgets('page header mobile Kanban geometry and board', (tester) async {
@@ -127,6 +132,10 @@ void main() {
       }
       final lane =
           find.byKey(const ValueKey<String>('kanban-column-scroll-column-01'));
+      final sectionGap = find.byKey(
+        const ValueKey<String>('kanban-section-gap-before-board'),
+      );
+      expect(tester.getSize(sectionGap).height, greaterThanOrEqualTo(8));
       expect(tester.getSize(lane).height, greaterThanOrEqualTo(100));
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
@@ -1273,6 +1282,51 @@ void main() {
     expect(find.text('Card 2'), findsOneWidget);
     expect(find.bySemanticsLabel('Correspondência da busca'), findsNothing);
     expect(find.text('Encontrado'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('compact Backlog ignores hidden Kanban search', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(MaterialApp(
+      home: ProjectKanbanPage(
+        api: _FakeKanbanApi(columnCount: 2, cardsPerColumn: 3),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('task-search-shared')),
+      '#1',
+    );
+    await tester.pumpAndSettle();
+    expect(find.textContaining('1 correspondência'), findsOneWidget);
+
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    await tester.pumpAndSettle();
+    final backlogButton = find.byTooltip('Backlog');
+    await tester.ensureVisible(backlogButton);
+    await tester.tap(backlogButton);
+    await tester.pumpAndSettle();
+    expect(
+        find.byKey(const ValueKey<String>('task-search-shared')), findsNothing);
+
+    final backlogSearch = find.byKey(const ValueKey<String>('backlog-search'));
+    expect(backlogSearch, findsOneWidget);
+    expect(find.text('6 de 6 cards'), findsOneWidget);
+    await tester.enterText(backlogSearch, 'Card 2');
+    await tester.pumpAndSettle();
+    expect(find.text('1 de 6 cards'), findsOneWidget);
+    final card2Label = find.byWidgetPredicate(
+      (widget) => widget is Text && widget.data == 'Card 2',
+    );
+    expect(card2Label, findsOneWidget);
+
+    await tester.enterText(backlogSearch, '');
+    await tester.pumpAndSettle();
+    expect(find.text('6 de 6 cards'), findsOneWidget);
+    expect(find.text('Implementar tela'), findsOneWidget);
+    expect(card2Label, findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
