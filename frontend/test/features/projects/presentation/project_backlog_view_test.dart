@@ -424,6 +424,54 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets(
+      'shared filtering disables Backlog reordering on mobile and desktop',
+      (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    for (final size in <Size>[
+      const Size(390, 844),
+      const Size(1440, 900),
+    ]) {
+      await tester.binding.setSurfaceSize(size);
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: ProjectBacklogView(
+            board: _board(hierarchical: true),
+            matchedCardIds: const <String>{'task-2'},
+            sharedSearchField: const TextField(
+              key: ValueKey<String>('task-search-shared'),
+            ),
+            sharedSearchQuery: '#2',
+            projectName: 'Projeto Alpha',
+            projectMembers: const <ProjectMemberSummary>[],
+            canManageStructure: false,
+            canManageCards: false,
+            canManageAssignees: false,
+            canMoveCards: true,
+            isBusy: false,
+            onManageColumns: () {},
+            onCreateColumn: () {},
+            onCreateCard: (_) {},
+            onMoveCard: (_, __, ___) {},
+            onEditCard: (_) {},
+            onDeleteCard: (_) {},
+            onManageAssignees: (_) {},
+            onOpenDetails: (_) {},
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      final table = tester.widget<DataTable>(find.byType(DataTable));
+      expect(table.rows, hasLength(1));
+      expect(
+          table.rows.single.key, const ValueKey<String>('backlog-card-task-2'));
+      expect(find.byTooltip('Mover #2 para baixo no Kanban'), findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    }
+  });
+
   testWidgets('shared search intersects the local Backlog query',
       (tester) async {
     await tester.binding.setSurfaceSize(const Size(1440, 900));

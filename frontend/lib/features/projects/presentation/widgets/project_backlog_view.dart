@@ -726,6 +726,7 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
       widget.canMoveCards &&
       _sort == 'kanban' &&
       _sortAscending &&
+      widget.matchedCardIds == null &&
       _query.isEmpty &&
       _status.isEmpty &&
       _assignee.isEmpty &&
