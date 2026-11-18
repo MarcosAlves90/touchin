@@ -4,6 +4,9 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   backend-tests:
     name: Backend tests
@@ -199,6 +202,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '24'
+
+      - name: Test case-insensitive CSP script extraction
+        working-directory: frontend
+        run: node test/browser/first_paint_html_parser_test.mjs
 
       - name: Validate POLIS policy and plan
         working-directory: .

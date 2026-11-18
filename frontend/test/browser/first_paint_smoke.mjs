@@ -83,6 +83,10 @@ async function waitFor(predicate, description, timeoutMs = 20000, intervalMs = 8
   throw new Error(`Timed out waiting for ${description}${lastError ? `: ${lastError.message}` : ''}`);
 }
 
+function extractInlineScripts(html) {
+  return [...html.matchAll(/<script>([\s\S]*?)<\/script>/gi)].map((match) => match[1]);
+}
+
 async function readCsp() {
   const config = JSON.parse(await readFile(configFile, 'utf8'));
   const permissionsPolicy = config.headers?.flatMap((rule) => rule.headers ?? [])
@@ -99,9 +103,13 @@ async function readCsp() {
   // script text is hashed for CSP. Flutter's Windows build emits CRLF, so
   // normalize the file first to match the browser's script input.
   const html = (await readFile(join(buildDir, 'index.html'), 'utf8')).replace(/\r\n?/g, '\n');
-  const inlineScripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((match) => match[1]);
+  const inlineScripts = extractInlineScripts(html);
   assert.equal(inlineScripts.length, 1, 'Expected exactly one synchronous inline theme bootstrap script');
-  assert.ok(html.indexOf('<script>') < html.indexOf('</head>'), 'Theme bootstrap must run synchronously in <head>');
+  const normalizedHtml = html.toLowerCase();
+  const inlineScriptStart = normalizedHtml.indexOf('<script>');
+  const headEnd = normalizedHtml.indexOf('</head>');
+  assert.ok(inlineScriptStart >= 0 && inlineScriptStart < headEnd,
+    'Theme bootstrap must run synchronously in <head>');
   assert.ok(!/theme_bootstrap\.js/i.test(html), 'Theme bootstrap must not be an external blocking request');
   const hash = createHash('sha256').update(inlineScripts[0]).digest('base64');
   assert.ok(csp.includes(`'sha256-${hash}'`), 'Production CSP script-src hash does not match built HTML');
@@ -983,7 +991,7 @@ async function smoke() {
 // Reuse the exact production-build server and Chrome transport in the
 // authenticated browser navigation regression without external npm packages.
 export { findChromeExecutable, waitFor, readCsp, serveBuild, startChrome, DevTools,
-  getButton, hasVisibleText, clickButton };
+  getButton, hasVisibleText, clickButton, extractInlineScripts };
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   smoke().catch((error) => {

@@ -38,8 +38,10 @@ class FieldCipher:
 
 
 def lookup_digest(value: str, secret: str) -> str:
+    """Return a keyed deterministic lookup digest; never use it for passwords."""
     return hmac.new(
         secret.encode("utf-8"),
+        # codeql[py/weak-sensitive-data-hashing] Passwords use PBKDF2; this keyed HMAC indexes normalized data and high-entropy tokens.
         value.encode("utf-8"),
         hashlib.sha256,
     ).hexdigest()
