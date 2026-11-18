@@ -18,6 +18,7 @@ class FakeTouchInApi extends TouchInApi {
   Object? secondPageError;
   Map<String, dynamic> lastParams = {};
   List<int> requestedPages = [];
+  Completer<List<AuditEventResponse>>? firstPageResponse;
   Completer<List<AuditEventResponse>>? secondPageResponse;
 
   @override
@@ -37,6 +38,9 @@ class FakeTouchInApi extends TouchInApi {
     if (firstError case final error?) {
       firstError = null;
       throw error;
+    }
+    if (page == 1 && firstPageResponse != null) {
+      return firstPageResponse!.future;
     }
     lastParams = {
       'page': page,
@@ -128,6 +132,39 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(BottomSheet), findsOneWidget);
   });
+
+  testWidgets('audit page scroll handles tablet loading and results',
+      (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.binding.setSurfaceSize(const Size(900, 800));
+    final response = Completer<List<AuditEventResponse>>();
+    final api = FakeTouchInApi()..firstPageResponse = response;
+    await tester.pumpWidget(MaterialApp(home: AdminAuditPage(api: api)));
+    expect(api.requestedPages, contains(1));
+    expect(tester.takeException(), isNull,
+        reason: 'audit_tablet_loading_layout');
+
+    response.complete([
+      AuditEventResponse(
+        id: 'tablet',
+        timestamp: DateTime.utc(2026),
+        companyId: 'company',
+        actorUserId: null,
+        projectId: null,
+        action: 'card.created',
+        entityType: 'card',
+        entityId: 'entity',
+        result: 'success',
+        metadataPayload: null,
+      ),
+    ]);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey<String>('audit-event-card-tablet')),
+        findsOneWidget);
+    expect(tester.takeException(), isNull,
+        reason: 'audit_tablet_results_layout');
+  });
+
   testWidgets('audit temporary completion notification', (tester) async {
     final api = FakeTouchInApi()..mockEvents = [AuditEventResponse(
       id: 'event', timestamp: DateTime.utc(2026), companyId: 'company',

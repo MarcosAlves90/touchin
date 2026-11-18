@@ -166,7 +166,7 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
                 key: const ValueKey<String>('kanban-section-gap-before-board'),
                 height: gap,
               ),
-              Expanded(child: _buildBoardContent()),
+              Expanded(child: _buildBoardContent(compact: isCompact)),
             ],
           ),
         );
@@ -380,7 +380,7 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
     );
   }
 
-  Widget _buildBoardContent() {
+  Widget _buildBoardContent({required bool compact}) {
     if (_controller.isLoadingBoard) {
       return const RepaintBoundary(
         child: _KanbanBoardSkeleton(),
@@ -399,18 +399,21 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
     }
 
     if (_showBacklog) {
+      final sharedSearchQuery = compact ? '' : _taskSearchText;
       final query =
-          TaskSearchQuery.parse(_taskSearchText, columns: board.columns);
-      final matchedCardIds = <String>{
-        for (final column in board.columns)
-          for (final card in column.cards)
-            if (query.matches(card, column)) card.id,
-      };
+          TaskSearchQuery.parse(sharedSearchQuery, columns: board.columns);
+      final matchedCardIds = compact
+          ? null
+          : <String>{
+              for (final column in board.columns)
+                for (final card in column.cards)
+                  if (query.matches(card, column)) card.id,
+            };
       final backlog = ProjectBacklogView(
         key: ValueKey<String>('project-backlog-${board.projectId}'),
         board: board,
         matchedCardIds: matchedCardIds,
-        sharedSearchQuery: _taskSearchText,
+        sharedSearchQuery: sharedSearchQuery,
         projectName: _controller.selectedProject?.name ?? '',
         projectMembers: _controller.projectMembers,
         canManageStructure: _controller.canManageStructure,

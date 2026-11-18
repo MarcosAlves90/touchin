@@ -717,7 +717,7 @@ class _AdminAuditPageState extends State<AdminAuditPage> with RouteAware {
       contentBuilder: (context, isWide) => LayoutBuilder(
         builder: (context, constraints) {
           final largeText = MediaQuery.textScalerOf(context).scale(1) > 1.3;
-          final compact = constraints.maxWidth < 860 || largeText;
+          final compact = constraints.maxWidth < 860 || !isWide || largeText;
           final pageScroll = !isWide || largeText;
           final header = Padding(
             padding: EdgeInsets.fromLTRB(
