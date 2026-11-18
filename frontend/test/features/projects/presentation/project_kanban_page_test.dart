@@ -55,6 +55,38 @@ void main() {
     expect(find.text('Acompanhar tarefas'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+  testWidgets('Backlog and shared filters stay visible during board refresh',
+      (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
+    final api = _ReloadGateKanbanApi(columnCount: 2, cardsPerColumn: 2);
+    await tester.pumpWidget(MaterialApp(home: ProjectKanbanPage(api: api)));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(ToggleButtons, 'Backlog'));
+    await tester.pumpAndSettle();
+    final search = find.byKey(const ValueKey<String>('task-search-shared'));
+    await tester.enterText(search, '#1');
+    await tester.pumpAndSettle();
+
+    final reloadGate = Completer<void>();
+    api.reloadGate = reloadGate;
+    await tester.tap(find.byTooltip('Atualizar quadro'));
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey<String>('project-backlog-project-01')),
+        findsOneWidget);
+    expect(find.byKey(const ValueKey<String>('workspace-task-filter-section')),
+        findsOneWidget);
+    expect(search, findsOneWidget);
+    expect(find.byKey(const ValueKey<String>('kanban-board-skeleton')),
+        findsNothing);
+    expect(tester.widget<TextField>(search).controller?.text, '#1');
+
+    reloadGate.complete();
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('page header enlarged text remains visible and actions work',
       (tester) async {
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -69,6 +101,7 @@ void main() {
           api: _FakeKanbanApi(columnCount: 3, cardsPerColumn: 0)),
     ));
     await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull, reason: 'initial render');
     final title = find.text('Acompanhar tarefas');
     expect(title, findsOneWidget, reason: 'page_header_mobile');
     final scrollable =
@@ -97,10 +130,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey<String>('project-backlog-project-01')),
         findsOneWidget);
-    expect(
-        find.byKey(const ValueKey<String>('task-search-shared')), findsNothing);
-    expect(
-        find.byKey(const ValueKey<String>('backlog-search')), findsOneWidget);
+    expect(find.byKey(const ValueKey<String>('task-search-shared')),
+        findsOneWidget);
+    expect(find.byKey(const ValueKey<String>('backlog-search')), findsNothing);
     expect(tester.takeException(), isNull);
   });
   testWidgets('page header mobile Kanban geometry and board', (tester) async {
@@ -1251,6 +1283,11 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
+    expect(
+      find.byKey(const ValueKey<String>('workspace-task-filter-section')),
+      findsOneWidget,
+    );
+    expect(find.text('Filtros do projeto'), findsOneWidget);
     final search = find.byKey(const ValueKey<String>('task-search-shared'));
     await tester.enterText(search, '#1');
     await tester.pumpAndSettle();
@@ -1259,7 +1296,14 @@ void main() {
 
     await tester.tap(find.text('Backlog'));
     await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey<String>('workspace-task-filter-section')),
+      findsOneWidget,
+    );
     expect(tester.widget<TextField>(search).controller!.text, '#1');
+    expect(find.byKey(const ValueKey<String>('backlog-search')), findsNothing);
+    expect(find.byKey(const ValueKey<String>('task-search-shared')),
+        findsOneWidget);
     expect(find.text('1 de 6 cards'), findsOneWidget);
     expect(find.text('Implementar tela'), findsOneWidget);
     expect(find.text('Card 2'), findsNothing);
@@ -1285,7 +1329,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('compact Backlog ignores hidden Kanban search', (tester) async {
+  testWidgets('mobile Backlog uses the shared project filter', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1440, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(MaterialApp(
@@ -1295,10 +1339,9 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    await tester.enterText(
-      find.byKey(const ValueKey<String>('task-search-shared')),
-      '#1',
-    );
+    final sharedSearch =
+        find.byKey(const ValueKey<String>('task-search-shared'));
+    await tester.enterText(sharedSearch, '#1');
     await tester.pumpAndSettle();
     expect(find.textContaining('1 correspondência'), findsOneWidget);
 
@@ -1308,25 +1351,24 @@ void main() {
     await tester.ensureVisible(backlogButton);
     await tester.tap(backlogButton);
     await tester.pumpAndSettle();
+
     expect(
-        find.byKey(const ValueKey<String>('task-search-shared')), findsNothing);
-
-    final backlogSearch = find.byKey(const ValueKey<String>('backlog-search'));
-    expect(backlogSearch, findsOneWidget);
-    expect(find.text('6 de 6 cards'), findsOneWidget);
-    await tester.enterText(backlogSearch, 'Card 2');
-    await tester.pumpAndSettle();
-    expect(find.text('1 de 6 cards'), findsOneWidget);
-    final card2Label = find.byWidgetPredicate(
-      (widget) => widget is Text && widget.data == 'Card 2',
+      find.byKey(const ValueKey<String>('workspace-task-filter-section')),
+      findsOneWidget,
     );
-    expect(card2Label, findsOneWidget);
+    expect(sharedSearch, findsOneWidget);
+    expect(tester.widget<TextField>(sharedSearch).controller!.text, '#1');
+    expect(find.byKey(const ValueKey<String>('backlog-search')), findsNothing);
+    expect(find.text('1 de 6 cards'), findsOneWidget);
+    expect(find.text('Implementar tela'), findsOneWidget);
+    expect(find.text('Card 2'), findsNothing);
 
-    await tester.enterText(backlogSearch, '');
+    await tester.tap(find.byKey(const ValueKey<String>('task-search-clear')));
     await tester.pumpAndSettle();
+    expect(tester.widget<TextField>(sharedSearch).controller!.text, isEmpty);
     expect(find.text('6 de 6 cards'), findsOneWidget);
     expect(find.text('Implementar tela'), findsOneWidget);
-    expect(card2Label, findsOneWidget);
+    expect(find.text('Card 2'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -1497,6 +1539,66 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('initial page skeleton matches the loaded board layout',
+      (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    for (final size in <Size>[
+      const Size(320, 540),
+      const Size(1440, 900),
+    ]) {
+      await tester.binding.setSurfaceSize(size);
+      final api = _DelayedProjectsKanbanApi();
+      addTearDown(() {
+        if (!api.projectsGate.isCompleted) api.projectsGate.complete();
+      });
+      await tester.pumpWidget(MaterialApp(
+        home: ProjectKanbanPage(api: api),
+      ));
+      await tester.pump();
+      await tester.pump();
+
+      final pageSkeleton =
+          find.byKey(const ValueKey<String>('kanban-page-skeleton'));
+      final hasOverview = find
+          .byKey(const ValueKey<String>('kanban-project-overview'))
+          .evaluate()
+          .isNotEmpty;
+      final hasFilterSection = find
+          .byKey(const ValueKey<String>('workspace-task-filter-section'))
+          .evaluate()
+          .isNotEmpty;
+      final skeletonTheme = Theme.of(tester.element(pageSkeleton));
+      final laneColor = skeletonTheme.colorScheme.surfaceContainerHighest
+          .withValues(alpha: 0.32);
+      final skeletonLanes = find.descendant(
+        of: pageSkeleton,
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is DecoratedBox &&
+              widget.decoration is BoxDecoration &&
+              (widget.decoration as BoxDecoration).color == laneColor,
+        ),
+      );
+      final skeletonLaneWidth = tester.getSize(skeletonLanes.first).width;
+
+      api.projectsGate.complete();
+      await tester.pumpAndSettle();
+      final loadedBoard = tester.widget<ProjectKanbanBoard>(
+        find.byType(ProjectKanbanBoard),
+      );
+      final loadedLaneWidth = tester
+          .getSize(find.byKey(ValueKey<String>(
+            'kanban-column-${loadedBoard.board.columns.first.id}',
+          )))
+          .width;
+
+      expect(hasOverview, isTrue);
+      expect(hasFilterSection, isTrue);
+      expect(skeletonLaneWidth, closeTo(loadedLaneWidth, 1));
+      await tester.pumpWidget(const SizedBox.shrink());
+    }
+  });
+
   testWidgets('shows static board skeletons while the project snapshot loads', (
     tester,
   ) async {
@@ -1537,6 +1639,22 @@ void main() {
     }
     expect(find.byType(ProjectKanbanBoard), findsNothing);
     expect(find.byType(CircularProgressIndicator), findsNothing);
+    final skeletonTheme = Theme.of(tester.element(
+      find.byKey(const ValueKey<String>('kanban-board-skeleton')),
+    ));
+    final laneColor = skeletonTheme.colorScheme.surfaceContainerHighest
+        .withValues(alpha: 0.32);
+    final laneSkeletons = find.descendant(
+      of: find.byKey(const ValueKey<String>('kanban-board-skeleton')),
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is DecoratedBox &&
+            widget.decoration is BoxDecoration &&
+            (widget.decoration as BoxDecoration).color == laneColor,
+      ),
+    );
+    expect(laneSkeletons, findsAtLeastNWidgets(1));
+    final skeletonLaneWidth = tester.getSize(laneSkeletons.first).width;
 
     boardGate.complete();
     await tester.pumpAndSettle();
@@ -1546,6 +1664,18 @@ void main() {
       findsNothing,
     );
     expect(find.byType(ProjectKanbanBoard), findsOneWidget);
+    final loadedBoard = tester.widget<ProjectKanbanBoard>(
+      find.byType(ProjectKanbanBoard),
+    );
+    final loadedLaneWidth = tester
+        .getSize(
+          find.byKey(ValueKey<String>(
+            'kanban-column-${loadedBoard.board.columns.first.id}',
+          )),
+        )
+        .width;
+    expect(skeletonLaneWidth, closeTo(loadedLaneWidth, 1),
+        reason: 'Kanban skeleton lanes should match loaded column widths');
     expect(tester.takeException(), isNull);
   });
 
@@ -2665,6 +2795,22 @@ class _FakeKanbanApi extends TouchInApi {
       return 'Implementar tela';
     }
     return 'Card ${columnIndex * cardsPerColumn + cardIndex + 1}';
+  }
+}
+
+class _ReloadGateKanbanApi extends _FakeKanbanApi {
+  _ReloadGateKanbanApi({
+    required super.columnCount,
+    required super.cardsPerColumn,
+  });
+
+  Completer<void>? reloadGate;
+
+  @override
+  Future<KanbanBoard> getKanbanBoard(String projectId) async {
+    final gate = reloadGate;
+    if (gate != null) await gate.future;
+    return super.getKanbanBoard(projectId);
   }
 }
 

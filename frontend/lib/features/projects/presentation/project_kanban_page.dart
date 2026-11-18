@@ -11,6 +11,7 @@ import 'package:touchin_flutter/features/projects/presentation/widgets/task_edit
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_editor_dialog.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_instant_select_field.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_skeleton.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_toolbar.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
 
 class ProjectKanbanPage extends StatefulWidget {
@@ -107,12 +108,17 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
                     ]))));
     if (_controller.isLoading) {
       return withMobileHeader(LayoutBuilder(
-        builder: (context, constraints) => SingleChildScrollView(
-          child: SizedBox(
-            height: constraints.maxHeight < 500 ? 500 : constraints.maxHeight,
-            child: const _KanbanPageSkeleton(),
-          ),
-        ),
+        builder: (context, constraints) {
+          final enlarged = MediaQuery.textScalerOf(context).scale(1) > 1;
+          final pageHeight =
+              constraints.maxHeight < 500 ? 500.0 : constraints.maxHeight;
+          return SingleChildScrollView(
+            child: SizedBox(
+              height: pageHeight + (enlarged ? 180 : 0),
+              child: const _KanbanPageSkeleton(),
+            ),
+          );
+        },
       ));
     }
 
@@ -153,20 +159,23 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
             children: <Widget>[
               ConstrainedBox(
                 constraints: BoxConstraints(
-                    maxHeight: (constraints.maxHeight - 440).clamp(
-                        enlarged ? 280.0 : 40.0, enlarged ? 360.0 : 260.0)),
+                  maxHeight: (constraints.maxHeight - 520).clamp(
+                    enlarged ? 180.0 : 40.0,
+                    enlarged ? 280.0 : 220.0,
+                  ),
+                ),
                 child: SingleChildScrollView(
                   child: _buildProjectOverview(compact: isCompact),
                 ),
               ),
               SizedBox(height: gap),
-              if (!_showBacklog || !isCompact)
-                _buildTaskSearch(_controller.board),
+              if (!_showBacklog || _controller.board == null)
+                _buildTaskFilterSection(_controller.board),
               SizedBox(
                 key: const ValueKey<String>('kanban-section-gap-before-board'),
                 height: gap,
               ),
-              Expanded(child: _buildBoardContent(compact: isCompact)),
+              Expanded(child: _buildBoardContent()),
             ],
           ),
         );
@@ -267,6 +276,14 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
       ],
     );
   }
+
+  Widget _buildTaskFilterSection(KanbanBoard? board) => WorkspaceFilterSection(
+        key: const ValueKey<String>('workspace-task-filter-section'),
+        surfaceKey: const ValueKey<String>('kanban-filter-toolbar'),
+        title: 'Filtros do projeto',
+        description: 'Encontre e organize as tarefas do projeto',
+        searchField: _buildTaskSearch(board),
+      );
 
   Widget _buildTaskSearch(KanbanBoard? board) {
     final columns = board?.columns ?? const <KanbanColumn>[];
@@ -380,8 +397,8 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
     );
   }
 
-  Widget _buildBoardContent({required bool compact}) {
-    if (_controller.isLoadingBoard) {
+  Widget _buildBoardContent() {
+    if (_controller.isLoadingBoard && _controller.board == null) {
       return const RepaintBoundary(
         child: _KanbanBoardSkeleton(),
       );
@@ -399,20 +416,21 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
     }
 
     if (_showBacklog) {
-      final sharedSearchQuery = compact ? '' : _taskSearchText;
+      final sharedSearchQuery = _taskSearchText;
       final query =
           TaskSearchQuery.parse(sharedSearchQuery, columns: board.columns);
-      final matchedCardIds = compact
-          ? null
-          : <String>{
+      final matchedCardIds = query.isActive
+          ? <String>{
               for (final column in board.columns)
                 for (final card in column.cards)
                   if (query.matches(card, column)) card.id,
-            };
+            }
+          : null;
       final backlog = ProjectBacklogView(
         key: ValueKey<String>('project-backlog-${board.projectId}'),
         board: board,
         matchedCardIds: matchedCardIds,
+        sharedSearchField: _buildTaskSearch(board),
         sharedSearchQuery: sharedSearchQuery,
         projectName: _controller.selectedProject?.name ?? '',
         projectMembers: _controller.projectMembers,
@@ -923,26 +941,121 @@ class _KanbanPageSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const WorkspaceSkeletonRegion(
-      key: ValueKey<String>('kanban-page-skeleton'),
-      label: 'Carregando Kanban',
-      child: Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 600;
+        final wide = constraints.maxWidth >= 980;
+        final horizontalPadding = compact ? 10.0 : (wide ? 28.0 : 16.0);
+        final verticalPadding = compact ? 8.0 : 14.0;
+        final gap = compact ? 8.0 : 12.0;
+        final enlarged = MediaQuery.textScalerOf(context).scale(1) > 1;
+        return WorkspaceSkeletonRegion(
+          key: const ValueKey<String>('kanban-page-skeleton'),
+          label: 'Carregando Kanban',
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              horizontalPadding,
+              compact ? 4 : verticalPadding,
+              horizontalPadding,
+              compact ? 0 : verticalPadding,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
-                WorkspaceSkeleton(width: 148, height: 20),
-                Spacer(),
-                WorkspaceSkeleton(width: 112, height: 30),
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: (constraints.maxHeight - 520).clamp(
+                      enlarged ? 180.0 : 40.0,
+                      enlarged ? 280.0 : 220.0,
+                    ),
+                  ),
+                  child: SingleChildScrollView(
+                    child: _KanbanProjectOverviewSkeleton(compact: compact),
+                  ),
+                ),
+                SizedBox(height: gap),
+                WorkspaceFilterSection(
+                  key: const ValueKey<String>(
+                    'workspace-task-filter-section',
+                  ),
+                  surfaceKey: const ValueKey<String>('kanban-filter-toolbar'),
+                  title: 'Filtros do projeto',
+                  description: 'Encontre e organize as tarefas do projeto',
+                  searchField: const WorkspaceSkeleton(height: 48),
+                ),
+                SizedBox(height: gap),
+                const Expanded(child: _KanbanBoardSkeletonBody()),
               ],
             ),
-            SizedBox(height: 12),
-            Expanded(child: _KanbanBoardSkeletonBody()),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _KanbanProjectOverviewSkeleton extends StatelessWidget {
+  const _KanbanProjectOverviewSkeleton({required this.compact});
+
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        Row(
+          children: <Widget>[
+            for (var index = 0; index < 3; index++) ...<Widget>[
+              if (index > 0) const SizedBox(width: 8),
+              const Expanded(
+                child: WorkspaceSkeleton(
+                  height: 42,
+                  radius: BorderRadius.all(Radius.circular(10)),
+                ),
+              ),
+            ],
           ],
         ),
-      ),
+        const SizedBox(height: 8),
+        Material(
+          key: const ValueKey<String>('kanban-project-overview'),
+          color: colors.surfaceContainerHighest.withValues(alpha: 0.28),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: colors.outlineVariant),
+          ),
+          child: Padding(
+            padding: EdgeInsets.all(compact ? 8 : 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                Row(
+                  children: <Widget>[
+                    const Expanded(child: WorkspaceSkeleton(height: 52)),
+                    const SizedBox(width: 8),
+                    WorkspaceSkeleton(
+                      width: 52,
+                      height: 52,
+                      radius: BorderRadius.circular(12),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: WorkspaceSkeleton(
+                    width: compact ? 104 : 196,
+                    height: 50,
+                    radius: BorderRadius.circular(8),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -954,11 +1067,11 @@ class _KanbanBoardSkeletonBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final laneCount = constraints.maxWidth >= 1050
-            ? 3
-            : constraints.maxWidth >= 680
-                ? 2
-                : 1;
+        final laneWidth = ProjectKanbanBoard.laneWidthFor(constraints.maxWidth);
+        final laneExtent = laneWidth + ProjectKanbanBoard.laneGap;
+        final laneCount = constraints.maxWidth <= 0
+            ? 1
+            : (constraints.maxWidth / laneExtent).ceil();
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
@@ -971,17 +1084,23 @@ class _KanbanBoardSkeletonBody extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Expanded(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: List<Widget>.generate(laneCount, (index) {
-                  return Expanded(
-                    child: Padding(
-                      padding: EdgeInsets.only(
-                          right: index == laneCount - 1 ? 0 : 12),
-                      child: _KanbanLaneSkeleton(index: index),
-                    ),
-                  );
-                }),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                physics: const NeverScrollableScrollPhysics(),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: List<Widget>.generate(laneCount, (index) {
+                    return Padding(
+                      padding: const EdgeInsets.only(
+                        right: ProjectKanbanBoard.laneGap,
+                      ),
+                      child: SizedBox(
+                        width: laneWidth,
+                        child: _KanbanLaneSkeleton(index: index),
+                      ),
+                    );
+                  }),
+                ),
               ),
             ),
           ],

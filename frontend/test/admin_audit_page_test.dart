@@ -123,12 +123,14 @@ void main() {
     tester.view.physicalSize = const Size(1200, 1000);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(MaterialApp(home: AdminAuditPage(api: FakeTouchInApi())));
+    await tester
+        .pumpWidget(MaterialApp(home: AdminAuditPage(api: FakeTouchInApi())));
     await tester.pumpAndSettle();
     final scroll = find.byKey(const ValueKey<String>('audit-header-scroll'));
     final heading = find.text('Eventos de auditoria');
     expect(tester.getTopLeft(heading).dx - tester.getTopLeft(scroll).dx, 32);
-    await tester.tap(find.byKey(const ValueKey<String>('audit-filters-button')));
+    await tester
+        .tap(find.byKey(const ValueKey<String>('audit-filters-button')));
     await tester.pumpAndSettle();
     expect(find.byType(BottomSheet), findsOneWidget);
   });
@@ -165,13 +167,68 @@ void main() {
         reason: 'audit_tablet_results_layout');
   });
 
+  testWidgets('desktop audit loading table matches loaded table width',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final response = Completer<List<AuditEventResponse>>();
+    final api = FakeTouchInApi()..firstPageResponse = response;
+    await tester.pumpWidget(MaterialApp(home: AdminAuditPage(api: api)));
+    await tester.pump();
+
+    final skeleton =
+        find.byKey(const ValueKey<String>('audit-loading-skeleton'));
+    expect(skeleton, findsOneWidget);
+    final skeletonHeader = find
+        .descendant(
+          of: skeleton,
+          matching: find.byType(Container),
+        )
+        .first;
+    final skeletonWidth = tester.getSize(skeletonHeader).width;
+
+    response.complete([
+      AuditEventResponse(
+        id: 'desktop-width',
+        timestamp: DateTime.utc(2026),
+        companyId: 'company',
+        actorUserId: null,
+        projectId: null,
+        action: 'card.created',
+        entityType: 'card',
+        entityId: 'entity',
+        result: 'success',
+        metadataPayload: null,
+      ),
+    ]);
+    await tester.pumpAndSettle();
+
+    final loadedWidth = tester
+        .getSize(
+          find.byKey(const ValueKey<String>('audit-events-table')),
+        )
+        .width;
+    expect(skeletonWidth, closeTo(loadedWidth, 1),
+        reason: 'desktop audit skeleton should match the loaded table width');
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('audit temporary completion notification', (tester) async {
-    final api = FakeTouchInApi()..mockEvents = [AuditEventResponse(
-      id: 'event', timestamp: DateTime.utc(2026), companyId: 'company',
-      actorUserId: null, projectId: null, action: 'card.created',
-      entityType: 'card', entityId: 'entity', result: 'success',
-      metadataPayload: null,
-    )];
+    final api = FakeTouchInApi()
+      ..mockEvents = [
+        AuditEventResponse(
+          id: 'event',
+          timestamp: DateTime.utc(2026),
+          companyId: 'company',
+          actorUserId: null,
+          projectId: null,
+          action: 'card.created',
+          entityType: 'card',
+          entityId: 'entity',
+          result: 'success',
+          metadataPayload: null,
+        )
+      ];
     await tester.pumpWidget(MaterialApp(home: AdminAuditPage(api: api)));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
@@ -179,9 +236,11 @@ void main() {
         reason: 'audit_temporary_notification');
     expect(find.text('Todos os eventos carregados.'), findsOneWidget);
     final semantics = tester.ensureSemantics();
-    expect(find.bySemanticsLabel('Todos os eventos carregados.'), findsOneWidget);
+    expect(
+        find.bySemanticsLabel('Todos os eventos carregados.'), findsOneWidget);
     semantics.dispose();
-    expect(find.byKey(const ValueKey<String>('audit-end-of-list')), findsNothing);
+    expect(
+        find.byKey(const ValueKey<String>('audit-end-of-list')), findsNothing);
     await tester.pump(const Duration(milliseconds: 300));
     await tester.pump(const Duration(seconds: 5));
     await tester.pumpAndSettle();
@@ -190,8 +249,12 @@ void main() {
 
   testWidgets('audit completion suppressed for empty and error responses',
       (tester) async {
-    for (final api in [FakeTouchInApi(), FakeTouchInApi()..firstError = Exception()]) {
-      await tester.pumpWidget(MaterialApp(key: UniqueKey(), home: AdminAuditPage(api: api)));
+    for (final api in [
+      FakeTouchInApi(),
+      FakeTouchInApi()..firstError = Exception()
+    ]) {
+      await tester.pumpWidget(
+          MaterialApp(key: UniqueKey(), home: AdminAuditPage(api: api)));
       await tester.pumpAndSettle();
       expect(find.text('Todos os eventos carregados.'), findsNothing);
       expect(find.byType(SnackBar), findsNothing);
@@ -204,28 +267,38 @@ void main() {
       for (final mobile in [false, true]) {
         await tester.binding.setSurfaceSize(Size(mobile ? 390 : 1280, 800));
         final api = FakeTouchInApi()
-          ..mockEvents = [AuditEventResponse(
-            id: 'rounded', timestamp: DateTime.utc(2026), companyId: 'company',
-            actorUserId: null, projectId: null, action: 'card.created',
-            entityType: 'card', entityId: 'entity', result: 'success',
-            metadataPayload: null,
-          )];
-        await tester.pumpWidget(MaterialApp(key: UniqueKey(), theme: theme,
-            home: AdminAuditPage(api: api)));
+          ..mockEvents = [
+            AuditEventResponse(
+              id: 'rounded',
+              timestamp: DateTime.utc(2026),
+              companyId: 'company',
+              actorUserId: null,
+              projectId: null,
+              action: 'card.created',
+              entityType: 'card',
+              entityId: 'entity',
+              result: 'success',
+              metadataPayload: null,
+            )
+          ];
+        await tester.pumpWidget(MaterialApp(
+            key: UniqueKey(), theme: theme, home: AdminAuditPage(api: api)));
         await tester.pumpAndSettle();
         expect(api.requestedPages, contains(1));
-        final event = find.byKey(ValueKey<String>(mobile
-            ? 'audit-event-card-rounded' : 'audit-event-row-rounded'));
+        final event = find.byKey(ValueKey<String>(
+            mobile ? 'audit-event-card-rounded' : 'audit-event-row-rounded'));
         expect(event, findsOneWidget);
         if (!mobile) {
-          final table = tester.widget<Container>(find.byKey(
-              const ValueKey<String>('audit-events-table')));
+          final table = tester.widget<Container>(
+              find.byKey(const ValueKey<String>('audit-events-table')));
           expect((table.decoration! as BoxDecoration).borderRadius,
-              BorderRadius.circular(12), reason: 'audit_outer_surface_radius');
+              BorderRadius.circular(12),
+              reason: 'audit_outer_surface_radius');
           expect(table.clipBehavior, isNot(Clip.none),
               reason: 'audit_outer_surface_radius');
         }
-        expect(find.byKey(const ValueKey<String>('audit-end-of-list')), findsNothing);
+        expect(find.byKey(const ValueKey<String>('audit-end-of-list')),
+            findsNothing);
         await tester.ensureVisible(event);
         await tester.pumpAndSettle();
         await tester.tap(event);
@@ -235,7 +308,8 @@ void main() {
       }
     }
   });
-  testWidgets('compact audit skeleton cards have rounded corners and full width',
+  testWidgets(
+      'compact audit skeleton cards have rounded corners and full width',
       (tester) async {
     tester.view.physicalSize = const Size(360, 760);
     tester.view.devicePixelRatio = 1;
@@ -480,10 +554,12 @@ void main() {
               of: find.byKey(const ValueKey<String>('audit-events-table')),
               matching: find.byType(Scrollable),
             )
-          : find.descendant(
-              of: find.byKey(const ValueKey<String>('audit-page-scroll')),
-              matching: find.byType(Scrollable),
-            ).first;
+          : find
+              .descendant(
+                of: find.byKey(const ValueKey<String>('audit-page-scroll')),
+                matching: find.byType(Scrollable),
+              )
+              .first;
       await tester.scrollUntilVisible(
         unknown,
         200,
@@ -610,22 +686,28 @@ void main() {
     final list = tester.widget<ListView>(find.byType(ListView));
     final delegate = list.childrenDelegate as SliverChildBuilderDelegate;
     expect(delegate.estimatedChildCount, 51);
-    expect(find.byKey(const ValueKey<String>('audit-end-of-list')), findsNothing);
+    expect(
+        find.byKey(const ValueKey<String>('audit-end-of-list')), findsNothing);
     expect(find.text('Todos os eventos carregados.'), findsOneWidget);
   });
 
-  testWidgets('covered audit route does not announce on return', (tester) async {
+  testWidgets('covered audit route does not announce on return',
+      (tester) async {
     await tester.binding.setSurfaceSize(const Size(1200, 760));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final api = FakeTouchInApi()
       ..mockEvents = List.generate(50, pageEvent)
       ..secondPageResponse = Completer<List<AuditEventResponse>>();
     final nav = GlobalKey<NavigatorState>();
-    await tester.pumpWidget(MaterialApp(navigatorKey: nav, navigatorObservers: [RouteObserver<ModalRoute<dynamic>>()], home: AdminAuditPage(api: api)));
+    await tester.pumpWidget(MaterialApp(
+        navigatorKey: nav,
+        navigatorObservers: [RouteObserver<ModalRoute<dynamic>>()],
+        home: AdminAuditPage(api: api)));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Carregar mais eventos'));
     await tester.pump();
-    nav.currentState!.push(MaterialPageRoute<void>(builder: (_) => const Scaffold(body: Text('Other route'))));
+    nav.currentState!.push(MaterialPageRoute<void>(
+        builder: (_) => const Scaffold(body: Text('Other route'))));
     await tester.pumpAndSettle();
     api.secondPageResponse!.complete([pageEvent(50)]);
     await tester.pumpAndSettle();
@@ -636,17 +718,21 @@ void main() {
     expect(find.text('Todos os eventos carregados.'), findsNothing);
   });
 
-  testWidgets('queued completion stays suppressed after route push and pop', (tester) async {
+  testWidgets('queued completion stays suppressed after route push and pop',
+      (tester) async {
     await tester.binding.setSurfaceSize(const Size(1200, 760));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final api = FakeTouchInApi()..mockEvents = List.generate(51, pageEvent);
     final nav = GlobalKey<NavigatorState>();
-    await tester.pumpWidget(MaterialApp(navigatorKey: nav, navigatorObservers: [RouteObserver<ModalRoute<dynamic>>()], home: AdminAuditPage(api: api)));
+    await tester.pumpWidget(MaterialApp(
+        navigatorKey: nav,
+        navigatorObservers: [RouteObserver<ModalRoute<dynamic>>()],
+        home: AdminAuditPage(api: api)));
     await tester.pumpAndSettle();
-    final messenger = ScaffoldMessenger.of(tester.element(
-        find.byKey(const ValueKey<String>('audit-filters-button'))));
+    final messenger = ScaffoldMessenger.of(tester
+        .element(find.byKey(const ValueKey<String>('audit-filters-button'))));
     final other = messenger.showSnackBar(const SnackBar(
-      duration: Duration(minutes: 1), content: Text('Other message')));
+        duration: Duration(minutes: 1), content: Text('Other message')));
     await tester.pumpAndSettle();
     final loadMore = tester.widget<OutlinedButton>(
         find.byKey(const ValueKey<String>('audit-load-more')));
@@ -656,7 +742,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(api.requestedPages, [1, 2]);
     expect(find.text('Other message'), findsOneWidget);
-    nav.currentState!.push(MaterialPageRoute<void>(builder: (_) => const Scaffold(body: Text('Other route'))));
+    nav.currentState!.push(MaterialPageRoute<void>(
+        builder: (_) => const Scaffold(body: Text('Other route'))));
     await tester.pumpAndSettle();
     nav.currentState!.pop();
     await tester.pumpAndSettle();
@@ -667,16 +754,20 @@ void main() {
         reason: 'queued_route_stale_completion');
   });
 
-  testWidgets('same-frame push and pop suppresses queued completion', (tester) async {
+  testWidgets('same-frame push and pop suppresses queued completion',
+      (tester) async {
     await tester.binding.setSurfaceSize(const Size(1200, 760));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final api = FakeTouchInApi()..mockEvents = List.generate(51, pageEvent);
     final nav = GlobalKey<NavigatorState>();
-    await tester.pumpWidget(MaterialApp(navigatorKey: nav, navigatorObservers: [RouteObserver<ModalRoute<dynamic>>()], home: AdminAuditPage(api: api)));
+    await tester.pumpWidget(MaterialApp(
+        navigatorKey: nav,
+        navigatorObservers: [RouteObserver<ModalRoute<dynamic>>()],
+        home: AdminAuditPage(api: api)));
     await tester.pumpAndSettle();
     final semantics = tester.ensureSemantics();
-    final messenger = ScaffoldMessenger.of(tester.element(
-        find.byKey(const ValueKey<String>('audit-filters-button'))));
+    final messenger = ScaffoldMessenger.of(tester
+        .element(find.byKey(const ValueKey<String>('audit-filters-button'))));
     final other = messenger.showSnackBar(const SnackBar(
         duration: Duration(minutes: 1), content: Text('Other message')));
     await tester.pumpAndSettle();
@@ -708,10 +799,11 @@ void main() {
     await tester.pumpAndSettle();
     await tester.pump(const Duration(seconds: 5));
     await tester.pumpAndSettle();
-    final messenger = ScaffoldMessenger.of(tester.element(
-        find.byKey(const ValueKey<String>('audit-filters-button'))));
+    final messenger = ScaffoldMessenger.of(tester
+        .element(find.byKey(const ValueKey<String>('audit-filters-button'))));
     messenger.showSnackBar(const SnackBar(
-      duration: Duration(minutes: 1), content: Text('Unrelated notification')));
+        duration: Duration(minutes: 1),
+        content: Text('Unrelated notification')));
     await tester.pumpAndSettle();
     await openAuditFilters(tester);
     await applyAuditFilters(tester);
@@ -719,16 +811,17 @@ void main() {
         reason: 'audit_preserves_unrelated_snackbar');
   });
 
-  testWidgets('refresh suppresses completion queued behind another snackbar', (tester) async {
+  testWidgets('refresh suppresses completion queued behind another snackbar',
+      (tester) async {
     await tester.binding.setSurfaceSize(const Size(1200, 760));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final api = FakeTouchInApi()..mockEvents = List.generate(51, pageEvent);
     await tester.pumpWidget(MaterialApp(home: AdminAuditPage(api: api)));
     await tester.pumpAndSettle();
-    final messenger = ScaffoldMessenger.of(tester.element(
-        find.byKey(const ValueKey<String>('audit-filters-button'))));
+    final messenger = ScaffoldMessenger.of(tester
+        .element(find.byKey(const ValueKey<String>('audit-filters-button'))));
     final other = messenger.showSnackBar(const SnackBar(
-      duration: Duration(minutes: 1), content: Text('Other message')));
+        duration: Duration(minutes: 1), content: Text('Other message')));
     await tester.pumpAndSettle();
     final loadMore = tester.widget<OutlinedButton>(
         find.byKey(const ValueKey<String>('audit-load-more')));
@@ -748,7 +841,8 @@ void main() {
   });
 
   for (final changeFocus in [false, true]) {
-    testWidgets('keyboard retry respects focus change: $changeFocus', (tester) async {
+    testWidgets('keyboard retry respects focus change: $changeFocus',
+        (tester) async {
       await tester.binding.setSurfaceSize(const Size(1200, 760));
       addTearDown(() => tester.binding.setSurfaceSize(null));
       final outside = FocusNode();
@@ -756,8 +850,8 @@ void main() {
       final api = FakeTouchInApi()
         ..mockEvents = List.generate(51, pageEvent)
         ..secondPageError = Exception('offline');
-      await tester.pumpWidget(MaterialApp(home: Focus(
-        focusNode: outside, child: AdminAuditPage(api: api))));
+      await tester.pumpWidget(MaterialApp(
+          home: Focus(focusNode: outside, child: AdminAuditPage(api: api))));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Carregar mais eventos'));
       await tester.pumpAndSettle();

@@ -163,6 +163,42 @@ void main() {
     final label = brightness.name;
     ThemeData theme() => _testTheme(brightness);
 
+    testWidgets('$label collapsed rail highlights the active destination',
+        (tester) async {
+      final data = theme();
+      await tester.binding.setSurfaceSize(const Size(88, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(MaterialApp(
+        theme: data,
+        home: Scaffold(
+          body: SizedBox(
+            width: 88,
+            height: 900,
+            child: WorkspaceNavigationPanel(
+              collapsed: true,
+              currentRoute: '/kanban',
+              onToggleCollapse: () {},
+            ),
+          ),
+        ),
+      ));
+
+      final indicator = find.byKey(
+        const ValueKey<String>('workspace-navigation-active-indicator'),
+      );
+      expect(indicator, findsOneWidget);
+      expect(tester.getSize(indicator), const Size(3, 24));
+      expect(
+        (tester.widget<AnimatedContainer>(indicator).decoration!
+                as BoxDecoration)
+            .color,
+        WorkspaceNavigationColors.of(data).focusRing,
+      );
+      expect(find.byTooltip('Kanban'), findsOneWidget);
+      expect(find.bySemanticsLabel('Kanban'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
     test('$label navigation tokens meet WCAG AA against composed surfaces', () {
       final data = theme();
       final navigation = WorkspaceNavigationColors.of(data);
