@@ -621,10 +621,10 @@ class AuditLoadingSkeleton extends StatelessWidget {
       label: 'Carregando eventos de auditoria',
       child: Padding(
         key: const ValueKey<String>('audit-loading-skeleton'),
-        padding:
-            EdgeInsets.fromLTRB(compact ? 16 : 24, 4, compact ? 16 : 24, 18),
+        padding: EdgeInsets.fromLTRB(compact ? 0 : 24, 4, compact ? 0 : 24, 18),
         child: compact
             ? ListView.separated(
+                shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: 4,
                 separatorBuilder: (_, __) => const SizedBox(height: 10),

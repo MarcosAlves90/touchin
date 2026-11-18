@@ -45,6 +45,7 @@ void main() {
     await tester.pump();
     await tester.pump();
     expect(find.text('Acompanhar tarefas'), findsOneWidget);
+    expect(find.text('Sincronizando'), findsNothing);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.binding.setSurfaceSize(const Size(1200, 800));
     await tester.pumpWidget(MaterialApp(
@@ -96,6 +97,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey<String>('project-backlog-project-01')),
         findsOneWidget);
+    expect(
+        find.byKey(const ValueKey<String>('task-search-shared')), findsNothing);
+    expect(
+        find.byKey(const ValueKey<String>('backlog-search')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
   testWidgets('page header mobile Kanban geometry and board', (tester) async {
@@ -127,6 +132,10 @@ void main() {
       }
       final lane =
           find.byKey(const ValueKey<String>('kanban-column-scroll-column-01'));
+      final sectionGap = find.byKey(
+        const ValueKey<String>('kanban-section-gap-before-board'),
+      );
+      expect(tester.getSize(sectionGap).height, greaterThanOrEqualTo(8));
       expect(tester.getSize(lane).height, greaterThanOrEqualTo(100));
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());

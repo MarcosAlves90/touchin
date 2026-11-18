@@ -144,9 +144,9 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
         final body = Padding(
           padding: EdgeInsets.fromLTRB(
             horizontalPadding,
-            verticalPadding,
+            isCompact ? 4 : verticalPadding,
             horizontalPadding,
-            isCompact ? 6 : verticalPadding,
+            isCompact ? 0 : verticalPadding,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -159,9 +159,13 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
                   child: _buildProjectOverview(compact: isCompact),
                 ),
               ),
-              SizedBox(height: isCompact ? 0 : gap),
-              _buildTaskSearch(_controller.board),
-              SizedBox(height: isCompact ? 0 : gap),
+              SizedBox(height: gap),
+              if (!_showBacklog || !isCompact)
+                _buildTaskSearch(_controller.board),
+              SizedBox(
+                key: const ValueKey<String>('kanban-section-gap-before-board'),
+                height: gap,
+              ),
               Expanded(child: _buildBoardContent()),
             ],
           ),
@@ -1143,13 +1147,12 @@ class _KanbanSyncStatus extends StatelessWidget {
     return AnimatedBuilder(
       animation: controller,
       builder: (context, _) {
+        if (controller.isLoading || controller.isLoadingBoard) {
+          return const SizedBox.shrink();
+        }
         final (label, icon) = controller.isMutating
             ? ('Salvando', Icons.sync_rounded)
-            : controller.isLoading || controller.isLoadingBoard
-                ? ('Sincronizando', Icons.sync_rounded)
-                : controller.loadError != null || controller.boardError != null
-                    ? ('Atenção', Icons.cloud_off_outlined)
-                    : ('Atenção', Icons.cloud_off_outlined);
+            : ('Atenção', Icons.cloud_off_outlined);
         return Container(
           key: const ValueKey<String>('kanban-navbar-sync-status'),
           padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),

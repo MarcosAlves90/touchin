@@ -189,6 +189,8 @@ void main() {
               reason: 'audit_outer_surface_radius');
         }
         expect(find.byKey(const ValueKey<String>('audit-end-of-list')), findsNothing);
+        await tester.ensureVisible(event);
+        await tester.pumpAndSettle();
         await tester.tap(event);
         await tester.pumpAndSettle();
         expect(find.byType(AuditEventDetailsDialog), findsOneWidget);
@@ -196,8 +198,12 @@ void main() {
       }
     }
   });
-  testWidgets('compact audit skeleton cards have rounded corners',
+  testWidgets('compact audit skeleton cards have rounded corners and full width',
       (tester) async {
+    tester.view.physicalSize = const Size(360, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(const MaterialApp(
       home: Scaffold(body: AuditLoadingSkeleton(compact: true)),
     ));
@@ -208,6 +214,9 @@ void main() {
         ))
         .where((container) => container.padding == const EdgeInsets.all(14));
     expect(cards, isNotEmpty);
+    final firstCard = find.byWidget(cards.first);
+    expect(tester.getRect(firstCard).left, 0);
+    expect(tester.getRect(firstCard).right, 360);
     for (final card in cards) {
       expect((card.decoration! as BoxDecoration).borderRadius,
           BorderRadius.circular(12),
@@ -435,9 +444,9 @@ void main() {
               matching: find.byType(Scrollable),
             )
           : find.descendant(
-              of: find.byKey(const ValueKey<String>('audit-events-cards')),
+              of: find.byKey(const ValueKey<String>('audit-page-scroll')),
               matching: find.byType(Scrollable),
-            );
+            ).first;
       await tester.scrollUntilVisible(
         unknown,
         200,
@@ -1019,6 +1028,8 @@ void main() {
     await tester
         .pumpWidget(MaterialApp(home: AdminAuditPage(api: FakeTouchInApi())));
     await tester.pumpAndSettle();
+    final pageScroll = find.byKey(const ValueKey<String>('audit-page-scroll'));
+    expect(tester.getSize(pageScroll).height, greaterThan(600));
 
     await openAuditFilters(tester);
     final actor = find.widgetWithText(TextField, 'ID do usuário (ator)');
