@@ -214,12 +214,12 @@ class _WorkLogDialogState extends State<WorkLogDialog> {
               alignLabelWithHint: true,
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
           if (_selectedProjectId != null &&
               _selectedProjectId != _noProjectOption &&
               controller.workLogRecommendationStatus != 'idle' &&
               controller.workLogRecommendationStatus != 'disabled') ...[
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
             Container(
               key: const Key('work-log-ai-suggestions'),
               padding: const EdgeInsets.all(12),
@@ -301,6 +301,7 @@ class _WorkLogDialogState extends State<WorkLogDialog> {
                 ],
               ),
             ),
+            const SizedBox(height: 24),
           ],
           if (_selectedProjectId == null)
             const Text('Selecione um projeto ou Nenhum.')

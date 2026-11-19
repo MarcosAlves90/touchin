@@ -606,6 +606,36 @@ void main() {
     });
   });
 
+  testWidgets('AI suggestions have clearer vertical spacing', (tester) async {
+    await _pumpPage(tester);
+    await tester.tap(find.text('Iniciar pausa'));
+    await tester.pumpAndSettle();
+    await _openProject(tester, 'Projeto A');
+    await tester.enterText(
+      find.byKey(const Key('work-log-description')),
+      'Corrigi o problema de sessão',
+    );
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pumpAndSettle();
+
+    final descriptionRect =
+        tester.getRect(find.byKey(const Key('work-log-description')));
+    final suggestionsRect =
+        tester.getRect(find.byKey(const Key('work-log-ai-suggestions')));
+    final relatedTasksRect = tester.getRect(find.text('Tarefas relacionadas'));
+
+    expect(
+      suggestionsRect.top - descriptionRect.bottom,
+      lessThan(24),
+      reason: 'WORK_LOG_SUGGESTION_DESCRIPTION_GAP_MUST_BE_REDUCED',
+    );
+    expect(
+      relatedTasksRect.top - suggestionsRect.bottom,
+      greaterThanOrEqualTo(24),
+      reason: 'WORK_LOG_SUGGESTION_TASKS_GAP_MUST_BE_INCREASED',
+    );
+  });
+
   testWidgets('out-of-order recommendation responses are discarded',
       (tester) async {
     final older = Completer<TaskRecommendations>();
