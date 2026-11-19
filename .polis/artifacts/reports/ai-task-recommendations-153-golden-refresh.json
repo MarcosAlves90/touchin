@@ -1,0 +1,110 @@
+{
+  "schema_version": 1,
+  "purpose": "Canonical navigation golden refresh for PR #155",
+  "branch": "feat/semantic-task-recommendations-153",
+  "baseline_commit": "c10e491b5d649595ebd19890df5fae98427730a5",
+  "diagnosis": {
+    "pull_request": 155,
+    "ci_run_id": 44423535041,
+    "ci_run_url": "https://github.com/MarcosAlves90/touchin/actions/runs/44423535041",
+    "ci_job_id": 135222378208,
+    "ci_job_name": "Frontend visual goldens (Ubuntu, Flutter 3.47.2)",
+    "ci_job_conclusion": "failure",
+    "test_command": "flutter test --tags canonical-golden",
+    "failure_artifact": "canonical-navigation-golden-failure-images",
+    "cause": "The expected images predated the approved 'Sugestões com IA' navigation entry. All four canonical actual images include that entry; visual review found no clipping, overlap, or unrelated UI change. No application source or test code was modified for this correction.",
+    "pre_refresh_local_test": {
+      "command": "flutter test --tags canonical-golden",
+      "exit_code": 1,
+      "environment": "macOS, Flutter 3.47.2; not used as the golden image source"
+    },
+    "post_refresh_local_test": {
+      "command": "flutter test --tags canonical-golden",
+      "exit_code": 1,
+      "environment": "macOS, Flutter 3.47.2; local actuals were not used as goldens",
+      "failures": [
+        {"case": "desktop-light", "diff_percent": 1.14, "diff_pixels": 14747},
+        {"case": "desktop-dark", "diff_percent": 1.13, "diff_pixels": 14649},
+        {"case": "mobile-light", "diff_percent": 2.71, "diff_pixels": 8908},
+        {"case": "mobile-dark", "diff_percent": 2.70, "diff_pixels": 8882}
+      ],
+      "interpretation": "macOS render differs from the canonical Ubuntu images. The final acceptance check is the canonical golden job on the pushed SHA."
+    },
+    "baseline_behavior_test": {
+      "command": "flutter test --no-pub test/features/shared/presentation/widgets/workspace_shell_test.dart --plain-name 'workspace destinations are the unique ordered navigation source'",
+      "exit_code": 0
+    }
+  },
+  "goldens": [
+    {
+      "case": "desktop-dark",
+      "path": "frontend/test/goldens/rounded_workspace_navigation/desktop-dark.png",
+      "source_artifact": "desktop-dark_testImage.png",
+      "dimensions": [1440, 900],
+      "sha256_before": "de1234eed75303ec5d7aa2bc2cfd05a0858b49fac13bd7fe275d8bfde1281182",
+      "sha256_canonical_actual": "faa7a57da3bf030293a059c667a1f0994020869af2e79152ff353c4683848fd5",
+      "sha256_after": "faa7a57da3bf030293a059c667a1f0994020869af2e79152ff353c4683848fd5"
+    },
+    {
+      "case": "desktop-light",
+      "path": "frontend/test/goldens/rounded_workspace_navigation/desktop-light.png",
+      "source_artifact": "desktop-light_testImage.png",
+      "dimensions": [1440, 900],
+      "sha256_before": "bd32207a5f2f411947d0cf46362ea893157962df2eba5e289a6a563be26a4a37",
+      "sha256_canonical_actual": "9a0eb7f5b5a5c4dd8e21e96f0c4456b92f96a6d3bee0f578a9eed20701f5c00d",
+      "sha256_after": "9a0eb7f5b5a5c4dd8e21e96f0c4456b92f96a6d3bee0f578a9eed20701f5c00d"
+    },
+    {
+      "case": "mobile-dark",
+      "path": "frontend/test/goldens/rounded_workspace_navigation/mobile-dark.png",
+      "source_artifact": "mobile-dark_testImage.png",
+      "dimensions": [390, 844],
+      "sha256_before": "1ed4282989aa34f05e20c339d79e676a2ab7850b4c6fd2956efe9f362af7bcd8",
+      "sha256_canonical_actual": "a8d93fcf5bfdb47bcc28344f2bf3ab42f8b1f7600b684e4e86d547628bbe845d",
+      "sha256_after": "a8d93fcf5bfdb47bcc28344f2bf3ab42f8b1f7600b684e4e86d547628bbe845d"
+    },
+    {
+      "case": "mobile-light",
+      "path": "frontend/test/goldens/rounded_workspace_navigation/mobile-light.png",
+      "source_artifact": "mobile-light_testImage.png",
+      "dimensions": [390, 844],
+      "sha256_before": "8544530fad47f0820e62df4d4d44d44a396eaa949df49a6c11155af88f0b822b",
+      "sha256_canonical_actual": "b110c1fa3e6fe1ae849d80abfe82c6d152ee2eeca51e10279a3a1d95d9b0afd8",
+      "sha256_after": "b110c1fa3e6fe1ae849d80abfe82c6d152ee2eeca51e10279a3a1d95d9b0afd8"
+    }
+  ],
+  "polis_provenance": {
+    "feature_contract": {
+      "path": ".polis/artifacts/contracts/ai-task-recommendations-153-v1.json",
+      "sha256": "5467012279c9e47491fdd2ac4e9ed823aeb289ba4437fc41865ebf2f88b9c08e"
+    },
+    "feature_red_proof": {
+      "path": ".polis/artifacts/proofs/ai-task-recommendations-153-red-v4.patch",
+      "sha256": "d2c6cead8e3dd1d6839c7af0fe841355fd6af64df9f73f8c2b154993c1936ca6"
+    },
+    "feature_gates": {
+      "path": ".polis/artifacts/reports/ai-task-recommendations-153-gates-v4.json",
+      "run_id": "4901140b8c1b48ef8950c01a92f5361f225840e8b85c6bdd62a4f644cabf49ba",
+      "status": "PASS",
+      "sha256": "091e8dba600b7722eb0b8f50c7fb60aea6cd1aab882b8b8d681836fe852f6a51"
+    },
+    "golden_refresh_contract": {
+      "path": ".polis/artifacts/contracts/ai-task-recommendations-153-golden-refresh-v1.json",
+      "sha256": "90bf8b83ba0e83d297da2afc281ac09cf4a823b690b7fc3c2ade0bc1602fd55a"
+    },
+    "post_update_gates": {
+      "path": ".polis/artifacts/reports/ai-task-recommendations-153-pr-gates.json",
+      "run_id": "941a01c2d6542cf5782c50a1b22edc86b93fff3480b3f689a2045456d75be2e6",
+      "status": "PASS",
+      "selected_gates": ["test.complete", "lint", "build", "smoke"],
+      "sha256": "79ec953352763ec26216640b30a82253ffdb1160ca62360c0634b1ed9d354ddc"
+    },
+    "workspace_validation": {
+      "status": "not_completed",
+      "attempts": 2,
+      "exit_code": 6,
+      "cause": "POLIS temporary-index capture fails because .gitignore ignores the .polis/artifacts directory itself while the validator excludes only .polis/artifacts/**. The failure occurs before any gate executes; no workspace-validation report was produced. Repeating after temporarily moving all 10 ignored untracked artifacts produced the same error. All artifact hashes were verified after restoration; no policy or .gitignore changes were made.",
+      "gates_validated_separately": true
+    }
+  }
+}

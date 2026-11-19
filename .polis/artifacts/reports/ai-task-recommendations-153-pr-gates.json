@@ -1,0 +1,421 @@
+{
+  "schema_version": 1,
+  "run_id": "941a01c2d6542cf5782c50a1b22edc86b93fff3480b3f689a2045456d75be2e6",
+  "nonce": "ffcadc39212dd6aaa6bca55c40867fa3",
+  "inputs": {
+    "repository": "/Users/marcos.lopes/Documents/@cherry-c/touchin",
+    "head": "c10e491b5d649595ebd19890df5fae98427730a5",
+    "source_sha256": "624cc3a3d9aebd8c8d6c07c2a69e3d4518c9b67392ac0bc37b8e107e7a75ea29",
+    "contract_sha256": "90bf8b83ba0e83d297da2afc281ac09cf4a823b690b7fc3c2ade0bc1602fd55a",
+    "baseline": {
+      "git_object_format": "sha1",
+      "base_commit": "c10e491b5d649595ebd19890df5fae98427730a5",
+      "base_tree": "1d496382a4807b87353dfbd525917c17ada14f7c",
+      "policy_sha256": "5563facc34ae2a1a07cf7ec7ec2f115cb8d250c49dd6e2bd5c7a3de4c977d450",
+      "specification_sha256": "766e65820e7087e58731e475e7d267c6890e5a25e8814caddcf07c8a369dada8"
+    },
+    "policy_sha256": "5563facc34ae2a1a07cf7ec7ec2f115cb8d250c49dd6e2bd5c7a3de4c977d450",
+    "polis_version": "6.12.0",
+    "runtime": "darwin/arm64/go1.27.1",
+    "environment_id": ""
+  },
+  "selected_gates": [
+    "test.complete",
+    "lint",
+    "build",
+    "smoke"
+  ],
+  "selection_reason": "explicit selection",
+  "changed_paths": [],
+  "jobs": 1,
+  "current": true,
+  "status": "PASS",
+  "gates": [
+    {
+      "id": "test.complete",
+      "definition": {
+        "id": "test.complete",
+        "mode": "command",
+        "command": {
+          "argv": [
+            "python",
+            "scripts/polis_tests.py"
+          ],
+          "cwd": ".",
+          "timeout_seconds": 1200,
+          "environment": {
+            "mode": "clean",
+            "pass": [
+              "PATH",
+              "HOME",
+              "TMPDIR",
+              "TMP",
+              "TEMP",
+              "SystemRoot",
+              "COMSPEC",
+              "PATHEXT",
+              "USERPROFILE",
+              "LOCALAPPDATA",
+              "PYTHONUTF8",
+              "PYTHONIOENCODING"
+            ]
+          }
+        }
+      },
+      "identity": {
+        "sha256": "02e41c2220d5cdb02396cf1ed4aa9e17eccb158812d398587b6e61cf72facbad",
+        "categories": {
+          "baseline": "29409bd86ebc129084e96d73dabec64285a8757b6c51d03147f07224e378fbaa",
+          "command": "69aa5ef15d39ca7bf287ab72870b9a4ee94bf017a5be946e67a6f9f78d275e69",
+          "contract": "92ace990c44014186914d9f4450fa4f0546f3af69f281a68002c0c6fa834d3bd",
+          "dependencies": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "environment": "c99a6e2bd0e9654fd2b56efbb8eca7029ddba411d06cfb23e90788a29fd9ef9c",
+          "policy": "5563facc34ae2a1a07cf7ec7ec2f115cb8d250c49dd6e2bd5c7a3de4c977d450",
+          "polis_version": "3a22d7b0ce54971c59ee792730d1616a7a6e90285782a168377a8a6baacc6fc8",
+          "source": "85539e1337e3d047f24638f5b90a65f2ce12f6a605125dadb770bfcf63a22324"
+        }
+      },
+      "status": "PASS",
+      "action": "executed",
+      "observation": {
+        "exit_code": 0,
+        "duration_ms": 119876,
+        "stdout_sha256": "8add3cf761902e41bf7017e85f64996f5b52173d082914f43df55f6e2a891358",
+        "stderr_sha256": "2a13b6704a244e1c2488f73558d76f052f7f348e74ef392ae0cf9503bb77965d"
+      }
+    },
+    {
+      "id": "coverage",
+      "definition": {
+        "id": "coverage",
+        "mode": "not_applicable",
+        "reason": "disabled by explicit validation configuration at level \"standard\"",
+        "depends_on": [
+          "test.complete"
+        ]
+      },
+      "identity": {
+        "sha256": "397694f9cec868493b34c4314dd4d3882a3b6a82a4060e74ed521824397af8e9",
+        "categories": {
+          "baseline": "29409bd86ebc129084e96d73dabec64285a8757b6c51d03147f07224e378fbaa",
+          "command": "211ff3d500be97434e1cb8cf2ad36ce6706fd7339585c3174c99364b6ac3bbf4",
+          "contract": "92ace990c44014186914d9f4450fa4f0546f3af69f281a68002c0c6fa834d3bd",
+          "dependencies": "0a73e33d0f70cc9503f9a6a111df8eee0e1171612c76ea9b7acf0ac207121fcd",
+          "environment": "5b5566edf47bd4fd3877699da1f2d0318a4bb4a27c138b4cbe27120580b46dd8",
+          "policy": "5563facc34ae2a1a07cf7ec7ec2f115cb8d250c49dd6e2bd5c7a3de4c977d450",
+          "polis_version": "3a22d7b0ce54971c59ee792730d1616a7a6e90285782a168377a8a6baacc6fc8",
+          "source": "85539e1337e3d047f24638f5b90a65f2ce12f6a605125dadb770bfcf63a22324"
+        }
+      },
+      "status": "NOT_APPLICABLE",
+      "action": "omitted",
+      "reason": "disabled by explicit validation configuration at level \"standard\""
+    },
+    {
+      "id": "lint",
+      "definition": {
+        "id": "lint",
+        "mode": "command",
+        "command": {
+          "argv": [
+            "dart",
+            "analyze",
+            "lib",
+            "test"
+          ],
+          "cwd": "frontend",
+          "timeout_seconds": 600,
+          "environment": {
+            "mode": "clean",
+            "pass": [
+              "PATH",
+              "HOME",
+              "TMPDIR",
+              "TMP",
+              "TEMP",
+              "SystemRoot",
+              "COMSPEC",
+              "PATHEXT",
+              "PYTHONUTF8",
+              "PYTHONIOENCODING"
+            ]
+          }
+        }
+      },
+      "identity": {
+        "sha256": "bf9a9ce60fdf4f1d186adaec33780208a26cc9b364e1ccfc24e3fe1727fa815e",
+        "categories": {
+          "baseline": "29409bd86ebc129084e96d73dabec64285a8757b6c51d03147f07224e378fbaa",
+          "command": "e03fb97ad9d814222a7b21a4d4835fcbcf8c72213c64b8485ff66b7bc7d2347b",
+          "contract": "92ace990c44014186914d9f4450fa4f0546f3af69f281a68002c0c6fa834d3bd",
+          "dependencies": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "environment": "ef638e749d93d31fa1b5b363aaa2c94c49e80d7881ed370abbd41adb6a75d608",
+          "policy": "5563facc34ae2a1a07cf7ec7ec2f115cb8d250c49dd6e2bd5c7a3de4c977d450",
+          "polis_version": "3a22d7b0ce54971c59ee792730d1616a7a6e90285782a168377a8a6baacc6fc8",
+          "source": "85539e1337e3d047f24638f5b90a65f2ce12f6a605125dadb770bfcf63a22324"
+        }
+      },
+      "status": "PASS",
+      "action": "executed",
+      "observation": {
+        "exit_code": 0,
+        "duration_ms": 1941,
+        "stdout_sha256": "3ef73a6a0af8f3d521761b89a8096b7f272c91b09b8a5d8ce437dba0078d3ec1",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "id": "typecheck",
+      "definition": {
+        "id": "typecheck",
+        "mode": "not_applicable",
+        "reason": "custom profile has no explicit command for typecheck"
+      },
+      "identity": {
+        "sha256": "246c9cb0d6b571235042ca22b5d97c4e5a083660bee26b284dc12fcdc07bedfc",
+        "categories": {
+          "baseline": "29409bd86ebc129084e96d73dabec64285a8757b6c51d03147f07224e378fbaa",
+          "command": "709503f7e570b8d3db70d5eb929b9b8f492b73fa5baebecf8c793f5b41b2865f",
+          "contract": "92ace990c44014186914d9f4450fa4f0546f3af69f281a68002c0c6fa834d3bd",
+          "dependencies": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "environment": "5b5566edf47bd4fd3877699da1f2d0318a4bb4a27c138b4cbe27120580b46dd8",
+          "policy": "5563facc34ae2a1a07cf7ec7ec2f115cb8d250c49dd6e2bd5c7a3de4c977d450",
+          "polis_version": "3a22d7b0ce54971c59ee792730d1616a7a6e90285782a168377a8a6baacc6fc8",
+          "source": "85539e1337e3d047f24638f5b90a65f2ce12f6a605125dadb770bfcf63a22324"
+        }
+      },
+      "status": "NOT_APPLICABLE",
+      "action": "omitted",
+      "reason": "custom profile has no explicit command for typecheck"
+    },
+    {
+      "id": "build",
+      "definition": {
+        "id": "build",
+        "mode": "command",
+        "command": {
+          "argv": [
+            "flutter",
+            "build",
+            "web",
+            "--release"
+          ],
+          "cwd": "frontend",
+          "timeout_seconds": 1200,
+          "environment": {
+            "mode": "clean",
+            "pass": [
+              "PATH",
+              "HOME",
+              "TMPDIR",
+              "TMP",
+              "TEMP",
+              "SystemRoot",
+              "COMSPEC",
+              "PATHEXT",
+              "PYTHONUTF8",
+              "PYTHONIOENCODING"
+            ]
+          }
+        }
+      },
+      "identity": {
+        "sha256": "39c18f31832e33ec64646755d110b0b4c80e4ddac4ef9735b3a80fa85ec5f741",
+        "categories": {
+          "baseline": "29409bd86ebc129084e96d73dabec64285a8757b6c51d03147f07224e378fbaa",
+          "command": "36c84b87ca2b2193728235b70fdc08f8af5a52ddcad32dc6e4cfb5ec3ab49580",
+          "contract": "92ace990c44014186914d9f4450fa4f0546f3af69f281a68002c0c6fa834d3bd",
+          "dependencies": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "environment": "ef638e749d93d31fa1b5b363aaa2c94c49e80d7881ed370abbd41adb6a75d608",
+          "policy": "5563facc34ae2a1a07cf7ec7ec2f115cb8d250c49dd6e2bd5c7a3de4c977d450",
+          "polis_version": "3a22d7b0ce54971c59ee792730d1616a7a6e90285782a168377a8a6baacc6fc8",
+          "source": "85539e1337e3d047f24638f5b90a65f2ce12f6a605125dadb770bfcf63a22324"
+        }
+      },
+      "status": "PASS",
+      "action": "executed",
+      "observation": {
+        "exit_code": 0,
+        "duration_ms": 17582,
+        "stdout_sha256": "ce7c3a9c0440cf63b7b524dc8a4f48d04f352d83cff3a6db577889a48870ab87",
+        "stderr_sha256": "3b3c2aba9dbd9dbdff97c394771074ec9c1b4233b3558e156698588f3255e1ec"
+      }
+    },
+    {
+      "id": "smoke",
+      "definition": {
+        "id": "smoke",
+        "mode": "command",
+        "command": {
+          "argv": [
+            "node",
+            "test/browser/first_paint_smoke.mjs"
+          ],
+          "cwd": "frontend",
+          "timeout_seconds": 300,
+          "environment": {
+            "mode": "clean",
+            "pass": [
+              "PATH",
+              "HOME",
+              "TMPDIR",
+              "TMP",
+              "TEMP",
+              "SystemRoot",
+              "COMSPEC",
+              "PATHEXT",
+              "PYTHONUTF8",
+              "PYTHONIOENCODING",
+              "TOUCHIN_CHROME",
+              "TOUCHIN_CHROME_NO_SANDBOX"
+            ]
+          }
+        },
+        "depends_on": [
+          "build"
+        ]
+      },
+      "identity": {
+        "sha256": "82ae75564939bab71b7a43426129b29dc43293af96a61329a5b310c1c5fbc836",
+        "categories": {
+          "baseline": "29409bd86ebc129084e96d73dabec64285a8757b6c51d03147f07224e378fbaa",
+          "command": "a6dee1d03c9e638ad71c2a4d86f4ca3d707a87836746da3a899b5cb30cc416bd",
+          "contract": "92ace990c44014186914d9f4450fa4f0546f3af69f281a68002c0c6fa834d3bd",
+          "dependencies": "24147ca2d8b4aa3767ce3963015966512ff8a897b18bc75369ffb29186e2b858",
+          "environment": "34f6cde1f1182cbe36612f86ac335726db4b489afd93a43d98d3d9e8a8bf73c6",
+          "policy": "5563facc34ae2a1a07cf7ec7ec2f115cb8d250c49dd6e2bd5c7a3de4c977d450",
+          "polis_version": "3a22d7b0ce54971c59ee792730d1616a7a6e90285782a168377a8a6baacc6fc8",
+          "source": "85539e1337e3d047f24638f5b90a65f2ce12f6a605125dadb770bfcf63a22324"
+        }
+      },
+      "status": "PASS",
+      "action": "executed",
+      "observation": {
+        "exit_code": 0,
+        "duration_ms": 22614,
+        "stdout_sha256": "a7be90ffaae170e6c51a0552b0fcca925b32750309e39569aeb294865ed9b9aa",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "id": "compatibility",
+      "definition": {
+        "id": "compatibility",
+        "mode": "not_applicable",
+        "reason": "custom profile has no explicit command for compatibility"
+      },
+      "identity": {
+        "sha256": "65620af6e57d441f1558ca9671db3fa8b4a29d8738c35e30d0c05073dd7735da",
+        "categories": {
+          "baseline": "29409bd86ebc129084e96d73dabec64285a8757b6c51d03147f07224e378fbaa",
+          "command": "8dfff902711d8c1c83ff92198de0b4ef07e107f3af290e7ed8d1d5fff1bf837e",
+          "contract": "92ace990c44014186914d9f4450fa4f0546f3af69f281a68002c0c6fa834d3bd",
+          "dependencies": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "environment": "5b5566edf47bd4fd3877699da1f2d0318a4bb4a27c138b4cbe27120580b46dd8",
+          "policy": "5563facc34ae2a1a07cf7ec7ec2f115cb8d250c49dd6e2bd5c7a3de4c977d450",
+          "polis_version": "3a22d7b0ce54971c59ee792730d1616a7a6e90285782a168377a8a6baacc6fc8",
+          "source": "85539e1337e3d047f24638f5b90a65f2ce12f6a605125dadb770bfcf63a22324"
+        }
+      },
+      "status": "NOT_APPLICABLE",
+      "action": "omitted",
+      "reason": "custom profile has no explicit command for compatibility"
+    },
+    {
+      "id": "dependency",
+      "definition": {
+        "id": "dependency",
+        "mode": "not_applicable",
+        "reason": "custom profile has no explicit command for dependency"
+      },
+      "identity": {
+        "sha256": "7bca4ed29ff442024aefbe8a8a013062b6595f3a6916f10b0fbe7d525997ba4e",
+        "categories": {
+          "baseline": "29409bd86ebc129084e96d73dabec64285a8757b6c51d03147f07224e378fbaa",
+          "command": "79a8cbc13f5ba57daca41ccd0323aef42d8adf899c8e3d82a42832b99893b408",
+          "contract": "92ace990c44014186914d9f4450fa4f0546f3af69f281a68002c0c6fa834d3bd",
+          "dependencies": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "environment": "5b5566edf47bd4fd3877699da1f2d0318a4bb4a27c138b4cbe27120580b46dd8",
+          "policy": "5563facc34ae2a1a07cf7ec7ec2f115cb8d250c49dd6e2bd5c7a3de4c977d450",
+          "polis_version": "3a22d7b0ce54971c59ee792730d1616a7a6e90285782a168377a8a6baacc6fc8",
+          "source": "85539e1337e3d047f24638f5b90a65f2ce12f6a605125dadb770bfcf63a22324"
+        }
+      },
+      "status": "NOT_APPLICABLE",
+      "action": "omitted",
+      "reason": "custom profile has no explicit command for dependency"
+    },
+    {
+      "id": "migration",
+      "definition": {
+        "id": "migration",
+        "mode": "not_applicable",
+        "reason": "custom profile has no explicit command for migration"
+      },
+      "identity": {
+        "sha256": "226663d4f69ea3f8125d9602649004263a478059fd873485239de3f79b5e6fa1",
+        "categories": {
+          "baseline": "29409bd86ebc129084e96d73dabec64285a8757b6c51d03147f07224e378fbaa",
+          "command": "ff7a861626bab1a7bc4f35a0fa782ce8460ec66c38259f9dc5b6567cfae09278",
+          "contract": "92ace990c44014186914d9f4450fa4f0546f3af69f281a68002c0c6fa834d3bd",
+          "dependencies": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "environment": "5b5566edf47bd4fd3877699da1f2d0318a4bb4a27c138b4cbe27120580b46dd8",
+          "policy": "5563facc34ae2a1a07cf7ec7ec2f115cb8d250c49dd6e2bd5c7a3de4c977d450",
+          "polis_version": "3a22d7b0ce54971c59ee792730d1616a7a6e90285782a168377a8a6baacc6fc8",
+          "source": "85539e1337e3d047f24638f5b90a65f2ce12f6a605125dadb770bfcf63a22324"
+        }
+      },
+      "status": "NOT_APPLICABLE",
+      "action": "omitted",
+      "reason": "custom profile has no explicit command for migration"
+    },
+    {
+      "id": "security",
+      "definition": {
+        "id": "security",
+        "mode": "not_applicable",
+        "reason": "custom profile has no explicit command for security"
+      },
+      "identity": {
+        "sha256": "8ac5532a89a443d0f3ff0ee1e1a62a022c5463fc140a18924c0fd7ac84e488c5",
+        "categories": {
+          "baseline": "29409bd86ebc129084e96d73dabec64285a8757b6c51d03147f07224e378fbaa",
+          "command": "701f6a4c9f3cfc057757687c4728fb53dded27e918c42ac7f05625e37e3d8ee0",
+          "contract": "92ace990c44014186914d9f4450fa4f0546f3af69f281a68002c0c6fa834d3bd",
+          "dependencies": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "environment": "5b5566edf47bd4fd3877699da1f2d0318a4bb4a27c138b4cbe27120580b46dd8",
+          "policy": "5563facc34ae2a1a07cf7ec7ec2f115cb8d250c49dd6e2bd5c7a3de4c977d450",
+          "polis_version": "3a22d7b0ce54971c59ee792730d1616a7a6e90285782a168377a8a6baacc6fc8",
+          "source": "85539e1337e3d047f24638f5b90a65f2ce12f6a605125dadb770bfcf63a22324"
+        }
+      },
+      "status": "NOT_APPLICABLE",
+      "action": "omitted",
+      "reason": "custom profile has no explicit command for security"
+    },
+    {
+      "id": "platform",
+      "definition": {
+        "id": "platform",
+        "mode": "not_applicable",
+        "reason": "custom profile has no explicit command for platform"
+      },
+      "identity": {
+        "sha256": "c98eb66d5248cdf04a57710bea97ed18aae4055291f22b481c8ce72069a18b6c",
+        "categories": {
+          "baseline": "29409bd86ebc129084e96d73dabec64285a8757b6c51d03147f07224e378fbaa",
+          "command": "e87f9cd1795254bd1d0a7219a972a207bb393a395843f9af69f04a9f49d71767",
+          "contract": "92ace990c44014186914d9f4450fa4f0546f3af69f281a68002c0c6fa834d3bd",
+          "dependencies": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "environment": "5b5566edf47bd4fd3877699da1f2d0318a4bb4a27c138b4cbe27120580b46dd8",
+          "policy": "5563facc34ae2a1a07cf7ec7ec2f115cb8d250c49dd6e2bd5c7a3de4c977d450",
+          "polis_version": "3a22d7b0ce54971c59ee792730d1616a7a6e90285782a168377a8a6baacc6fc8",
+          "source": "85539e1337e3d047f24638f5b90a65f2ce12f6a605125dadb770bfcf63a22324"
+        }
+      },
+      "status": "NOT_APPLICABLE",
+      "action": "omitted",
+      "reason": "custom profile has no explicit command for platform"
+    }
+  ]
+}

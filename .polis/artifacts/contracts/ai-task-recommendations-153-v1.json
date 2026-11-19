@@ -1,0 +1,298 @@
+{
+  "schema_version": 6,
+  "kind": "feature",
+  "scope": {
+    "allowed_paths": [
+      ".polis/artifacts/contracts/ai-task-recommendations-153-v1.json",
+      "backend/app/models.py",
+      "backend/app/api/router.py",
+      "backend/app/api/routes/ai_settings.py",
+      "backend/app/api/routes/task_recommendations.py",
+      "backend/app/schemas/ai_settings.py",
+      "backend/app/schemas/task_recommendations.py",
+      "backend/app/services/ai_settings.py",
+      "backend/app/services/task_recommendations.py",
+      "backend/app/services/secure_provider.py",
+      "backend/app/services/audit.py",
+      "backend/app/database_schema.py",
+      "backend/tests/test_ai_task_recommendations.py",
+      "backend/tests/test_ai_recommendations_contract.py",
+      "backend/tests/fixtures/task_recommendation_evaluation.json",
+      "frontend/lib/core/network/touchin_api.dart",
+      "frontend/lib/contracts/ai_settings.dart",
+      "frontend/lib/contracts/task_recommendations.dart",
+      "frontend/lib/features/time_tracking/presentation/time_clock_controller.dart",
+      "frontend/lib/features/time_tracking/presentation/work_log_dialog.dart",
+      "frontend/lib/features/settings/presentation/ai_settings_page.dart",
+      "frontend/lib/core/navigation/workspace_destinations.dart",
+      "frontend/lib/core/navigation/workspace_router.dart",
+      "frontend/lib/features/auth/presentation/auth_session_navigation.dart",
+      "frontend/test/features/time_tracking/presentation/time_clock_work_log_flow_test.dart",
+      "frontend/test/features/settings/presentation/ai_settings_page_test.dart",
+      "frontend/test/features/auth/auth_session_navigation_test.dart",
+      "frontend/test/features/shared/presentation/widgets/workspace_shell_test.dart",
+      "docs/ai-task-recommendations.md"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "backend/tests/test_ai_task_recommendations.py",
+      "backend/tests/test_ai_recommendations_contract.py",
+      "backend/tests/fixtures/task_recommendation_evaluation.json",
+      "frontend/test/features/time_tracking/presentation/time_clock_work_log_flow_test.dart",
+      "frontend/test/features/settings/presentation/ai_settings_page_test.dart",
+      "frontend/test/features/auth/auth_session_navigation_test.dart",
+      "frontend/test/features/shared/presentation/widgets/workspace_shell_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Deliver company-opt-in semantic recommendations of existing project tasks in the work-log dialog, with secure tenant-scoped OpenAI-compatible embedding-provider configuration, auditable administration, privacy disclosure, and unchanged manual confirmation/time-clock behavior.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "Company AI configuration is isolated per company, absent/default disabled, and readable/writable only with companies.manage in the current company context."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "Provider URL/model and API key can be saved, rotated, removed, tested, and masked; the API key is encrypted at rest and never returned, logged, or written to audit metadata."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "Only an explicit administrator privacy acknowledgement plus complete validated configuration enables recommendations; disabling/removal immediately prevents new calls; configuration changes are audited without credentials or activity text."
+      },
+      {
+        "id": "REQ-004",
+        "statement": "The backend calls only an HTTPS OpenAI-compatible embeddings endpoint, validates public DNS destinations and pins the connection to validated addresses, rejects redirects, applies bounded timeouts/body/concurrency limits, and never permits private/loopback/link-local/reserved destinations."
+      },
+      {
+        "id": "REQ-005",
+        "statement": "Before ranking, enforce current-company project access and feature enablement; send only the work description and minimal name/description text for tasks in that selected authorized project; return up to three stable cosine-ranked recommendations without persisting or logging prompts/responses."
+      },
+      {
+        "id": "REQ-006",
+        "statement": "Ranking errors, no matches, disabled state, empty descriptions, and No project never block manual task selection or work-log submission; suggestions never auto-select and only explicitly checked IDs enter the existing WorkLogPayload."
+      },
+      {
+        "id": "REQ-007",
+        "statement": "Project/description changes and out-of-order responses cannot display stale recommendations; local keyboard/screen-reader/mobile UI is pt-BR and never exposes the provider key."
+      },
+      {
+        "id": "REQ-008",
+        "statement": "Provide a sanitized curated Portuguese evaluation set, a deterministic lexical baseline, and a reproducible top-1/top-3/false-suggestion evaluation; document embedding-provider compatibility, data-sharing, limitations, billing, disablement and rollback."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "API tests cover denied roles, per-tenant isolation and disabled-by-default state; admin changes require companies.manage and explicit privacy acknowledgement to enable.",
+        "requirements": [
+          "REQ-001",
+          "REQ-003"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "Tests verify encrypted key storage, masked GET responses, replacement/removal, audit redaction, and no secret in error/log/audit payloads.",
+        "requirements": [
+          "REQ-002",
+          "REQ-003"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-003",
+        "statement": "SSRF tests reject non-HTTPS URLs, userinfo, loopback/private/link-local/reserved DNS (including mixed public/private answers), redirects, and oversized/invalid responses; provider requests are bounded and pinned.",
+        "requirements": [
+          "REQ-004"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-004",
+        "statement": "Authorized recommendations are derived only from tasks within the current accessible project; tenant/project access violations and disabled companies cause zero provider calls.",
+        "requirements": [
+          "REQ-005"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-005",
+        "statement": "Embedding vectors produce deterministic, stable top-three cosine ranking with no fabricated confidence; provider/network/model failures safely return no suggestions.",
+        "requirements": [
+          "REQ-005",
+          "REQ-006"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-006",
+        "statement": "Widget and flow tests prove suggestions are advisory and unchecked, only manual checkbox selections are submitted, No project remains unchanged, and project/query races suppress stale data.",
+        "requirements": [
+          "REQ-006",
+          "REQ-007"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-007",
+        "statement": "An evaluation fixture contains representative Portuguese exact/paraphrase/overlap/irrelevant/no-match cases and a reproducible baseline-vs-embedding metric command; provider compatibility and privacy/disablement are documented.",
+        "requirements": [
+          "REQ-008"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "No secret, raw work-log description, provider response, or unrelated/cross-project task is disclosed outside the minimum request to an explicitly enabled provider."
+      },
+      {
+        "id": "INV-002",
+        "statement": "Suggestions are never persisted or linked automatically; task_ids in the existing work-log API remain solely employee-confirmed selections."
+      },
+      {
+        "id": "INV-003",
+        "statement": "Existing manual task selection, no-project behavior, work-log schema and punch state transitions remain compatible."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "AI enabled by default, across tenants, or from the browser; direct browser provider calls or exposure of any stored API key."
+      },
+      {
+        "id": "FORB-002",
+        "statement": "SSRF to non-public networks, redirect following, unbounded requests/responses, or transmitting another tenant/project's tasks."
+      },
+      {
+        "id": "FORB-003",
+        "statement": "Automatic task selection/association, logs/audit records containing prompts or credentials, or blocking manual operation when AI fails."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "GitHub issue #153 full requirements and acceptance criteria at https://github.com/MarcosAlves90/touchin/issues/153."
+      },
+      {
+        "id": "IN-002",
+        "statement": "origin/main at acf03172cee14b760f812e6eb84bcd34ffd39e03; existing companies.manage authorization, encrypted FieldCipher, audit trail, project/task access rules and WorkLogDialog contract."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "Secure server-side company configuration and OpenAI-compatible embeddings recommendation endpoints with isolated tests."
+      },
+      {
+        "id": "OUT-002",
+        "statement": "Accessible optional task suggestions integrated into the existing manual work-log selection flow, plus admin setup UI."
+      },
+      {
+        "id": "OUT-003",
+        "statement": "Privacy and provider documentation, representative evaluation data, and full regression evidence."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "The target backend regression suite fails before implementation because the recommendation service/API does not yet exist, then passes after implementation; no baseline test is weakened."
+      },
+      {
+        "id": "FAIL-002",
+        "statement": "Provider errors, invalid embeddings, access denial, or network safety uncertainty produce no recommendations and never degrade manual submission or fail open to an unvalidated URL."
+      },
+      {
+        "id": "FAIL-003",
+        "statement": "Any failure of repo quality gates or any external key/task data leakage blocks delivery; remote-provider semantic quality is reported only as measured using the available test doubles/evaluation evidence."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "acf03172cee14b760f812e6eb84bcd34ffd39e03",
+    "base_tree": "6b4e2d59b842fedeabcaa0895afe7e1886da60a1",
+    "policy_sha256": "5563facc34ae2a1a07cf7ec7ec2f115cb8d250c49dd6e2bd5c7a3de4c977d450",
+    "specification_sha256": "86d9d87e00a3449d383e909c0d9e48215a1009481fabae747d776a5796b91473"
+  },
+  "behavior": {
+    "argv": [
+      "/Users/marcos.lopes/Documents/@cherry-c/touchin/backend/.venv/bin/python",
+      "-m",
+      "pytest",
+      "tests/test_ai_task_recommendations.py",
+      "-q"
+    ],
+    "cwd": "backend",
+    "timeout_seconds": 300,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP",
+        "PYTHONUTF8",
+        "PYTHONIOENCODING"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "/Users/marcos.lopes/Documents/@cherry-c/touchin/backend/.venv/bin/python",
+      "-m",
+      "pytest",
+      "tests/test_ai_task_recommendations.py",
+      "tests/test_work_logs.py",
+      "-q"
+    ],
+    "cwd": "backend",
+    "timeout_seconds": 900,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP",
+        "PYTHONUTF8",
+        "PYTHONIOENCODING"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "/Users/marcos.lopes/Documents/@cherry-c/touchin/backend/.venv/bin/python",
+        "-m",
+        "pytest",
+        "tests/test_ai_recommendations_contract.py",
+        "-q"
+      ],
+      "cwd": "backend",
+      "timeout_seconds": 300,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP",
+          "PYTHONUTF8",
+          "PYTHONIOENCODING"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "test_ai_recommendations_contract.py"
+    ]
+  }
+}

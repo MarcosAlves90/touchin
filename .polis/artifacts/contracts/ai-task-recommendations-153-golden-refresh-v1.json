@@ -1,0 +1,186 @@
+{
+  "schema_version": 6,
+  "kind": "behavior_preserving",
+  "scope": {
+    "allowed_paths": [
+      "frontend/test/goldens/rounded_workspace_navigation/desktop-dark.png",
+      "frontend/test/goldens/rounded_workspace_navigation/desktop-light.png",
+      "frontend/test/goldens/rounded_workspace_navigation/mobile-dark.png",
+      "frontend/test/goldens/rounded_workspace_navigation/mobile-light.png",
+      "frontend/test/features/shared/presentation/widgets/workspace_shell_test.dart",
+      ".polis/artifacts/contracts/ai-task-recommendations-153-v1.json",
+      ".polis/artifacts/contracts/ai-task-recommendations-153-golden-refresh-v1.json",
+      ".polis/artifacts/proofs/ai-task-recommendations-153-red-v4.patch",
+      ".polis/artifacts/reports/ai-task-recommendations-153-gates-v4.json",
+      ".polis/artifacts/reports/ai-task-recommendations-153-golden-refresh.json",
+      ".polis/artifacts/reports/ai-task-recommendations-153-pr-gates.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/features/shared/presentation/widgets/workspace_shell_test.dart",
+      "frontend/test/goldens/rounded_workspace_navigation/desktop-dark.png",
+      "frontend/test/goldens/rounded_workspace_navigation/desktop-light.png",
+      "frontend/test/goldens/rounded_workspace_navigation/mobile-dark.png",
+      "frontend/test/goldens/rounded_workspace_navigation/mobile-light.png"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Update only the canonical navigation golden images to reflect the approved AI-settings sidebar entry already implemented in PR #155; make no production-code changes.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "All four desktop/mobile and light/dark canonical screenshots include the new 'Sugestões com IA' entry in the intended position, with no clipping, overlap, or unrelated visual changes."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "Golden source images come from the exact GitHub Actions canonical run on Ubuntu with Flutter 3.47.2, not from the local macOS renderer."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "The PR branch retains the issue-153 locked POLIS contract, its existing Red proof, and gate/golden provenance reports under .polis/artifacts."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "Only the four intended PNG baselines and the named POLIS evidence files change; application source and test code remain unchanged.",
+        "requirements": [
+          "REQ-001",
+          "REQ-003"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "The exact canonical golden job passes all four cases on the updated pushed commit; its result is verified from GitHub for that commit SHA.",
+        "requirements": [
+          "REQ-001",
+          "REQ-002"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "No production widget, navigation rule, or application behavior changes in this baseline-only correction."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "Updating the expected goldens from the local macOS renderer instead of the canonical Ubuntu run."
+      },
+      {
+        "id": "FORB-002",
+        "statement": "Changing production application code or weakening the existing visual test to avoid the mismatch."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "PR #155 head c10e491b5d649595ebd19890df5fae98427730a5 and failing canonical CI run 44423535041 (Ubuntu, Flutter 3.47.2)."
+      },
+      {
+        "id": "IN-002",
+        "statement": "The CI artifact canonical-navigation-golden-failure-images contains actual, baseline, and diff images for the four canonical cases."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "Four exact canonical baselines and committed POLIS contract, proof, and provenance artifacts."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "If the canonical images show any discrepancy beyond the intentional AI-settings navigation entry, do not copy the image; fix the UI or report the unresolved defect."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "c10e491b5d649595ebd19890df5fae98427730a5",
+    "base_tree": "1d496382a4807b87353dfbd525917c17ada14f7c",
+    "policy_sha256": "5563facc34ae2a1a07cf7ec7ec2f115cb8d250c49dd6e2bd5c7a3de4c977d450",
+    "specification_sha256": "766e65820e7087e58731e475e7d267c6890e5a25e8814caddcf07c8a369dada8"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "--no-pub",
+      "test/features/shared/presentation/widgets/workspace_shell_test.dart",
+      "--plain-name",
+      "workspace destinations are the unique ordered navigation source"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 300,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP",
+        "PYTHONUTF8",
+        "PYTHONIOENCODING"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "--no-pub",
+      "test/features/shared/presentation/widgets/workspace_shell_test.dart",
+      "--plain-name",
+      "workspace destinations are the unique ordered navigation source"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 300,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP",
+        "PYTHONUTF8",
+        "PYTHONIOENCODING"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "green_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "--no-pub",
+        "test/features/shared/presentation/widgets/workspace_shell_test.dart",
+        "--plain-name",
+        "workspace destinations are the unique ordered navigation source"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 300,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP",
+          "PYTHONUTF8",
+          "PYTHONIOENCODING"
+        ]
+      }
+    }
+  }
+}
