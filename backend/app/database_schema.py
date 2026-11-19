@@ -625,9 +625,10 @@ def upgrade_database_schema(bind) -> None:
     # Existing deployments use schema upgrades; CREATE ALL only handles new DBs.
     table_names = set(inspect(bind).get_table_names())
     if "companies" in table_names:
-        from app.models import CompanyAISettings
+        from app.models import CompanyAISettings, TaskRecommendationQuota
 
         CompanyAISettings.__table__.create(bind, checkfirst=True)
+        TaskRecommendationQuota.__table__.create(bind, checkfirst=True)
     if "user_accounts" in table_names:
         from app.models import LoginAttemptThrottle, PasswordResetThrottle, PasswordResetToken
 

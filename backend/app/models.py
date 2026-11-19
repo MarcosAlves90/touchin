@@ -381,6 +381,17 @@ class CompanyAISettings(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class TaskRecommendationQuota(Base):
+    __tablename__ = "task_recommendation_quotas"
+
+    company_id: Mapped[str] = mapped_column(
+        ForeignKey(_COL_COMPANIES_ID, ondelete="CASCADE"), primary_key=True
+    )
+    scope: Mapped[str] = mapped_column(String(70), primary_key=True)
+    bucket_hour: Mapped[int] = mapped_column(Integer)
+    attempts: Mapped[int] = mapped_column(Integer)
+
+
 class AuditEvent(Base):
     __tablename__ = 'audit_events'
 

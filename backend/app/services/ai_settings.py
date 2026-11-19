@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
@@ -56,8 +56,12 @@ def get_provider_configuration(
     db: Session, company_id: str
 ) -> tuple[CompanyAISettings | None, str | None]:
     row = _row(db, company_id)
+    return row, _stored_key(row)
+
+
+def _stored_key(row: CompanyAISettings | None) -> str | None:
     if row is None or not row.api_key_ciphertext:
-        return row, None
+        return None
     try:
         key = _cipher().decrypt(row.api_key_ciphertext)
     except Exception:
@@ -65,7 +69,7 @@ def get_provider_configuration(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Stored provider credentials are unavailable.",
         ) from None
-    return row, key
+    return key
 
 
 def save_settings(
@@ -90,6 +94,13 @@ def save_settings(
 
     try:
         provider_host = validate_provider_url_syntax(payload.provider_base_url)
+        if (
+            key_was_configured
+            and not payload.api_key
+            and not payload.remove_api_key
+            and provider_host != validate_provider_url_syntax(row.provider_base_url)
+        ):
+            raise ProviderError("Replace or remove the saved API key before changing provider origin.")
         if payload.enabled:
             validate_provider_url(payload.provider_base_url)
     except ProviderError as error:
@@ -98,19 +109,19 @@ def save_settings(
             detail=str(error),
         ) from None
 
+    encrypted_key = row.api_key_ciphertext
     if payload.api_key:
-        row.api_key_ciphertext = _cipher().encrypt(payload.api_key)
+        encrypted_key = _cipher().encrypt(payload.api_key)
     elif payload.remove_api_key:
-        row.api_key_ciphertext = None
-        row.enabled = False
+        encrypted_key = None
 
+    acknowledged_at = row.privacy_acknowledged_at
     if payload.enabled:
         if not payload.privacy_acknowledged:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="Acknowledge provider data sharing before enabling recommendations.",
             )
-        encrypted_key = row.api_key_ciphertext
         if not encrypted_key:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -134,13 +145,26 @@ def save_settings(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="Could not verify the provider configuration. Check the URL, model, and API key.",
             ) from None
-        row.privacy_acknowledged_at = utcnow()
+        acknowledged_at = utcnow()
 
-    row.provider_base_url = payload.provider_base_url
-    row.model_id = payload.model_id
-    row.enabled = payload.enabled and not payload.remove_api_key
-    row.revision += 1
-    row.updated_at = utcnow()
+    enabled = payload.enabled and not payload.remove_api_key
+    # A concurrent save must not separate a credential from its verified origin.
+    changed = db.execute(
+        update(CompanyAISettings)
+        .where(CompanyAISettings.id == row.id, CompanyAISettings.revision == row.revision)
+        .values(
+            provider_base_url=payload.provider_base_url,
+            model_id=payload.model_id,
+            api_key_ciphertext=encrypted_key,
+            enabled=enabled,
+            privacy_acknowledged_at=acknowledged_at,
+            revision=row.revision + 1,
+            updated_at=utcnow(),
+        )
+        .execution_options(synchronize_session=False)
+    )
+    if changed.rowcount != 1:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Provider settings changed; reload and retry.")
 
     AuditService.log_action(
         db,
@@ -150,10 +174,10 @@ def save_settings(
         entity_id=context.company.id,
         actor_user_id=context.user.id,
         metadata={
-            "enabled": row.enabled,
+            "enabled": enabled,
             "provider_host": provider_host,
             "model_id": payload.model_id[:200],
-            "credential_configured": bool(row.api_key_ciphertext),
+            "credential_configured": bool(encrypted_key),
             "credential_action": credential_action,
         },
     )
@@ -170,12 +194,18 @@ def test_provider_connection(
     model_id: str,
     api_key: str | None,
 ) -> bool:
-    key = api_key
-    if not key:
-        _stored_row, key = get_provider_configuration(db, company_id)
-    if not key:
-        return False
     try:
+        key = api_key
+        if not key:
+            row = _row(db, company_id)
+            if row is None or not row.api_key_ciphertext or (
+                validate_provider_url_syntax(provider_base_url)
+                != validate_provider_url_syntax(row.provider_base_url)
+            ):
+                return False
+            key = _stored_key(row)
+        if not key:
+            return False
         fetch_embeddings(
             provider_base_url,
             model_id,

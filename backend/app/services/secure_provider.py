@@ -8,6 +8,9 @@ import re
 import socket
 import ssl
 import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import closing, suppress
 from urllib.parse import urlsplit
 
 MAX_REQUEST_BYTES = 48_000
@@ -16,23 +19,62 @@ MAX_TEXTS = 81
 MAX_DIMENSIONS = 4096
 _TIMEOUT_SECONDS = 6
 _REQUEST_SLOTS = threading.BoundedSemaphore(4)
+_DNS_SLOTS = threading.BoundedSemaphore(4)
+_DNS_POOL = ThreadPoolExecutor(max_workers=4, thread_name_prefix="provider-dns")
 
 
 class ProviderError(Exception):
     """A deliberately sanitized provider failure."""
 
 
+class _Deadline:
+    def __init__(self) -> None:
+        self.end = time.monotonic() + _TIMEOUT_SECONDS
+        self.timer: threading.Timer | None = None
+        self.abort_socket: socket.socket | None = None
+
+    def remaining(self) -> float:
+        remaining = self.end - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError
+        return remaining
+
+    def watch(self, sock: socket.socket) -> None:
+        # HTTPResponse can own the TLS socket after getresponse(); a duplicate
+        # lets the watchdog interrupt both TLS setup and buffered response reads.
+        self.abort_socket = sock.dup()
+        self.timer = threading.Timer(self.remaining(), self._abort)
+        self.timer.daemon = True
+        self.timer.start()
+
+    def _abort(self) -> None:
+        if self.abort_socket is not None:
+            with suppress(OSError):
+                self.abort_socket.shutdown(socket.SHUT_RDWR)
+
+    def close(self) -> None:
+        if self.timer is not None:
+            self.timer.cancel()
+            if self.timer.ident is not None:
+                self.timer.join()
+        if self.abort_socket is not None:
+            self.abort_socket.close()
+
+
 class _PinnedHTTPSConnection(http.client.HTTPSConnection):
-    def __init__(self, host: str, port: int, family: int, sockaddr: tuple, timeout: int):
-        super().__init__(host=host, port=port, timeout=timeout, context=ssl.create_default_context())
+    def __init__(self, host: str, port: int, family: int, sockaddr: tuple, deadline: _Deadline):
+        super().__init__(host=host, port=port, context=ssl.create_default_context())
+        self._deadline = deadline
         self._pinned_family = family
         self._pinned_sockaddr = sockaddr
 
     def connect(self) -> None:
         sock = socket.socket(self._pinned_family, socket.SOCK_STREAM)
         try:
-            sock.settimeout(self.timeout)
+            sock.settimeout(self._deadline.remaining())
             sock.connect(self._pinned_sockaddr)
+            self._deadline.watch(sock)
+            sock.settimeout(self._deadline.remaining())
             self.sock = self._context.wrap_socket(sock, server_hostname=self.host)
         except Exception:
             sock.close()
@@ -102,7 +144,23 @@ def validate_provider_url_syntax(base_url: str) -> str:
 
 def validate_provider_url(base_url: str) -> None:
     host, port, _path = _endpoint(base_url)
-    _public_addresses(host, port)
+    _resolve_before(host, port, _Deadline())
+
+
+def _resolve_before(host: str, port: int, deadline: _Deadline) -> list[tuple[int, tuple]]:
+    if not _DNS_SLOTS.acquire(blocking=False):
+        raise ProviderError("Provider DNS is busy.")
+    try:
+        future = _DNS_POOL.submit(_public_addresses, host, port)
+    except Exception:
+        _DNS_SLOTS.release()
+        raise
+    future.add_done_callback(lambda _: _DNS_SLOTS.release())
+    try:
+        return future.result(timeout=deadline.remaining())
+    except TimeoutError:
+        future.cancel()
+        raise ProviderError("Provider host could not be resolved in time.") from None
 
 
 def _parse_embeddings(response_bytes: bytes, expected_count: int) -> list[list[float]]:
@@ -144,16 +202,17 @@ def fetch_embeddings(base_url: str, model_id: str, api_key: str, texts: list[str
     if not texts or len(texts) > MAX_TEXTS or any(not isinstance(text, str) or len(text) > 4096 for text in texts):
         raise ProviderError("Embedding request is outside the allowed limits.")
     host, port, path = _endpoint(base_url)
-    addresses = _public_addresses(host, port)
+
     body = json.dumps({"model": model_id, "input": texts}, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     if len(body) > MAX_REQUEST_BYTES:
         raise ProviderError("Embedding request is outside the allowed limits.")
     if not _REQUEST_SLOTS.acquire(blocking=False):
         raise ProviderError("Provider is busy.")
+    deadline = _Deadline()
     connection: _PinnedHTTPSConnection | None = None
     try:
-        family, sockaddr = addresses[0]
-        connection = _PinnedHTTPSConnection(host, port, family, sockaddr, _TIMEOUT_SECONDS)
+        family, sockaddr = _resolve_before(host, port, deadline)[0]
+        connection = _PinnedHTTPSConnection(host, port, family, sockaddr, deadline)
         connection.request(
             "POST",
             path,
@@ -165,18 +224,24 @@ def fetch_embeddings(base_url: str, model_id: str, api_key: str, texts: list[str
                 "Connection": "close",
             },
         )
-        response = connection.getresponse()
-        if response.status < 200 or response.status >= 300:
-            raise ProviderError("Embedding provider request failed.")
-        raw = response.read(MAX_RESPONSE_BYTES + 1)
+        with closing(connection.getresponse()) as response:
+            if response.status < 200 or response.status >= 300:
+                raise ProviderError("Embedding provider request failed.")
+            raw = response.read(MAX_RESPONSE_BYTES + 1)
+        deadline.remaining()
         if len(raw) > MAX_RESPONSE_BYTES:
             raise ProviderError("Embedding provider response exceeded the size limit.")
         return _parse_embeddings(raw, len(texts))
     except ProviderError:
         raise
-    except (OSError, http.client.HTTPException, ssl.SSLError, TimeoutError):
+    except (OSError, http.client.HTTPException):
         raise ProviderError("Embedding provider is unavailable.") from None
     finally:
-        if connection is not None:
-            connection.close()
-        _REQUEST_SLOTS.release()
+        try:
+            try:
+                if connection is not None:
+                    connection.close()
+            finally:
+                deadline.close()
+        finally:
+            _REQUEST_SLOTS.release()

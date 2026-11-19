@@ -9,12 +9,14 @@ import time
 import unicodedata
 from pathlib import Path
 
-from sqlalchemy import select
+from sqlalchemy import select, text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.authorization import is_managerial_role
 from app.config import get_settings
 from app.crypto import FieldCipher
+from app.db import begin_serialized_write, utcnow
 from app.domain.project_read import project_or_404
 from app.models import CompanyAISettings, Task
 from app.schemas.task_recommendations import TaskRecommendation, TaskRecommendationsResponse
@@ -25,6 +27,8 @@ from app.services.secure_provider import ProviderError, fetch_embeddings
 MAX_CANDIDATE_TASKS = 80
 MAX_RECOMMENDATIONS = 3
 MIN_COSINE_SIMILARITY = 0.25
+_COMPANY_CALLS_PER_HOUR = 300
+_ACTOR_CALLS_PER_HOUR = 30
 _STOPWORDS = frozenset({
     "a", "ao", "as", "com", "da", "das", "de", "do", "dos", "e", "em", "na", "nas", "no", "nos", "o", "os", "para", "por", "que", "se", "um", "uma", "user", "the", "to", "and", "of", "in", "on"
 })
@@ -173,6 +177,42 @@ def _result(status: str, items: list[dict[str, str]] | None = None) -> TaskRecom
     )
 
 
+def _reserve_provider_call(db: Session, company_id: str, actor_id: str, revision: int) -> bool:
+    try:
+        begin_serialized_write(db)
+        hour = int(utcnow().timestamp()) // 3600
+        for scope, limit in (("company", _COMPANY_CALLS_PER_HOUR), (f"actor:{actor_id}", _ACTOR_CALLS_PER_HOUR)):
+            updated = db.execute(
+                text("""
+                    INSERT INTO task_recommendation_quotas (company_id, scope, bucket_hour, attempts)
+                    VALUES (:company_id, :scope, :hour, 1)
+                    ON CONFLICT (company_id, scope) DO UPDATE SET
+                        bucket_hour = excluded.bucket_hour,
+                        attempts = CASE WHEN task_recommendation_quotas.bucket_hour < excluded.bucket_hour
+                            THEN 1 ELSE task_recommendation_quotas.attempts + 1 END
+                    WHERE task_recommendation_quotas.bucket_hour < excluded.bucket_hour
+                        OR (task_recommendation_quotas.bucket_hour = excluded.bucket_hour
+                            AND task_recommendation_quotas.attempts < :limit)
+                """),
+                {"company_id": company_id, "scope": scope, "hour": hour, "limit": limit},
+            )
+            if updated.rowcount != 1:
+                db.rollback()
+                return False
+        # Don't spend quota or contact the provider with a configuration already replaced.
+        current = db.scalar(select(CompanyAISettings.revision).where(
+            CompanyAISettings.company_id == company_id, CompanyAISettings.enabled.is_(True),
+        ))
+        if current != revision:
+            db.rollback()
+            return False
+        db.commit()
+        return True
+    except SQLAlchemyError:
+        db.rollback()
+        return False
+
+
 def suggest_tasks(
     db: Session,
     *,
@@ -203,6 +243,7 @@ def suggest_tasks(
         return _result("disabled")
 
     expected_revision = settings_row.revision
+    provider_url, model_id = settings_row.provider_base_url, settings_row.model_id
     tasks = db.scalars(
         select(Task)
         .where(Task.project_id == project_id)
@@ -223,10 +264,13 @@ def suggest_tasks(
         text = f"{number_text}{name}. {cipher.decrypt(task.description_ciphertext) or ''}"[:350]
         candidates.append({"id": task.id, "name": name, "text": text})
 
+    if not _reserve_provider_call(db, context.company.id, context.user.id, expected_revision):
+        return _result("unavailable")
+
     try:
         vectors = fetch_embeddings(
-            settings_row.provider_base_url,
-            settings_row.model_id,
+            provider_url,
+            model_id,
             api_key,
             [query[:1000], *(candidate["text"] for candidate in candidates)],
         )

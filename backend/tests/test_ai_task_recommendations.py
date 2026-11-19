@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import socket
+from datetime import datetime, timedelta, timezone
 
 from fastapi.testclient import TestClient
 import pytest
@@ -11,7 +12,7 @@ from app.crypto import FieldCipher
 from app.database_schema import upgrade_database_schema
 from app.db import SessionLocal, utcnow
 from app.models import AuditEvent, Company, CompanyAISettings, KanbanColumn, Project, Task
-from app.services import secure_provider
+from app.services import secure_provider, task_recommendations
 from app.services.secure_provider import (
     ProviderError,
     _parse_embeddings,
@@ -92,6 +93,7 @@ def test_existing_company_schema_upgrade_creates_ai_settings_table() -> None:
             connection.exec_driver_sql("CREATE TABLE companies (id VARCHAR(64) PRIMARY KEY)")
             upgrade_database_schema(connection)
             assert "company_ai_settings" in inspect(connection).get_table_names()
+            assert "task_recommendation_quotas" in inspect(connection).get_table_names()
     finally:
         engine.dispose()
 
@@ -107,6 +109,67 @@ def test_ai_settings_routes_require_company_manage_permission(client: TestClient
         headers=headers,
     )
     assert response.status_code == 403
+
+
+def test_connection_check_only_reuses_a_saved_key_on_its_origin(client, monkeypatch) -> None:
+    headers = login_headers(client)
+    route = "/api/v1/admin/ai-settings"
+    config = {"providerBaseUrl": "https://configured.invalid/v1", "modelId": "test-model"}
+    assert client.put(route, headers=headers, json={**config, "apiKey": "fixture-only"}).status_code == 200
+
+    def verify(url, _model, key, texts):
+        assert (url, key) in {
+            ("https://CONFIGURED.invalid:443/new/v1", "fixture-only"),
+            ("https://replacement.invalid/v1", "explicit-fixture"),
+        }
+        return [[1.0] for _ in texts]
+
+    monkeypatch.setattr("app.services.ai_settings.fetch_embeddings", verify)
+    for url, credential, expected in (
+        ("https://CONFIGURED.invalid:443/new/v1", {}, True),
+        ("https://replacement.invalid/v1", {}, False),
+        ("https://replacement.invalid/v1", {"apiKey": "explicit-fixture"}, True),
+    ):
+        response = client.post(f"{route}/test", headers=headers, json={
+            **config, "providerBaseUrl": url, **credential,
+        })
+        assert response.status_code == 200
+        assert response.json()["success"] is expected
+
+
+def test_company_quota_is_shared_across_actors_and_resets_next_hour(client, monkeypatch) -> None:
+    company_id = "company-touchin"
+    now = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    with SessionLocal() as db:
+        db.add(CompanyAISettings(company_id=company_id, enabled=True, revision=1))
+        db.commit()
+    monkeypatch.setattr(task_recommendations, "utcnow", lambda: now)
+    monkeypatch.setattr(task_recommendations, "_COMPANY_CALLS_PER_HOUR", 2)
+    monkeypatch.setattr(task_recommendations, "_ACTOR_CALLS_PER_HOUR", 1)
+
+    def reserve(actor):
+        with SessionLocal() as db:
+            return task_recommendations._reserve_provider_call(db, company_id, actor, 1)
+
+    assert reserve("first")
+    assert not reserve("first")
+    assert reserve("second")  # An actor rejection did not spend company quota.
+    assert not reserve("third")
+    now += timedelta(hours=1)
+    assert reserve("first")
+
+
+def test_provider_deadline_interrupts_a_blocking_socket_read(monkeypatch) -> None:
+    monkeypatch.setattr(secure_provider, "_TIMEOUT_SECONDS", 0.1)
+    reader, peer = socket.socketpair()
+    with reader, peer:
+        reader.settimeout(2)
+        deadline = secure_provider._Deadline()
+        try:
+            deadline.watch(reader)
+            assert reader.recv(1) == b""
+        finally:
+            deadline.close()
 
 
 def test_recommendations_are_disabled_by_default_and_project_scoped(
@@ -417,6 +480,9 @@ def test_provider_calls_are_pinned_bounded_and_do_not_follow_redirects(
 
         def read(self, limit: int) -> bytes:
             return self.body[:limit]
+
+        def close(self) -> None:
+            pass
 
     class StubConnection:
         def __init__(self, host, port, family, sockaddr, timeout) -> None:
