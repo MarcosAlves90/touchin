@@ -9,6 +9,7 @@ import 'package:touchin_flutter/contracts/task.dart';
 import 'package:touchin_flutter/contracts/task_recommendations.dart';
 import 'package:touchin_flutter/contracts/time_clock.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_editor_dialog.dart';
 import 'package:touchin_flutter/features/time_tracking/application/punch_location_service.dart';
 import 'package:touchin_flutter/features/time_tracking/presentation/time_clock_controller.dart';
 import 'package:touchin_flutter/features/time_tracking/presentation/time_clock_page.dart';
@@ -220,11 +221,16 @@ Future<_WorkLogApi> _pumpPage(
   return api;
 }
 
+Future<void> _tapVisible(WidgetTester tester, Finder finder) async {
+  await tester.ensureVisible(finder);
+  await tester.tap(finder);
+}
+
 Future<void> _openProject(
   WidgetTester tester,
   String projectName,
 ) async {
-  await tester.tap(find.byKey(const Key('work-log-project')));
+  await _tapVisible(tester, find.byKey(const Key('work-log-project')));
   await tester.pumpAndSettle();
   await tester.tap(find.text(projectName).last);
   await tester.pumpAndSettle();
@@ -283,6 +289,36 @@ void main() {
     expect(find.text('Registrar atividades'), findsOneWidget);
   });
 
+  testWidgets('work log uses the standard workspace editor modal',
+      (tester) async {
+    await _pumpPage(tester);
+
+    await tester.tap(find.text('Iniciar pausa'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byType(WorkspaceEditorDialog),
+      findsOneWidget,
+      reason: 'WORK_LOG_DIALOG_MUST_USE_SHARED_EDITOR_DIALOG',
+    );
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.text('Registrar atividades'), findsOneWidget);
+    expect(find.text('Registre sua atividade e, se aplicável, as tarefas.'),
+        findsOneWidget);
+    expect(
+      find.text(
+        'Descreva o trabalho realizado. Se selecionar um projeto, escolha ao menos uma tarefa.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.byTooltip('Fechar'), findsOneWidget);
+    expect(find.text('Cancelar'), findsOneWidget);
+    expect(
+      find.widgetWithText(FilledButton, 'Continuar'),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('incomplete work log cannot be submitted', (tester) async {
     final api = await _pumpPage(tester);
 
@@ -295,8 +331,8 @@ void main() {
     );
     await tester.pump();
 
-    final submit =
-        tester.widget<FilledButton>(find.byKey(const Key('work-log-submit')));
+    final submit = tester
+        .widget<FilledButton>(find.widgetWithText(FilledButton, 'Continuar'));
     expect(submit.onPressed, isNull);
     expect(api.lastPunchJson, isNull);
   });
@@ -315,14 +351,14 @@ void main() {
     await tester.pump();
     expect(
       tester
-          .widget<FilledButton>(find.byKey(const Key('work-log-submit')))
+          .widget<FilledButton>(find.widgetWithText(FilledButton, 'Continuar'))
           .onPressed,
       isNull,
     );
     await _openProject(tester, 'Nenhum');
     expect(
       tester
-          .widget<FilledButton>(find.byKey(const Key('work-log-submit')))
+          .widget<FilledButton>(find.widgetWithText(FilledButton, 'Continuar'))
           .onPressed,
       isNotNull,
     );
@@ -342,7 +378,7 @@ void main() {
     expect(find.byKey(const Key('work-log-task-task-a')), findsNothing);
     expect(
       tester
-          .widget<FilledButton>(find.byKey(const Key('work-log-submit')))
+          .widget<FilledButton>(find.widgetWithText(FilledButton, 'Continuar'))
           .onPressed,
       isNull,
     );
@@ -354,11 +390,14 @@ void main() {
     await tester.pump();
     expect(
       tester
-          .widget<FilledButton>(find.byKey(const Key('work-log-submit')))
+          .widget<FilledButton>(find.widgetWithText(FilledButton, 'Continuar'))
           .onPressed,
       isNotNull,
     );
-    await tester.tap(find.byKey(const Key('work-log-submit')));
+    await _tapVisible(
+      tester,
+      find.widgetWithText(FilledButton, 'Continuar'),
+    );
     await tester.pumpAndSettle();
 
     expect(api.lastPunchJson?['type'], 'breakStart');
@@ -377,7 +416,7 @@ void main() {
     await tester.tap(find.text('Registrar saída'));
     await tester.pumpAndSettle();
     await _openProject(tester, 'Projeto A');
-    await tester.tap(find.byKey(const Key('work-log-task-task-a')));
+    await _tapVisible(tester, find.byKey(const Key('work-log-task-task-a')));
     await tester.pump();
     await _openProject(tester, 'Nenhum');
 
@@ -387,7 +426,10 @@ void main() {
       'Suporte sem projeto',
     );
     await tester.pump();
-    await tester.tap(find.byKey(const Key('work-log-submit')));
+    await _tapVisible(
+      tester,
+      find.widgetWithText(FilledButton, 'Continuar'),
+    );
     await tester.pumpAndSettle();
 
     expect(api.lastPunchJson?['projectId'], isNull);
@@ -408,9 +450,12 @@ void main() {
       find.byKey(const Key('work-log-description')),
       'Corrigi o fluxo de ponto',
     );
-    await tester.tap(find.byKey(const Key('work-log-task-task-a')));
+    await _tapVisible(tester, find.byKey(const Key('work-log-task-task-a')));
     await tester.pump();
-    await tester.tap(find.byKey(const Key('work-log-submit')));
+    await _tapVisible(
+      tester,
+      find.widgetWithText(FilledButton, 'Continuar'),
+    );
     await tester.pumpAndSettle();
 
     expect(api.lastPunchJson?['type'], 'breakStart');
@@ -428,7 +473,7 @@ void main() {
     await tester.tap(find.text('Iniciar pausa'));
     await tester.pumpAndSettle();
     await _openProject(tester, 'Projeto A');
-    await tester.tap(find.byKey(const Key('work-log-task-task-a')));
+    await _tapVisible(tester, find.byKey(const Key('work-log-task-task-a')));
     await tester.pump();
     await _openProject(tester, 'Projeto B');
 
@@ -472,14 +517,20 @@ void main() {
     );
     expect(
       tester
-          .widget<FilledButton>(find.byKey(const Key('work-log-submit')))
+          .widget<FilledButton>(find.widgetWithText(FilledButton, 'Continuar'))
           .onPressed,
       isNull,
     );
 
-    await tester.tap(find.byKey(const Key('work-log-task-suggestion-task-a')));
+    await _tapVisible(
+      tester,
+      find.byKey(const Key('work-log-task-suggestion-task-a')),
+    );
     await tester.pump();
-    await tester.tap(find.byKey(const Key('work-log-submit')));
+    await _tapVisible(
+      tester,
+      find.widgetWithText(FilledButton, 'Continuar'),
+    );
     await tester.pumpAndSettle();
 
     expect(api.lastPunchJson?['workLog'], <String, dynamic>{

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:touchin_flutter/contracts/time_clock.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_editor_dialog.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_skeleton.dart';
 import 'package:touchin_flutter/features/time_tracking/presentation/time_clock_controller.dart';
 
@@ -155,168 +156,155 @@ class _WorkLogDialogState extends State<WorkLogDialog> {
     final projects = controller.workLogProjects;
     final tasks = controller.workLogTasks;
 
-    return AlertDialog(
-      title: const Text('Registrar atividades'),
-      content: SizedBox(
-        width: 520,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text(
-                'Descreva o trabalho realizado. Se selecionar um projeto, escolha ao menos uma tarefa.',
+    return WorkspaceEditorDialog(
+      title: 'Registrar atividades',
+      subtitle: 'Registre sua atividade e, se aplicável, as tarefas.',
+      icon: Icons.edit_note_rounded,
+      primaryLabel: 'Continuar',
+      primaryIcon: Icons.arrow_forward_rounded,
+      onPrimary: _canSubmit ? _submit : null,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'Descreva o trabalho realizado. Se selecionar um projeto, escolha ao menos uma tarefa.',
+          ),
+          const SizedBox(height: 16),
+          DropdownButtonFormField<String>(
+            key: const Key('work-log-project'),
+            initialValue: _selectedProjectId,
+            decoration: const InputDecoration(labelText: 'Projeto'),
+            items: [
+              const DropdownMenuItem<String>(
+                value: _noProjectOption,
+                child: Text('Nenhum'),
               ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                key: const Key('work-log-project'),
-                initialValue: _selectedProjectId,
-                decoration: const InputDecoration(labelText: 'Projeto'),
-                items: [
-                  const DropdownMenuItem<String>(
-                    value: _noProjectOption,
-                    child: Text('Nenhum'),
+              ...projects.map(
+                (project) => DropdownMenuItem<String>(
+                  value: project.id,
+                  child: Text(project.name),
+                ),
+              ),
+            ],
+            onChanged: _selectProject,
+          ),
+          const SizedBox(height: 16),
+          Semantics(
+            liveRegion: true,
+            child: Text(
+              'Se a empresa habilitou recomendações, a descrição e as tarefas deste projeto podem ser enviadas ao provedor de embeddings configurado. Revise e selecione as tarefas manualmente.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            key: const Key('work-log-description'),
+            controller: _descriptionController,
+            minLines: 2,
+            maxLines: 4,
+            decoration: const InputDecoration(
+              labelText: 'Descrição da atividade',
+              alignLabelWithHint: true,
+            ),
+          ),
+          const SizedBox(height: 16),
+          if (_selectedProjectId != null &&
+              _selectedProjectId != _noProjectOption &&
+              controller.workLogRecommendationStatus != 'idle' &&
+              controller.workLogRecommendationStatus != 'disabled') ...[
+            const SizedBox(height: 16),
+            if (controller.workLogRecommendationStatus == 'loading')
+              const WorkspaceSkeletonRegion(
+                label: 'Buscando sugestões de tarefas',
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: <Widget>[
+                    WorkspaceSkeleton(width: 164, height: 36),
+                    WorkspaceSkeleton(width: 132, height: 36),
+                  ],
+                ),
+              )
+            else if (controller.workLogRecommendationStatus == 'unavailable')
+              Text(
+                'Sugestões indisponíveis no momento. Você ainda pode selecionar as tarefas manualmente.',
+                style: Theme.of(context).textTheme.bodySmall,
+              )
+            else if (controller.workLogRecommendations.isNotEmpty)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Sugestões para revisar e selecionar',
+                    style: Theme.of(context).textTheme.titleSmall,
                   ),
-                  ...projects.map(
-                    (project) => DropdownMenuItem<String>(
-                      value: project.id,
-                      child: Text(project.name),
-                    ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: controller.workLogRecommendations.map((item) {
+                      final selected = _selectedTaskIds.contains(item.taskId);
+                      return FilterChip(
+                        key: Key('work-log-task-suggestion-${item.taskId}'),
+                        selected: selected,
+                        label: Text(item.taskName),
+                        onSelected: (value) => setState(() {
+                          if (value) {
+                            _selectedTaskIds.add(item.taskId);
+                          } else {
+                            _selectedTaskIds.remove(item.taskId);
+                          }
+                        }),
+                      );
+                    }).toList(growable: false),
                   ),
                 ],
-                onChanged: _selectProject,
+              )
+            else if (controller.workLogRecommendationStatus == 'no_match')
+              Text(
+                'Nenhuma sugestão encontrada. Você ainda pode escolher manualmente.',
+                style: Theme.of(context).textTheme.bodySmall,
               ),
-              const SizedBox(height: 16),
-              Semantics(
-                liveRegion: true,
-                child: Text(
-                  'Se a empresa habilitou recomendações, a descrição e as tarefas deste projeto podem ser enviadas ao provedor de embeddings configurado. Revise e selecione as tarefas manualmente.',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
+          ],
+          if (_selectedProjectId == null)
+            const Text('Selecione um projeto ou Nenhum.')
+          else if (_selectedProjectId == _noProjectOption)
+            const SizedBox.shrink()
+          else if (controller.isLoadingWorkLogTasks)
+            const WorkspaceSkeletonRegion(
+              key: ValueKey<String>('work-log-tasks-skeleton'),
+              label: 'Carregando tarefas do projeto',
+              child: WorkspaceSkeletonList(count: 3, leadingSize: 24),
+            )
+          else if (_loadError != null)
+            Text(_loadError!)
+          else if (tasks.isEmpty)
+            const Text('Nenhuma tarefa disponível para este projeto.')
+          else ...[
+            const Text('Tarefas relacionadas'),
+            const SizedBox(height: 8),
+            ...tasks.map(
+              (task) => CheckboxListTile(
+                key: Key('work-log-task-${task.id}'),
+                contentPadding: EdgeInsets.zero,
+                value: _selectedTaskIds.contains(task.id),
+                title: Text(task.name),
+                controlAffinity: ListTileControlAffinity.leading,
+                onChanged: (selected) {
+                  setState(() {
+                    if (selected ?? false) {
+                      _selectedTaskIds.add(task.id);
+                    } else {
+                      _selectedTaskIds.remove(task.id);
+                    }
+                  });
+                },
               ),
-              const SizedBox(height: 8),
-              TextField(
-                key: const Key('work-log-description'),
-                controller: _descriptionController,
-                minLines: 2,
-                maxLines: 4,
-                decoration: const InputDecoration(
-                  labelText: 'Descrição da atividade',
-                  alignLabelWithHint: true,
-                ),
-              ),
-              const SizedBox(height: 16),
-              if (_selectedProjectId != null &&
-                  _selectedProjectId != _noProjectOption &&
-                  controller.workLogRecommendationStatus != 'idle' &&
-                  controller.workLogRecommendationStatus != 'disabled') ...[
-                const SizedBox(height: 16),
-                if (controller.workLogRecommendationStatus == 'loading')
-                  const WorkspaceSkeletonRegion(
-                    label: 'Buscando sugestões de tarefas',
-                    child: Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: <Widget>[
-                        WorkspaceSkeleton(width: 164, height: 36),
-                        WorkspaceSkeleton(width: 132, height: 36),
-                      ],
-                    ),
-                  )
-                else if (controller.workLogRecommendationStatus ==
-                    'unavailable')
-                  Text(
-                    'Sugestões indisponíveis no momento. Você ainda pode selecionar as tarefas manualmente.',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  )
-                else if (controller.workLogRecommendations.isNotEmpty)
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Sugestões para revisar e selecionar',
-                        style: Theme.of(context).textTheme.titleSmall,
-                      ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: controller.workLogRecommendations.map((item) {
-                          final selected =
-                              _selectedTaskIds.contains(item.taskId);
-                          return FilterChip(
-                            key: Key('work-log-task-suggestion-${item.taskId}'),
-                            selected: selected,
-                            label: Text(item.taskName),
-                            onSelected: (value) => setState(() {
-                              if (value) {
-                                _selectedTaskIds.add(item.taskId);
-                              } else {
-                                _selectedTaskIds.remove(item.taskId);
-                              }
-                            }),
-                          );
-                        }).toList(growable: false),
-                      ),
-                    ],
-                  )
-                else if (controller.workLogRecommendationStatus == 'no_match')
-                  Text(
-                    'Nenhuma sugestão encontrada. Você ainda pode escolher manualmente.',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-              ],
-              if (_selectedProjectId == null)
-                const Text('Selecione um projeto ou Nenhum.')
-              else if (_selectedProjectId == _noProjectOption)
-                const SizedBox.shrink()
-              else if (controller.isLoadingWorkLogTasks)
-                const WorkspaceSkeletonRegion(
-                  key: ValueKey<String>('work-log-tasks-skeleton'),
-                  label: 'Carregando tarefas do projeto',
-                  child: WorkspaceSkeletonList(count: 3, leadingSize: 24),
-                )
-              else if (_loadError != null)
-                Text(_loadError!)
-              else if (tasks.isEmpty)
-                const Text('Nenhuma tarefa disponível para este projeto.')
-              else ...[
-                const Text('Tarefas relacionadas'),
-                const SizedBox(height: 8),
-                ...tasks.map(
-                  (task) => CheckboxListTile(
-                    key: Key('work-log-task-${task.id}'),
-                    contentPadding: EdgeInsets.zero,
-                    value: _selectedTaskIds.contains(task.id),
-                    title: Text(task.name),
-                    controlAffinity: ListTileControlAffinity.leading,
-                    onChanged: (selected) {
-                      setState(() {
-                        if (selected ?? false) {
-                          _selectedTaskIds.add(task.id);
-                        } else {
-                          _selectedTaskIds.remove(task.id);
-                        }
-                      });
-                    },
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
+            ),
+          ],
+        ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancelar'),
-        ),
-        FilledButton(
-          key: const Key('work-log-submit'),
-          onPressed: _canSubmit ? _submit : null,
-          child: const Text('Continuar'),
-        ),
-      ],
     );
   }
 }
