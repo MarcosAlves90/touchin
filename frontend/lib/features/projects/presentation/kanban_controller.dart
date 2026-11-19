@@ -12,6 +12,19 @@ class ProjectKanbanController extends ChangeNotifier {
   ProjectKanbanController({TouchInApi? api}) : _api = api ?? TouchInApi();
 
   final TouchInApi _api;
+  bool _disposed = false;
+
+  @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    _selectionEpoch++;
+    super.dispose();
+  }
 
   AuthContext? _authContext;
   List<ProjectSummary> _projects = const <ProjectSummary>[];
@@ -79,6 +92,7 @@ class ProjectKanbanController extends ChangeNotifier {
 
     try {
       final authContext = await _api.getAuthContext();
+      if (_disposed) return;
       final projects = await _api.listProjects(status: ProjectStatus.active);
       if (epoch != _selectionEpoch) {
         return;
@@ -444,8 +458,7 @@ class ProjectKanbanController extends ChangeNotifier {
       TaskRecord updated;
       try {
         updated = await _api.updateTask(task.projectId, task.id, draft,
-            expectedUpdatedAt: task.updatedAt,
-            expectedRevision: task.revision);
+            expectedUpdatedAt: task.updatedAt, expectedRevision: task.revision);
       } on ApiException catch (error) {
         if (error.code == 'task_version_conflict' &&
             _selectedProjectId == task.projectId) {

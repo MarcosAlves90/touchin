@@ -71,6 +71,17 @@ class AppTheme {
         backgroundColor: _darkBackground,
       );
 
+  /// Reuse every application style without invoking the Google Fonts loader.
+  /// The developer preview supplies this theme explicitly at its boundary.
+  static ThemeData offlineTheme(Brightness brightness) => _buildTheme(
+        colorScheme: brightness == Brightness.dark
+            ? _darkColorScheme
+            : _lightColorScheme,
+        backgroundColor:
+            brightness == Brightness.dark ? _darkBackground : _lightBackground,
+        fetchFonts: false,
+      );
+
   static WorkspaceNavigationColors navigationColors(ThemeData theme) =>
       theme.extension<WorkspaceNavigationColors>() ??
       (theme.brightness == Brightness.dark
@@ -214,6 +225,7 @@ class AppTheme {
   static ThemeData _buildTheme({
     required ColorScheme colorScheme,
     required Color backgroundColor,
+    bool fetchFonts = true,
   }) {
     final baseTheme = ThemeData(
       useMaterial3: true,
@@ -223,7 +235,10 @@ class AppTheme {
       brightness: colorScheme.brightness,
     );
 
-    final textTheme = GoogleFonts.poppinsTextTheme(baseTheme.textTheme).apply(
+    final textTheme = (fetchFonts
+            ? GoogleFonts.poppinsTextTheme(baseTheme.textTheme)
+            : baseTheme.textTheme)
+        .apply(
       bodyColor: colorScheme.onSurface,
       displayColor: colorScheme.onSurface,
     );

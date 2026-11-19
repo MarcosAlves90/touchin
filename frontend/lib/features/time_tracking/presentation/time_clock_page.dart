@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:touchin_flutter/contracts/location.dart';
 import 'package:touchin_flutter/contracts/punch.dart';
+import 'package:touchin_flutter/core/network/touchin_api.dart';
+import 'package:touchin_flutter/features/time_tracking/application/punch_location_service.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/pagination_controls.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_skeleton.dart';
@@ -11,9 +13,12 @@ import 'package:touchin_flutter/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 
 class TimeClockPage extends StatefulWidget {
-  const TimeClockPage({super.key, this.controller});
+  const TimeClockPage(
+      {super.key, this.controller, this.api, this.punchLocationService});
 
   final TimeClockController? controller;
+  final TouchInApi? api;
+  final PunchLocationService? punchLocationService;
 
   @override
   State<TimeClockPage> createState() => _TimeClockPageState();
@@ -51,7 +56,9 @@ class _TimeClockPageState extends State<TimeClockPage> {
   @override
   void initState() {
     super.initState();
-    _controller = widget.controller ?? TimeClockController();
+    _controller = widget.controller ??
+        TimeClockController(
+            api: widget.api, punchLocationService: widget.punchLocationService);
     _ownsController = widget.controller == null;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _controller.start();
@@ -873,7 +880,8 @@ class _TimeClockPageState extends State<TimeClockPage> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.calendar_today_rounded, size: 16, color: colorScheme.primary),
+          Icon(Icons.calendar_today_rounded,
+              size: 16, color: colorScheme.primary),
           const SizedBox(width: 8),
           Text('${_now.day} de ${_months[_now.month - 1]}'),
         ],
