@@ -7,7 +7,8 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   for (final brightness in Brightness.values) {
     for (final mode in ThemeMode.values) {
-      testWidgets('settings notice radius for $brightness and $mode', (tester) async {
+      testWidgets('settings notice radius for $brightness and $mode',
+          (tester) async {
         await tester.binding.setSurfaceSize(const Size(1280, 900));
         addTearDown(() => tester.binding.setSurfaceSize(null));
         final controller = ThemeModeController(store: _InMemoryThemeStore());
@@ -21,17 +22,21 @@ void main() {
         final message = switch (mode) {
           ThemeMode.light => 'O tema claro está ativo em todo o app.',
           ThemeMode.dark => 'O tema escuro está ativo em todo o app.',
-          ThemeMode.system => 'O app continuará acompanhando o tema configurado no sistema.',
+          ThemeMode.system =>
+            'O app continuará acompanhando o tema configurado no sistema.',
         };
         final text = find.text(message);
         expect(text, findsOneWidget);
-        final notice = tester.widget<Container>(find.ancestor(
-          of: text,
-          matching: find.byWidgetPredicate((widget) =>
-              widget is Container && widget.decoration is BoxDecoration),
-        ).first);
+        final notice = tester.widget<Container>(find
+            .ancestor(
+              of: text,
+              matching: find.byWidgetPredicate((widget) =>
+                  widget is Container && widget.decoration is BoxDecoration),
+            )
+            .first);
         expect((notice.decoration! as BoxDecoration).borderRadius,
-            BorderRadius.circular(10), reason: 'settings_notice_radius_10');
+            BorderRadius.circular(10),
+            reason: 'settings_notice_radius_10');
         expect(tester.takeException(), isNull);
       });
     }
@@ -41,7 +46,8 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final controller = ThemeModeController(store: _InMemoryThemeStore());
     await controller.load();
-    await tester.pumpWidget(MaterialApp(home: ThemeSettingsPage(controller: controller)));
+    await tester.pumpWidget(
+        MaterialApp(home: ThemeSettingsPage(controller: controller)));
     await tester.pumpAndSettle();
     expect(tester.getTopLeft(find.text('Tema claro')).dy,
         tester.getTopLeft(find.text('Tema escuro')).dy,
@@ -73,7 +79,7 @@ void main() {
     expect(find.text('Tema atual'), findsOneWidget);
     expect(
       find.text(
-        'Ajuste preferências globais da interface e mantenha a experiência do jeito que preferir.',
+        'Ajuste a aparência da interface e as preferências disponíveis para sua conta.',
       ),
       findsOneWidget,
     );

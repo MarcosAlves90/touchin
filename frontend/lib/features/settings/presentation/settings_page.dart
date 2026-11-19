@@ -1,14 +1,23 @@
 import 'dart:async';
 
+import 'package:touchin_flutter/core/network/touchin_api.dart';
 import 'package:touchin_flutter/core/theme/theme_mode_controller.dart';
+import 'package:touchin_flutter/features/settings/presentation/ai_settings_page.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
 import 'package:touchin_flutter/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 
 class ThemeSettingsPage extends StatelessWidget {
-  const ThemeSettingsPage({super.key, this.controller});
+  const ThemeSettingsPage({
+    super.key,
+    this.controller,
+    this.canManageAISettings = false,
+    this.aiSettingsApi,
+  });
 
   final ThemeModeController? controller;
+  final bool canManageAISettings;
+  final TouchInApi? aiSettingsApi;
 
   ThemeModeController get _controller =>
       controller ?? ThemeModeController.instance;
@@ -69,7 +78,7 @@ class ThemeSettingsPage extends StatelessWidget {
                 kicker: 'PREFERÊNCIAS',
                 title: 'Configurações',
                 description:
-                    'Ajuste preferências globais da interface e mantenha a experiência do jeito que preferir.',
+                    'Ajuste a aparência da interface e as preferências disponíveis para sua conta.',
               ),
               const SizedBox(height: 24),
               WorkspaceSectionCard(
@@ -220,6 +229,10 @@ class ThemeSettingsPage extends StatelessWidget {
                   ],
                 ),
               ),
+              if (canManageAISettings) ...[
+                const SizedBox(height: 24),
+                AdminAISettingsSection(api: aiSettingsApi),
+              ],
             ],
           );
         },

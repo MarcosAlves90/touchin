@@ -17,9 +17,6 @@ enum WorkspaceDestinationAccess {
   /// Needs Kanban permission and, for employees, a linked employee profile.
   kanban,
 
-  /// Needs companies.manage (company admin or super-admin only).
-  companyAdmin,
-
   /// Local-only screen that never calls the backend.
   everyone,
 }
@@ -46,8 +43,6 @@ class WorkspaceDestination {
         _managerialRoles.contains(user.role),
       WorkspaceDestinationAccess.kanban =>
         _managerialRoles.contains(user.role) || user.hasEmployeeProfile,
-      WorkspaceDestinationAccess.companyAdmin =>
-        user.role == 'admin' || user.role == 'super_admin',
       WorkspaceDestinationAccess.knownRole ||
       WorkspaceDestinationAccess.everyone =>
         true,
@@ -77,12 +72,6 @@ const workspaceDestinations = <WorkspaceDestination>[
     label: 'Trilha de Auditoria',
     route: '/admin/audit',
     access: WorkspaceDestinationAccess.managerial,
-  ),
-  WorkspaceDestination(
-    icon: Icons.auto_awesome_outlined,
-    label: 'Sugestões com IA',
-    route: '/admin/ai-settings',
-    access: WorkspaceDestinationAccess.companyAdmin,
   ),
   WorkspaceDestination(
     icon: Icons.account_tree_outlined,

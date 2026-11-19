@@ -98,7 +98,7 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: Builder(builder: route.builder)));
     await tester.pump();
 
-    expect(find.byType(AdminAISettingsPage), findsNothing);
+    expect(find.byType(AdminAISettingsSection), findsNothing);
     expect(find.byType(TimeClockPage), findsOneWidget);
   });
 }

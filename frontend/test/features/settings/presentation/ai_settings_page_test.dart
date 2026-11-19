@@ -52,12 +52,40 @@ Future<void> _pumpSettingsPage(
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
   await tester.pumpWidget(
-    MaterialApp(home: AdminAISettingsPage(api: api)),
+    MaterialApp(home: AdminAISettingsSection(api: api)),
   );
   await tester.pumpAndSettle();
 }
 
 void main() {
+  testWidgets(
+    'AI settings can be embedded without a separate workspace shell',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1440, 1100));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final api = _SettingsApi(
+        initial: const CompanyAISettings(
+          enabled: false,
+          providerBaseUrl: '',
+          modelId: '',
+          apiKeyConfigured: false,
+          privacyAcknowledged: false,
+        ),
+      );
+
+      await tester
+          .pumpWidget(MaterialApp(home: AdminAISettingsSection(api: api)));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey<String>('workspace-desktop-destinations')),
+        findsNothing,
+        reason: 'AI_SETTINGS_EMBEDDED_NO_SEPARATE_WORKSPACE_SHELL',
+      );
+      expect(find.text('Sugestões de tarefas com IA'), findsOneWidget);
+    },
+  );
+
   testWidgets(
       'configuration is masked and enabling requires a saved acknowledgement',
       (tester) async {
@@ -111,6 +139,56 @@ void main() {
     expect(api.savedDraft!.apiKey, 'replacement-test-key');
     expect(api.savedDraft!.providerBaseUrl, 'https://provider.example/v1');
     expect(find.text('Configurações salvas.'), findsOneWidget);
+  });
+
+  testWidgets('saving blank provider settings shows required fields',
+      (tester) async {
+    final api = _SettingsApi(
+      initial: const CompanyAISettings(
+        enabled: false,
+        providerBaseUrl: '',
+        modelId: '',
+        apiKeyConfigured: false,
+        privacyAcknowledged: false,
+      ),
+    );
+    await _pumpSettingsPage(tester, api);
+
+    await tester.ensureVisible(find.text('Salvar'));
+    await tester.tap(find.text('Salvar'));
+    await tester.pumpAndSettle();
+
+    expect(api.savedDraft, isNull);
+    expect(
+      find.text('Informe a URL base do provedor e o modelo antes de salvar.'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('testing blank provider settings shows required fields',
+      (tester) async {
+    final api = _SettingsApi(
+      initial: const CompanyAISettings(
+        enabled: false,
+        providerBaseUrl: '',
+        modelId: '',
+        apiKeyConfigured: false,
+        privacyAcknowledged: false,
+      ),
+    );
+    await _pumpSettingsPage(tester, api);
+
+    await tester.ensureVisible(find.text('Testar conexão'));
+    await tester.tap(find.text('Testar conexão'));
+    await tester.pumpAndSettle();
+
+    expect(api.connectionTests, 0);
+    expect(
+      find.text(
+        'Informe a URL base do provedor e o modelo antes de testar a conexão.',
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('removing a stored key also disables the feature',
