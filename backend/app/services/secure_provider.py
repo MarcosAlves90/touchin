@@ -65,7 +65,7 @@ def _endpoint(base_url: str) -> tuple[str, int, str]:
         path = "/v1/embeddings"
     elif path.endswith("/v1"):
         path += "/embeddings"
-    else:
+    elif not path.endswith("/v1/embeddings"):
         path += "/v1/embeddings"
     if len(path) > 2048:
         raise ProviderError("Provider URL is invalid.")
