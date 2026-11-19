@@ -204,7 +204,6 @@ class PreviewTransport extends http.BaseClient {
             defaults: {
               'projectId': projectId,
               'parentTaskId': null,
-              'cardNumber': fixtures.sequence + 100,
               'kanbanColumnId': columnId,
               'kanbanPosition': fixtures.tasks.length,
               'revision': 1,
@@ -251,6 +250,9 @@ class PreviewTransport extends http.BaseClient {
       final created = <String, dynamic>{
         ...defaults,
         ...body,
+        if (kind == 'task')
+          'cardNumber':
+              fixtures.nextCardNumber(defaults['projectId'] as String),
         'id': fixtures.nextId(kind)
       };
       state.add(created);
@@ -371,6 +373,14 @@ class PreviewTransport extends http.BaseClient {
       } else if (parts.length == 5) {
         final column = fixtures.columns.firstWhere((c) => c['id'] == parts[4]);
         if (method == 'DELETE') {
+          if (fixtures.columns
+                  .where((c) => c['projectId'] == projectId)
+                  .length <=
+              1) {
+            throw ApiException(
+                '[Prévia] A última coluna do quadro não pode ser removida.',
+                statusCode: 409);
+          }
           if (fixtures.tasks.any((t) => t['kanbanColumnId'] == column['id'])) {
             throw ApiException(
                 '[Prévia] Mova os cards antes de remover a coluna.',

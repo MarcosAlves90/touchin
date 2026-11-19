@@ -22,6 +22,7 @@ class PreviewFixtures {
   late List<PreviewJson> audit;
   int sequence = 100;
   int kanbanVersion = 1;
+  final _nextCardNumbers = <String, int>{};
 
   AuthContext context(PreviewPersona persona) => AuthContext.fromJson({
         'company': {
@@ -149,6 +150,14 @@ class PreviewFixtures {
             'updatedAt': date,
           }
     ];
+    _nextCardNumbers.clear();
+    for (final task in tasks) {
+      final projectId = task['projectId'] as String;
+      final nextNumber = (task['cardNumber'] as int) + 1;
+      if (nextNumber > (_nextCardNumbers[projectId] ?? 1)) {
+        _nextCardNumbers[projectId] = nextNumber;
+      }
+    }
     projectMembers = [
       for (final project in projects)
         for (final employee in employees.take(4))
@@ -216,6 +225,13 @@ class PreviewFixtures {
   }
 
   String nextId(String kind) => 'preview-$kind-${sequence++}';
+
+  /// Keep project card numbers independent of IDs and deleted task records.
+  int nextCardNumber(String projectId) {
+    final number = _nextCardNumbers[projectId] ?? 1;
+    _nextCardNumbers[projectId] = number + 1;
+    return number;
+  }
 
   PreviewJson board(String projectId, {bool empty = false}) => {
         'projectId': projectId,
