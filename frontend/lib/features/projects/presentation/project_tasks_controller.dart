@@ -10,6 +10,18 @@ class ProjectTasksController extends ChangeNotifier {
   ProjectTasksController({TouchInApi? api}) : _api = api ?? TouchInApi();
 
   final TouchInApi _api;
+  bool _disposed = false;
+
+  @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
 
   AuthContext? authContext;
   List<ProjectSummary> projects = <ProjectSummary>[];
@@ -107,9 +119,12 @@ class ProjectTasksController extends ChangeNotifier {
 
     try {
       authContext = await _api.getAuthContext();
+      if (_disposed) return;
       projects = await _api.listProjects(status: ProjectStatus.active);
+      if (_disposed) return;
       if (canManageProjects) {
         employees = await _api.listEmployees();
+        if (_disposed) return;
       }
 
       if (projects.isNotEmpty) {

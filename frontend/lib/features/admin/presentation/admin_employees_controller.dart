@@ -11,6 +11,12 @@ class AdminEmployeesController extends ChangeNotifier {
   AdminEmployeesController({TouchInApi? api}) : _api = api ?? TouchInApi();
 
   final TouchInApi _api;
+  bool _disposed = false;
+
+  @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
+  }
 
   final TextEditingController searchController = TextEditingController();
   List<EmployeeProfile> employees = <EmployeeProfile>[];
@@ -47,6 +53,7 @@ class AdminEmployeesController extends ChangeNotifier {
       final authContextFuture = _loadAuthContextSafely();
       final loadedEmployees = await employeesFuture;
       final loadedAuthContext = await authContextFuture;
+      if (_disposed) return;
 
       employees = loadedEmployees;
       authContext = loadedAuthContext;
@@ -554,6 +561,7 @@ class AdminEmployeesController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     searchController.dispose();
     super.dispose();
   }

@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:touchin_flutter/contracts/auth.dart';
 import 'package:touchin_flutter/core/network/api_client.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
+import 'package:touchin_flutter/core/network/app_dependencies.dart';
+import 'package:touchin_flutter/dev_preview/preview_launcher.dart';
 import 'package:touchin_flutter/core/storage/token_storage.dart';
 import 'package:touchin_flutter/core/navigation/workspace_router.dart';
 import 'package:touchin_flutter/core/theme/theme_mode_controller.dart';
@@ -14,19 +16,46 @@ import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_s
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_skeleton.dart';
 import 'package:touchin_flutter/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:touchin_flutter/features/time_tracking/application/punch_location_service.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await ThemeModeController.instance.load();
-  runApp(const MyApp());
+  runApp(kDebugMode ? const PreviewLauncher() : const MyApp());
 }
 
 class MyApp extends StatefulWidget {
-  const MyApp({super.key, this.api, this.tokenStorage});
+  const MyApp(
+      {super.key,
+      this.api,
+      this.workspaceApi,
+      this.punchLocationService,
+      this.tokenStorage,
+      this.initialPath,
+      this.workspaceRevision = 0,
+      this.onLocationChanged,
+      this.onLogout,
+      this.unauthenticatedBuilder,
+      this.applicationBuilder,
+      this.theme,
+      this.darkTheme});
 
   final TouchInApi? api;
+
+  /// Optional feature dependency; the bootstrap API retains its existing role.
+  final TouchInApi? workspaceApi;
+  final PunchLocationService? punchLocationService;
   final TokenStorage? tokenStorage;
+  final String? initialPath;
+  final int workspaceRevision;
+  final ValueChanged<String>? onLocationChanged;
+  final VoidCallback? onLogout;
+  final WidgetBuilder? unauthenticatedBuilder;
+  final Widget Function(BuildContext, Widget)? applicationBuilder;
+  final ThemeData? theme;
+  final ThemeData? darkTheme;
 
   @override
   State<MyApp> createState() => _MyAppState();
@@ -41,7 +70,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   Future<_SessionBootstrapResult>? _bootstrapInFlight;
   bool _startupResolved = false;
   late final WorkspaceRouter _router = WorkspaceRouter(
-    initialPath: WidgetsBinding.instance.platformDispatcher.defaultRouteName,
+    initialPath: widget.initialPath ??
+        WidgetsBinding.instance.platformDispatcher.defaultRouteName,
     buildRoute: (context, path, session) => _SessionGate(
       key: ValueKey<String>(path),
       routeName: path,
@@ -51,8 +81,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       bootstrap: _bootstrapSession,
       revalidate: _revalidateActiveSession,
       api: _api,
+      workspaceApi: widget.workspaceApi,
       tokenStorage: _tokenStorage,
       router: _router,
+      workspaceRevision: widget.workspaceRevision,
+      unauthenticatedBuilder: widget.unauthenticatedBuilder,
     ),
   );
   final WorkspaceRouteParser _routeParser = WorkspaceRouteParser();
@@ -69,6 +102,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   }
 
   void _onRouterChanged() {
+    widget.onLocationChanged?.call(_router.currentConfiguration.path);
     final session = _router.verifiedSession;
     if (session == null) {
       _revalidationTimer?.cancel();
@@ -138,7 +172,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     TouchInApi.invalidateAuthContext(token: token);
     try {
       final context = await _api.getAuthContext();
-      if (generation != _router.sessionGeneration ||
+      if (!mounted ||
+          generation != _router.sessionGeneration ||
           _router.verifiedSession?.accessToken != token) {
         return;
       }
@@ -149,7 +184,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       ));
       _scheduleRevalidation(session);
     } on ApiException catch (error) {
-      if (generation != _router.sessionGeneration ||
+      if (!mounted ||
+          generation != _router.sessionGeneration ||
           _router.verifiedSession?.accessToken != token) {
         return;
       }
@@ -160,7 +196,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         _router.failRevalidation();
       }
     } catch (_) {
-      if (generation == _router.sessionGeneration &&
+      if (mounted &&
+          generation == _router.sessionGeneration &&
           _router.verifiedSession?.accessToken == token) {
         _router.failRevalidation();
       }
@@ -193,14 +230,16 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     if (persistedSession == null) {
       return const _SessionBootstrapResult.unauthenticated();
     }
-    if (generation != _router.sessionGeneration || _router.sessionRevoked) {
+    if (!mounted ||
+        generation != _router.sessionGeneration ||
+        _router.sessionRevoked) {
       return const _SessionBootstrapResult.unauthenticated();
     }
 
     final now = DateTime.now().toUtc();
     if (!persistedSession.expiresAt.isAfter(now)) {
       try {
-        if (generation == _router.sessionGeneration) {
+        if (mounted && generation == _router.sessionGeneration) {
           await _tokenStorage.clearSessionIfTokenMatches(
             persistedSession.accessToken,
           );
@@ -214,7 +253,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     try {
       TouchInApi.invalidateAuthContext(token: persistedSession.accessToken);
       final authContext = await _api.getAuthContext();
-      if (generation != _router.sessionGeneration) {
+      if (!mounted || generation != _router.sessionGeneration) {
         return const _SessionBootstrapResult.unauthenticated();
       }
       final verified = persistedSession.copyWith(
@@ -226,7 +265,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       return _SessionBootstrapResult.authenticated(verified);
     } on ApiException catch (error) {
       if (error.statusCode == 401 || error.statusCode == 403) {
-        if (generation != _router.sessionGeneration) {
+        if (!mounted || generation != _router.sessionGeneration) {
           return const _SessionBootstrapResult.unauthenticated();
         }
         _router.revokeSession();
@@ -258,8 +297,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         return MaterialApp.router(
           title: 'TouchIn',
           debugShowCheckedModeBanner: false,
-          theme: AppTheme.lightTheme,
-          darkTheme: AppTheme.darkTheme,
+          theme: widget.theme ?? AppTheme.lightTheme,
+          darkTheme: widget.darkTheme ?? AppTheme.darkTheme,
           themeMode: ThemeModeController.instance.mode,
           localizationsDelegates: const [
             GlobalMaterialLocalizations.delegate,
@@ -271,11 +310,15 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           routerDelegate: _router,
           routeInformationParser: _routeParser,
           backButtonDispatcher: RootBackButtonDispatcher(),
-          builder: (context, child) => AccessibilityTools(
-            child: WorkspaceRouterScope(
+          builder: (context, child) => AppDependencies(
+            api: widget.workspaceApi,
+            punchLocationService: widget.punchLocationService,
+            onLogout: widget.onLogout,
+            child: AccessibilityTools(
+                child: WorkspaceRouterScope(
               router: _router,
-              child: child!,
-            ),
+              child: widget.applicationBuilder?.call(context, child!) ?? child!,
+            )),
           ),
         );
       },
@@ -305,17 +348,23 @@ class _SessionGate extends StatefulWidget {
     required this.bootstrap,
     required this.revalidate,
     required this.api,
+    this.workspaceApi,
     required this.tokenStorage,
     required this.router,
+    required this.workspaceRevision,
+    this.unauthenticatedBuilder,
   });
 
   final String routeName;
+  final int workspaceRevision;
+  final WidgetBuilder? unauthenticatedBuilder;
   final AuthSession? initialSession;
   final bool isStartup;
   final VoidCallback onStartupResolved;
   final Future<_SessionBootstrapResult> Function() bootstrap;
   final Future<void> Function() revalidate;
   final TouchInApi api;
+  final TouchInApi? workspaceApi;
   final TokenStorage tokenStorage;
   final WorkspaceRouter router;
 
@@ -422,7 +471,8 @@ class _SessionGateState extends State<_SessionGate> {
           _redirectIfRequired(session);
           return _authenticatedContent(session);
         }
-        return const LoginPage();
+        return widget.unauthenticatedBuilder?.call(context) ??
+            const LoginPage();
       },
     );
   }
@@ -442,8 +492,10 @@ class _SessionGateState extends State<_SessionGate> {
           child: TickerMode(
             enabled: !concealed,
             child: _BootstrapSessionView(
+              key: ValueKey(widget.workspaceRevision),
               session: session,
               routeName: widget.routeName,
+              api: widget.workspaceApi,
             ),
           ),
         ),
@@ -592,16 +644,21 @@ class _SessionBootstrapResult {
 }
 
 class _BootstrapSessionView extends StatelessWidget {
-  const _BootstrapSessionView({required this.session, this.routeName});
+  const _BootstrapSessionView(
+      {super.key, required this.session, this.routeName, this.api});
 
   final AuthSession session;
   final String? routeName;
+  final TouchInApi? api;
 
   @override
   Widget build(BuildContext context) {
     final route = buildAuthenticatedWorkspaceRoute(
       session,
       routeName: routeName,
+      api: api,
+      punchLocationService:
+          AppDependencies.maybeOf(context)?.punchLocationService,
     ) as MaterialPageRoute<void>;
     return route.builder(context);
   }

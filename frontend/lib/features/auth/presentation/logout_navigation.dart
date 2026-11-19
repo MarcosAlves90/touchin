@@ -1,5 +1,6 @@
 import 'package:touchin_flutter/core/network/api_client.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
+import 'package:touchin_flutter/core/network/app_dependencies.dart';
 import 'package:touchin_flutter/features/auth/presentation/login_page.dart';
 import 'package:flutter/material.dart';
 import 'package:touchin_flutter/core/navigation/workspace_router.dart';
@@ -14,8 +15,13 @@ Future<void> logoutFromWorkspace(
   BuildContext context, {
   TouchInApi? api,
 }) async {
+  final dependencies = AppDependencies.maybeOf(context);
+  if (dependencies?.onLogout case final onLogout?) {
+    onLogout();
+    return;
+  }
   try {
-    await (api ?? TouchInApi()).logout();
+    await (api ?? dependencies?.api ?? TouchInApi()).logout();
   } on ApiException {
     // O token local ja foi limpo; nao mantenha a sessão ativa por erro remoto.
   } catch (_) {

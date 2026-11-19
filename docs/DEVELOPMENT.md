@@ -9,6 +9,10 @@
 
 ## Preparar o backend
 
+Para desenvolver e inspecionar a interface sem backend, conta ou `.env`,
+use a [prévia de desenvolvimento offline](DEVELOPER_PREVIEW.md) disponível
+no fluxo Flutter debug.
+
 Na raiz do repositório:
 
 ```bash
