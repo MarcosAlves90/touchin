@@ -362,6 +362,36 @@ class WorkLog(Base):
     tasks: Mapped[list[Task]] = relationship(secondary="work_log_tasks")
 
 
+class CompanyAISettings(Base):
+    __tablename__ = "company_ai_settings"
+    __table_args__ = (UniqueConstraint("company_id", name="uq_company_ai_settings_company"),)
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=generate_id)
+    company_id: Mapped[str] = mapped_column(
+        ForeignKey(_COL_COMPANIES_ID, ondelete="CASCADE"), index=True
+    )
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    provider_base_url: Mapped[str] = mapped_column(String(2048), default="")
+    model_id: Mapped[str] = mapped_column(String(200), default="")
+    api_key_ciphertext: Mapped[str | None] = mapped_column(Text, nullable=True)
+    privacy_acknowledged_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    revision: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class TaskRecommendationQuota(Base):
+    __tablename__ = "task_recommendation_quotas"
+
+    company_id: Mapped[str] = mapped_column(
+        ForeignKey(_COL_COMPANIES_ID, ondelete="CASCADE"), primary_key=True
+    )
+    scope: Mapped[str] = mapped_column(String(70), primary_key=True)
+    bucket_hour: Mapped[int] = mapped_column(Integer)
+    attempts: Mapped[int] = mapped_column(Integer)
+
+
 class AuditEvent(Base):
     __tablename__ = 'audit_events'
 

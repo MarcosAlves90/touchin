@@ -1,0 +1,183 @@
+{
+  "schema_version": 6,
+  "kind": "behavior_preserving",
+  "scope": {
+    "allowed_paths": [
+      "frontend/test/features/shared/presentation/widgets/workspace_shell_test.dart",
+      "frontend/test/goldens/rounded_workspace_navigation/desktop-dark.png",
+      "frontend/test/goldens/rounded_workspace_navigation/desktop-light.png",
+      "frontend/test/goldens/rounded_workspace_navigation/mobile-dark.png",
+      "frontend/test/goldens/rounded_workspace_navigation/mobile-light.png",
+      ".polis/artifacts/contracts/ai-task-recommendations-153-golden-refresh-v2.json",
+      ".polis/artifacts/reports/ai-task-recommendations-153-golden-refresh-v2.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/features/shared/presentation/widgets/workspace_shell_test.dart",
+      "frontend/test/goldens/rounded_workspace_navigation/desktop-dark.png",
+      "frontend/test/goldens/rounded_workspace_navigation/desktop-light.png",
+      "frontend/test/goldens/rounded_workspace_navigation/mobile-dark.png",
+      "frontend/test/goldens/rounded_workspace_navigation/mobile-light.png"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Refresh only the four canonical workspace-navigation goldens from the exact Ubuntu CI actuals for PR #155 after company AI settings moved into the existing Settings page; do not change application or test source.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "All four desktop/mobile and light/dark baselines match the exact testImage actuals from the candidate PR head and show the updated Settings navigation without clipping, overlap, or unrelated visual changes."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "Golden source images come from the pull-request canonical CI run on Ubuntu with Flutter 3.47.2; the matching push run is an independent corroboration."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "Only four PNG baselines and this locked contract/provenance report change; no production or test source changes are included."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "Each committed golden SHA-256 exactly matches its current candidate-run testImage actual, and the visual review shows only the intended Settings-navigation change plus renderer-level pixel differences.",
+        "requirements": [
+          "REQ-001",
+          "REQ-002"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "The canonical Ubuntu/Flutter 3.47.2 golden job passes all four cases on the updated pushed PR head SHA.",
+        "requirements": [
+          "REQ-001",
+          "REQ-002",
+          "REQ-003"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "No production widget, navigation rule, test assertion, or application behavior changes during this golden-only refresh."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "Copying local macOS renders as canonical baselines instead of the exact Ubuntu CI actuals."
+      },
+      {
+        "id": "FORB-002",
+        "statement": "Changing application/test source or weakening the visual comparison to avoid the mismatch."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "PR #155 candidate head 6daf638e4c29c9dae510c0c927c0f3c473e71c45; pull_request run 44604240901/job 135843543267 and corroborating push run 44604221767/job 135843477275."
+      },
+      {
+        "id": "IN-002",
+        "statement": "Both canonical-navigation-golden-failure-images artifacts contain actual, master, and diff PNGs; the four testImage actuals are byte-identical across both runs."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "Four canonical baselines copied byte-for-byte from the PR-run Ubuntu actuals, plus a retained provenance report with run, environment, dimensions, and SHA-256 identities."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "If CI actuals show a layout defect beyond the expected Settings-navigation change, do not accept the image; correct the UI before refreshing baselines."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "6daf638e4c29c9dae510c0c927c0f3c473e71c45",
+    "base_tree": "9afbc5815b086e8ac85b06c0be92855e40c62992",
+    "policy_sha256": "5563facc34ae2a1a07cf7ec7ec2f115cb8d250c49dd6e2bd5c7a3de4c977d450",
+    "specification_sha256": "bb8c1d12ed588fc1c14debc0fa9c2a1fd0cfdbce7fd4bc647ba8e0891faf50e4"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "--no-pub",
+      "test/features/shared/presentation/widgets/workspace_shell_test.dart",
+      "--plain-name",
+      "workspace destinations are the unique ordered navigation source"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 300,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP",
+        "PYTHONUTF8",
+        "PYTHONIOENCODING"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "--no-pub",
+      "test/features/shared/presentation/widgets/workspace_shell_test.dart",
+      "--plain-name",
+      "workspace destinations are the unique ordered navigation source"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 300,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP",
+        "PYTHONUTF8",
+        "PYTHONIOENCODING"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "green_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "--no-pub",
+        "test/features/shared/presentation/widgets/workspace_shell_test.dart",
+        "--plain-name",
+        "workspace destinations are the unique ordered navigation source"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 300,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP",
+          "PYTHONUTF8",
+          "PYTHONIOENCODING"
+        ]
+      }
+    }
+  }
+}

@@ -58,6 +58,19 @@ void main() {
     }
   });
 
+  test('unsupported AI settings never enqueue simulated requests', () async {
+    controller.timing = PreviewTiming.pending;
+    await expectLater(
+      api.getCompanyAISettings(),
+      throwsA(isA<ApiException>().having(
+        (error) => error.code,
+        'code',
+        'preview_unsupported',
+      )),
+    );
+    expect(controller.pendingCount, 0);
+  });
+
   test('fixtures are deterministic, linked and parsed by normal API contracts',
       () async {
     final projects = await api.listProjects();

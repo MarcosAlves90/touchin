@@ -83,10 +83,13 @@ class PreviewTransport extends http.BaseClient {
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
     // No super.send, socket or externally supplied client can be reached here.
+    final path = request.url.path.replaceFirst('/api/v1', '');
+    if (path == '/admin/ai-settings' || path == '/admin/ai-settings/test') {
+      return _unsupported();
+    }
     final raw = await request.finalize().bytesToString();
     final body =
         raw.isEmpty ? <String, dynamic>{} : jsonDecode(raw) as PreviewJson;
-    final path = request.url.path.replaceFirst('/api/v1', '');
     final query = request.url.queryParameters;
     final revision = controller.pageRevision;
     final sessionRevision = controller.sessionRevision;

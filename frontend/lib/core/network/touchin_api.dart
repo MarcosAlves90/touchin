@@ -1,3 +1,4 @@
+import 'package:touchin_flutter/contracts/ai_settings.dart';
 import 'package:touchin_flutter/contracts/audit.dart';
 import 'package:touchin_flutter/contracts/auth.dart';
 import 'package:touchin_flutter/contracts/contract_parsing.dart';
@@ -6,6 +7,7 @@ import 'package:touchin_flutter/contracts/kanban.dart';
 import 'package:touchin_flutter/contracts/punch.dart';
 import 'package:touchin_flutter/contracts/project.dart';
 import 'package:touchin_flutter/contracts/task.dart';
+import 'package:touchin_flutter/contracts/task_recommendations.dart';
 import 'package:touchin_flutter/contracts/time_clock.dart';
 import 'package:touchin_flutter/core/network/api_client.dart';
 import 'package:touchin_flutter/core/storage/token_storage.dart';
@@ -459,6 +461,75 @@ class TouchInApi {
     );
   }
 
+  Future<CompanyAISettings> getCompanyAISettings() async {
+    final response = await _client.get('/admin/ai-settings', withAuth: true);
+    return _parseContract(
+      'company AI settings',
+      () => CompanyAISettings.fromJson(
+        requireJsonMap(response, 'company AI settings response'),
+      ),
+    );
+  }
+
+  Future<CompanyAISettings> saveCompanyAISettings(
+    CompanyAISettingsDraft draft,
+  ) async {
+    final response = await _client.put(
+      '/admin/ai-settings',
+      withAuth: true,
+      body: draft.toApiJson(),
+    );
+    return _parseContract(
+      'save company AI settings',
+      () => CompanyAISettings.fromJson(
+        requireJsonMap(response, 'save company AI settings response'),
+      ),
+    );
+  }
+
+  Future<ProviderConnectionResult> testCompanyAIProvider({
+    required String providerBaseUrl,
+    required String modelId,
+    String? apiKey,
+  }) async {
+    final response = await _client.post(
+      '/admin/ai-settings/test',
+      withAuth: true,
+      body: <String, dynamic>{
+        'providerBaseUrl': providerBaseUrl.trim(),
+        'modelId': modelId.trim(),
+        if (apiKey != null && apiKey.trim().isNotEmpty) 'apiKey': apiKey.trim(),
+      },
+    );
+    return _parseContract(
+      'test company AI provider',
+      () => ProviderConnectionResult.fromJson(
+        requireJsonMap(response, 'test AI provider response'),
+      ),
+    );
+  }
+
+  Future<TaskRecommendations> recommendTasks({
+    required String projectId,
+    required String description,
+  }) async {
+    final response = await _client.post(
+      '/projects/$projectId/task-recommendations',
+      withAuth: true,
+      body: <String, dynamic>{
+        'description': description.length > 1000
+            ? description.substring(0, 1000)
+            : description,
+      },
+    );
+    return _parseContract(
+      'task recommendations',
+      () => TaskRecommendations.fromJson(
+        requireJsonMap(response, 'task recommendations response'),
+      ),
+    );
+  }
+
   Future<List<TaskRecord>> listTasks(String projectId) async {
     final response = await _client.get(
       '/projects/$projectId/tasks',
@@ -768,8 +839,7 @@ class TouchInApi {
       entityId: entityId,
       projectId: projectId,
       result: result,
-    )
-      ..addAll({
+    )..addAll({
         'page': page.toString(),
         'limit': limit.toString(),
       });

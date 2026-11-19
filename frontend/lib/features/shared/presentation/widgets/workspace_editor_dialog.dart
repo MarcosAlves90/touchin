@@ -23,7 +23,7 @@ class WorkspaceEditorDialog extends StatelessWidget {
   final IconData icon;
   final Widget child;
   final String primaryLabel;
-  final VoidCallback onPrimary;
+  final VoidCallback? onPrimary;
   final IconData? primaryIcon;
   final String secondaryLabel;
   final VoidCallback? onSecondary;

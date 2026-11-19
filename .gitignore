@@ -99,5 +99,5 @@ backend/*.tsbuildinfo
 # Polis Artifacts
 *.polis
 !/.polis/
-.polis/artifacts/
+.polis/artifacts/**
 *.zip
