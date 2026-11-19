@@ -1,0 +1,113 @@
+{
+  "schema_version": 1,
+  "purpose": "canonical_workspace_navigation_golden_refresh",
+  "contract": {
+    "path": ".polis/artifacts/contracts/ai-task-recommendations-153-golden-refresh-v2.json",
+    "sha256": "c75b714bf9e51abb4d286f75c8443d67adebe72de29f610f3335d90c4694ff67",
+    "baseline_commit": "6daf638e4c29c9dae510c0c927c0f3c473e71c45",
+    "baseline_tree": "9afbc5815b086e8ac85b06c0be92855e40c62992",
+    "policy_sha256": "5563facc34ae2a1a07cf7ec7ec2f115cb8d250c49dd6e2bd5c7a3de4c977d450"
+  },
+  "change": {
+    "repository": "MarcosAlves90/touchin",
+    "pull_request": 155,
+    "issue_reference": "Refs #153",
+    "branch": "feat/semantic-task-recommendations-153",
+    "candidate_commit": "6daf638e4c29c9dae510c0c927c0f3c473e71c45",
+    "intent": "Refresh only the four workspace-navigation baselines to match the current UI, where AI settings are accessed through the existing Settings page.",
+    "application_or_test_source_changed": false
+  },
+  "canonical_job": {
+    "name": "Frontend visual goldens (Ubuntu, Flutter 3.47.2)",
+    "command": "flutter test --tags canonical-golden",
+    "artifact_name": "canonical-navigation-golden-failure-images",
+    "source_run": {
+      "event": "pull_request",
+      "run_id": 44604240901,
+      "job_id": 135843543267,
+      "url": "https://github.com/MarcosAlves90/touchin/actions/runs/44604240901/job/135843543267",
+      "head_sha": "6daf638e4c29c9dae510c0c927c0f3c473e71c45",
+      "result_before_refresh": "failure"
+    },
+    "corroborating_run": {
+      "event": "push",
+      "run_id": 44604221767,
+      "job_id": 135843477275,
+      "url": "https://github.com/MarcosAlves90/touchin/actions/runs/44604221767/job/135843477275",
+      "head_sha": "6daf638e4c29c9dae510c0c927c0f3c473e71c45",
+      "result_before_refresh": "failure"
+    },
+    "other_checks_on_candidate": "passed",
+    "actuals_byte_identical_across_runs": true,
+    "existing_baselines_match_master_images": true
+  },
+  "images": [
+    {
+      "case": "desktop-dark",
+      "path": "frontend/test/goldens/rounded_workspace_navigation/desktop-dark.png",
+      "dimensions": "1440x900",
+      "diff_percent": 1.06,
+      "diff_pixels": 13700,
+      "previous_sha256": "4eb9361d005cc02a72d1fa9ff01d9e5ba28d294067b45fd202c3bcc98755ffa5",
+      "canonical_actual_sha256": "de1234eed75303ec5d7aa2bc2cfd05a0858b49fac13bd7fe275d8bfde1281182",
+      "source_file": "desktop-dark_testImage.png"
+    },
+    {
+      "case": "desktop-light",
+      "path": "frontend/test/goldens/rounded_workspace_navigation/desktop-light.png",
+      "dimensions": "1440x900",
+      "diff_percent": 1.06,
+      "diff_pixels": 13790,
+      "previous_sha256": "e25cd1cc76f98cacbd5b8a0888b0320b4a2ab589796370a54cf3490a2056f45f",
+      "canonical_actual_sha256": "bd32207a5f2f411947d0cf46362ea893157962df2eba5e289a6a563be26a4a37",
+      "source_file": "desktop-light_testImage.png"
+    },
+    {
+      "case": "mobile-dark",
+      "path": "frontend/test/goldens/rounded_workspace_navigation/mobile-dark.png",
+      "dimensions": "390x844",
+      "diff_percent": 2.41,
+      "diff_pixels": 7933,
+      "previous_sha256": "72cdc352d10e89c6ba587496c8aad116e4237de6c749cac2948860f349eaf537",
+      "canonical_actual_sha256": "1ed4282989aa34f05e20c339d79e676a2ab7850b4c6fd2956efe9f362af7bcd8",
+      "source_file": "mobile-dark_testImage.png"
+    },
+    {
+      "case": "mobile-light",
+      "path": "frontend/test/goldens/rounded_workspace_navigation/mobile-light.png",
+      "dimensions": "390x844",
+      "diff_percent": 2.42,
+      "diff_pixels": 7951,
+      "previous_sha256": "725bd83edebf3f0693970104ae8f0d715d4f13b616a2c046994fdbc62699cd3c",
+      "canonical_actual_sha256": "8544530fad47f0820e62df4d4d44d44a396eaa949df49a6c11155af88f0b822b",
+      "source_file": "mobile-light_testImage.png"
+    }
+  ],
+  "diagnosis": {
+    "failure_signature": "All four navigation visual-review cases failed only the pixel comparison against the existing baseline; the job reported 0 passed, 4 failed.",
+    "finding": "Current expected PNGs matched the CI masterImage files, while testImage actuals were byte-identical across the push and pull_request events. The isolated diffs and screenshots were visually reviewed; no clipping or overlap was observed, and the expected Settings navigation is present.",
+    "update_method": "Copied only the four testImage PNGs from the pull_request artifact; verified each copied file byte-for-byte and by SHA-256 against both event artifacts."
+  },
+  "local_validation": {
+    "polis_gates": {
+      "status": "PASS",
+      "run_id": "2066c70f6adf91cb508a7b9f3989e13bafb12611f4cd6d87788715587d1d1774",
+      "manifest_sha256": "fef49ba2c5c5efd48f3741630ea9bbb259b779d703f293031ca214505d8aecc0",
+      "head": "6daf638e4c29c9dae510c0c927c0f3c473e71c45",
+      "contract_sha256": "c75b714bf9e51abb4d286f75c8443d67adebe72de29f610f3335d90c4694ff67",
+      "executed_gates": ["test.complete", "lint", "build", "smoke"]
+    },
+    "behavior_characterization": {
+      "command": "flutter test --no-pub test/features/shared/presentation/widgets/workspace_shell_test.dart --plain-name 'workspace destinations are the unique ordered navigation source'",
+      "status": "PASS",
+      "basis": "test.complete passed; this characterization test is not tagged canonical-golden and is included by the gate's frontend test run."
+    },
+    "workspace_validate": {
+      "status": "not_completed",
+      "attempts": 2,
+      "exit_code": 6,
+      "cause": "The POLIS temporary-index capture fails before any gate executes: git add -A -- . :(exclude).polis/artifacts/** reports that .polis/artifacts is ignored. The same repository-level issue is documented in the prior golden-refresh report; the selected gates were run separately and passed."
+    }
+  },
+  "post_refresh_verification": "Pending the canonical golden job on the updated pushed PR head."
+}
