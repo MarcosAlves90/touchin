@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import http.client
+import io
 import ipaddress
 import json
 import math
@@ -10,7 +11,8 @@ import ssl
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
-from contextlib import closing, suppress
+from contextlib import closing
+from typing import cast
 from urllib.parse import urlsplit
 
 MAX_REQUEST_BYTES = 48_000
@@ -30,8 +32,6 @@ class ProviderError(Exception):
 class _Deadline:
     def __init__(self) -> None:
         self.end = time.monotonic() + _TIMEOUT_SECONDS
-        self.timer: threading.Timer | None = None
-        self.abort_socket: socket.socket | None = None
 
     def remaining(self) -> float:
         remaining = self.end - time.monotonic()
@@ -39,26 +39,28 @@ class _Deadline:
             raise TimeoutError
         return remaining
 
-    def watch(self, sock: socket.socket) -> None:
-        # HTTPResponse can own the TLS socket after getresponse(); a duplicate
-        # lets the watchdog interrupt both TLS setup and buffered response reads.
-        self.abort_socket = sock.dup()
-        self.timer = threading.Timer(self.remaining(), self._abort)
-        self.timer.daemon = True
-        self.timer.start()
 
-    def _abort(self) -> None:
-        if self.abort_socket is not None:
-            with suppress(OSError):
-                self.abort_socket.shutdown(socket.SHUT_RDWR)
+class _DeadlineReader(io.RawIOBase):
+    def __init__(self, sock: socket.socket, deadline: _Deadline) -> None:
+        self._sock = sock
+        self._deadline = deadline
+        self._raw = sock.makefile("rb", buffering=0)
+
+    def makefile(self, mode: str) -> io.BufferedReader:
+        # HTTPResponse expects a buffered socket file. Apply the deadline below
+        # that buffer so even a single read() or readline() cannot reset it.
+        return io.BufferedReader(self)
+
+    def readable(self) -> bool:
+        return True
+
+    def readinto(self, buffer):
+        self._sock.settimeout(self._deadline.remaining())
+        return self._raw.readinto(buffer)
 
     def close(self) -> None:
-        if self.timer is not None:
-            self.timer.cancel()
-            if self.timer.ident is not None:
-                self.timer.join()
-        if self.abort_socket is not None:
-            self.abort_socket.close()
+        self._raw.close()
+        super().close()
 
 
 class _PinnedHTTPSConnection(http.client.HTTPSConnection):
@@ -73,12 +75,23 @@ class _PinnedHTTPSConnection(http.client.HTTPSConnection):
         try:
             sock.settimeout(self._deadline.remaining())
             sock.connect(self._pinned_sockaddr)
-            self._deadline.watch(sock)
             sock.settimeout(self._deadline.remaining())
             self.sock = self._context.wrap_socket(sock, server_hostname=self.host)
         except Exception:
             sock.close()
             raise
+
+    def send(self, data) -> None:
+        if self.sock is None and self.auto_open:
+            self.connect()
+        if self.sock is not None:
+            self.sock.settimeout(self._deadline.remaining())
+        super().send(data)
+
+    def response_class(self, sock: socket.socket, *args, **kwargs) -> http.client.HTTPResponse:  # type: ignore[override]
+        # HTTPConnection invokes this as a factory; HTTPResponse only needs makefile().
+        reader = cast(socket.socket, _DeadlineReader(sock, self._deadline))
+        return http.client.HTTPResponse(reader, *args, **kwargs)
 
 
 def _endpoint(base_url: str) -> tuple[str, int, str]:
@@ -225,23 +238,23 @@ def fetch_embeddings(base_url: str, model_id: str, api_key: str, texts: list[str
             },
         )
         with closing(connection.getresponse()) as response:
+            deadline.remaining()
             if response.status < 200 or response.status >= 300:
                 raise ProviderError("Embedding provider request failed.")
             raw = response.read(MAX_RESPONSE_BYTES + 1)
         deadline.remaining()
         if len(raw) > MAX_RESPONSE_BYTES:
             raise ProviderError("Embedding provider response exceeded the size limit.")
-        return _parse_embeddings(raw, len(texts))
+        vectors = _parse_embeddings(raw, len(texts))
+        deadline.remaining()
+        return vectors
     except ProviderError:
         raise
     except (OSError, http.client.HTTPException):
         raise ProviderError("Embedding provider is unavailable.") from None
     finally:
         try:
-            try:
-                if connection is not None:
-                    connection.close()
-            finally:
-                deadline.close()
+            if connection is not None:
+                connection.close()
         finally:
             _REQUEST_SLOTS.release()

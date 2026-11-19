@@ -159,17 +159,29 @@ def test_company_quota_is_shared_across_actors_and_resets_next_hour(client, monk
     assert reserve("first")
 
 
-def test_provider_deadline_interrupts_a_blocking_socket_read(monkeypatch) -> None:
-    monkeypatch.setattr(secure_provider, "_TIMEOUT_SECONDS", 0.1)
+def test_provider_deadline_bounds_a_blocking_body_read(monkeypatch) -> None:
+    monkeypatch.setattr(secure_provider, "_TIMEOUT_SECONDS", 1.0)
     reader, peer = socket.socketpair()
     with reader, peer:
-        reader.settimeout(2)
-        deadline = secure_provider._Deadline()
+        reader.settimeout(3)
+        peer.settimeout(3)
+        connection = secure_provider._PinnedHTTPSConnection(
+            "provider.invalid", 443, socket.AF_INET, ("127.0.0.1", 443), secure_provider._Deadline(),
+        )
+        connection.sock = reader
         try:
-            deadline.watch(reader)
-            assert reader.recv(1) == b""
+            connection.request("GET", "/")
+            assert peer.recv(4096).startswith(b"GET / HTTP/1.1\r\n")
+            peer.sendall(b"HTTP/1.1 200 OK\r\nConnection: close\r\nContent-Length: 2\r\n\r\n")
+            with connection.getresponse() as response:
+                assert response.status == 200
+                reader.settimeout(3)
+                with pytest.raises(TimeoutError):
+                    response.read()
+                timeout = reader.gettimeout()
+                assert timeout is not None and timeout <= 1.0
         finally:
-            deadline.close()
+            connection.close()
 
 
 def test_recommendations_are_disabled_by_default_and_project_scoped(
