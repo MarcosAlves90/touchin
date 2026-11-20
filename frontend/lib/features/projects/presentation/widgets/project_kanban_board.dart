@@ -3,7 +3,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:touchin_flutter/contracts/kanban.dart';
 import 'package:touchin_flutter/contracts/task.dart';
-import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_toolbar.dart';
 
 class ProjectKanbanBoard extends StatefulWidget {
   static const double laneGap = 12;
@@ -54,11 +53,22 @@ class ProjectKanbanBoard extends StatefulWidget {
   final void Function(KanbanCard card) onManageAssignees;
 
   @override
-  State<ProjectKanbanBoard> createState() => _ProjectKanbanBoardState();
+  State<ProjectKanbanBoard> createState() => ProjectKanbanBoardState();
 }
 
-class _ProjectKanbanBoardState extends State<ProjectKanbanBoard> {
-  static const double _cardExtent = 154;
+class ProjectKanbanBoardState extends State<ProjectKanbanBoard> {
+  double get _cardExtent {
+    final textScale = MediaQuery.textScalerOf(context).scale(1);
+    return 154 + math.max(0, textScale - 1) * 60;
+  }
+
+  double _laneWidth(double width) {
+    final textScale = MediaQuery.textScalerOf(context).scale(1);
+    return math.max(
+      ProjectKanbanBoard.laneWidthFor(width),
+      280 + math.max(0, textScale - 1) * 80,
+    );
+  }
 
   final ScrollController _boardScrollController = ScrollController();
   final Map<String, ScrollController> _laneScrollControllers =
@@ -101,24 +111,13 @@ class _ProjectKanbanBoardState extends State<ProjectKanbanBoard> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isCompact = constraints.maxWidth < 560;
-        final laneWidth =
-            ProjectKanbanBoard.laneWidthFor(constraints.maxWidth);
+        final laneWidth = _laneWidth(constraints.maxWidth);
         return Stack(
           clipBehavior: Clip.hardEdge,
           children: <Widget>[
             Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
-                _BoardHeader(
-                  columnCount: widget.board.columns.length,
-                  isBusy: widget.isBusy,
-                  canManageStructure: widget.canManageStructure,
-                  onCreateColumn: widget.onCreateColumn,
-                  onScrollPrevious: () => _scrollBoard(-laneWidth),
-                  onScrollNext: () => _scrollBoard(laneWidth),
-                ),
-                SizedBox(height: isCompact ? 8 : 10),
                 Expanded(
                   child: widget.board.columns.isEmpty
                       ? _EmptyBoardState(
@@ -176,6 +175,12 @@ class _ProjectKanbanBoardState extends State<ProjectKanbanBoard> {
         );
       },
     );
+  }
+
+  void scrollColumns(int direction) {
+    final width = context.size?.width;
+    if (width == null) return;
+    _scrollBoard(direction * _laneWidth(width));
   }
 
   void _scrollBoard(double delta) {
@@ -549,107 +554,6 @@ class _ProjectKanbanBoardState extends State<ProjectKanbanBoard> {
       return renderObject.globalToLocal(globalPosition);
     }
     return globalPosition;
-  }
-}
-
-class _BoardHeader extends StatelessWidget {
-  const _BoardHeader({
-    required this.columnCount,
-    required this.isBusy,
-    required this.canManageStructure,
-    required this.onCreateColumn,
-    required this.onScrollPrevious,
-    required this.onScrollNext,
-  });
-
-  final int columnCount;
-  final bool isBusy;
-  final bool canManageStructure;
-  final VoidCallback onCreateColumn;
-  final VoidCallback onScrollPrevious;
-  final VoidCallback onScrollNext;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    final heading = Text(
-      'Quadro',
-      style: theme.textTheme.titleMedium?.copyWith(
-        fontWeight: FontWeight.w800,
-      ),
-    );
-
-    final actionItems = <Widget>[
-      if (columnCount > 1) ...<Widget>[
-        IconButton(
-          tooltip: 'Ver colunas anteriores',
-          constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-          visualDensity: VisualDensity.standard,
-          onPressed: onScrollPrevious,
-          icon: const Icon(Icons.chevron_left_rounded),
-        ),
-        IconButton(
-          tooltip: 'Ver próximas colunas',
-          constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-          visualDensity: VisualDensity.standard,
-          onPressed: onScrollNext,
-          icon: const Icon(Icons.chevron_right_rounded),
-        ),
-      ],
-      if (canManageStructure) ...<Widget>[
-        const SizedBox(width: 8),
-        FilledButton.icon(
-          style: workspaceToolbarActionStyle(theme),
-          onPressed: isBusy ? null : onCreateColumn,
-          icon: const Icon(Icons.add_rounded),
-          label: const Text('Coluna'),
-        ),
-      ],
-    ];
-
-    return WorkspaceToolbar(
-      surfaceKey: const ValueKey<String>('kanban-board-toolbar'),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          if (constraints.maxWidth < 700) {
-            return SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              physics: const ClampingScrollPhysics(),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minWidth: constraints.maxWidth),
-                child: SizedBox(
-                  height: 48,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: <Widget>[
-                      heading,
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: actionItems,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: <Widget>[
-              Expanded(child: heading),
-              const SizedBox(width: 16),
-              Wrap(
-                spacing: 0,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: actionItems,
-              ),
-            ],
-          );
-        },
-      ),
-    );
   }
 }
 

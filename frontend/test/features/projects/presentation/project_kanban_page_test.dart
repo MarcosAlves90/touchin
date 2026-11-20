@@ -184,7 +184,6 @@ void main() {
               .copyWith(textScaler: TextScaler.linear(scale)),
           child: child!,
         ),
-        // shortcut: enlarged card layout overflows independently, add cards when fixed.
         home: ProjectKanbanPage(
             api: _FakeKanbanApi(
                 columnCount: 5, cardsPerColumn: scale == 1 ? 5 : 0)),
@@ -210,6 +209,8 @@ void main() {
           find.byKey(const ValueKey<String>('kanban-column-scroll-column-01'));
       final board = find.byKey(const ValueKey<String>('kanban-board-scroll'));
       if (scale == 1) {
+        await tester.ensureVisible(lane);
+        await tester.pumpAndSettle();
         await _visibleDrag(tester, lane, viewport, const Offset(0, -90));
         await tester.pumpAndSettle();
         expect(
@@ -217,6 +218,10 @@ void main() {
                 const ValueKey<String>('kanban-column-scroll-column-01')),
             greaterThan(0));
       }
+      // The taller filter panel can move the board outside the viewport
+      // between gestures. Bring it into view before horizontal dragging.
+      await tester.ensureVisible(board);
+      await tester.pumpAndSettle();
       await _visibleDrag(tester, board, viewport, const Offset(-200, 0));
       await tester.pumpAndSettle();
       expect(
@@ -417,24 +422,24 @@ void main() {
     final lane = find.byKey(laneKey);
     expect(tester.getSize(lane).height, greaterThanOrEqualTo(100),
         reason: 'kanban_accessibility_overlap usable lane');
-    final summaryScroll = find
+    final pageScroll = find
         .ancestor(
-          of: find.byKey(const ValueKey<String>('kanban-project-overview')),
+          of: find.text('Acompanhar tarefas'),
           matching: find.byType(SingleChildScrollView),
         )
         .first;
-    expect(find.descendant(of: summaryScroll, matching: lane), findsNothing,
-        reason: 'kanban_accessibility_overlap independent vertical scrolling');
-    final summaryOffset = tester
+    expect(find.descendant(of: pageScroll, matching: lane), findsOneWidget,
+        reason: 'kanban_accessibility_overlap scrollable mobile page');
+    final pageOffset = tester
         .state<ScrollableState>(find
-            .descendant(of: summaryScroll, matching: find.byType(Scrollable))
+            .descendant(of: pageScroll, matching: find.byType(Scrollable))
             .first)
         .position;
-    await tester.drag(summaryScroll, const Offset(0, -80));
-    await tester.pumpAndSettle();
-    expect(summaryOffset.pixels, greaterThan(0),
-        reason: 'kanban_accessibility_overlap summary gesture');
     await tester.drag(find.text('Acompanhar tarefas'), const Offset(0, -350));
+    await tester.pumpAndSettle();
+    expect(pageOffset.pixels, greaterThan(0),
+        reason: 'kanban_accessibility_overlap mobile page gesture');
+    await tester.ensureVisible(lane);
     await tester.pumpAndSettle();
     await tester.drag(lane, const Offset(0, -90));
     await tester.pumpAndSettle();
@@ -1287,7 +1292,7 @@ void main() {
       find.byKey(const ValueKey<String>('workspace-task-filter-section')),
       findsOneWidget,
     );
-    expect(find.text('Filtros do projeto'), findsOneWidget);
+    expect(find.text('Tarefas do projeto'), findsOneWidget);
     final search = find.byKey(const ValueKey<String>('task-search-shared'));
     await tester.enterText(search, '#1');
     await tester.pumpAndSettle();
@@ -1766,7 +1771,9 @@ void main() {
     );
     expect(tester.getSize(viewSwitch).height, 52);
     expect(tester.getSize(projectSelector).height, 52);
-    expect(find.text('Quadro'), findsOneWidget);
+    expect(find.text('Quadro'), findsNothing);
+    expect(find.byKey(const ValueKey<String>('kanban-board-toolbar')),
+        findsNothing);
     expect(find.text('v1'), findsNothing);
     expect(
       find.text('Arraste pelo ícone para mover cards entre etapas.'),
@@ -1780,7 +1787,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('kanban toolbar shares the surface and 48-pixel control height', (
+  testWidgets('Kanban column actions live in the shared filters surface', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(1440, 900));
@@ -1799,8 +1806,23 @@ void main() {
       52,
       reason: 'workspace_overview_control_height',
     );
-    final toolbar = find.byKey(const ValueKey<String>('kanban-board-toolbar'));
+    final toolbar = find.byKey(const ValueKey<String>('kanban-filter-toolbar'));
     expect(toolbar, findsOneWidget, reason: 'workspace_toolbar_shared_surface');
+    expect(find.byKey(const ValueKey<String>('kanban-board-toolbar')),
+        findsNothing);
+    expect(find.text('Quadro'), findsNothing);
+    expect(
+        find.descendant(of: toolbar, matching: find.text('Tarefas do projeto')),
+        findsOneWidget);
+    expect(
+        find.descendant(
+            of: toolbar, matching: find.byIcon(Icons.task_alt_rounded)),
+        findsOneWidget);
+    expect(
+        find.descendant(
+            of: toolbar,
+            matching: find.byKey(const ValueKey<String>('task-search-shared'))),
+        findsOneWidget);
     final toolbarMaterial = tester.widget<Material>(toolbar);
     expect(toolbarMaterial.color, AppTheme.darkTheme.colorScheme.surface);
     final toolbarPadding = tester.widget<Padding>(
@@ -1817,12 +1839,16 @@ void main() {
       'Ver colunas anteriores',
       'Ver próximas colunas',
     ]) {
-      expect(tester.getSize(find.byTooltip(tooltip)).height, 48);
+      final button = find.byTooltip(tooltip);
+      expect(find.descendant(of: toolbar, matching: button), findsOneWidget);
+      expect(tester.getSize(button).height, 48);
     }
     final createColumn = find.ancestor(
       of: find.text('Coluna'),
       matching: find.byType(FilledButton),
     );
+    expect(
+        find.descendant(of: toolbar, matching: createColumn), findsOneWidget);
     expect(tester.getSize(createColumn).height, 48);
     expect(tester.takeException(), isNull);
   });
@@ -2130,114 +2156,199 @@ void main() {
     expect(find.text('#1'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
-  testWidgets(
-      'mobile Kanban toolbar keeps heading and actions in one scrollable row',
+  testWidgets('Kanban filter actions stack beneath search on compact screens',
       (tester) async {
     addTearDown(() => tester.binding.setSurfaceSize(null));
-
-    for (final size in <Size>[const Size(320, 568), const Size(360, 800)]) {
+    for (final size in <Size>[
+      const Size(320, 568),
+      const Size(390, 844),
+      const Size(768, 1024),
+    ]) {
       await tester.binding.setSurfaceSize(size);
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: AppTheme.darkTheme,
-          home: ProjectKanbanPage(api: _FakeKanbanApi(columnCount: 2)),
-        ),
-      );
+      await tester.pumpWidget(MaterialApp(
+        theme: AppTheme.darkTheme,
+        home: ProjectKanbanPage(
+            api: _FakeKanbanApi(columnCount: 4, cardsPerColumn: 0)),
+      ));
       await tester.pumpAndSettle();
 
       final toolbar =
-          find.byKey(const ValueKey<String>('kanban-board-toolbar'));
-      final scrollView = find.descendant(
-        of: toolbar,
-        matching: find.byWidgetPredicate(
-          (widget) =>
-              widget is SingleChildScrollView &&
-              widget.scrollDirection == Axis.horizontal,
-        ),
-      );
-      expect(scrollView, findsOneWidget,
-          reason: 'kanban_mobile_toolbar_single_row');
-      final heading = find.descendant(
-        of: scrollView,
-        matching: find.text('Quadro'),
-      );
-      expect(heading, findsOneWidget,
-          reason: 'kanban_mobile_toolbar_single_row');
-
-      for (final action in <Finder>[
-        find.byTooltip('Ver colunas anteriores'),
-        find.byTooltip('Ver próximas colunas'),
-        find.widgetWithText(FilledButton, 'Coluna'),
-      ]) {
-        final actionScrollView = find.ancestor(
-          of: action,
-          matching: find.byWidgetPredicate(
-            (widget) =>
-                widget is SingleChildScrollView &&
-                widget.scrollDirection == Axis.horizontal,
-          ),
-        );
-        expect(action, findsOneWidget,
-            reason: 'kanban_mobile_toolbar_single_row');
-        expect(actionScrollView, findsOneWidget,
-            reason: 'kanban_mobile_toolbar_single_row');
-        expect(
-          (tester.getCenter(heading).dy - tester.getCenter(action).dy).abs(),
-          lessThanOrEqualTo(1),
-          reason: 'kanban_mobile_toolbar_single_row',
-        );
+          find.byKey(const ValueKey<String>('kanban-filter-toolbar'));
+      final search = find.byKey(const ValueKey<String>('task-search-shared'));
+      final create = find.widgetWithText(FilledButton, 'Coluna');
+      final previous = find.byTooltip('Ver colunas anteriores');
+      final next = find.byTooltip('Ver próximas colunas');
+      expect(find.text('Tarefas do projeto'), findsOneWidget);
+      expect(find.text('Quadro'), findsNothing);
+      expect(find.byKey(const ValueKey<String>('kanban-board-toolbar')),
+          findsNothing);
+      for (final action in <Finder>[create, previous, next]) {
+        expect(find.descendant(of: toolbar, matching: action), findsOneWidget,
+            reason: 'action inside filters at $size');
+        expect(tester.getRect(action).top,
+            greaterThanOrEqualTo(tester.getRect(search).bottom),
+            reason: 'mobile filters actions below search at $size');
+        expect(tester.getRect(action).right,
+            lessThanOrEqualTo(tester.getRect(toolbar).right + 0.1));
       }
+      if (size.width < 600) {
+        expect(tester.getRect(create).left,
+            closeTo(tester.getRect(search).left, 1),
+            reason: '+ Coluna aligned to the left of mobile filters at $size');
+        expect(tester.getRect(create).right,
+            lessThanOrEqualTo(tester.getRect(previous).left),
+            reason: '+ Coluna precedes navigation on mobile at $size');
+      }
+      expect(tester.getRect(toolbar).left, greaterThanOrEqualTo(0));
+      expect(tester.getRect(toolbar).right, lessThanOrEqualTo(size.width));
       expect(tester.takeException(), isNull, reason: 'viewport $size');
+      await tester.pumpWidget(const SizedBox.shrink());
     }
   });
 
-  testWidgets(
-      'mobile Kanban toolbar aligns title left and actions right when they fit',
+  testWidgets('column navigation moves horizontally and create opens editor',
       (tester) async {
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    const size = Size(390, 844);
-    await tester.binding.setSurfaceSize(size);
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.darkTheme,
-        home: ProjectKanbanPage(api: _FakeKanbanApi(columnCount: 2)),
-      ),
-    );
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    await tester.pumpWidget(MaterialApp(
+      theme: AppTheme.darkTheme,
+      home: ProjectKanbanPage(
+          api: _FakeKanbanApi(columnCount: 4, cardsPerColumn: 0)),
+    ));
     await tester.pumpAndSettle();
 
-    final toolbar = find.byKey(const ValueKey<String>('kanban-board-toolbar'));
-    final scrollView = find.descendant(
-      of: toolbar,
-      matching: find.byWidgetPredicate(
-        (widget) =>
-            widget is SingleChildScrollView &&
-            widget.scrollDirection == Axis.horizontal,
-      ),
-    );
-    final title = find.descendant(
-      of: scrollView,
-      matching: find.text('Quadro'),
-    );
-    final createAction = find.widgetWithText(FilledButton, 'Coluna');
-    expect(scrollView, findsOneWidget,
-        reason: 'kanban_mobile_toolbar_right_alignment');
-    expect(title, findsOneWidget,
-        reason: 'kanban_mobile_toolbar_right_alignment');
-    expect(createAction, findsOneWidget,
-        reason: 'kanban_mobile_toolbar_right_alignment');
+    const boardKey = ValueKey<String>('kanban-board-scroll');
+    expect(_scrollOffset(tester, boardKey), 0);
+    await tester.tap(find.byTooltip('Ver próximas colunas'));
+    await tester.pumpAndSettle();
+    expect(_scrollOffset(tester, boardKey), greaterThan(0));
+    await tester.tap(find.byTooltip('Ver colunas anteriores'));
+    await tester.pumpAndSettle();
+    expect(_scrollOffset(tester, boardKey), closeTo(0, 0.01));
 
-    final toolbarBounds = tester.getRect(scrollView);
+    final create = find.widgetWithText(FilledButton, 'Coluna');
+    await tester.ensureVisible(create);
+    await tester.pumpAndSettle();
+    await tester.tap(create);
+    await tester.pumpAndSettle();
+    expect(find.byType(WorkspaceEditorDialog), findsOneWidget);
+    expect(find.text('Nova coluna'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'project selector and view switch remain usable at all target widths',
+      (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    for (final size in <Size>[
+      const Size(320, 568),
+      const Size(390, 844),
+      const Size(768, 1024),
+      const Size(1440, 900),
+    ]) {
+      for (final scale in <double>[1, 1.5]) {
+        await tester.binding.setSurfaceSize(size);
+        await tester.pumpWidget(MaterialApp(
+          theme: AppTheme.lightTheme,
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: TextScaler.linear(scale)),
+            child: child!,
+          ),
+          home: ProjectKanbanPage(api: _TwoProjectKanbanApi()),
+        ));
+        await tester.pumpAndSettle();
+
+        final selector = find.byType(WorkspaceInstantSelectField<String>);
+        final viewSwitch =
+            find.byKey(const ValueKey<String>('project-view-switch'));
+        final search = find.byKey(const ValueKey<String>('task-search-shared'));
+        expect(selector, findsOneWidget, reason: '$size at $scale');
+        expect(viewSwitch, findsOneWidget, reason: '$size at $scale');
+        expect(tester.getRect(selector).right,
+            lessThanOrEqualTo(size.width + 0.1));
+        expect(tester.getRect(viewSwitch).right,
+            lessThanOrEqualTo(size.width + 0.1));
+        expect(tester.getRect(viewSwitch).top,
+            greaterThanOrEqualTo(tester.getRect(selector).bottom),
+            reason: 'project selector and view switch do not overlap');
+        final metrics =
+            find.byKey(const ValueKey<String>('kanban-project-metrics'));
+        final overview =
+            find.byKey(const ValueKey<String>('kanban-project-overview'));
+        final filters =
+            find.byKey(const ValueKey<String>('kanban-filter-toolbar'));
+        final boardGap = find
+            .byKey(const ValueKey<String>('kanban-section-gap-before-board'));
+        expect(tester.getRect(overview).top - tester.getRect(metrics).bottom,
+            greaterThanOrEqualTo(7.9),
+            reason: 'metrics spacing at $size, scale $scale');
+        // The noncompact overview scrolls within a constrained viewport at
+        // enlarged text sizes, so compare the visible viewport boundary.
+        final overviewVisibleBounds = size.width < 600
+            ? tester.getRect(overview)
+            : tester.getRect(find
+                .ancestor(
+                    of: overview, matching: find.byType(SingleChildScrollView))
+                .first);
+        expect(tester.getRect(filters).top - overviewVisibleBounds.bottom,
+            greaterThanOrEqualTo(7.9),
+            reason: 'filters spacing at $size, scale $scale');
+        expect(tester.getSize(boardGap).height, greaterThanOrEqualTo(8));
+
+        await tester.ensureVisible(selector);
+        await tester.pumpAndSettle();
+        await tester.tap(selector);
+        await tester.pumpAndSettle();
+        final otherProject = find.text('Projeto secundário').last;
+        expect(otherProject, findsOneWidget);
+        await tester.tap(otherProject);
+        await tester.pumpAndSettle();
+        expect(
+            tester.widget<WorkspaceInstantSelectField<String>>(selector).value,
+            'project-02');
+
+        await tester.ensureVisible(search);
+        await tester.pumpAndSettle();
+        await tester.enterText(search, 'Etapa custom');
+        await tester.pumpAndSettle();
+        final backlogButton = size.width < 600
+            ? find.byTooltip('Backlog')
+            : find.widgetWithText(ToggleButtons, 'Backlog');
+        await tester.ensureVisible(backlogButton);
+        await tester.tap(backlogButton);
+        await tester.pumpAndSettle();
+        expect(find.byKey(const ValueKey<String>('project-backlog-project-02')),
+            findsOneWidget);
+        expect(
+            tester.widget<TextField>(search).controller?.text, 'Etapa custom');
+        expect(tester.takeException(), isNull,
+            reason:
+                'responsive selector, search and view switch at $size, scale $scale');
+        await tester.pumpWidget(const SizedBox.shrink());
+      }
+    }
+  });
+
+  testWidgets('read-only Kanban keeps search and hides create column action',
+      (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    await tester.pumpWidget(MaterialApp(
+      home: ProjectKanbanPage(api: _OutsiderKanbanApi()),
+    ));
+    await tester.pumpAndSettle();
+    final filters = find.byKey(const ValueKey<String>('kanban-filter-toolbar'));
+    expect(filters, findsOneWidget);
     expect(
-      tester.getRect(title).left,
-      closeTo(toolbarBounds.left, 1),
-      reason: 'kanban_mobile_toolbar_right_alignment',
-    );
-    expect(
-      tester.getRect(createAction).right,
-      closeTo(toolbarBounds.right, 1),
-      reason: 'kanban_mobile_toolbar_right_alignment',
-    );
-    expect(tester.takeException(), isNull, reason: 'viewport $size');
+        find.descendant(
+            of: filters,
+            matching: find.byKey(const ValueKey<String>('task-search-shared'))),
+        findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Coluna'), findsNothing);
+    expect(find.text('Quadro'), findsNothing);
+    expect(find.byType(ProjectKanbanBoard), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('compact cards and responsive chrome remain bounded',

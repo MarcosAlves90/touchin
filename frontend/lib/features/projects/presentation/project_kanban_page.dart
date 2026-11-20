@@ -31,7 +31,8 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
   String _taskSearchText = '';
   String? _searchProjectId;
   final TextEditingController _taskSearchController = TextEditingController();
-  final GlobalKey _boardKey = GlobalKey();
+  final GlobalKey<ProjectKanbanBoardState> _boardKey =
+      GlobalKey<ProjectKanbanBoardState>();
 
   @override
   void initState() {
@@ -81,31 +82,32 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
   }
 
   Widget _buildPageBody(bool pageIsWide) {
-    Widget withMobileHeader(Widget child) => pageIsWide
-        ? child
-        : LayoutBuilder(
-            builder: (context, constraints) => SingleChildScrollView(
-                child: SizedBox(
-                    height: constraints.maxHeight <
-                            (MediaQuery.textScalerOf(context).scale(1) > 1
-                                ? 1050
-                                : 750)
-                        ? (MediaQuery.textScalerOf(context).scale(1) > 1
-                            ? 1050
-                            : 750)
-                        : constraints.maxHeight,
-                    child: Column(children: [
-                      const Padding(
-                        padding: EdgeInsets.fromLTRB(24, 28, 24, 0),
-                        child: WorkspaceHeader(
-                            kicker: 'KANBAN',
-                            title: 'Acompanhar tarefas',
-                            description:
-                                'Visualize e organize as tarefas do projeto.',
-                            compact: true),
-                      ),
-                      Expanded(child: child),
-                    ]))));
+    Widget withMobileHeader(Widget child) {
+      if (pageIsWide) return child;
+      final minimumHeight =
+          MediaQuery.textScalerOf(context).scale(1) > 1 ? 1200.0 : 900.0;
+      return LayoutBuilder(
+        builder: (context, constraints) => SingleChildScrollView(
+          child: SizedBox(
+            height: constraints.maxHeight < minimumHeight
+                ? minimumHeight
+                : constraints.maxHeight,
+            child: Column(children: [
+              const Padding(
+                padding: EdgeInsets.fromLTRB(24, 28, 24, 0),
+                child: WorkspaceHeader(
+                    kicker: 'KANBAN',
+                    title: 'Acompanhar tarefas',
+                    description: 'Visualize e organize as tarefas do projeto.',
+                    compact: true),
+              ),
+              Expanded(child: child),
+            ]),
+          ),
+        ),
+      );
+    }
+
     if (_controller.isLoading) {
       return withMobileHeader(LayoutBuilder(
         builder: (context, constraints) {
@@ -157,20 +159,23 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxHeight: (constraints.maxHeight - 520).clamp(
-                    enlarged ? 180.0 : 40.0,
-                    enlarged ? 280.0 : 220.0,
+              if (isCompact)
+                _buildProjectOverview(compact: true)
+              else
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: (constraints.maxHeight - 520).clamp(
+                      enlarged ? 180.0 : 40.0,
+                      enlarged ? 280.0 : 220.0,
+                    ),
+                  ),
+                  child: SingleChildScrollView(
+                    child: _buildProjectOverview(compact: false),
                   ),
                 ),
-                child: SingleChildScrollView(
-                  child: _buildProjectOverview(compact: isCompact),
-                ),
-              ),
               SizedBox(height: gap),
               if (!_showBacklog || _controller.board == null)
-                _buildTaskFilterSection(_controller.board),
+                _buildTaskFilterSection(_controller.board, compact: isCompact),
               SizedBox(
                 key: const ValueKey<String>('kanban-section-gap-before-board'),
                 height: gap,
@@ -203,7 +208,6 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
         ) ??
         0;
 
-    // TODO: Match the selector's visible height to adjacent controls on mobile and desktop.
     final selector = SizedBox(
       height: 52,
       child: WorkspaceInstantSelectField<String>(
@@ -277,13 +281,63 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
     );
   }
 
-  Widget _buildTaskFilterSection(KanbanBoard? board) => WorkspaceFilterSection(
-        key: const ValueKey<String>('workspace-task-filter-section'),
-        surfaceKey: const ValueKey<String>('kanban-filter-toolbar'),
-        title: 'Filtros do projeto',
-        description: 'Encontre e organize as tarefas do projeto',
-        searchField: _buildTaskSearch(board),
-      );
+  Widget _buildTaskFilterSection(KanbanBoard? board, {required bool compact}) {
+    final showNavigation = (board?.columns.length ?? 0) > 1;
+    final canCreateColumn = board != null && _controller.canManageStructure;
+    final createColumnAction = canCreateColumn
+        ? FilledButton.icon(
+            style: workspaceToolbarActionStyle(Theme.of(context)),
+            onPressed: _controller.isMutating ? null : _openCreateKanbanColumn,
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('Coluna'),
+          )
+        : null;
+    return WorkspaceFilterSection(
+      key: const ValueKey<String>('workspace-task-filter-section'),
+      surfaceKey: const ValueKey<String>('kanban-filter-toolbar'),
+      padding: const EdgeInsets.all(12),
+      headingIcon: Icons.task_alt_rounded,
+      actionsOnLeft: compact,
+      title: 'Tarefas do projeto',
+      description: 'Encontre e organize as tarefas do projeto',
+      searchField: _buildTaskSearch(board),
+      actions: showNavigation || canCreateColumn
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                if (compact && createColumnAction != null) ...<Widget>[
+                  createColumnAction,
+                  if (showNavigation) const SizedBox(width: 8),
+                ],
+                if (showNavigation) ...<Widget>[
+                  IconButton(
+                    tooltip: 'Ver colunas anteriores',
+                    constraints: const BoxConstraints(
+                      minWidth: 48,
+                      minHeight: 48,
+                    ),
+                    onPressed: () => _boardKey.currentState?.scrollColumns(-1),
+                    icon: const Icon(Icons.chevron_left_rounded),
+                  ),
+                  IconButton(
+                    tooltip: 'Ver próximas colunas',
+                    constraints: const BoxConstraints(
+                      minWidth: 48,
+                      minHeight: 48,
+                    ),
+                    onPressed: () => _boardKey.currentState?.scrollColumns(1),
+                    icon: const Icon(Icons.chevron_right_rounded),
+                  ),
+                ],
+                if (!compact && createColumnAction != null) ...<Widget>[
+                  if (showNavigation) const SizedBox(width: 8),
+                  createColumnAction,
+                ],
+              ],
+            )
+          : null,
+    );
+  }
 
   Widget _buildTaskSearch(KanbanBoard? board) {
     final columns = board?.columns ?? const <KanbanColumn>[];
@@ -979,7 +1033,9 @@ class _KanbanPageSkeleton extends StatelessWidget {
                     'workspace-task-filter-section',
                   ),
                   surfaceKey: const ValueKey<String>('kanban-filter-toolbar'),
-                  title: 'Filtros do projeto',
+                  padding: const EdgeInsets.all(12),
+                  headingIcon: Icons.task_alt_rounded,
+                  title: 'Tarefas do projeto',
                   description: 'Encontre e organize as tarefas do projeto',
                   searchField: const WorkspaceSkeleton(height: 48),
                 ),

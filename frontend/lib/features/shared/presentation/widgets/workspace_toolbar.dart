@@ -38,7 +38,11 @@ class WorkspaceFilterSection extends StatelessWidget {
     required this.searchField,
     this.filters,
     this.footer,
+    this.actions,
     this.surfaceKey,
+    this.headingIcon = Icons.filter_list_rounded,
+    this.actionsOnLeft = false,
+    this.padding = const EdgeInsets.symmetric(horizontal: 12),
   });
 
   final String title;
@@ -46,7 +50,11 @@ class WorkspaceFilterSection extends StatelessWidget {
   final Widget searchField;
   final Widget? filters;
   final Widget? footer;
+  final Widget? actions;
   final Key? surfaceKey;
+  final IconData headingIcon;
+  final bool actionsOnLeft;
+  final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context) {
@@ -54,10 +62,10 @@ class WorkspaceFilterSection extends StatelessWidget {
     final colors = theme.colorScheme;
     return WorkspaceToolbar(
       surfaceKey: surfaceKey,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      padding: padding,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final wide = constraints.maxWidth >= 760;
+          final wide = constraints.maxWidth >= (actions == null ? 760 : 980);
           final heading = _buildHeading(theme, colors);
           final content = <Widget>[
             if (wide)
@@ -66,12 +74,29 @@ class WorkspaceFilterSection extends StatelessWidget {
                   Expanded(child: heading),
                   const SizedBox(width: 12),
                   SizedBox(width: 420, child: searchField),
+                  if (actions != null) ...<Widget>[
+                    const SizedBox(width: 12),
+                    actions!,
+                  ],
                 ],
               )
             else ...<Widget>[
               heading,
               const SizedBox(height: 2),
               searchField,
+              if (actions != null) ...<Widget>[
+                const SizedBox(height: 8),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  reverse: !actionsOnLeft,
+                  child: Align(
+                    alignment: actionsOnLeft
+                        ? Alignment.centerLeft
+                        : Alignment.centerRight,
+                    child: actions!,
+                  ),
+                ),
+              ],
             ],
             if (filters != null) ...<Widget>[
               const SizedBox(height: 12),
@@ -102,7 +127,7 @@ class WorkspaceFilterSection extends StatelessWidget {
               width: 22,
               height: 22,
               child: Icon(
-                Icons.filter_list_rounded,
+                headingIcon,
                 size: 18,
                 color: colors.primary,
               ),
