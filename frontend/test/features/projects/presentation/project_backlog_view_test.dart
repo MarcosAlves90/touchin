@@ -46,6 +46,15 @@ void main() {
       expect(find.byKey(const ValueKey('hierarchy-indicator-task-2')),
           findsOneWidget);
       expect(find.byKey(const ValueKey('backlog-search')), findsOneWidget);
+      final toolbar = find.byKey(const ValueKey('backlog-toolbar'));
+      expect(
+          find.descendant(
+              of: toolbar, matching: find.text('Tarefas do projeto')),
+          findsOneWidget);
+      expect(
+          find.descendant(
+              of: toolbar, matching: find.byIcon(Icons.task_alt_rounded)),
+          findsOneWidget);
       expect(tester.takeException(), isNull);
     }
   });
@@ -198,8 +207,7 @@ void main() {
               )
               .first,
         );
-        expect(
-            toolbarPadding.padding, const EdgeInsets.symmetric(horizontal: 12));
+        expect(toolbarPadding.padding, const EdgeInsets.all(12));
         expect(
           tester.getSize(find.byKey(const ValueKey('backlog-search'))).height,
           48,
@@ -343,6 +351,189 @@ void main() {
         expect(tester.takeException(), isNull);
       }
     }
+  });
+
+  testWidgets(
+      'backlog filters and permissions survive narrow and enlarged text',
+      (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    for (final size in <Size>[
+      const Size(320, 568),
+      const Size(390, 844),
+      const Size(768, 1024),
+      const Size(1440, 900),
+    ]) {
+      for (final scale in <double>[1, 1.5]) {
+        await tester.binding.setSurfaceSize(size);
+        await tester.pumpWidget(MaterialApp(
+          theme: AppTheme.lightTheme,
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: TextScaler.linear(scale)),
+            child: child!,
+          ),
+          home: Scaffold(
+            body: ProjectBacklogView(
+              board: _board(),
+              projectName: 'Projeto Alpha',
+              projectMembers: const <ProjectMemberSummary>[],
+              canManageStructure: false,
+              canManageCards: false,
+              canManageAssignees: false,
+              canMoveCards: false,
+              isBusy: false,
+              onManageColumns: () {},
+              onCreateColumn: () {},
+              onCreateCard: (_) {},
+              onMoveCard: (_, __, ___) {},
+              onEditCard: (_) {},
+              onDeleteCard: (_) {},
+              onManageAssignees: (_) {},
+              onOpenDetails: (_) {},
+            ),
+          ),
+        ));
+        await tester.pumpAndSettle();
+
+        final toolbar = find.byKey(const ValueKey<String>('backlog-toolbar'));
+        final search = find.byKey(const ValueKey<String>('backlog-search'));
+        expect(toolbar, findsOneWidget);
+        expect(tester.getRect(toolbar).left, greaterThanOrEqualTo(0));
+        expect(
+            tester.getRect(toolbar).right, lessThanOrEqualTo(size.width + 0.1));
+        expect(search, findsOneWidget);
+        for (final key in <String>[
+          'backlog-status-filter',
+          'backlog-assignee-filter',
+          'backlog-sort',
+        ]) {
+          final filter = find.byKey(ValueKey<String>(key));
+          expect(
+              find.descendant(of: toolbar, matching: filter), findsOneWidget);
+          expect(tester.getSize(filter).height, 48);
+        }
+        expect(find.text('Gerenciar colunas'), findsNothing);
+        expect(find.text('Novo status'), findsNothing);
+        expect(find.text('Novo card'), findsNothing);
+        expect(find.byTooltip('Editar #1'), findsNothing);
+
+        await tester.enterText(search, 'proposta');
+        await tester.pumpAndSettle();
+        expect(find.text('Preparar proposta'), findsOneWidget);
+        expect(find.text('Corrigir defeito'), findsNothing);
+        expect(tester.takeException(), isNull,
+            reason: 'backlog permissions and overflow at $size, scale $scale');
+        await tester.pumpWidget(const SizedBox.shrink());
+      }
+    }
+  });
+
+  testWidgets('backlog column and card actions remain independent permissions',
+      (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    var createColumns = 0;
+    var createCards = 0;
+
+    Widget view(
+            {required bool canManageStructure, required bool canManageCards}) =>
+        MaterialApp(
+          home: Scaffold(
+            body: ProjectBacklogView(
+              board: _board(),
+              projectName: 'Projeto Alpha',
+              projectMembers: const <ProjectMemberSummary>[],
+              canManageStructure: canManageStructure,
+              canManageCards: canManageCards,
+              canManageAssignees: false,
+              canMoveCards: false,
+              isBusy: false,
+              onManageColumns: () {},
+              onCreateColumn: () => createColumns++,
+              onCreateCard: (_) => createCards++,
+              onMoveCard: (_, __, ___) {},
+              onEditCard: (_) {},
+              onDeleteCard: (_) {},
+              onManageAssignees: (_) {},
+              onOpenDetails: (_) {},
+            ),
+          ),
+        );
+
+    await tester
+        .pumpWidget(view(canManageStructure: true, canManageCards: false));
+    await tester.pumpAndSettle();
+    expect(find.text('Gerenciar colunas'), findsOneWidget);
+    expect(find.text('Novo status'), findsOneWidget);
+    expect(find.text('Novo card'), findsNothing);
+    await tester.ensureVisible(find.text('Novo status'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Novo status'));
+    expect(createColumns, 1);
+
+    await tester
+        .pumpWidget(view(canManageStructure: false, canManageCards: true));
+    await tester.pumpAndSettle();
+    expect(find.text('Gerenciar colunas'), findsNothing);
+    expect(find.text('Novo status'), findsNothing);
+    expect(find.text('Novo card'), findsOneWidget);
+    await tester.ensureVisible(find.text('Novo card'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Novo card'));
+    expect(createCards, 1);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Backlog pagination footer fits at 320 width and 1.5 text scale',
+      (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    const viewport = Size(320, 568);
+    await tester.binding.setSurfaceSize(viewport);
+    await tester.pumpWidget(MaterialApp(
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context)
+            .copyWith(textScaler: const TextScaler.linear(1.5)),
+        child: child!,
+      ),
+      home: Scaffold(
+        body: ProjectBacklogView(
+          board: _boardWithManyCards(55),
+          projectName: 'Projeto Alpha',
+          projectMembers: const <ProjectMemberSummary>[],
+          canManageStructure: false,
+          canManageCards: false,
+          canManageAssignees: false,
+          canMoveCards: false,
+          isBusy: false,
+          onManageColumns: () {},
+          onCreateColumn: () {},
+          onCreateCard: (_) {},
+          onMoveCard: (_, __, ___) {},
+          onEditCard: (_) {},
+          onDeleteCard: (_) {},
+          onManageAssignees: (_) {},
+          onOpenDetails: (_) {},
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    final page = find.byKey(const ValueKey<String>('backlog-page-label'));
+    final next = find.byKey(const ValueKey<String>('backlog-page-next'));
+    expect(find.text('55 de 55 cards'), findsOneWidget);
+    expect(find.text('Página 1 de 2'), findsOneWidget);
+    expect(tester.getRect(page).right, lessThanOrEqualTo(viewport.width + 0.1));
+    expect(tester.getRect(next).right, lessThanOrEqualTo(viewport.width + 0.1));
+    expect(tester.takeException(), isNull,
+        reason: 'paginated footer must not overflow at enlarged text');
+
+    await tester.tap(next);
+    await tester.pumpAndSettle();
+    expect(find.text('Página 2 de 2'), findsOneWidget);
+    final table = tester.widget<DataTable>(find.byType(DataTable));
+    expect(table.rows.length, 5);
+    expect(table.rows.first.key, const ValueKey('backlog-card-task-51'));
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('shows searchable cards and filters by number and status', (

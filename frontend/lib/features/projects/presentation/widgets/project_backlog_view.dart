@@ -564,7 +564,9 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
     return WorkspaceFilterSection(
       key: const ValueKey<String>('workspace-task-filter-section'),
       surfaceKey: const ValueKey<String>('backlog-toolbar'),
-      title: 'Filtros do projeto',
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      headingIcon: Icons.task_alt_rounded,
+      title: 'Tarefas do projeto',
       description: 'Encontre e organize as tarefas do projeto',
       searchField: searchField,
       filters: LayoutBuilder(
@@ -595,34 +597,60 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
           );
         },
       ),
-      footer: Row(children: <Widget>[
-        Text(
-          '$visible de $total cards',
-          style: theme.textTheme.labelMedium?.copyWith(
-            color: colors.onSurfaceVariant,
-          ),
-        ),
-        if (pageCount > 1) ...<Widget>[
-          const Spacer(),
-          IconButton(
-            key: const ValueKey<String>('backlog-page-previous'),
-            tooltip: 'Página anterior',
-            visualDensity: VisualDensity.standard,
-            onPressed: page == 0 ? null : () => _changePage(page - 1),
-            icon: const Icon(Icons.chevron_left_rounded),
-          ),
-          Text('Página ${page + 1} de $pageCount',
-              key: const ValueKey<String>('backlog-page-label')),
-          IconButton(
-            key: const ValueKey<String>('backlog-page-next'),
-            tooltip: 'Próxima página',
-            visualDensity: VisualDensity.standard,
-            onPressed:
-                page == pageCount - 1 ? null : () => _changePage(page + 1),
-            icon: const Icon(Icons.chevron_right_rounded),
-          ),
-        ],
-      ]),
+      footer: LayoutBuilder(
+        builder: (context, constraints) {
+          final count = Text(
+            '$visible de $total cards',
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: colors.onSurfaceVariant,
+            ),
+          );
+          if (pageCount <= 1) return count;
+          final textScale = MediaQuery.textScalerOf(context).scale(1);
+          final narrow = constraints.maxWidth < 400 * textScale;
+          final pager = Row(
+            mainAxisSize: narrow ? MainAxisSize.max : MainAxisSize.min,
+            children: <Widget>[
+              IconButton(
+                key: const ValueKey<String>('backlog-page-previous'),
+                tooltip: 'Página anterior',
+                visualDensity: VisualDensity.standard,
+                onPressed: page == 0 ? null : () => _changePage(page - 1),
+                icon: const Icon(Icons.chevron_left_rounded),
+              ),
+              if (narrow)
+                Expanded(
+                  child: Text(
+                    'Página ${page + 1} de $pageCount',
+                    key: const ValueKey<String>('backlog-page-label'),
+                    textAlign: TextAlign.center,
+                  ),
+                )
+              else
+                Text('Página ${page + 1} de $pageCount',
+                    key: const ValueKey<String>('backlog-page-label')),
+              IconButton(
+                key: const ValueKey<String>('backlog-page-next'),
+                tooltip: 'Próxima página',
+                visualDensity: VisualDensity.standard,
+                onPressed:
+                    page == pageCount - 1 ? null : () => _changePage(page + 1),
+                icon: const Icon(Icons.chevron_right_rounded),
+              ),
+            ],
+          );
+          if (narrow) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                count,
+                pager,
+              ],
+            );
+          }
+          return Row(children: <Widget>[count, const Spacer(), pager]);
+        },
+      ),
     );
   }
 
