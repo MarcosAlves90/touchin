@@ -14,6 +14,7 @@ import 'package:touchin_flutter/features/auth/presentation/reset_password_page.d
 import 'package:touchin_flutter/features/shared/presentation/widgets/accessibility_tools.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_skeleton.dart';
+import 'package:touchin_flutter/startup_ascii_orb.dart';
 import 'package:touchin_flutter/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
@@ -758,32 +759,41 @@ class _StartupSplashState extends State<_StartupSplash> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            const CircularProgressIndicator(),
-            const SizedBox(height: 20),
-            Text(
-              'Aguardando o servidor',
-              style: theme.textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                Text(
-                  _statusMessages[_statusIndex],
-                  style: theme.textTheme.bodyMedium,
+      backgroundColor: const Color(0xFF11151B),
+      body: StartupAsciiOrb(
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              const CircularProgressIndicator(color: Color(0xFFF3BA32)),
+              const SizedBox(height: 20),
+              Text(
+                'Aguardando o servidor',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: const Color(0xFFF5F1E8),
                 ),
-                Text(
-                  '.' * _dotCount,
-                  key: const ValueKey<String>('startup-status-dots'),
-                  style: theme.textTheme.bodyMedium,
-                ),
-              ],
-            ),
-          ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Text(
+                    _statusMessages[_statusIndex],
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: const Color(0xFFF5F1E8),
+                    ),
+                  ),
+                  Text(
+                    '.' * _dotCount,
+                    key: const ValueKey<String>('startup-status-dots'),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: const Color(0xFFF5F1E8),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

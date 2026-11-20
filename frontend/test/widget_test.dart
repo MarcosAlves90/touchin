@@ -16,6 +16,8 @@ import 'package:touchin_flutter/features/projects/presentation/project_tasks_pag
 import 'package:touchin_flutter/features/settings/presentation/settings_page.dart';
 import 'package:touchin_flutter/features/time_tracking/presentation/time_clock_page.dart';
 import 'package:touchin_flutter/main.dart';
+import 'package:touchin_flutter/startup_ascii_orb.dart';
+import 'package:touchin_flutter/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -226,6 +228,14 @@ void main() {
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
     expect(find.text('Aguardando o servidor'), findsOneWidget);
     expect(find.text('Escrevendo documentos'), findsOneWidget);
+    expect(find.byType(StartupAsciiOrb), findsOneWidget);
+    expect(find.byKey(const ValueKey<String>('startup-ascii-orb')),
+        findsOneWidget);
+    final orbState = tester.state<StartupAsciiOrbState>(
+      find.byType(StartupAsciiOrb),
+    );
+    expect(orbState.isAnimating, isTrue);
+    final centerBefore = tester.getCenter(find.text('Aguardando o servidor'));
     final initialDots = tester
         .widget<Text>(
           find.byKey(const ValueKey<String>('startup-status-dots')),
@@ -233,6 +243,8 @@ void main() {
         .data;
 
     await tester.pump(const Duration(milliseconds: 500));
+    expect(orbState.animationPhase, greaterThan(0));
+    expect(tester.getCenter(find.text('Aguardando o servidor')), centerBefore);
     final animatedDots = tester
         .widget<Text>(
           find.byKey(const ValueKey<String>('startup-status-dots')),
@@ -264,7 +276,108 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.text('Aguardando o servidor'), findsNothing);
+    expect(find.byType(StartupAsciiOrb), findsNothing);
     expect(find.text('Administrar equipe'), findsOneWidget);
+  });
+
+  testWidgets('cold-start outage removes orb and retry resolves into workspace',
+      (tester) async {
+    final storage = _InMemoryTokenStorage()
+      ..savedSession = AuthSession(
+        accessToken: 'startup-token',
+        tokenType: 'bearer',
+        expiresAt: DateTime.parse('2099-04-26T18:00:00Z'),
+        company: company,
+        user: user,
+      );
+    final slowRequest = Completer<AuthContext>();
+    final api = _FakeTouchInApi(
+      tokenStorage: storage,
+      authContext: const AuthContext(company: company, user: user),
+      authContextRequestCompleters: {1: slowRequest},
+    );
+
+    await tester.pumpWidget(MyApp(api: api, tokenStorage: storage));
+    await tester.pump();
+    expect(find.byType(StartupAsciiOrb), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    await tester.pump(const Duration(seconds: 7));
+    expect(find.byType(StartupAsciiOrb), findsOneWidget);
+    expect(api.authContextRequests, 1);
+
+    slowRequest.completeError(
+      ApiException('Servidor indisponível', statusCode: 503),
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(find.byType(StartupAsciiOrb), findsNothing);
+    expect(find.text('Não foi possível validar sua sessão'), findsOneWidget);
+    expect(storage.savedSession, isNotNull);
+
+    await tester.tap(find.text('Tentar novamente'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(api.authContextRequests, 2);
+    expect(find.byType(StartupAsciiOrb), findsNothing);
+    expect(find.byType(AdminEmployeesPage), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'cold-start content remains centered on phone and desktop in both themes',
+      (tester) async {
+    final storage = _InMemoryTokenStorage()
+      ..savedSession = AuthSession(
+        accessToken: 'layout-token',
+        tokenType: 'bearer',
+        expiresAt: DateTime.parse('2099-04-26T18:00:00Z'),
+        company: company,
+        user: user,
+      );
+    final pending = Completer<AuthContext>();
+    final api = _FakeTouchInApi(
+      tokenStorage: storage,
+      authContextCompleter: pending,
+    );
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    for (final brightness in <Brightness>[Brightness.light, Brightness.dark]) {
+      final appTheme = AppTheme.offlineTheme(brightness);
+      await tester.pumpWidget(MyApp(
+        api: api,
+        tokenStorage: storage,
+        theme: appTheme,
+        darkTheme: appTheme,
+      ));
+      await tester.pump();
+      for (final dimensions in <Size>[
+        const Size(320, 568),
+        const Size(375, 812),
+        const Size(1440, 900),
+      ]) {
+        await tester.binding.setSurfaceSize(dimensions);
+        await tester.pump();
+        final title = find.text('Aguardando o servidor');
+        expect(title, findsOneWidget);
+        expect(find.byType(CircularProgressIndicator), findsOneWidget);
+        expect(find.byType(StartupAsciiOrb), findsOneWidget);
+        final column = find
+            .ancestor(
+              of: title,
+              matching: find.byType(Column),
+            )
+            .first;
+        expect(tester.getCenter(column),
+            Offset(dimensions.width / 2, dimensions.height / 2));
+        expect(tester.getTopLeft(title).dx, greaterThanOrEqualTo(0));
+        expect(
+            tester.getTopRight(title).dx, lessThanOrEqualTo(dimensions.width));
+        expect(
+            tester.widget<Text>(title).style?.color, const Color(0xFFF5F1E8));
+        expect(tester.takeException(), isNull);
+      }
+    }
+    await tester.pumpWidget(const SizedBox.shrink());
   });
 
   testWidgets('background resume keeps mounted workspace until auth check ends',
