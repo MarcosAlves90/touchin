@@ -2192,6 +2192,13 @@ void main() {
             lessThanOrEqualTo(tester.getRect(toolbar).right + 0.1));
       }
       if (size.width < 600) {
+        final heading = find.text('Tarefas do projeto');
+        expect(tester.getRect(search).top - tester.getRect(heading).bottom,
+            greaterThanOrEqualTo(10),
+            reason: 'room between heading and search at $size');
+        expect(tester.getRect(create).top - tester.getRect(search).bottom,
+            greaterThanOrEqualTo(12),
+            reason: 'room between search and column actions at $size');
         expect(tester.getRect(create).left,
             closeTo(tester.getRect(search).left, 1),
             reason: '+ Coluna aligned to the left of mobile filters at $size');

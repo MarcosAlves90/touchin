@@ -300,40 +300,47 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
       actionsOnLeft: compact,
       title: 'Tarefas do projeto',
       description: 'Encontre e organize as tarefas do projeto',
-      searchField: _buildTaskSearch(board),
+      searchField: Padding(
+        padding: EdgeInsets.only(top: compact ? 8 : 0),
+        child: _buildTaskSearch(board),
+      ),
       actions: showNavigation || canCreateColumn
-          ? Row(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                if (compact && createColumnAction != null) ...<Widget>[
-                  createColumnAction,
-                  if (showNavigation) const SizedBox(width: 8),
-                ],
-                if (showNavigation) ...<Widget>[
-                  IconButton(
-                    tooltip: 'Ver colunas anteriores',
-                    constraints: const BoxConstraints(
-                      minWidth: 48,
-                      minHeight: 48,
+          ? Padding(
+              padding: EdgeInsets.only(top: compact ? 6 : 0),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  if (compact && createColumnAction != null) ...<Widget>[
+                    createColumnAction,
+                    if (showNavigation) const SizedBox(width: 8),
+                  ],
+                  if (showNavigation) ...<Widget>[
+                    IconButton(
+                      tooltip: 'Ver colunas anteriores',
+                      constraints: const BoxConstraints(
+                        minWidth: 48,
+                        minHeight: 48,
+                      ),
+                      onPressed: () =>
+                          _boardKey.currentState?.scrollColumns(-1),
+                      icon: const Icon(Icons.chevron_left_rounded),
                     ),
-                    onPressed: () => _boardKey.currentState?.scrollColumns(-1),
-                    icon: const Icon(Icons.chevron_left_rounded),
-                  ),
-                  IconButton(
-                    tooltip: 'Ver próximas colunas',
-                    constraints: const BoxConstraints(
-                      minWidth: 48,
-                      minHeight: 48,
+                    IconButton(
+                      tooltip: 'Ver próximas colunas',
+                      constraints: const BoxConstraints(
+                        minWidth: 48,
+                        minHeight: 48,
+                      ),
+                      onPressed: () => _boardKey.currentState?.scrollColumns(1),
+                      icon: const Icon(Icons.chevron_right_rounded),
                     ),
-                    onPressed: () => _boardKey.currentState?.scrollColumns(1),
-                    icon: const Icon(Icons.chevron_right_rounded),
-                  ),
+                  ],
+                  if (!compact && createColumnAction != null) ...<Widget>[
+                    if (showNavigation) const SizedBox(width: 8),
+                    createColumnAction,
+                  ],
                 ],
-                if (!compact && createColumnAction != null) ...<Widget>[
-                  if (showNavigation) const SizedBox(width: 8),
-                  createColumnAction,
-                ],
-              ],
+              ),
             )
           : null,
     );
