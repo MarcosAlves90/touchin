@@ -759,7 +759,8 @@ class _StartupSplashState extends State<_StartupSplash> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: const Color(0xFF11151B),
+      // Match the near-black ground of the Estuary reference.
+      backgroundColor: const Color(0xFF0B0B0A),
       body: StartupAsciiOrb(
         child: Center(
           child: Column(

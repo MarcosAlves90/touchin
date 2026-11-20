@@ -1,4 +1,5 @@
 import 'dart:ui' as ui;
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -125,6 +126,43 @@ void main() {
     expect(state.animationPhase, greaterThan(resumedPhase));
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 1));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'a long wait flows continuously and a new wait starts differently',
+      (tester) async {
+    await tester.pumpWidget(scene());
+    final initial = orb(tester);
+    final initialSeed = initial.fieldSeed;
+
+    // The old phase wrapped at 2π after 14 seconds, visibly resetting the
+    // currents (which have different phase multipliers).
+    await tester.pump(const Duration(seconds: 15));
+    expect(initial.animationPhase, greaterThan(2 * math.pi));
+    final previousPhase = initial.animationPhase;
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(initial.animationPhase, closeTo(previousPhase + math.pi / 70, 1e-8));
+
+    await tester.pump(const Duration(seconds: 60));
+    expect(initial.animationPhase, greaterThan(previousPhase));
+    expect(initial.fieldSeed, initialSeed,
+        reason: 'A mounted splash must not get another field layout');
+
+    // A temporary pause or rebuild must preserve the same field.
+    await tester.pumpWidget(scene(visible: false));
+    expect(orb(tester), same(initial));
+    expect(orb(tester).fieldSeed, initialSeed);
+    await tester.pumpWidget(scene());
+    expect(orb(tester).fieldSeed, initialSeed);
+
+    // A subsequent, separately mounted splash begins with a different phase
+    // offset and glyph seed, instead of replaying the identical arrangement.
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpWidget(scene());
+    expect(orb(tester), isNot(same(initial)));
+    expect(orb(tester).animationPhase, 0);
+    expect(orb(tester).fieldSeed, isNot(initialSeed));
     expect(tester.takeException(), isNull);
   });
 

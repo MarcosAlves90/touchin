@@ -291,16 +291,20 @@ void main() {
         user: user,
       );
     final slowRequest = Completer<AuthContext>();
+    final retryRequest = Completer<AuthContext>();
     final api = _FakeTouchInApi(
       tokenStorage: storage,
       authContext: const AuthContext(company: company, user: user),
-      authContextRequestCompleters: {1: slowRequest},
+      authContextRequestCompleters: {1: slowRequest, 2: retryRequest},
     );
 
     await tester.pumpWidget(MyApp(api: api, tokenStorage: storage));
     await tester.pump();
     expect(find.byType(StartupAsciiOrb), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    final firstFieldSeed = tester
+        .state<StartupAsciiOrbState>(find.byType(StartupAsciiOrb))
+        .fieldSeed;
     await tester.pump(const Duration(seconds: 7));
     expect(find.byType(StartupAsciiOrb), findsOneWidget);
     expect(api.authContextRequests, 1);
@@ -315,6 +319,15 @@ void main() {
     expect(storage.savedSession, isNotNull);
 
     await tester.tap(find.text('Tentar novamente'));
+    await tester.pump();
+    expect(find.byType(StartupAsciiOrb), findsOneWidget);
+    expect(
+        tester
+            .state<StartupAsciiOrbState>(find.byType(StartupAsciiOrb))
+            .fieldSeed,
+        isNot(firstFieldSeed),
+        reason: 'A separate startup wait must begin with a new ASCII field');
+    retryRequest.complete(const AuthContext(company: company, user: user));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
     expect(api.authContextRequests, 2);
@@ -359,6 +372,10 @@ void main() {
         await tester.pump();
         final title = find.text('Aguardando o servidor');
         expect(title, findsOneWidget);
+        final splashScaffold = tester.widget<Scaffold>(
+          find.ancestor(of: title, matching: find.byType(Scaffold)).first,
+        );
+        expect(splashScaffold.backgroundColor, const Color(0xFF0B0B0A));
         expect(find.byType(CircularProgressIndicator), findsOneWidget);
         expect(find.byType(StartupAsciiOrb), findsOneWidget);
         final column = find
