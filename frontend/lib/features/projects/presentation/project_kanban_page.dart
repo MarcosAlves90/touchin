@@ -85,7 +85,7 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
     Widget withMobileHeader(Widget child) {
       if (pageIsWide) return child;
       final minimumHeight =
-          MediaQuery.textScalerOf(context).scale(1) > 1 ? 1200.0 : 900.0;
+          MediaQuery.textScalerOf(context).scale(1) > 1 ? 1200.0 : 928.0;
       return LayoutBuilder(
         builder: (context, constraints) => SingleChildScrollView(
           child: SizedBox(
