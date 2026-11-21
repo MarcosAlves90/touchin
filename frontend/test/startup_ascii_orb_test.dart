@@ -1,5 +1,6 @@
 import 'dart:ui' as ui;
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -92,6 +93,137 @@ void main() {
       expect(tester.takeException(), isNull);
     }
     await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('painted pixels use technical ASCII glyph shapes, not letters',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(320, 240));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(scene(reducedMotion: true));
+
+    // Rasterize the same CustomPainter used in the splash. This checks actual
+    // ink pixels, rather than just the widget tree or a declared character set.
+    final painter = tester
+        .widget<CustomPaint>(
+          find.byKey(const ValueKey<String>('startup-ascii-orb')),
+        )
+        .painter!;
+    final recorder = ui.PictureRecorder();
+    painter.paint(Canvas(recorder), const Size(320, 240));
+    final picture = recorder.endRecording();
+    // Engine-backed rasterization must run outside testWidgets' fake clock.
+    final pixels = await tester.runAsync(() async {
+      final image = await picture.toImage(320, 240);
+      try {
+        return await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+      } finally {
+        image.dispose();
+      }
+    });
+    expect(pixels, isNotNull);
+
+    var inkPixels = 0;
+    for (var offset = 0; offset < pixels!.lengthInBytes; offset += 4) {
+      final alpha = pixels.getUint8(offset + 3);
+      if (alpha > 0) {
+        inkPixels++;
+        // Flutter's raster image contains premultiplied RGB values.
+        expect(pixels.getUint8(offset), closeTo(243 * alpha / 255, 3));
+        expect(pixels.getUint8(offset + 1), closeTo(186 * alpha / 255, 3));
+        expect(pixels.getUint8(offset + 2), closeTo(50 * alpha / 255, 3));
+      }
+    }
+    expect(inkPixels, greaterThan(100),
+        reason: 'The backdrop must actually rasterize visible ASCII marks');
+
+    final glyphs = orb(tester).paintedGlyphs;
+    const technicalMarks = r'._:;+/>=][{}*$#@';
+    expect(glyphs.length, greaterThan(4),
+        reason: 'Several technical shapes must be visible in the raster');
+    expect(
+      glyphs.every(
+          (glyph) => glyph.length == 1 && technicalMarks.contains(glyph)),
+      isTrue,
+      reason: 'Every TextPainter used for the image must draw a technical mark',
+    );
+    expect(
+        glyphs.any((glyph) => RegExp(r'[A-Za-z0-9]').hasMatch(glyph)), isFalse);
+    picture.dispose();
+  });
+
+  testWidgets('mouse hover changes local ink at a fixed animation phase',
+      (tester) async {
+    const size = Size(600, 480);
+    await tester.binding.setSurfaceSize(size);
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(scene());
+    final state = orb(tester);
+    final painter = tester
+        .widget<CustomPaint>(
+          find.byKey(const ValueKey<String>('startup-ascii-orb')),
+        )
+        .painter!;
+
+    Future<ByteData> rasterize() async {
+      final recorder = ui.PictureRecorder();
+      painter.paint(Canvas(recorder), size);
+      final picture = recorder.endRecording();
+      try {
+        final pixels = await tester.runAsync(() async {
+          final image = await picture.toImage(600, 480);
+          try {
+            return await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+          } finally {
+            image.dispose();
+          }
+        });
+        expect(pixels, isNotNull);
+        return pixels!;
+      } finally {
+        picture.dispose();
+      }
+    }
+
+    final phaseBefore = state.animationPhase;
+    final seedBefore = state.fieldSeed;
+    final baseline = await rasterize();
+    final mouse = await tester.createGesture(kind: ui.PointerDeviceKind.mouse);
+    await mouse.addPointer(location: const Offset(410, 230));
+    await mouse.moveTo(const Offset(460, 250));
+    expect(state.pointerTrailSampleCount, greaterThan(0));
+    expect(state.animationPhase, phaseBefore,
+        reason: 'Only pointer position may change between rasterized frames');
+    expect(state.fieldSeed, seedBefore);
+    final hovered = await rasterize();
+
+    var nearChanges = 0;
+    var distantChanges = 0;
+    for (var y = 0; y < 480; y++) {
+      for (var x = 0; x < 600; x++) {
+        final offset = (y * 600 + x) * 4;
+        var changed = false;
+        for (var channel = 0; channel < 4; channel++) {
+          changed |= baseline.getUint8(offset + channel) !=
+              hovered.getUint8(offset + channel);
+        }
+        if (!changed) continue;
+        final fromPrevious = (x - 410) * (x - 410) + (y - 230) * (y - 230);
+        final fromLatest = (x - 460) * (x - 460) + (y - 250) * (y - 250);
+        // Both retained hover samples affect the paint. Glyph ink can also
+        // extend beyond the 200px radius measured at its grid origin.
+        if (fromPrevious < 225 * 225 || fromLatest < 225 * 225) {
+          nearChanges++;
+        } else {
+          distantChanges++;
+        }
+      }
+    }
+    expect(nearChanges, greaterThan(0),
+        reason:
+            'Hover must alter pixels near the mouse in an otherwise frozen field');
+    expect(distantChanges, 0,
+        reason: 'Hover must not alter ink far from either retained sample');
+    await mouse.removePointer();
   });
 
   testWidgets('animation pauses when inactive or hidden and resumes once',

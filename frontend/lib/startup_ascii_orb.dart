@@ -42,6 +42,9 @@ class StartupAsciiOrbState extends State<StartupAsciiOrb>
   @visibleForTesting
   int get pointerTrailSampleCount => _frame.trail.length;
 
+  @visibleForTesting
+  Set<String> get paintedGlyphs => _painter.paintedGlyphs;
+
   @override
   void initState() {
     super.initState();
@@ -174,9 +177,9 @@ class _EstuaryPainter extends CustomPainter {
   _EstuaryPainter(this.frame) : super(repaint: frame);
 
   static const _ink = Color(0xFFF3BA32);
-  // Estuary is a field of scattered letters, not a ramp of sphere contours.
-  static const _characters =
-      'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  // Scattered technical ASCII marks, as specified for TouchIn. They form a
+  // flowing field rather than outlines or a spherical contour.
+  static const _characters = r'._:;+/>=][{}*$#@';
   static const _fontSize = 10.0;
   static const _cellWidth = 10.0;
   static const _cellHeight = 13.0;
@@ -203,6 +206,12 @@ class _EstuaryPainter extends CustomPainter {
 
   final _OrbFrame frame;
   final Map<int, TextPainter> _glyphCache = {};
+
+  // Observe the TextPainters actually used by paint(), not just the palette.
+  @visibleForTesting
+  Set<String> get paintedGlyphs => Set<String>.unmodifiable(
+        _glyphCache.values.map((glyph) => glyph.text!.toPlainText()).toSet(),
+      );
 
   TextPainter _glyph(int index, int opacityLevel) {
     final key = opacityLevel * _characters.length + index;
