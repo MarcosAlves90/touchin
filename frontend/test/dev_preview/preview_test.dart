@@ -455,6 +455,158 @@ void main() {
     expect(tester.takeException(), isNull);
     await unmount(tester);
   });
+
+  testWidgets(
+      'preview dropdowns open without Navigator assertion on mobile and desktop',
+      (tester) async {
+    final trap = _NetworkTrap();
+    final previousHttp = HttpOverrides.current;
+    HttpOverrides.global = trap;
+    addTearDown(() => HttpOverrides.global = previousHttp);
+
+    const channel =
+        MethodChannel('plugins.it_nomads.com/flutter_secure_storage');
+    final sessionOperations = <String>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel,
+        (call) async {
+      final args = call.arguments as Map<dynamic, dynamic>?;
+      if (args?['key'] == 'access_token' ||
+          args?['key'] == 'auth_session' ||
+          call.method == 'deleteAll' ||
+          call.method == 'readAll') {
+        sessionOperations.add(call.method);
+      }
+      return null;
+    });
+    addTearDown(() => tester.binding.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, null));
+
+    tester.binding.platformDispatcher.defaultRouteNameTestValue = '/projects';
+    addTearDown(() {
+      tester.binding.platformDispatcher.defaultRouteNameTestValue = '/';
+    });
+
+    var exited = false;
+    const drawerTitle = 'Controles de desenvolvimento';
+    const reason = 'preview dropdowns open without Navigator assertion';
+
+    bool drawerOpen() => find.text(drawerTitle).evaluate().isNotEmpty;
+
+    Future<void> openDrawer() async {
+      if (!drawerOpen()) {
+        await tester.tap(find.byKey(const ValueKey('preview-controls')));
+        await tester.pumpAndSettle();
+      }
+      expect(find.text(drawerTitle), findsOneWidget);
+      expect(tester.takeException(), isNull, reason: '$reason: drawer open');
+    }
+
+    Future<void> closeDrawer() async {
+      if (drawerOpen()) {
+        await tester.tap(find.byTooltip('Fechar controles'));
+        await tester.pumpAndSettle();
+      }
+      expect(find.text(drawerTitle), findsNothing);
+      expect(tester.takeException(), isNull, reason: '$reason: drawer close');
+    }
+
+    Future<void> select(String label, Object currentValue, String option,
+        {bool verifyMenuBack = false}) async {
+      await openDrawer();
+      final dropdown = find.byKey(ValueKey('$label-$currentValue'));
+      expect(dropdown, findsOneWidget, reason: 'missing dropdown $label');
+      await tester.tap(dropdown);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull, reason: '$reason: $label menu');
+      expect(find.text(option), findsWidgets, reason: 'options for $label');
+      if (verifyMenuBack) {
+        expect(await tester.binding.handlePopRoute(), isTrue,
+            reason: 'back dismisses the dropdown menu');
+        await tester.pumpAndSettle();
+        expect(find.text(option), findsNothing, reason: 'menu closed by back');
+        expect(tester.takeException(), isNull, reason: '$reason: menu back');
+        await tester.tap(dropdown);
+        await tester.pumpAndSettle();
+        expect(find.text(option), findsWidgets, reason: 'menu reopened');
+        expect(tester.takeException(), isNull, reason: '$reason: menu reopen');
+      }
+      await tester.tap(find.text(option).last);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull,
+          reason: '$reason: $label dismissal');
+    }
+
+    for (final size in <Size>[
+      const Size(390, 844),
+      const Size(1400, 900),
+    ]) {
+      controller.reset();
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1;
+      await tester.pumpWidget(PreviewWorkspace(
+          controller: controller, onExit: () => exited = true));
+      for (var i = 0; i < 8; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(tester.takeException(), isNull, reason: '$reason: mount $size');
+
+      await select('Perfil fictício', controller.persona, 'Gestor',
+          verifyMenuBack: true);
+      expect(controller.persona, PreviewPersona.manager);
+      await select('Atraso', controller.delay.inMilliseconds, '250 ms');
+      expect(controller.delay, const Duration(milliseconds: 250));
+      await select('Dados da página', controller.data, 'Vazios');
+      expect(controller.data, PreviewData.empty);
+      await select('Tempo das requisições', controller.timing, 'Com atraso');
+      expect(controller.timing, PreviewTiming.delayed);
+      await select('Inicialização do servidor', controller.server,
+          'Inicialização com atraso');
+      expect(controller.server, PreviewServer.delayed);
+
+      await openDrawer();
+      for (final selected in <String>[
+        'Gestor',
+        '250 ms',
+        'Vazios',
+        'Com atraso',
+        'Inicialização com atraso',
+      ]) {
+        expect(find.text(selected), findsWidgets,
+            reason: 'persisted value $selected at $size');
+      }
+      expect(tester.takeException(), isNull, reason: '$reason: persistence');
+
+      if (size.width > 800) {
+        await closeDrawer();
+        final router = WorkspaceRouterScope.maybeOf(
+            tester.element(find.byType(ProjectTasksPage)))!;
+        router.navigate('/kanban');
+        await tester.pumpAndSettle();
+        expect(find.byType(ProjectKanbanPage), findsOneWidget);
+        await select('Dados da página', controller.data, 'Preenchidos');
+        expect(controller.data, PreviewData.populated);
+        await closeDrawer();
+        expect(await tester.binding.handlePopRoute(), isTrue);
+        await tester.pumpAndSettle();
+        expect(find.byType(ProjectTasksPage), findsOneWidget);
+        expect(tester.takeException(), isNull, reason: '$reason: back');
+      } else {
+        await closeDrawer();
+      }
+
+      await openDrawer();
+      await tester.tap(find.text('Sair da prévia').last);
+      expect(exited, isTrue, reason: 'drawer exit at $size');
+      expect(await TokenStorage().readAccessToken(), 'previous-real-session');
+      expect(sessionOperations, isEmpty);
+      expect(trap.attempts, 0);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      expect(tester.takeException(), isNull, reason: '$reason: unmount $size');
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    }
+  });
 }
 
 class _NetworkTrap extends HttpOverrides {
