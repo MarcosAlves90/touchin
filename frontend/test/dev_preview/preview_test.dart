@@ -607,6 +607,56 @@ void main() {
       tester.view.resetDevicePixelRatio();
     }
   });
+
+  testWidgets(
+      'browser history messages dismiss dropdowns without losing the destination',
+      (tester) async {
+    const reason = 'preview pushRouteInformation contract';
+    await mount(tester, path: '/projects');
+    expect(find.byType(ProjectTasksPage), findsOneWidget);
+
+    final router = WorkspaceRouterScope.maybeOf(
+        tester.element(find.byType(ProjectTasksPage)))!;
+    router.navigate('/kanban');
+    await tester.pumpAndSettle();
+    expect(find.byType(ProjectKanbanPage), findsOneWidget);
+    final forwardEntry = router.currentConfiguration;
+
+    await tester.tap(find.byKey(const ValueKey('preview-controls')));
+    await tester.pumpAndSettle();
+    final dropdown =
+        find.byKey(ValueKey('Perfil fictício-${controller.persona}'));
+    await tester.tap(dropdown);
+    await tester.pumpAndSettle();
+    expect(find.text('Gestor'), findsOneWidget, reason: 'dropdown menu open');
+
+    Future<void> pushRouteInformation(WorkspaceLocation location) async {
+      await tester.binding.defaultBinaryMessenger.handlePlatformMessage(
+        'flutter/navigation',
+        JSONMethodCodec().encodeMethodCall(MethodCall('pushRouteInformation', {
+          'location': location.path,
+          'state': location.entryId,
+        })),
+        (_) {},
+      );
+      await tester.pumpAndSettle();
+    }
+
+    // Browser Back: the URL change must close the menu but still reach Router.
+    await pushRouteInformation(const WorkspaceLocation('/projects'));
+    expect(find.text('Gestor'), findsNothing,
+        reason: '$reason: menu dismissed');
+    expect(router.currentConfiguration.path, '/projects');
+    expect(find.byType(ProjectTasksPage), findsOneWidget);
+
+    // Browser Forward: the existing entry is reachable after Back.
+    await pushRouteInformation(forwardEntry);
+    expect(find.text('Gestor'), findsNothing, reason: '$reason: forward menu');
+    expect(router.currentConfiguration, forwardEntry);
+    expect(find.byType(ProjectKanbanPage), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await unmount(tester);
+  });
 }
 
 class _NetworkTrap extends HttpOverrides {
