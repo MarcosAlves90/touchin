@@ -17,7 +17,10 @@ class PreviewWorkspace extends StatefulWidget {
   State<PreviewWorkspace> createState() => _PreviewWorkspaceState();
 }
 
-class _PreviewWorkspaceState extends State<PreviewWorkspace> {
+class _PreviewWorkspaceState extends State<PreviewWorkspace>
+    with WidgetsBindingObserver {
+  final GlobalKey<NavigatorState> _controlsNavigatorKey =
+      GlobalKey<NavigatorState>();
   late final PreviewController _controller;
   late final PreviewFixtures _fixtures;
   late final PreviewTokenStorage _storage;
@@ -27,6 +30,7 @@ class _PreviewWorkspaceState extends State<PreviewWorkspace> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     requireDeveloperPreview();
     _controller = widget.controller ?? PreviewController();
     _fixtures = PreviewFixtures();
@@ -46,8 +50,29 @@ class _PreviewWorkspaceState extends State<PreviewWorkspace> {
     _controller.cancelRequests();
   }
 
+  Future<bool> _maybePopControlsMenu() async {
+    final navigator = _controlsNavigatorKey.currentState;
+    if (navigator == null || !navigator.canPop()) return false;
+    return navigator.maybePop();
+  }
+
+  /// Browser/back on a URL strategy reaches a local Navigator as either a
+  /// pop request or a pushed route, depending on which history entry is
+  /// active. Dismiss the open dropdown menu in both cases, but return false so
+  /// the application router still handles the original navigation.
+  @override
+  Future<bool> didPopRoute() => _maybePopControlsMenu();
+
+  @override
+  Future<bool> didPushRouteInformation(
+      RouteInformation routeInformation) async {
+    await _maybePopControlsMenu();
+    return false;
+  }
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _controller.removeListener(_refresh);
     if (widget.controller == null) {
       _controller.dispose();
@@ -79,13 +104,22 @@ class _PreviewWorkspaceState extends State<PreviewWorkspace> {
       applicationBuilder: (context, child) => Scaffold(
         endDrawer: Drawer(
           width: math.min(380, MediaQuery.sizeOf(context).width * 0.96),
-          child: _PreviewControls(
-              controller: _controller,
-              onReset: () {
-                _fixtures.reset();
-                _controller.reset();
-              },
-              onExit: widget.onExit),
+          // A local Navigator gives the five dropdowns a valid ancestor for
+          // their transient menu routes without changing application routing.
+          child: HeroControllerScope.none(
+            child: Navigator(
+              key: _controlsNavigatorKey,
+              onGenerateRoute: (_) => MaterialPageRoute<void>(
+                builder: (_) => _PreviewControls(
+                    controller: _controller,
+                    onReset: () {
+                      _fixtures.reset();
+                      _controller.reset();
+                    },
+                    onExit: widget.onExit),
+              ),
+            ),
+          ),
         ),
         body: Column(children: [
           Material(
