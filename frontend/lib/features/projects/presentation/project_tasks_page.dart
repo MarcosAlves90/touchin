@@ -30,6 +30,9 @@ class ProjectTasksPage extends StatefulWidget {
 class _ProjectTasksPageState extends State<ProjectTasksPage> {
   late final ProjectTasksController _controller;
   late final bool _ownsController;
+  static const _tasksPerPage = 10;
+  int _taskPage = 0;
+  String? _taskPageProjectId;
 
   @override
   void initState() {
@@ -648,6 +651,13 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
 
   Widget _buildTasksCard() {
     final theme = Theme.of(context);
+    if (_taskPageProjectId != _controller.selectedProjectId) {
+      _taskPageProjectId = _controller.selectedProjectId;
+      _taskPage = 0;
+    }
+    final pageCount = (_controller.tasks.length + _tasksPerPage - 1) ~/ _tasksPerPage;
+    final page = _taskPage.clamp(0, pageCount == 0 ? 0 : pageCount - 1);
+    final visibleTasks = _controller.tasks.skip(page * _tasksPerPage).take(_tasksPerPage);
     return WorkspaceSectionCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -690,20 +700,12 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
               description: 'Crie a primeira tarefa para estruturar o projeto.',
             )
           else
-            LayoutBuilder(builder: (context, constraints) {
-              const gap = 12.0;
-              final columns = constraints.maxWidth >= 1350
-                  ? 3
-                  : constraints.maxWidth >= 700
-                      ? 2
-                      : 1;
-              final width = (constraints.maxWidth - gap * (columns - 1)) / columns;
-              return Wrap(
-                spacing: gap,
-                runSpacing: gap,
-                children: _controller.tasks.map((task) => SizedBox(
-                  width: width,
-                  child: _TaskTile(
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                for (final task in visibleTasks) ...<Widget>[
+                  Divider(height: 1, color: theme.colorScheme.outlineVariant),
+                  _TaskTile(
                     task: task,
                     parentName: _parentTaskName(task),
                     selected: task.id == _controller.selectedTaskId,
@@ -711,9 +713,26 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
                     onSelected: () => _controller.selectTask(task.id),
                     onEdit: () => _openEditTask(task),
                   ),
-                )).toList(),
-              );
-            }),
+                ],
+                if (pageCount > 1)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: <Widget>[
+                      Text('${page + 1} / $pageCount', style: theme.textTheme.bodyMedium),
+                      IconButton(
+                        tooltip: 'Página anterior',
+                        onPressed: page > 0 ? () => setState(() => _taskPage = page - 1) : null,
+                        icon: const Icon(Icons.chevron_left),
+                      ),
+                      IconButton(
+                        tooltip: 'Próxima página',
+                        onPressed: page + 1 < pageCount ? () => setState(() => _taskPage = page + 1) : null,
+                        icon: const Icon(Icons.chevron_right),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
         ],
       ),
     );
@@ -1506,24 +1525,15 @@ class _TaskTile extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     return Material(
       color: selected
-          ? colorScheme.primaryContainer.withValues(alpha: 0.22)
-          : colorScheme.surface.withValues(alpha: 0.72),
-      borderRadius: BorderRadius.circular(12),
+          ? colorScheme.primaryContainer.withValues(alpha: 0.18)
+          : Colors.transparent,
       child: Semantics(
         selected: selected,
         child: InkWell(
-          borderRadius: BorderRadius.circular(12),
           onTap: onSelected,
           child: Container(
             width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color:
-                    selected ? colorScheme.primary : colorScheme.outlineVariant,
-              ),
-            ),
+            padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[

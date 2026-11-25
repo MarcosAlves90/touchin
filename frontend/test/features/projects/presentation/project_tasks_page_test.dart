@@ -15,6 +15,28 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('task table paginates and preserves actions', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 2400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(MaterialApp(home: ProjectTasksPage(api: _ManyTasksApi())));
+    await tester.pumpAndSettle();
+    expect(find.text('Tarefa 11'), findsNothing, reason: 'tasks_paginated_first_page');
+    expect(find.text('Tarefa 10'), findsOneWidget);
+    await tester.ensureVisible(find.byTooltip('Próxima página'));
+    await tester.tap(find.byTooltip('Próxima página'));
+    await tester.pumpAndSettle();
+    expect(find.text('Tarefa 10'), findsNothing);
+    expect(find.text('Tarefa 11'), findsOneWidget);
+    expect(find.byTooltip('Editar tarefa'), findsNWidgets(2));
+    await tester.tap(find.text('Tarefa 11'));
+    await tester.pumpAndSettle();
+    expect(find.text('Participantes de Tarefa 11'), findsOneWidget);
+    await tester.ensureVisible(find.byTooltip('Página anterior'));
+    await tester.tap(find.byTooltip('Página anterior'));
+    await tester.pumpAndSettle();
+    expect(find.text('Tarefa 10'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
   testWidgets('task directory adapts and preserves selection', (tester) async {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     for (final width in [1600.0, 390.0, 320.0]) {
@@ -29,13 +51,8 @@ void main() {
       final second = find.descendant(of: section, matching: find.text('Testar integração'));
       expect(first, findsOneWidget);
       expect(second, findsOneWidget);
-      if (width == 1600) {
-        expect(tester.getTopLeft(second).dy, closeTo(tester.getTopLeft(first).dy, 2),
-            reason: 'tasks_wide_alignment');
-        expect(tester.getTopLeft(second).dx, greaterThan(tester.getTopLeft(first).dx + 200));
-      } else {
-        expect(tester.getTopLeft(second).dy, greaterThan(tester.getTopLeft(first).dy));
-      }
+      expect(tester.getTopLeft(second).dy, greaterThan(tester.getTopLeft(first).dy));
+      expect(tester.getTopLeft(second).dx, closeTo(tester.getTopLeft(first).dx, 2));
       expect(find.text('Subtarefa de: Implementar tela'), findsOneWidget);
       expect(find.byTooltip('Editar tarefa'), findsNWidgets(2));
       await tester.ensureVisible(second);
@@ -994,6 +1011,17 @@ class _FakeProjectTasksApi extends TouchInApi {
       createdAt: DateTime(2026, 9, 9),
     );
   }
+}
+
+class _ManyTasksApi extends _FakeProjectTasksApi {
+  _ManyTasksApi() : super(role: 'manager', employeeId: 'emp-02');
+  @override
+  Future<List<TaskRecord>> listTasks(String projectId) async => [
+    for (var i = 1; i <= 12; i++)
+      TaskRecord(id: 'task-$i', projectId: projectId, parentTaskId: null,
+        name: 'Tarefa $i', description: 'Descrição $i', type: TaskType.feature,
+        createdAt: DateTime(2026, 9, 9), updatedAt: DateTime(2026, 9, 9)),
+  ];
 }
 
 class _MultipleTasksApi extends _FakeProjectTasksApi {
