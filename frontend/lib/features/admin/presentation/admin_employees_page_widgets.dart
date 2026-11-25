@@ -656,7 +656,7 @@ class _EmployeeListTile extends StatelessWidget {
           onTap: onTap,
           child: Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
               color: selected
@@ -673,7 +673,7 @@ class _EmployeeListTile extends StatelessWidget {
             ),
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final isCompact = constraints.maxWidth < 560;
+                final isCompact = constraints.maxWidth < 400;
                 return _buildContent(
                   context,
                   theme,
@@ -774,30 +774,13 @@ class _EmployeeListTile extends StatelessWidget {
               ),
               const SizedBox(height: 3),
               Text(
-                '${employee.role} | ${employee.department}',
-                maxLines: 1,
+                '${employee.role} · ${employee.department} · ${employee.unit}',
+                maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: colorScheme.onSurfaceVariant,
                   height: 1.2,
                 ),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: <Widget>[
-                  Icon(Icons.apartment_rounded,
-                      size: 15, color: colorScheme.onSurfaceVariant),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      employee.unit,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall
-                          ?.copyWith(color: colorScheme.onSurfaceVariant),
-                    ),
-                  ),
-                ],
               ),
               if (hasSignals) ...<Widget>[
                 const SizedBox(height: 8),

@@ -112,7 +112,7 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
         children: <Widget>[
           _buildWorkspaceHeader(isWide),
           const SizedBox(height: 16),
-          _buildMetricGrid(isWide),
+          _buildMetricGrid(),
           const SizedBox(height: 20),
           _buildProjectsSection(isWide),
           if (_controller.selectedProject != null) ...<Widget>[
@@ -221,32 +221,31 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
     ];
   }
 
-  Widget _buildMetricGrid(bool isWide) {
+  Widget _buildMetricGrid() {
     final project = _controller.selectedProject;
     final task = _controller.selectedTask;
+    final colors = Theme.of(context).colorScheme;
     final occupancy = project == null || task == null
         ? '—'
         : '${_controller.taskMembers.length}/${project.taskEmployeeLimit}';
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final useSingleRow = isWide && constraints.maxWidth >= 980;
-        final useTwoColumns = !useSingleRow && constraints.maxWidth >= 500;
-        final itemWidth = useTwoColumns
-            ? (constraints.maxWidth - 8) / 2
-            : constraints.maxWidth;
+        final columns = constraints.maxWidth >= 720
+            ? 4
+            : constraints.maxWidth >= 340
+                ? 2
+                : 1;
         final metricItems = <Widget>[
           _ProjectMetricItem(
             icon: Icons.folder_copy_outlined,
             label: 'Projetos',
             value: _controller.projects.length.toString(),
-            helper: 'Projetos disponíveis para a empresa atual.',
           ),
           _ProjectMetricItem(
             icon: Icons.account_tree_outlined,
             label: 'Tarefas',
             value: project == null ? '—' : _controller.tasks.length.toString(),
-            helper: 'Tarefas do projeto selecionado.',
           ),
           _ProjectMetricItem(
             icon: Icons.groups_2_outlined,
@@ -254,42 +253,46 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
             value: project == null
                 ? '—'
                 : _controller.projectMembers.length.toString(),
-            helper: 'Membros com acesso ao projeto.',
           ),
           _ProjectMetricItem(
             icon: Icons.group_work_outlined,
             label: 'Ocupação',
             value: occupancy,
-            helper: 'Participantes e limite da tarefa selecionada.',
           ),
         ];
 
-        if (useSingleRow) {
-          return Row(
-            children: metricItems.asMap().entries.map((entry) {
-              return Expanded(
-                child: Padding(
-                  padding: EdgeInsets.only(
-                    right: entry.key == metricItems.length - 1 ? 0 : 8,
-                  ),
-                  child: entry.value,
-                ),
-              );
-            }).toList(),
-          );
+        final rows = <Widget>[];
+        for (var start = 0; start < metricItems.length; start += columns) {
+          if (start > 0) {
+            rows.add(
+                Divider(height: 1, thickness: 1, color: colors.outlineVariant));
+          }
+          final cells = <Widget>[];
+          for (var i = start;
+              i < start + columns && i < metricItems.length;
+              i++) {
+            if (i > start) {
+              cells.add(SizedBox(
+                  width: 1,
+                  height: 56,
+                  child: Container(color: colors.outlineVariant)));
+            }
+            cells.add(Expanded(child: metricItems[i]));
+          }
+          rows.add(Row(children: cells));
         }
-
-        return Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: metricItems
-              .map(
-                (item) => SizedBox(
-                  width: itemWidth,
-                  child: item,
-                ),
-              )
-              .toList(),
+        return Container(
+          key: const ValueKey<String>('project-metrics-strip'),
+          decoration: BoxDecoration(
+            color: colors.surface,
+            border: Border.all(color: colors.outlineVariant),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: rows),
         );
       },
     );
@@ -964,21 +967,47 @@ class _ProjectMetricItem extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.value,
-    required this.helper,
   });
 
   final IconData icon;
   final String label;
   final String value;
-  final String helper;
-
   @override
-  Widget build(BuildContext context) => WorkspaceMetricCard(
-        icon: icon,
-        label: label,
-        value: value,
-        helper: helper,
-      );
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Semantics(
+      container: true,
+      label: '$label: $value',
+      child: ExcludeSemantics(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          child: Row(children: [
+            Icon(icon, size: 18, color: theme.colorScheme.onSurfaceVariant),
+            const SizedBox(width: 8),
+            Expanded(
+                child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(label,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600)),
+                const SizedBox(height: 2),
+                Text(value,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w800)),
+              ],
+            )),
+          ]),
+        ),
+      ),
+    );
+  }
 }
 
 class _ProjectListTile extends StatelessWidget {
@@ -1019,7 +1048,8 @@ class _ProjectListTile extends StatelessWidget {
                   ? colorScheme.primary.withValues(alpha: 0.08)
                   : colorScheme.surface.withValues(alpha: 0.8),
               border: Border.all(
-                color: selected ? colorScheme.primary : colorScheme.outlineVariant,
+                color:
+                    selected ? colorScheme.primary : colorScheme.outlineVariant,
               ),
             ),
             child: LayoutBuilder(

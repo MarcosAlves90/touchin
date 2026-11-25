@@ -41,6 +41,34 @@ void main() {
       messenger.setMockMessageHandler('flutter/assets', null);
     }
   });
+  testWidgets('team metrics form a compact strip', (tester) async {
+    tester.view.physicalSize = const Size(1440, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(MaterialApp(
+      home: AdminEmployeesPage(
+        api: _FakeAdminApi(employee: _employeeResponse(pendingAdjustments: 1)),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('Perfis cadastrados na empresa.'), findsNothing);
+    expect(find.text('Perfis com pendências operacionais.'), findsNothing);
+    final strip = find.byKey(const ValueKey<String>('team-metrics-strip'));
+    expect(tester.getSize(strip).height, lessThan(85));
+    expect(find.descendant(of: strip, matching: find.text('Colaboradores')), findsOneWidget);
+    expect(find.descendant(of: strip, matching: find.text('Ativos')), findsOneWidget);
+    expect(find.descendant(of: strip, matching: find.text('Com geolocalização')), findsOneWidget);
+    expect(find.descendant(of: strip, matching: find.text('Em atenção')), findsOneWidget);
+    for (final width in [390.0, 320.0]) {
+      tester.view.physicalSize = Size(width, 1800);
+      await tester.pumpAndSettle();
+      final label = find.descendant(of: strip, matching: find.text('Com geolocalização'));
+      final paragraph = tester.renderObject<RenderParagraph>(label);
+      expect(paragraph.didExceedMaxLines, isFalse, reason: 'label at $width');
+      expect(tester.getRect(strip).contains(tester.getRect(label).bottomRight), isTrue);
+      expect(tester.takeException(), isNull);
+    }
+  });
   for (final dark in [false, true]) {
     for (final highContrast in [false, true]) {
       for (final width in [430.0, 1440.0]) {
@@ -609,6 +637,65 @@ void main() {
     }
     addTearDown(tester.view.reset);
   });
+  testWidgets('team directory keeps employee summaries compact and usable',
+      (tester) async {
+    addTearDown(tester.view.reset);
+    for (final width in [1440.0, 768.0, 390.0, 320.0]) {
+      tester.view.physicalSize = Size(width, 1800);
+      tester.view.devicePixelRatio = 1;
+      await tester.pumpWidget(
+        MaterialApp(home: AdminEmployeesPage(api: _FakeAdminApi())),
+      );
+      await tester.pumpAndSettle();
+      final tile = find.ancestor(
+        of: find.text('Renata Souza').first,
+        matching: find.byType(InkWell),
+      ).first;
+      expect(tester.getSize(tile).height, lessThan(110), reason: 'width $width');
+      expect(find.text('Busque e selecione perfis para editar dados principais.'),
+          findsNothing);
+      expect(find.descendant(of: tile, matching: find.byTooltip('Editar funcionário')),
+          findsOneWidget);
+      expect(find.descendant(of: tile, matching: find.byTooltip('Remover funcionário')),
+          findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    }
+  });
+  testWidgets('team entries share wide rows and stack on narrow screens',
+      (tester) async {
+    addTearDown(tester.view.reset);
+    for (final width in [1800.0, 390.0, 320.0]) {
+      tester.view.physicalSize = Size(width, 1800);
+      tester.view.devicePixelRatio = 1;
+      await tester.pumpWidget(
+        MaterialApp(home: AdminEmployeesPage(api: _MultiEmployeeApi())),
+      );
+      await tester.pumpAndSettle();
+      final first = find.text('Renata Souza').first;
+      final second = find.text('Zeca Lima').first;
+      final firstPosition = tester.getTopLeft(first);
+      final secondPosition = tester.getTopLeft(second);
+      if (width > 1000) {
+        expect(secondPosition.dy, closeTo(firstPosition.dy, 2));
+        expect(secondPosition.dx, greaterThan(firstPosition.dx + 250));
+      } else {
+        expect(secondPosition.dy, greaterThan(firstPosition.dy + 40));
+        expect(secondPosition.dx, closeTo(firstPosition.dx, 2));
+      }
+      await tester.ensureVisible(second);
+      await tester.tap(second);
+      await tester.pumpAndSettle();
+      final profile = find.ancestor(
+        of: find.text('Perfil selecionado'),
+        matching: find.byType(WorkspaceSectionCard),
+      ).first;
+      expect(find.descendant(of: profile, matching: find.text('Zeca Lima')),
+          findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    }
+  });
   testWidgets('team toolbar composition', (tester) async {
     tester.view.physicalSize = const Size(1800, 1800);
     tester.view.devicePixelRatio = 1;
@@ -731,7 +818,7 @@ void main() {
 
     expect(find.text('Administrar equipe'), findsOneWidget);
     expect(find.byType(WorkspaceHeader), findsOneWidget);
-    expect(find.byType(WorkspaceMetricCard), findsNWidgets(4));
+    expect(find.byKey(const ValueKey<String>('team-metrics-strip')), findsOneWidget);
     expect(find.text('Novo funcionário'), findsOneWidget);
     expect(find.text('Editar selecionado'), findsNothing);
     expect(find.byTooltip('Editar funcionário'), findsOneWidget);
@@ -1128,6 +1215,14 @@ EmployeeProfile _employeeResponse({
       if (includeAccountMetadata) 'hasAccount': hasAccount,
       if (includeAccountMetadata) 'accessRole': accessRole,
     });
+
+class _MultiEmployeeApi extends _FakeAdminApi {
+  @override
+  Future<List<EmployeeProfile>> listEmployees() async => [
+        _employeeResponse(),
+        _employeeResponse().copyWith(id: 'emp-100', name: 'Zeca Lima'),
+      ];
+}
 
 class _FakeAdminApi extends TouchInApi {
   _FakeAdminApi({

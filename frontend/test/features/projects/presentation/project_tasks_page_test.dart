@@ -15,6 +15,28 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('project metrics use a compact summary', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1600, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(MaterialApp(home: ProjectTasksPage(api: _ProjectSaveApi())));
+    await tester.pumpAndSettle();
+    expect(find.text('Projetos disponíveis para a empresa atual.'), findsNothing);
+    expect(find.text('Participantes e limite da tarefa selecionada.'), findsNothing);
+    final strip = find.byKey(const ValueKey<String>('project-metrics-strip'));
+    expect(tester.getSize(strip).height, lessThan(85));
+    for (final label in ['Projetos', 'Tarefas', 'Acessos', 'Ocupação']) {
+      expect(find.descendant(of: strip, matching: find.text(label)), findsOneWidget);
+    }
+    for (final width in [768.0, 390.0, 320.0]) {
+      await tester.binding.setSurfaceSize(Size(width, 1000));
+      await tester.pumpAndSettle();
+      for (final label in ['Projetos', 'Tarefas', 'Acessos', 'Ocupação']) {
+        final text = find.descendant(of: strip, matching: find.text(label));
+        expect(tester.getRect(strip).contains(tester.getRect(text).center), isTrue);
+      }
+      expect(tester.takeException(), isNull);
+    }
+  });
   testWidgets('project directory and details use full width sections', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1600, 1000));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -332,7 +354,7 @@ void main() {
 
     expect(find.text('Administrar projetos'), findsOneWidget);
     expect(find.byType(WorkspaceHeader), findsAtLeastNWidgets(1));
-    expect(find.byType(WorkspaceMetricCard), findsNWidgets(4));
+    expect(find.byKey(const ValueKey<String>('project-metrics-strip')), findsOneWidget);
     expect(find.text('Projetos'), findsWidgets);
     expect(find.text('Tarefas'), findsWidgets);
     expect(find.text('Acessos'), findsWidgets);
