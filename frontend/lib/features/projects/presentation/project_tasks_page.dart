@@ -703,6 +703,21 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
+                LayoutBuilder(builder: (context, constraints) {
+                  if (constraints.maxWidth < 700) return const SizedBox.shrink();
+                  final style = theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant);
+                  return Padding(
+                    padding: const EdgeInsets.fromLTRB(40, 0, 12, 6),
+                    child: Row(children: <Widget>[
+                      Expanded(flex: 5, child: Text('Tarefa', style: style)),
+                      const SizedBox(width: 12),
+                      SizedBox(width: 90, child: Text('Tipo', style: style)),
+                      const SizedBox(width: 12),
+                      Expanded(flex: 5, child: Text('Descrição', style: style)),
+                      if (_controller.canManageTasks) const SizedBox(width: 48),
+                    ]),
+                  );
+                }),
                 for (final task in visibleTasks) ...<Widget>[
                   Divider(height: 1, color: theme.colorScheme.outlineVariant),
                   _TaskTile(
@@ -1531,69 +1546,54 @@ class _TaskTile extends StatelessWidget {
         selected: selected,
         child: InkWell(
           onTap: onSelected,
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Icon(_taskTypeIcon(task.type), size: 20,
-                    color: selected ? colorScheme.primary : colorScheme.onSurfaceVariant),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: <Widget>[
-                          Text(
-                            task.name,
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                ),
-                          ),
-                          Chip(
-                            visualDensity: VisualDensity.compact,
-                            label: Text(_taskTypeLabel(task.type)),
-                          ),
+          child: LayoutBuilder(builder: (context, constraints) {
+            final wide = constraints.maxWidth >= 700;
+            final theme = Theme.of(context);
+            final description = Text(
+              task.description,
+              style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+            );
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: <Widget>[
+                  Icon(_taskTypeIcon(task.type), size: 18,
+                      color: selected ? colorScheme.primary : colorScheme.onSurfaceVariant),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    flex: 5,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        Text(task.name, style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
+                        if (parentName != null)
+                          Text('Subtarefa de: $parentName',
+                              style: theme.textTheme.labelMedium?.copyWith(color: colorScheme.onSurfaceVariant)),
+                        if (!wide) ...<Widget>[
+                          Text(_taskTypeLabel(task.type), style: theme.textTheme.labelMedium?.copyWith(color: colorScheme.onSurfaceVariant)),
+                          description,
                         ],
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        task.description,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                      ),
-                      if (parentName != null) ...<Widget>[
-                        const SizedBox(height: 8),
-                        Text(
-                          'Subtarefa de: $parentName',
-                          style:
-                              Theme.of(context).textTheme.labelMedium?.copyWith(
-                                    color: colorScheme.onSurfaceVariant,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                        ),
                       ],
-                    ],
+                    ),
                   ),
-                ),
-                if (canEdit)
-                  IconButton(
-                    tooltip: 'Editar tarefa',
-                    onPressed: onEdit,
-                    icon: const Icon(Icons.edit_outlined),
-                  ),
-              ],
-            ),
-          ),
+                  if (wide) ...<Widget>[
+                    const SizedBox(width: 12),
+                    SizedBox(width: 90, child: Text(_taskTypeLabel(task.type), style: theme.textTheme.bodyMedium)),
+                    const SizedBox(width: 12),
+                    Expanded(flex: 5, child: description),
+                  ],
+                  if (canEdit)
+                    IconButton(
+                      tooltip: 'Editar tarefa',
+                      onPressed: onEdit,
+                      icon: const Icon(Icons.edit_outlined),
+                    ),
+                ],
+              ),
+            );
+          }),
         ),
       ),
     );

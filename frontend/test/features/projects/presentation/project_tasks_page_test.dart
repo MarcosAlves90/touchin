@@ -15,6 +15,23 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('task table uses compact desktop rows', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1600, 1800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(MaterialApp(home: ProjectTasksPage(api: _MultipleTasksApi())));
+    await tester.pumpAndSettle();
+    final section = find.ancestor(
+      of: find.text('As tarefas podem ter tipo e tarefa-pai, formando uma hierarquia dentro do projeto.'),
+      matching: find.byType(WorkspaceSectionCard),
+    ).first;
+    final title = find.descendant(of: section, matching: find.text('Implementar tela'));
+    final description = find.descendant(of: section, matching: find.text('Descrição da tarefa'));
+    expect(tester.getCenter(description).dy, closeTo(tester.getCenter(title).dy, 8),
+        reason: 'task_compact_description_alignment');
+    expect(tester.getTopLeft(description).dx, greaterThan(tester.getTopRight(title).dx));
+    expect(find.text('Subtarefa de: Implementar tela'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
   testWidgets('task table paginates and preserves actions', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1440, 2400));
     addTearDown(() => tester.binding.setSurfaceSize(null));
