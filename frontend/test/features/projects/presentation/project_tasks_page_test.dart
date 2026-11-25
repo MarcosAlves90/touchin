@@ -89,6 +89,33 @@ void main() {
         reason: 'project_card_equal_height');
     expect(tester.takeException(), isNull);
   });
+  testWidgets('project summary uses available width', (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    for (final width in [1600.0, 390.0, 320.0]) {
+      await tester.binding.setSurfaceSize(Size(width, 1800));
+      await tester.pumpWidget(MaterialApp(home: ProjectTasksPage(api: _ProjectSaveApi())));
+      await tester.pumpAndSettle();
+      final section = find.ancestor(
+        of: find.text('Resumo rápido'), matching: find.byType(WorkspaceSectionCard)).first;
+      Finder field(String label) => find.descendant(of: section, matching: find.text(label));
+      final tasks = field('Tarefas');
+      final access = field('Acessos');
+      final limit = field('Limite por tarefa');
+      final current = field('Tarefa atual');
+      if (width == 1600) {
+        for (final item in [access, limit, current]) {
+          expect(tester.getTopLeft(item).dy, closeTo(tester.getTopLeft(tasks).dy, 2),
+              reason: 'project_summary_wide_alignment');
+        }
+      } else {
+        expect(tester.getTopLeft(current).dy, greaterThan(tester.getTopLeft(tasks).dy));
+      }
+      expect(field('Implementar tela'), findsOneWidget);
+      expect(find.descendant(of: section, matching: find.text('Editar')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    }
+  });
   testWidgets('project directory and details use full width sections', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1600, 1000));
     addTearDown(() => tester.binding.setSurfaceSize(null));

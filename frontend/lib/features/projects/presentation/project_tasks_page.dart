@@ -453,10 +453,18 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
     return WorkspaceSectionCard(
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final useTwoColumns = constraints.maxWidth >= 520;
-          final overviewItemWidth = useTwoColumns
-              ? (constraints.maxWidth - 12) / 2
-              : constraints.maxWidth;
+          final isWide = constraints.maxWidth >= 900;
+          final availableWidth = constraints.maxWidth - 36;
+          final overviewItemWidth = isWide
+              ? availableWidth * 0.16
+              : constraints.maxWidth >= 280
+                  ? (constraints.maxWidth - 12) / 2
+                  : constraints.maxWidth;
+          final taskWidth = isWide
+              ? availableWidth * 0.52
+              : constraints.maxWidth < 520
+                  ? constraints.maxWidth
+                  : overviewItemWidth;
 
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -504,7 +512,7 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
                     ),
                   ),
                   SizedBox(
-                    width: overviewItemWidth,
+                    width: taskWidth,
                     child: _ProjectOverviewCard(
                       icon: Icons.task_alt_outlined,
                       label: 'Tarefa atual',
@@ -1395,28 +1403,13 @@ class _ProjectOverviewCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: colorScheme.surface.withValues(alpha: 0.82),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: colorScheme.outlineVariant),
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color:
-                  colorScheme.surfaceContainerHighest.withValues(alpha: 0.88),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: colorScheme.outlineVariant),
-            ),
-            child: Icon(icon, size: 18, color: colorScheme.onSurfaceVariant),
-          ),
-          const SizedBox(width: 10),
+          Icon(icon, size: 18, color: colorScheme.onSurfaceVariant),
+          const SizedBox(width: 8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
