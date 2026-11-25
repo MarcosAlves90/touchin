@@ -89,6 +89,39 @@ void main() {
         reason: 'project_card_equal_height');
     expect(tester.takeException(), isNull);
   });
+  testWidgets('access section matches project section typography', (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    for (final width in [1600.0, 390.0, 320.0]) {
+      await tester.binding.setSurfaceSize(Size(width, 1800));
+      await tester.pumpWidget(MaterialApp(
+        theme: AppTheme.offlineTheme(Brightness.dark),
+        home: ProjectTasksPage(api: _FakeProjectTasksApi(role: 'manager', employeeId: 'emp-02')),
+      ));
+      await tester.pumpAndSettle();
+      final projects = find.ancestor(
+        of: find.text('Selecione um projeto para consultar dados, acessos e tarefas.'),
+        matching: find.byType(WorkspaceSectionCard),
+      ).first;
+      Text textIn(Finder section, String value) => tester.widget<Text>(
+        find.descendant(of: section, matching: find.text(value)),
+      );
+      final projectTitle = textIn(projects, 'Projetos');
+      final accessTitle = tester.widget<Text>(find.text('Acesso ao projeto'));
+      expect(accessTitle.style?.fontSize, projectTitle.style?.fontSize,
+          reason: 'project_access_heading_size');
+      expect(accessTitle.style?.fontWeight, projectTitle.style?.fontWeight);
+      final projectDescription = textIn(projects, 'Selecione um projeto para consultar dados, acessos e tarefas.');
+      final accessDescription = tester.widget<Text>(find.text(
+        'Somente os funcionários adicionados aqui podem visualizar o projeto e assumir responsabilidades nas tarefas.',
+      ));
+      expect(accessDescription.style?.fontSize, projectDescription.style?.fontSize);
+      expect(accessDescription.style?.fontWeight, projectDescription.style?.fontWeight);
+      expect(find.text('Adicionar ao projeto'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    }
+  });
+
   testWidgets('project member avatars contrast with their card', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1600, 1800));
     addTearDown(() => tester.binding.setSurfaceSize(null));

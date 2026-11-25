@@ -540,25 +540,34 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
   }
 
   Widget _buildProjectAccessCard() {
+    final theme = Theme.of(context);
     return WorkspaceSectionCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          WorkspaceHeader(
-            title: 'Acesso ao projeto',
-            description:
-                'Somente os funcionários adicionados aqui podem visualizar o projeto e assumir responsabilidades nas tarefas.',
-            maxContentWidth: 620,
-            actions: <Widget>[
-              if (_controller.canManageProjects)
-                FilledButton.tonalIcon(
-                  onPressed: _controller.isMutating
-                      ? null
-                      : _openAddProjectMemberDialog,
-                  icon: const Icon(Icons.person_add_alt_1_rounded),
-                  label: const Text('Adicionar ao projeto'),
-                ),
-            ],
+          Theme(
+            data: theme.copyWith(
+              textTheme: theme.textTheme.copyWith(
+                headlineMedium: theme.textTheme.titleLarge,
+                bodyLarge: theme.textTheme.bodyMedium,
+              ),
+            ),
+            child: WorkspaceHeader(
+              title: 'Acesso ao projeto',
+              description:
+                  'Somente os funcionários adicionados aqui podem visualizar o projeto e assumir responsabilidades nas tarefas.',
+              maxContentWidth: 620,
+              actions: <Widget>[
+                if (_controller.canManageProjects)
+                  FilledButton.tonalIcon(
+                    onPressed: _controller.isMutating
+                        ? null
+                        : _openAddProjectMemberDialog,
+                    icon: const Icon(Icons.person_add_alt_1_rounded),
+                    label: const Text('Adicionar ao projeto'),
+                  ),
+              ],
+            ),
           ),
           const SizedBox(height: 12),
           if (_controller.isLoadingProjectMembers)
