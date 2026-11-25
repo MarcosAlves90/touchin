@@ -15,6 +15,37 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('task directory adapts and preserves selection', (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    for (final width in [1600.0, 390.0, 320.0]) {
+      await tester.binding.setSurfaceSize(Size(width, 2200));
+      await tester.pumpWidget(MaterialApp(home: ProjectTasksPage(api: _MultipleTasksApi())));
+      await tester.pumpAndSettle();
+      final section = find.ancestor(
+        of: find.text('As tarefas podem ter tipo e tarefa-pai, formando uma hierarquia dentro do projeto.'),
+        matching: find.byType(WorkspaceSectionCard),
+      ).first;
+      final first = find.descendant(of: section, matching: find.text('Implementar tela'));
+      final second = find.descendant(of: section, matching: find.text('Testar integração'));
+      expect(first, findsOneWidget);
+      expect(second, findsOneWidget);
+      if (width == 1600) {
+        expect(tester.getTopLeft(second).dy, closeTo(tester.getTopLeft(first).dy, 2),
+            reason: 'tasks_wide_alignment');
+        expect(tester.getTopLeft(second).dx, greaterThan(tester.getTopLeft(first).dx + 200));
+      } else {
+        expect(tester.getTopLeft(second).dy, greaterThan(tester.getTopLeft(first).dy));
+      }
+      expect(find.text('Subtarefa de: Implementar tela'), findsOneWidget);
+      expect(find.byTooltip('Editar tarefa'), findsNWidgets(2));
+      await tester.ensureVisible(second);
+      await tester.tap(second);
+      await tester.pumpAndSettle();
+      expect(find.text('Participantes de Testar integração'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    }
+  });
   testWidgets('project metrics use a compact summary', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1600, 1000));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -963,6 +994,21 @@ class _FakeProjectTasksApi extends TouchInApi {
       createdAt: DateTime(2026, 9, 9),
     );
   }
+}
+
+class _MultipleTasksApi extends _FakeProjectTasksApi {
+  _MultipleTasksApi() : super(role: 'manager', employeeId: 'emp-02');
+
+  @override
+  Future<List<TaskRecord>> listTasks(String projectId) async => [
+        ...(await super.listTasks(projectId)),
+        TaskRecord(
+          id: 'task-02', projectId: projectId, parentTaskId: 'task-01',
+          name: 'Testar integração', description: 'Verificar o resultado',
+          type: TaskType.bug, createdAt: DateTime(2026, 9, 9),
+          updatedAt: DateTime(2026, 9, 9),
+        ),
+      ];
 }
 
 class _DelayedProjectsTasksApi extends _FakeProjectTasksApi {

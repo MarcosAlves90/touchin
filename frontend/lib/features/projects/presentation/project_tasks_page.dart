@@ -647,25 +647,32 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
   }
 
   Widget _buildTasksCard() {
+    final theme = Theme.of(context);
     return WorkspaceSectionCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          WorkspaceHeader(
-            title: 'Tarefas',
-            description:
-                'As tarefas podem ter tipo e tarefa-pai, formando uma hierarquia dentro do projeto.',
-            maxContentWidth: 520,
-            actions: <Widget>[
-              if (_controller.canManageTasks)
-                FilledButton.tonalIcon(
-                  onPressed: _controller.isMutating ? null : _openCreateTask,
-                  icon: const Icon(Icons.add_task_rounded),
-                  label: const Text('Nova tarefa'),
-                ),
-            ],
+          Theme(
+            data: theme.copyWith(textTheme: theme.textTheme.copyWith(
+              headlineMedium: theme.textTheme.titleLarge,
+              bodyLarge: theme.textTheme.bodyMedium,
+            )),
+            child: WorkspaceHeader(
+              title: 'Tarefas',
+              description:
+                  'As tarefas podem ter tipo e tarefa-pai, formando uma hierarquia dentro do projeto.',
+              maxContentWidth: 520,
+              actions: <Widget>[
+                if (_controller.canManageTasks)
+                  FilledButton.tonalIcon(
+                    onPressed: _controller.isMutating ? null : _openCreateTask,
+                    icon: const Icon(Icons.add_task_rounded),
+                    label: const Text('Nova tarefa'),
+                  ),
+              ],
+            ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
           if (_controller.isLoadingTasks)
             const WorkspaceSkeletonRegion(
               label: 'Carregando tarefas',
@@ -683,23 +690,30 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
               description: 'Crie a primeira tarefa para estruturar o projeto.',
             )
           else
-            Column(
-              children: _controller.tasks
-                  .map(
-                    (task) => Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: _TaskTile(
-                        task: task,
-                        parentName: _parentTaskName(task),
-                        selected: task.id == _controller.selectedTaskId,
-                        canEdit: _controller.canManageTasks,
-                        onSelected: () => _controller.selectTask(task.id),
-                        onEdit: () => _openEditTask(task),
-                      ),
-                    ),
-                  )
-                  .toList(),
-            ),
+            LayoutBuilder(builder: (context, constraints) {
+              const gap = 12.0;
+              final columns = constraints.maxWidth >= 1350
+                  ? 3
+                  : constraints.maxWidth >= 700
+                      ? 2
+                      : 1;
+              final width = (constraints.maxWidth - gap * (columns - 1)) / columns;
+              return Wrap(
+                spacing: gap,
+                runSpacing: gap,
+                children: _controller.tasks.map((task) => SizedBox(
+                  width: width,
+                  child: _TaskTile(
+                    task: task,
+                    parentName: _parentTaskName(task),
+                    selected: task.id == _controller.selectedTaskId,
+                    canEdit: _controller.canManageTasks,
+                    onSelected: () => _controller.selectTask(task.id),
+                    onEdit: () => _openEditTask(task),
+                  ),
+                )).toList(),
+              );
+            }),
         ],
       ),
     );
@@ -1492,7 +1506,7 @@ class _TaskTile extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     return Material(
       color: selected
-          ? colorScheme.primaryContainer.withValues(alpha: 0.5)
+          ? colorScheme.primaryContainer.withValues(alpha: 0.22)
           : colorScheme.surface.withValues(alpha: 0.72),
       borderRadius: BorderRadius.circular(12),
       child: Semantics(
@@ -1502,7 +1516,7 @@ class _TaskTile extends StatelessWidget {
           onTap: onSelected,
           child: Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
@@ -1513,8 +1527,9 @@ class _TaskTile extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                Icon(_taskTypeIcon(task.type), size: 24),
-                const SizedBox(width: 14),
+                Icon(_taskTypeIcon(task.type), size: 20,
+                    color: selected ? colorScheme.primary : colorScheme.onSurfaceVariant),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1530,7 +1545,7 @@ class _TaskTile extends StatelessWidget {
                                 .textTheme
                                 .titleMedium
                                 ?.copyWith(
-                                  fontWeight: FontWeight.w800,
+                                  fontWeight: FontWeight.w700,
                                 ),
                           ),
                           Chip(
