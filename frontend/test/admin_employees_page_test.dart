@@ -696,6 +696,31 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     }
   });
+  testWidgets('team uses three columns when there is room', (tester) async {
+    addTearDown(tester.view.reset);
+    for (final width in [1920.0, 390.0, 320.0]) {
+      tester.view.physicalSize = Size(width, 1800);
+      tester.view.devicePixelRatio = 1;
+      await tester.pumpWidget(
+        MaterialApp(home: AdminEmployeesPage(api: _ThreeEmployeeApi())),
+      );
+      await tester.pumpAndSettle();
+      final first = find.text('Renata Souza').first;
+      final third = find.text('Zora Silva').first;
+      if (width == 1920) {
+        expect(tester.getTopLeft(third).dy, closeTo(tester.getTopLeft(first).dy, 2),
+            reason: 'team_three_columns_alignment');
+        expect(tester.getTopLeft(third).dx, greaterThan(tester.getTopLeft(first).dx + 500));
+      } else {
+        expect(tester.getTopLeft(third).dy, greaterThan(tester.getTopLeft(first).dy));
+        expect(tester.widget<Text>(first).maxLines, 2);
+      }
+      expect(find.byTooltip('Editar funcionário'), findsNWidgets(3));
+      expect(find.byTooltip('Remover funcionário'), findsNWidgets(3));
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    }
+  });
   testWidgets('team toolbar uses wide space and adapts', (tester) async {
     addTearDown(tester.view.reset);
     for (final width in [1800.0, 768.0, 390.0, 320.0]) {
@@ -1238,6 +1263,15 @@ EmployeeProfile _employeeResponse({
       if (includeAccountMetadata) 'hasAccount': hasAccount,
       if (includeAccountMetadata) 'accessRole': accessRole,
     });
+
+class _ThreeEmployeeApi extends _FakeAdminApi {
+  @override
+  Future<List<EmployeeProfile>> listEmployees() async => [
+        _employeeResponse(),
+        _employeeResponse().copyWith(id: 'emp-100', name: 'Zeca Lima'),
+        _employeeResponse().copyWith(id: 'emp-101', name: 'Zora Silva'),
+      ];
+}
 
 class _MultiEmployeeApi extends _FakeAdminApi {
   @override

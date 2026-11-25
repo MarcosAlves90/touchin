@@ -679,9 +679,13 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
               children: [
                 LayoutBuilder(builder: (context, constraints) {
                   const spacing = 12.0;
-                  final itemWidth = constraints.maxWidth >= 900
-                      ? (constraints.maxWidth - spacing) / 2
-                      : constraints.maxWidth;
+                  final columns = constraints.maxWidth >= 1350
+                      ? 3
+                      : constraints.maxWidth >= 900
+                          ? 2
+                          : 1;
+                  final itemWidth =
+                      (constraints.maxWidth - spacing * (columns - 1)) / columns;
                   return Wrap(
                     spacing: spacing,
                     runSpacing: 8,

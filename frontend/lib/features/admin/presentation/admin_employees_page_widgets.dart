@@ -739,7 +739,7 @@ class _EmployeeListTile extends StatelessWidget {
                   Expanded(
                     child: Text(
                       employee.name,
-                      maxLines: 1,
+                      maxLines: isCompact ? 2 : 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w700,
