@@ -330,7 +330,7 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
               color: colorScheme.onSurfaceVariant,
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 12),
           if (_controller.projects.isEmpty)
             Container(
               width: double.infinity,
@@ -370,21 +370,33 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
               ),
             )
           else
-            Column(
-              children: _controller.projects.map((project) {
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: _ProjectListTile(
-                    project: project,
-                    selected: project.id == _controller.selectedProjectId,
-                    canManage: _controller.canManageProjects,
-                    onTap: () => _controller.selectProject(project.id),
-                    onEdit: () => _openEditProject(project),
-                    onDelete: () => _confirmDeleteProject(project),
-                  ),
-                );
-              }).toList(),
-            ),
+            LayoutBuilder(builder: (context, constraints) {
+              const spacing = 12.0;
+              final columns = constraints.maxWidth >= 1350
+                  ? 3
+                  : constraints.maxWidth >= 850
+                      ? 2
+                      : 1;
+              final width =
+                  (constraints.maxWidth - spacing * (columns - 1)) / columns;
+              return Wrap(
+                spacing: spacing,
+                runSpacing: 8,
+                children: _controller.projects.map((project) {
+                  return SizedBox(
+                    width: width,
+                    child: _ProjectListTile(
+                      project: project,
+                      selected: project.id == _controller.selectedProjectId,
+                      canManage: _controller.canManageProjects,
+                      onTap: () => _controller.selectProject(project.id),
+                      onEdit: () => _openEditProject(project),
+                      onDelete: () => _confirmDeleteProject(project),
+                    ),
+                  );
+                }).toList(),
+              );
+            }),
         ],
       ),
     );
@@ -1041,7 +1053,7 @@ class _ProjectListTile extends StatelessWidget {
           onTap: onTap,
           child: Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(8),
               color: selected
@@ -1054,7 +1066,7 @@ class _ProjectListTile extends StatelessWidget {
             ),
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final isCompact = constraints.maxWidth < 560;
+                final isCompact = constraints.maxWidth < 400;
                 return Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
@@ -1093,7 +1105,7 @@ class _ProjectListTile extends StatelessWidget {
                               Expanded(
                                 child: Text(
                                   project.name,
-                                  maxLines: 1,
+                                  maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
                                   style: theme.textTheme.titleMedium?.copyWith(
                                     fontWeight: FontWeight.w700,

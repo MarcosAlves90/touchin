@@ -37,6 +37,40 @@ void main() {
       expect(tester.takeException(), isNull);
     }
   });
+  testWidgets('project directory adapts to available width', (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    for (final width in [1920.0, 1440.0, 768.0, 390.0, 320.0]) {
+      await tester.binding.setSurfaceSize(Size(width, 1800));
+      await tester.pumpWidget(MaterialApp(home: ProjectTasksPage(api: _MultipleProjectsApi())));
+      await tester.pumpAndSettle();
+      Finder projectTile(String name) => find.byWidgetPredicate((widget) {
+            if (widget is! InkWell) return false;
+            final tile = find.byWidget(widget);
+            return find.descendant(of: tile, matching: find.text(name)).evaluate().isNotEmpty &&
+                find.descendant(of: tile, matching: find.byTooltip('Editar projeto')).evaluate().isNotEmpty;
+          });
+      final firstTile = projectTile('Projeto principal').first;
+      final secondTile = projectTile('Projeto secundário').first;
+      final first = find.descendant(of: firstTile, matching: find.text('Projeto principal')).first;
+      final second = find.descendant(of: secondTile, matching: find.text('Projeto secundário')).first;
+      if (width >= 1440) {
+        expect(tester.getTopLeft(second).dy, closeTo(tester.getTopLeft(first).dy, 2),
+            reason: 'project_directory_wide_alignment');
+        expect(tester.getTopLeft(second).dx, greaterThan(tester.getTopLeft(first).dx + 250));
+      } else {
+        expect(tester.getTopLeft(second).dy, greaterThan(tester.getTopLeft(first).dy));
+      }
+
+      expect(find.descendant(of: secondTile, matching: find.byTooltip('Editar projeto')), findsOneWidget);
+      expect(find.descendant(of: secondTile, matching: find.byTooltip('Excluir projeto')), findsOneWidget);
+      await tester.ensureVisible(second);
+      await tester.tap(second);
+      await tester.pumpAndSettle();
+      expect(find.text('Projeto secundário'), findsWidgets);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    }
+  });
   testWidgets('project directory and details use full width sections', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1600, 1000));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -826,6 +860,20 @@ class _DelayedProjectTasksApi extends _FakeProjectTasksApi {
     attempts++;
     return pending.future;
   }
+}
+
+class _MultipleProjectsApi extends _FakeProjectTasksApi {
+  _MultipleProjectsApi() : super(role: 'manager', employeeId: 'emp-02');
+
+  @override
+  Future<List<ProjectSummary>> listProjects({ProjectStatus? status}) async => [
+        ...(await super.listProjects(status: status)),
+        ProjectSummary(
+          id: 'project-02', name: 'Projeto secundário', description: 'Outro projeto',
+          taskEmployeeLimit: 5, status: ProjectStatus.active,
+          createdAt: DateTime(2026, 9, 9), updatedAt: DateTime(2026, 9, 9),
+        ),
+      ];
 }
 
 class _ProjectSaveApi extends _FakeProjectTasksApi {
