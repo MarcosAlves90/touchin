@@ -113,7 +113,7 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
         builder: (context, constraints) {
           final enlarged = MediaQuery.textScalerOf(context).scale(1) > 1;
           final pageHeight =
-              constraints.maxHeight < 500 ? 500.0 : constraints.maxHeight;
+              constraints.maxHeight < 700 ? 700.0 : constraints.maxHeight;
           return SingleChildScrollView(
             child: SizedBox(
               height: pageHeight + (enlarged ? 180 : 0),
@@ -148,7 +148,9 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
         final verticalPadding = isCompact ? 8.0 : 14.0;
         final gap = isCompact ? 8.0 : 12.0;
 
-        final enlarged = MediaQuery.textScalerOf(context).scale(1) > 1;
+        final textScale = MediaQuery.textScalerOf(context).scale(16) / 16;
+        final minimumBodyHeight =
+            600.0 + (textScale > 1 ? (textScale - 1) * 240 : 0);
         final body = Padding(
           padding: EdgeInsets.fromLTRB(
             horizontalPadding,
@@ -159,20 +161,7 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              if (isCompact)
-                _buildProjectOverview(compact: true)
-              else
-                ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxHeight: (constraints.maxHeight - 520).clamp(
-                      enlarged ? 180.0 : 40.0,
-                      enlarged ? 280.0 : 220.0,
-                    ),
-                  ),
-                  child: SingleChildScrollView(
-                    child: _buildProjectOverview(compact: false),
-                  ),
-                ),
+              _buildProjectOverview(compact: isCompact),
               SizedBox(height: gap),
               if (!_showBacklog || _controller.board == null)
                 _buildTaskFilterSection(_controller.board, compact: isCompact),
@@ -184,10 +173,10 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
             ],
           ),
         );
-        return enlarged
+        return constraints.maxHeight < minimumBodyHeight
             ? SingleChildScrollView(
-                child:
-                    SizedBox(height: constraints.maxHeight + 180, child: body))
+                child: SizedBox(height: minimumBodyHeight, child: body),
+              )
             : body;
       },
     ));
@@ -1009,7 +998,6 @@ class _KanbanPageSkeleton extends StatelessWidget {
         final horizontalPadding = compact ? 10.0 : (wide ? 28.0 : 16.0);
         final verticalPadding = compact ? 8.0 : 14.0;
         final gap = compact ? 8.0 : 12.0;
-        final enlarged = MediaQuery.textScalerOf(context).scale(1) > 1;
         return WorkspaceSkeletonRegion(
           key: const ValueKey<String>('kanban-page-skeleton'),
           label: 'Carregando Kanban',
@@ -1023,17 +1011,7 @@ class _KanbanPageSkeleton extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
-                ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxHeight: (constraints.maxHeight - 520).clamp(
-                      enlarged ? 180.0 : 40.0,
-                      enlarged ? 280.0 : 220.0,
-                    ),
-                  ),
-                  child: SingleChildScrollView(
-                    child: _KanbanProjectOverviewSkeleton(compact: compact),
-                  ),
-                ),
+                _KanbanProjectOverviewSkeleton(compact: compact),
                 SizedBox(height: gap),
                 WorkspaceFilterSection(
                   key: const ValueKey<String>(

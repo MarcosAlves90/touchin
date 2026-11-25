@@ -373,6 +373,8 @@ class _WorkLogDialogState extends State<WorkLogDialog> {
                         key: Key('work-log-selected-task-${task.id}'),
                         selected: true,
                         label: Text(task.name),
+                        deleteIconColor:
+                            Theme.of(context).colorScheme.onSurface,
                         onDeleted: () => setState(
                           () => _selectedTaskIds.remove(task.id),
                         ),
