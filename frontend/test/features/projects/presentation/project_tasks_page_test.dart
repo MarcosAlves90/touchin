@@ -89,6 +89,38 @@ void main() {
         reason: 'project_card_equal_height');
     expect(tester.takeException(), isNull);
   });
+  testWidgets('selected project header uses horizontal space', (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    for (final width in [1600.0, 390.0, 320.0]) {
+      await tester.binding.setSurfaceSize(Size(width, 1800));
+      await tester.pumpWidget(MaterialApp(
+        home: ProjectTasksPage(
+          api: _FakeProjectTasksApi(role: 'manager', employeeId: 'emp-02'),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      final section = find.ancestor(
+        of: find.text('Resumo rápido'),
+        matching: find.byType(WorkspaceSectionCard),
+      ).first;
+      Finder field(String label) =>
+          find.descendant(of: section, matching: find.text(label));
+      expect(field('Projeto selecionado'), findsOneWidget);
+      expect(field('Ativo'), findsOneWidget);
+      expect(field('Limite 2/tarefa'), findsOneWidget);
+      expect(field('Projeto principal'), findsOneWidget);
+      expect(field('Descrição do projeto'), findsOneWidget);
+      expect(field('Editar'), findsOneWidget);
+      if (width == 1600) {
+        expect(tester.getCenter(field('Ativo')).dy,
+            closeTo(tester.getCenter(field('Projeto selecionado')).dy, 2),
+            reason: 'project_header_state_alignment');
+      }
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    }
+  });
+
   testWidgets('project summary uses available width', (tester) async {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     for (final width in [1600.0, 390.0, 320.0]) {
