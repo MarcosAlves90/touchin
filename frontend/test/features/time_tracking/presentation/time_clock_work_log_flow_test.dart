@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:ui' show PointerDeviceKind;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:touchin_flutter/contracts/employee.dart';
 import 'package:touchin_flutter/contracts/project.dart';
@@ -13,6 +15,7 @@ import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_e
 import 'package:touchin_flutter/features/time_tracking/application/punch_location_service.dart';
 import 'package:touchin_flutter/features/time_tracking/presentation/time_clock_controller.dart';
 import 'package:touchin_flutter/features/time_tracking/presentation/time_clock_page.dart';
+import 'package:touchin_flutter/theme/app_theme.dart';
 
 class _WorkLogApi extends TouchInApi {
   _WorkLogApi({
@@ -189,6 +192,7 @@ TaskRecord _task(String id, String projectId, String name) {
 
 Future<_WorkLogApi> _pumpPage(
   WidgetTester tester, {
+  ThemeData? theme,
   ShiftStatus status = ShiftStatus.working,
   Completer<List<ProjectSummary>>? projectsCompleter,
   Completer<TaskRecommendations>? recommendationCompleter,
@@ -218,8 +222,10 @@ Future<_WorkLogApi> _pumpPage(
     controller.dispose();
     tester.binding.setSurfaceSize(null);
   });
-  await tester
-      .pumpWidget(MaterialApp(home: TimeClockPage(controller: controller)));
+  await tester.pumpWidget(MaterialApp(
+    theme: theme,
+    home: TimeClockPage(controller: controller),
+  ));
   await tester.pumpAndSettle();
   return api;
 }
@@ -248,6 +254,88 @@ Future<void> _selectTask(WidgetTester tester, String taskName) async {
 }
 
 void main() {
+  testWidgets('selected task delete retains keyboard focus and tooltip',
+      (tester) async {
+    final theme = AppTheme.highContrastTheme(
+      AppTheme.offlineTheme(Brightness.dark),
+    );
+    await _pumpPage(tester, theme: theme);
+    await tester.tap(find.text('Iniciar pausa'));
+    await tester.pumpAndSettle();
+    await _openProject(tester, 'Projeto A');
+    await _selectTask(tester, 'Tarefa A');
+
+    final chip = find.byKey(const Key('work-log-selected-task-task-a'));
+    final icon = find.descendant(of: chip, matching: find.byIcon(Icons.clear));
+    final deleteControl =
+        find.ancestor(of: icon, matching: find.byType(InkWell)).first;
+    expect(tester.widget<InkWell>(deleteControl).onTap, isNotNull);
+    final tooltip =
+        MaterialLocalizations.of(tester.element(icon)).deleteButtonTooltip;
+    expect(find.byTooltip(tooltip), findsOneWidget);
+
+    final focus = Focus.of(tester.element(icon));
+    expect(focus.canRequestFocus, isTrue);
+    focus.requestFocus();
+    await tester.pumpAndSettle();
+    expect(focus.hasPrimaryFocus, isTrue);
+    expect(IconTheme.of(tester.element(icon)).color,
+        Theme.of(tester.element(chip)).colorScheme.onSurface);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(chip, findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final brightness in Brightness.values) {
+    for (final highContrast in [false, true]) {
+      testWidgets(
+          'selected task delete icon contrasts in $brightness highContrast=$highContrast',
+          (tester) async {
+        final base = AppTheme.offlineTheme(brightness);
+        final theme = highContrast ? AppTheme.highContrastTheme(base) : base;
+        await _pumpPage(tester, theme: theme);
+        await tester.tap(find.text('Iniciar pausa'));
+        await tester.pumpAndSettle();
+        await _openProject(tester, 'Projeto A');
+        await _selectTask(tester, 'Tarefa A');
+        final chip = find.byKey(const Key('work-log-selected-task-task-a'));
+        final icon =
+            find.descendant(of: chip, matching: find.byIcon(Icons.clear));
+        expect(icon, findsOneWidget);
+        await tester.ensureVisible(icon);
+        final localTheme = Theme.of(tester.element(chip));
+        final background = Color.alphaBlend(
+          localTheme.chipTheme.selectedColor!,
+          localTheme.colorScheme.surface,
+        );
+        void expectContrast() {
+          final iconTheme = IconTheme.of(tester.element(icon));
+          final foreground = Color.alphaBlend(
+            iconTheme.color!.withValues(alpha: iconTheme.opacity ?? 1),
+            background,
+          );
+          final a = foreground.computeLuminance();
+          final b = background.computeLuminance();
+          expect((a > b ? (a + 0.05) / (b + 0.05) : (b + 0.05) / (a + 0.05)),
+              greaterThanOrEqualTo(3));
+          expect(iconTheme.color, localTheme.colorScheme.onSurface);
+        }
+
+        expectContrast();
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await mouse.addPointer(location: tester.getCenter(icon));
+        await tester.pumpAndSettle();
+        expectContrast();
+        await mouse.removePointer();
+        await tester.tap(icon);
+        await tester.pumpAndSettle();
+        expect(chip, findsNothing);
+      });
+    }
+  }
+
   testWidgets('working break requires work log before punch submission',
       (tester) async {
     final api = await _pumpPage(tester);

@@ -2243,6 +2243,116 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('desktop overview exposes all actions at notebook resolutions',
+      (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    for (final size in <Size>[
+      const Size(1280, 720),
+      const Size(1366, 768),
+      const Size(1440, 900),
+    ]) {
+      await tester.binding.setSurfaceSize(size);
+      await tester.pumpWidget(MaterialApp(
+        theme: AppTheme.lightTheme,
+        home: ProjectKanbanPage(
+          api: _FakeKanbanApi(columnCount: 5, cardsPerColumn: 8),
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      final metrics =
+          find.byKey(const ValueKey<String>('kanban-project-metrics'));
+      final overview =
+          find.byKey(const ValueKey<String>('kanban-project-overview'));
+      final selector = find.byType(WorkspaceInstantSelectField<String>);
+      final refresh = find.byTooltip('Atualizar quadro');
+      final viewSwitch =
+          find.byKey(const ValueKey<String>('project-view-switch'));
+      final filters =
+          find.byKey(const ValueKey<String>('kanban-filter-toolbar'));
+
+      final overviewScrolls = find.ancestor(
+          of: overview, matching: find.byType(SingleChildScrollView));
+      final filterScrolls = find.ancestor(
+          of: filters, matching: find.byType(SingleChildScrollView));
+      expect(
+          overviewScrolls.evaluate().toSet(), filterScrolls.evaluate().toSet(),
+          reason: 'overview and filters must share any page scroll at $size');
+      expect(tester.getRect(metrics).bottom,
+          lessThan(tester.getRect(selector).top));
+      expect(tester.getRect(refresh).bottom,
+          lessThanOrEqualTo(tester.getRect(overview).bottom));
+      expect(tester.getRect(viewSwitch).bottom,
+          lessThanOrEqualTo(tester.getRect(overview).bottom));
+      expect(tester.getRect(overview).bottom,
+          lessThan(tester.getRect(filters).top));
+      expect(tester.getRect(viewSwitch).bottom, lessThan(size.height));
+
+      const boardKey = ValueKey<String>('kanban-board-scroll');
+      await tester.drag(find.byKey(boardKey), const Offset(-350, 0));
+      await tester.pumpAndSettle();
+      expect(_scrollOffset(tester, boardKey), greaterThan(0));
+
+      await tester
+          .tap(find.descendant(of: viewSwitch, matching: find.text('Backlog')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey<String>('project-backlog-view')),
+          findsOneWidget);
+      const backlogScrollKey = ValueKey<String>('backlog-table-scroll');
+      final tableScrollable = find
+          .descendant(
+            of: find.byKey(backlogScrollKey),
+            matching: find.byType(Scrollable),
+          )
+          .first;
+      final tablePosition =
+          tester.state<ScrollableState>(tableScrollable).position;
+      expect(tablePosition.maxScrollExtent, greaterThan(0));
+      tablePosition.jumpTo(80);
+      await tester.pump();
+      expect(_scrollOffset(tester, backlogScrollKey), greaterThan(0));
+      await tester
+          .tap(find.descendant(of: viewSwitch, matching: find.text('Kanban')));
+      await tester.pumpAndSettle();
+      expect(find.byType(ProjectKanbanBoard), findsOneWidget);
+      expect(tester.takeException(), isNull, reason: 'viewport $size');
+      await tester.pumpWidget(const SizedBox.shrink());
+    }
+  });
+
+  testWidgets('low desktop window keeps scaled overview reachable',
+      (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.binding.setSurfaceSize(const Size(1100, 460));
+    await tester.pumpWidget(MaterialApp(
+      theme: AppTheme.lightTheme,
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context)
+            .copyWith(textScaler: const TextScaler.linear(1.5)),
+        child: child!,
+      ),
+      home: ProjectKanbanPage(api: _FakeKanbanApi(columnCount: 3)),
+    ));
+    await tester.pumpAndSettle();
+
+    final overview =
+        find.byKey(const ValueKey<String>('kanban-project-overview'));
+    final viewSwitch =
+        find.byKey(const ValueKey<String>('project-view-switch'));
+    expect(
+        find.ancestor(
+            of: overview, matching: find.byType(SingleChildScrollView)),
+        findsOneWidget);
+    await tester.ensureVisible(viewSwitch);
+    await tester.pumpAndSettle();
+    expect(tester.getRect(viewSwitch).bottom, lessThanOrEqualTo(460));
+    await tester.tap(find.widgetWithText(ToggleButtons, 'Backlog'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey<String>('project-backlog-view')),
+        findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
       'project selector and view switch remain usable at all target widths',
       (tester) async {
@@ -2290,15 +2400,7 @@ void main() {
         expect(tester.getRect(overview).top - tester.getRect(metrics).bottom,
             greaterThanOrEqualTo(7.9),
             reason: 'metrics spacing at $size, scale $scale');
-        // The noncompact overview scrolls within a constrained viewport at
-        // enlarged text sizes, so compare the visible viewport boundary.
-        final overviewVisibleBounds = size.width < 600
-            ? tester.getRect(overview)
-            : tester.getRect(find
-                .ancestor(
-                    of: overview, matching: find.byType(SingleChildScrollView))
-                .first);
-        expect(tester.getRect(filters).top - overviewVisibleBounds.bottom,
+        expect(tester.getRect(filters).top - tester.getRect(overview).bottom,
             greaterThanOrEqualTo(7.9),
             reason: 'filters spacing at $size, scale $scale');
         expect(tester.getSize(boardGap).height, greaterThanOrEqualTo(8));
