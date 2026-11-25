@@ -604,8 +604,12 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
                       contentPadding: EdgeInsets.zero,
                       leading: CircleAvatar(
                         radius: 18,
-                        backgroundColor: colors.surfaceContainerHighest,
-                        foregroundColor: colors.onSurface,
+                        backgroundColor: colors.brightness == Brightness.dark
+                            ? colors.primary
+                            : colors.onSurfaceVariant,
+                        foregroundColor: colors.brightness == Brightness.dark
+                            ? colors.onPrimary
+                            : colors.surface,
                         child: Text(_initials(member.employeeName)),
                       ),
                       title: Text(member.employeeName),

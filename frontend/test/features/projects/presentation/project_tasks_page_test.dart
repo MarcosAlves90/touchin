@@ -89,6 +89,46 @@ void main() {
         reason: 'project_card_equal_height');
     expect(tester.takeException(), isNull);
   });
+  testWidgets('project member avatars contrast with their card', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1600, 1800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    double contrast(Color a, Color b) {
+      final x = a.computeLuminance();
+      final y = b.computeLuminance();
+      return ((x > y ? x : y) + 0.05) / ((x < y ? x : y) + 0.05);
+    }
+
+    for (final brightness in [Brightness.light, Brightness.dark]) {
+      final theme = AppTheme.offlineTheme(brightness);
+      await tester.pumpWidget(MaterialApp(
+        theme: theme,
+        home: ProjectTasksPage(
+          api: _FakeProjectTasksApi(role: 'manager', employeeId: 'emp-02'),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      final section = find.ancestor(
+        of: find.text('Acesso ao projeto'),
+        matching: find.byType(WorkspaceSectionCard),
+      ).first;
+      final cardMaterial = tester.widget<Material>(
+        find.descendant(of: section, matching: find.byType(Material)).first,
+      );
+      final background = Color.alphaBlend(cardMaterial.color!, theme.scaffoldBackgroundColor);
+      final avatars = tester.widgetList<CircleAvatar>(
+        find.descendant(of: section, matching: find.byType(CircleAvatar)),
+      );
+      expect(avatars.length, 2);
+      for (final avatar in avatars) {
+        expect(contrast(avatar.backgroundColor!, background), greaterThanOrEqualTo(3),
+            reason: 'project_avatar_background_contrast ($brightness)');
+        expect(contrast(avatar.foregroundColor!, avatar.backgroundColor!),
+            greaterThanOrEqualTo(4.5), reason: 'project_avatar_initials_contrast ($brightness)');
+      }
+      await tester.pumpWidget(const SizedBox());
+    }
+  });
+
   testWidgets('project members adapt to available space', (tester) async {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     for (final width in [1600.0, 390.0, 320.0]) {
