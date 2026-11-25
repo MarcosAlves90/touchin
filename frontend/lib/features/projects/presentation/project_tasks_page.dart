@@ -1549,9 +1549,14 @@ class _TaskTile extends StatelessWidget {
           child: LayoutBuilder(builder: (context, constraints) {
             final wide = constraints.maxWidth >= 700;
             final theme = Theme.of(context);
-            final description = Text(
-              task.description,
-              style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+            final description = Tooltip(
+              message: task.description,
+              child: Text(
+                task.description,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+              ),
             );
             return Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -1567,10 +1572,17 @@ class _TaskTile extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: <Widget>[
-                        Text(task.name, style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
+                        Tooltip(
+                          message: task.name,
+                          child: Text(task.name, maxLines: 1, overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
+                        ),
                         if (parentName != null)
-                          Text('Subtarefa de: $parentName',
-                              style: theme.textTheme.labelMedium?.copyWith(color: colorScheme.onSurfaceVariant)),
+                          Tooltip(
+                            message: 'Subtarefa de: $parentName',
+                            child: Text('Subtarefa de: $parentName', maxLines: 1, overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.labelMedium?.copyWith(color: colorScheme.onSurfaceVariant)),
+                          ),
                         if (!wide) ...<Widget>[
                           Text(_taskTypeLabel(task.type), style: theme.textTheme.labelMedium?.copyWith(color: colorScheme.onSurfaceVariant)),
                           description,

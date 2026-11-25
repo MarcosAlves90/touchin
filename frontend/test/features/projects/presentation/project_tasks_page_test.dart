@@ -15,6 +15,26 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('task table truncates long text on desktop and mobile', (tester) async {
+    for (final width in <double>[1600, 390, 320]) {
+      await tester.binding.setSurfaceSize(Size(width, 1800));
+      await tester.pumpWidget(MaterialApp(home: ProjectTasksPage(api: _LongTasksApi())));
+      await tester.pumpAndSettle();
+      final section = find.ancestor(
+        of: find.text('As tarefas podem ter tipo e tarefa-pai, formando uma hierarquia dentro do projeto.'),
+        matching: find.byType(WorkspaceSectionCard),
+      ).first;
+      for (final value in <String>[_longTaskName, _longTaskDescription, 'Subtarefa de: $_longTaskName']) {
+        final text = tester.widget<Text>(find.descendant(of: section, matching: find.text(value)).first);
+        expect(text.maxLines, 1, reason: 'task_text_single_line');
+        expect(text.overflow, TextOverflow.ellipsis);
+        expect(find.byTooltip(value), findsWidgets);
+      }
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
   testWidgets('task table uses compact desktop rows', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1600, 1800));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -1028,6 +1048,23 @@ class _FakeProjectTasksApi extends TouchInApi {
       createdAt: DateTime(2026, 9, 9),
     );
   }
+}
+
+const _longTaskName = 'Uma tarefa com nome muito longo para exibir na tabela e também em telas pequenas';
+const _longTaskDescription = 'Uma descrição muito longa que deve permanecer visível sem aumentar a altura da linha da tabela e manter o conteúdo completo disponível';
+
+class _LongTasksApi extends _FakeProjectTasksApi {
+  _LongTasksApi() : super(role: 'manager', employeeId: 'emp-02');
+
+  @override
+  Future<List<TaskRecord>> listTasks(String projectId) async => [
+    TaskRecord(id: 'task-long', projectId: projectId, parentTaskId: null,
+      name: _longTaskName, description: _longTaskDescription, type: TaskType.feature,
+      createdAt: DateTime(2026, 9, 9), updatedAt: DateTime(2026, 9, 9)),
+    TaskRecord(id: 'task-child', projectId: projectId, parentTaskId: 'task-long',
+      name: 'Subtarefa', description: 'Descrição curta', type: TaskType.bug,
+      createdAt: DateTime(2026, 9, 9), updatedAt: DateTime(2026, 9, 9)),
+  ];
 }
 
 class _ManyTasksApi extends _FakeProjectTasksApi {
