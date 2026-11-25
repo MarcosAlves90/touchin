@@ -696,6 +696,29 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     }
   });
+  testWidgets('team toolbar uses wide space and adapts', (tester) async {
+    addTearDown(tester.view.reset);
+    for (final width in [1800.0, 768.0, 390.0, 320.0]) {
+      tester.view.physicalSize = Size(width, 1800);
+      tester.view.devicePixelRatio = 1;
+      await tester.pumpWidget(
+        MaterialApp(home: AdminEmployeesPage(api: _MultiEmployeeApi())),
+      );
+      await tester.pumpAndSettle();
+      final search = find.byType(TextField).first;
+      final filter = find.widgetWithText(ChoiceChip, 'Todos');
+      expect(filter, findsOneWidget);
+      if (width == 1800) {
+        expect(tester.getCenter(filter).dy, closeTo(tester.getCenter(search).dy, 8),
+            reason: 'team_toolbar_wide_alignment');
+      }
+      await tester.tap(find.widgetWithText(ChoiceChip, 'Inativos'));
+      await tester.pumpAndSettle();
+      expect(find.text('Nenhum funcionário encontrado.'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    }
+  });
   testWidgets('team toolbar composition', (tester) async {
     tester.view.physicalSize = const Size(1800, 1800);
     tester.view.devicePixelRatio = 1;

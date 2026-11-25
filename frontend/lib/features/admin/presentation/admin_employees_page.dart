@@ -554,42 +554,56 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
         fontWeight: FontWeight.w700,
       ),
     );
+    final filters = Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      children: EmployeeFilter.values.map((filter) {
+        return ChoiceChip(
+          label: Text(_filterLabel(filter)),
+          selected: _filter == filter,
+          checkmarkColor: adminColors.selectedForeground,
+          onSelected: (_) => _controller.setFilter(filter),
+        );
+      }).toList(),
+    );
 
     return WorkspaceSectionCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           LayoutBuilder(builder: (context, constraints) {
-            if (constraints.maxWidth < 700) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [heading, const SizedBox(height: 12), search],
+            if (constraints.maxWidth >= 1100) {
+              return Row(
+                children: [
+                  heading,
+                  const SizedBox(width: 24),
+                  filters,
+                  const Spacer(),
+                  const SizedBox(width: 24),
+                  SizedBox(width: 340, child: search),
+                ],
               );
             }
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(child: heading),
-                const SizedBox(width: 24),
-                SizedBox(width: 340, child: search),
+                if (constraints.maxWidth < 700) ...[
+                  heading,
+                  const SizedBox(height: 12),
+                  search,
+                ] else
+                  Row(
+                    children: [
+                      Expanded(child: heading),
+                      const SizedBox(width: 24),
+                      SizedBox(width: 340, child: search),
+                    ],
+                  ),
+                const SizedBox(height: 16),
+                filters,
               ],
             );
           }),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: EmployeeFilter.values.map((filter) {
-              return ChoiceChip(
-                label: Text(_filterLabel(filter)),
-                selected: _filter == filter,
-                checkmarkColor: adminColors.selectedForeground,
-                onSelected: (_) {
-                  _controller.setFilter(filter);
-                },
-              );
-            }).toList(),
-          ),
           const SizedBox(height: 12),
           if (_isLoading)
             const Padding(
