@@ -379,22 +379,43 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
                       : 1;
               final width =
                   (constraints.maxWidth - spacing * (columns - 1)) / columns;
-              return Wrap(
-                spacing: spacing,
-                runSpacing: 8,
-                children: _controller.projects.map((project) {
-                  return SizedBox(
-                    width: width,
-                    child: _ProjectListTile(
-                      project: project,
-                      selected: project.id == _controller.selectedProjectId,
-                      canManage: _controller.canManageProjects,
-                      onTap: () => _controller.selectProject(project.id),
-                      onEdit: () => _openEditProject(project),
-                      onDelete: () => _confirmDeleteProject(project),
+              return Column(
+                children: [
+                  for (var start = 0;
+                      start < _controller.projects.length;
+                      start += columns) ...[
+                    if (start > 0) const SizedBox(height: 8),
+                    IntrinsicHeight(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          for (var i = start;
+                              i < _controller.projects.length &&
+                                  i < start + columns;
+                              i++) ...[
+                            if (i > start) const SizedBox(width: spacing),
+                            SizedBox(
+                              width: width,
+                              child: _ProjectListTile(
+                                project: _controller.projects[i],
+                                selected: _controller.projects[i].id ==
+                                    _controller.selectedProjectId,
+                                canManage: _controller.canManageProjects,
+                                isCompact: width - 34 < 400,
+                                onTap: () => _controller
+                                    .selectProject(_controller.projects[i].id),
+                                onEdit: () =>
+                                    _openEditProject(_controller.projects[i]),
+                                onDelete: () => _confirmDeleteProject(
+                                    _controller.projects[i]),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
-                  );
-                }).toList(),
+                  ],
+                ],
               );
             }),
         ],
@@ -1027,6 +1048,7 @@ class _ProjectListTile extends StatelessWidget {
     required this.project,
     required this.selected,
     required this.canManage,
+    required this.isCompact,
     required this.onTap,
     required this.onEdit,
     required this.onDelete,
@@ -1035,6 +1057,7 @@ class _ProjectListTile extends StatelessWidget {
   final ProjectSummary project;
   final bool selected;
   final bool canManage;
+  final bool isCompact;
   final VoidCallback onTap;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
@@ -1064,102 +1087,96 @@ class _ProjectListTile extends StatelessWidget {
                     selected ? colorScheme.primary : colorScheme.outlineVariant,
               ),
             ),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final isCompact = constraints.maxWidth < 400;
-                return Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    if (!isCompact) ...<Widget>[
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(8),
-                          color: selected
-                              ? colorScheme.primary.withValues(alpha: 0.16)
-                              : colorScheme.surfaceContainerHighest
-                                  .withValues(alpha: 0.72),
-                          border: Border.all(
-                            color: selected
-                                ? colorScheme.primary.withValues(alpha: 0.36)
-                                : colorScheme.outlineVariant,
-                          ),
-                        ),
-                        child: Icon(
-                          Icons.folder_open_rounded,
-                          size: 20,
-                          color: selected
-                              ? colorScheme.primary
-                              : colorScheme.onSurface,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                    ],
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Row(
-                            children: <Widget>[
-                              Expanded(
-                                child: Text(
-                                  project.name,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                              if (canManage) ...<Widget>[
-                                const SizedBox(width: 6),
-                                IconButton(
-                                  onPressed: onEdit,
-                                  icon:
-                                      const Icon(Icons.edit_outlined, size: 18),
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints.tightFor(
-                                    width: 32,
-                                    height: 32,
-                                  ),
-                                  visualDensity: VisualDensity.compact,
-                                  tooltip: 'Editar projeto',
-                                ),
-                                const SizedBox(width: 4),
-                                IconButton(
-                                  onPressed: onDelete,
-                                  icon: const Icon(
-                                    Icons.delete_outline_rounded,
-                                    size: 18,
-                                  ),
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints.tightFor(
-                                    width: 32,
-                                    height: 32,
-                                  ),
-                                  visualDensity: VisualDensity.compact,
-                                  tooltip: 'Excluir projeto',
-                                ),
-                              ],
-                            ],
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            'Limite ${project.taskEmployeeLimit} por tarefa • ${project.status == ProjectStatus.active ? 'Ativo' : 'Inativo'}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                              height: 1.2,
-                            ),
-                          ),
-                        ],
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                if (!isCompact) ...<Widget>[
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      color: selected
+                          ? colorScheme.primary.withValues(alpha: 0.16)
+                          : colorScheme.surfaceContainerHighest
+                              .withValues(alpha: 0.72),
+                      border: Border.all(
+                        color: selected
+                            ? colorScheme.primary.withValues(alpha: 0.36)
+                            : colorScheme.outlineVariant,
                       ),
                     ),
-                  ],
-                );
-              },
+                    child: Icon(
+                      Icons.folder_open_rounded,
+                      size: 20,
+                      color: selected
+                          ? colorScheme.primary
+                          : colorScheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Row(
+                        children: <Widget>[
+                          Expanded(
+                            child: Text(
+                              project.name,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          if (canManage) ...<Widget>[
+                            const SizedBox(width: 6),
+                            IconButton(
+                              onPressed: onEdit,
+                              icon: const Icon(Icons.edit_outlined, size: 18),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints.tightFor(
+                                width: 32,
+                                height: 32,
+                              ),
+                              visualDensity: VisualDensity.compact,
+                              tooltip: 'Editar projeto',
+                            ),
+                            const SizedBox(width: 4),
+                            IconButton(
+                              onPressed: onDelete,
+                              icon: const Icon(
+                                Icons.delete_outline_rounded,
+                                size: 18,
+                              ),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints.tightFor(
+                                width: 32,
+                                height: 32,
+                              ),
+                              visualDensity: VisualDensity.compact,
+                              tooltip: 'Excluir projeto',
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        'Limite ${project.taskEmployeeLimit} por tarefa • ${project.status == ProjectStatus.active ? 'Ativo' : 'Inativo'}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                          height: 1.2,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
         ),

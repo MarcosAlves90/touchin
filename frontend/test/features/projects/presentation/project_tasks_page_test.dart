@@ -71,6 +71,24 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     }
   });
+  testWidgets('project cards align with different name lengths', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 1800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(MaterialApp(home: ProjectTasksPage(api: _MixedHeightProjectsApi())));
+    await tester.pumpAndSettle();
+    Finder card(String name) => find.byWidgetPredicate((widget) {
+          if (widget is! InkWell) return false;
+          final tile = find.byWidget(widget);
+          return find.descendant(of: tile, matching: find.text(name)).evaluate().isNotEmpty &&
+              find.descendant(of: tile, matching: find.byTooltip('Editar projeto')).evaluate().isNotEmpty;
+        }).first;
+    final short = card('Projeto principal');
+    final long = card(_MixedHeightProjectsApi.longName);
+    expect(tester.getTopLeft(short).dy, closeTo(tester.getTopLeft(long).dy, 1));
+    expect(tester.getSize(short).height, closeTo(tester.getSize(long).height, 1),
+        reason: 'project_card_equal_height');
+    expect(tester.takeException(), isNull);
+  });
   testWidgets('project directory and details use full width sections', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1600, 1000));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -860,6 +878,21 @@ class _DelayedProjectTasksApi extends _FakeProjectTasksApi {
     attempts++;
     return pending.future;
   }
+}
+
+class _MixedHeightProjectsApi extends _FakeProjectTasksApi {
+  _MixedHeightProjectsApi() : super(role: 'manager', employeeId: 'emp-02');
+  static const longName = 'Portal Aurora — experiência acessível para equipes distribuídas em várias regiões';
+
+  @override
+  Future<List<ProjectSummary>> listProjects({ProjectStatus? status}) async => [
+        ...(await super.listProjects(status: status)),
+        ProjectSummary(
+          id: 'project-02', name: longName, description: 'Outro projeto',
+          taskEmployeeLimit: 5, status: ProjectStatus.active,
+          createdAt: DateTime(2026, 9, 9), updatedAt: DateTime(2026, 9, 9),
+        ),
+      ];
 }
 
 class _MultipleProjectsApi extends _FakeProjectTasksApi {
