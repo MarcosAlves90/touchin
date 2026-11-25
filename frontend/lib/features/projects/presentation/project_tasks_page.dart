@@ -560,7 +560,7 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
                 ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 12),
           if (_controller.isLoadingProjectMembers)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 24),
@@ -582,33 +582,52 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
                   'Adicione funcionários ao projeto antes de atribuí-los às tarefas.',
             )
           else
-            Column(
-              children: _controller.projectMembers.map((member) {
-                final isCurrent =
-                    member.employeeId == _controller.currentEmployeeId;
-                return ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: CircleAvatar(
-                    child: Text(_initials(member.employeeName)),
-                  ),
-                  title: Text(member.employeeName),
-                  subtitle: Text(
-                    isCurrent
-                        ? 'Você • ${member.employeeId}'
-                        : member.employeeId,
-                  ),
-                  trailing: _controller.canManageProjects
-                      ? IconButton(
-                          tooltip: 'Remover acesso ao projeto',
-                          onPressed: _controller.isMutating
-                              ? null
-                              : () => _confirmRemoveProjectMember(member),
-                          icon: const Icon(Icons.person_remove_outlined),
-                        )
-                      : null,
-                );
-              }).toList(),
-            ),
+            LayoutBuilder(builder: (context, constraints) {
+              const spacing = 16.0;
+              final columns = constraints.maxWidth >= 1350
+                  ? 3
+                  : constraints.maxWidth >= 700
+                      ? 2
+                      : 1;
+              final width =
+                  (constraints.maxWidth - spacing * (columns - 1)) / columns;
+              final colors = Theme.of(context).colorScheme;
+              return Wrap(
+                spacing: spacing,
+                runSpacing: 4,
+                children: _controller.projectMembers.map((member) {
+                  final isCurrent =
+                      member.employeeId == _controller.currentEmployeeId;
+                  return SizedBox(
+                    width: width,
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: CircleAvatar(
+                        radius: 18,
+                        backgroundColor: colors.surfaceContainerHighest,
+                        foregroundColor: colors.onSurface,
+                        child: Text(_initials(member.employeeName)),
+                      ),
+                      title: Text(member.employeeName),
+                      subtitle: Text(
+                        isCurrent
+                            ? 'Você • ${member.employeeId}'
+                            : member.employeeId,
+                      ),
+                      trailing: _controller.canManageProjects
+                          ? IconButton(
+                              tooltip: 'Remover acesso ao projeto',
+                              onPressed: _controller.isMutating
+                                  ? null
+                                  : () => _confirmRemoveProjectMember(member),
+                              icon: const Icon(Icons.person_remove_outlined),
+                            )
+                          : null,
+                    ),
+                  );
+                }).toList(),
+              );
+            }),
         ],
       ),
     );

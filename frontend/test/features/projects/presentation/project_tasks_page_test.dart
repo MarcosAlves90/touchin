@@ -89,6 +89,50 @@ void main() {
         reason: 'project_card_equal_height');
     expect(tester.takeException(), isNull);
   });
+  testWidgets('project members adapt to available space', (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    for (final width in [1600.0, 390.0, 320.0]) {
+      await tester.binding.setSurfaceSize(Size(width, 1800));
+      await tester.pumpWidget(MaterialApp(
+        home: ProjectTasksPage(
+          api: _FakeProjectTasksApi(role: 'manager', employeeId: 'emp-02'),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      final section = find.ancestor(
+        of: find.text('Acesso ao projeto'),
+        matching: find.byType(WorkspaceSectionCard),
+      ).first;
+      Finder member(String name) =>
+          find.descendant(of: section, matching: find.text(name));
+      final first = member('Caio Martins');
+      final second = member('Ana Lima');
+      expect(first, findsOneWidget);
+      expect(second, findsOneWidget);
+      expect(member('Você • emp-02'), findsOneWidget);
+      expect(member('emp-05'), findsOneWidget);
+      final remove = find.descendant(
+          of: section, matching: find.byTooltip('Remover acesso ao projeto'));
+      expect(remove, findsNWidgets(2));
+      if (width == 1600) {
+        expect(tester.getTopLeft(second).dy,
+            closeTo(tester.getTopLeft(first).dy, 2),
+            reason: 'project_access_wide_alignment');
+        expect(tester.getTopLeft(second).dx, greaterThan(tester.getTopLeft(first).dx));
+      } else {
+        expect(tester.getTopLeft(second).dy, greaterThan(tester.getTopLeft(first).dy));
+      }
+      await tester.ensureVisible(remove.first);
+      await tester.tap(remove.first);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Remover “Caio Martins” deste projeto?'), findsOneWidget);
+      await tester.tap(find.text('Cancelar'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    }
+  });
+
   testWidgets('selected project header uses horizontal space', (tester) async {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     for (final width in [1600.0, 390.0, 320.0]) {
