@@ -478,7 +478,9 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
                 isMutating: _controller.isMutating,
                 onEdit: () => _openEditProject(project),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
+              Divider(height: 1, color: colorScheme.outlineVariant),
+              const SizedBox(height: 16),
               Text(
                 'Resumo rápido',
                 style: theme.textTheme.titleMedium?.copyWith(
@@ -1294,96 +1296,24 @@ class _ProjectDetailHero extends StatelessWidget {
     final statusColor = project.status == ProjectStatus.active
         ? success?.foreground ?? const Color(0xFF2F8F46)
         : colorScheme.onSurfaceVariant;
-    final showIdentityIcon = MediaQuery.sizeOf(context).width >= 560;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: colorScheme.surface.withValues(alpha: 0.82),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: colorScheme.outlineVariant),
-      ),
-      child: LayoutBuilder(
+    return LayoutBuilder(
         builder: (context, constraints) {
           final isCompact = constraints.maxWidth < 620;
-          final identityBlock = Row(
+          final identityBlock = Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              if (showIdentityIcon) ...<Widget>[
-                Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    color: statusColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: statusColor.withValues(alpha: 0.28),
-                    ),
-                  ),
-                  child: Icon(
-                    Icons.account_tree_rounded,
-                    size: 28,
-                    color: statusColor,
-                  ),
-                ),
-                const SizedBox(width: 12),
-              ],
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 6,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: <Widget>[
-                        Text(
-                          'Projeto selecionado',
-                          style: theme.textTheme.labelMedium?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.4,
-                          ),
-                        ),
-                        _ProjectPill(
-                          label: project.status == ProjectStatus.active
-                              ? 'Ativo'
-                              : 'Inativo',
-                          tone: statusColor,
-                          background: project.status == ProjectStatus.active
-                              ? success?.container
-                              : null,
-                          icon: project.status == ProjectStatus.active
-                              ? Icons.check_circle_outline_rounded
-                              : Icons.pause_circle_outline_rounded,
-                        ),
-                        _ProjectPill(
-                          label: 'Limite ${project.taskEmployeeLimit}/tarefa',
-                          tone: colorScheme.onSurfaceVariant,
-                          icon: Icons.groups_2_outlined,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      project.name,
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      project.description?.trim().isNotEmpty == true
-                          ? project.description!
-                          : 'Sem descrição.',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        height: 1.45,
-                      ),
-                    ),
-                  ],
-                ),
+              Text(project.name, style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 6),
+              Text(
+                project.description?.trim().isNotEmpty == true ? project.description! : 'Sem descrição.',
+                style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant, height: 1.45),
+              ),
+              const SizedBox(height: 10),
+              _ProjectPill(
+                label: project.status == ProjectStatus.active ? 'Ativo' : 'Inativo',
+                tone: statusColor,
+                background: project.status == ProjectStatus.active ? success?.container : null,
+                icon: project.status == ProjectStatus.active ? Icons.check_circle_outline_rounded : Icons.pause_circle_outline_rounded,
               ),
             ],
           );
@@ -1418,7 +1348,6 @@ class _ProjectDetailHero extends StatelessWidget {
             ],
           );
         },
-      ),
     );
   }
 }

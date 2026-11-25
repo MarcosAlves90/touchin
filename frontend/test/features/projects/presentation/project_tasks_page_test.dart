@@ -15,6 +15,19 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('project overview leads with the project name', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1600, 1800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(MaterialApp(home: ProjectTasksPage(api: _ProjectSaveApi())));
+    await tester.pumpAndSettle();
+    final section = find.ancestor(of: find.text('Resumo rápido'), matching: find.byType(WorkspaceSectionCard)).first;
+    Finder field(String text) => find.descendant(of: section, matching: find.text(text));
+    expect(tester.getTopLeft(field('Projeto principal')).dy,
+        lessThan(tester.getTopLeft(field('Ativo')).dy), reason: 'overview_name_leads');
+    expect(field('Limite 2/tarefa'), findsNothing);
+    expect(field('Limite por tarefa'), findsOneWidget);
+    expect(field('Editar'), findsOneWidget);
+  });
   testWidgets('task table truncates long text on desktop and mobile', (tester) async {
     for (final width in <double>[1600, 390, 320]) {
       await tester.binding.setSurfaceSize(Size(width, 1800));
@@ -307,15 +320,14 @@ void main() {
       ).first;
       Finder field(String label) =>
           find.descendant(of: section, matching: find.text(label));
-      expect(field('Projeto selecionado'), findsOneWidget);
       expect(field('Ativo'), findsOneWidget);
-      expect(field('Limite 2/tarefa'), findsOneWidget);
+      expect(field('Limite por tarefa'), findsOneWidget);
       expect(field('Projeto principal'), findsOneWidget);
       expect(field('Descrição do projeto'), findsOneWidget);
       expect(field('Editar'), findsOneWidget);
       if (width == 1600) {
-        expect(tester.getCenter(field('Ativo')).dy,
-            closeTo(tester.getCenter(field('Projeto selecionado')).dy, 2),
+        expect(tester.getTopLeft(field('Ativo')).dy,
+            greaterThan(tester.getTopLeft(field('Projeto principal')).dy),
             reason: 'project_header_state_alignment');
       }
       expect(tester.takeException(), isNull);
