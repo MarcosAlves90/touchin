@@ -70,7 +70,15 @@ polis plan --repo .
 polis gates --repo . --gate test.complete --gate lint --gate build --gate smoke
 ```
 
-O `.polis/policy.json` é a fonte dos gates locais: `test.complete`, `lint`, `build` e `smoke`. O smoke depende do build. O gate `test.complete` chama literalmente `python scripts/polis_tests.py`; em sistemas onde só existe `python3`, `polis doctor --repo .` aponta a ausência de `python`. Configure uma distribuição compatível com Python 3.12 que exponha esse comando antes de rodar os gates. O workflow `.github/workflows/ci.yml` configura Python 3.12 e também valida gates em Windows. Não há `package.json` na raiz; `npm run verify` não é o comando de validação deste projeto.
+O `.polis/policy.json` é a fonte dos gates locais: `test.complete`, `lint`, `build` e `smoke`. O smoke depende do build. O gate `test.complete` chama literalmente `python scripts/polis_tests.py`; em sistemas onde só existe `python3`, `polis doctor --repo .` aponta a ausência de `python`. Configure uma distribuição compatível com Python 3.12 que exponha esse comando antes de rodar os gates. Não há `package.json` na raiz; `npm run verify` não é o comando de validação deste projeto.
+
+## CI no GitHub Actions
+
+O [workflow CI](../.github/workflows/ci.yml) roda em pull requests, em pushes à `main` e manualmente. Pushes em branches de trabalho não criam uma segunda execução; um novo commit no mesmo PR cancela a execução mais antiga do PR. Pushes à `main` e execuções manuais não se cancelam entre si.
+
+- **Ubuntu, em todos os eventos:** suítes de backend e Flutter com cobertura, concorrência em PostgreSQL, análise, build web, smoke no Chrome, histórico de navegação autenticada e comparação visual canônica.
+- **Windows, nos PRs:** validação da policy POLIS, testes do adaptador de comandos, análise estática via POLIS e testes focados de navegação Flutter.
+- **Windows, na `main` e em execução manual:** gates completos `test.complete`, `lint`, `build` e `smoke`. Para rodá-los antes do merge, abra **Actions → CI → Run workflow** e selecione a branch do PR. Regressões exclusivas de Windows fora dos testes focados podem só aparecer nessa execução completa.
 
 ## Estrutura da documentação
 
