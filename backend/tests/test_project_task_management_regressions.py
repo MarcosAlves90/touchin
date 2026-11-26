@@ -110,7 +110,7 @@ def test_project_management_page_matches_admin_workspace_structure():
     source = PROJECT_PAGE_PATH.read_text(encoding="utf-8")
 
     assert "title: 'Administrar projetos'" in source
-    assert "Widget _buildMetricGrid(bool isWide)" in source
+    assert "Widget _buildMetricGrid()" in source
     assert "Widget _buildProjectsSection(bool isWide)" in source
     assert "Widget _buildTaskWorkspace(bool isWide)" in source
     assert "class _ProjectMetricItem extends StatelessWidget" in source
