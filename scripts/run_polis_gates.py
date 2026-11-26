@@ -22,6 +22,35 @@ GATES = {gate["id"]: gate for gate in POLICY["gates"]}
 WINDOWS_PROCESS_ENV = ("SystemRoot", "COMSPEC", "PATHEXT")
 
 
+def _windows_program_files_x86() -> str:
+    import winreg
+
+    with winreg.OpenKey(
+        winreg.HKEY_LOCAL_MACHINE,
+        r"SOFTWARE\Microsoft\Windows\CurrentVersion",
+        access=winreg.KEY_QUERY_VALUE | winreg.KEY_WOW64_64KEY,
+    ) as key:
+        path, _ = winreg.QueryValueEx(key, "ProgramFilesDir (x86)")
+    if not isinstance(path, str) or not ntpath.isabs(path):
+        raise ValueError("Windows did not report an absolute Program Files (x86) path")
+    return path
+
+
+def flutter_test_environment(env: dict[str, str]) -> dict[str, str]:
+    """Provide the Windows system directory Flutter needs in a clean gate."""
+    if sys.platform != "win32":
+        return env
+    key = "PROGRAMFILES(X86)"
+    if any(name.upper() == key and value for name, value in env.items()):
+        return env
+    # POLIS v6 rejects parentheses in allowed environment-variable names.
+    # Read this single OS-defined value rather than inheriting the runner's env.
+    return {
+        **{name: value for name, value in env.items() if name.upper() != key},
+        key: _windows_program_files_x86(),
+    }
+
+
 def _resolve_executable(executable: str, env: dict[str, str]) -> str:
     resolved = shutil.which(executable, path=env.get("PATH"))
     if resolved:

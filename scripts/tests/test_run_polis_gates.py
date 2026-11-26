@@ -13,6 +13,37 @@ from unittest.mock import patch
 from scripts import run_polis_gates as runner
 
 
+class FlutterTestEnvironmentTests(unittest.TestCase):
+    def test_clean_windows_environment_restores_only_the_required_variable(self):
+        env = {"PATH": r"C:\flutter\bin", "ProgramFiles(x86)": ""}
+        path = r"D:\Program Files (x86)"
+        with patch.object(runner.sys, "platform", "win32"), patch.object(
+            runner, "_windows_program_files_x86", return_value=path
+        ) as lookup:
+            self.assertEqual(
+                runner.flutter_test_environment(env),
+                {"PATH": r"C:\flutter\bin", "PROGRAMFILES(X86)": path},
+            )
+        lookup.assert_called_once_with()
+        self.assertEqual(env["ProgramFiles(x86)"], "")
+
+    def test_existing_windows_value_is_preserved_case_insensitively(self):
+        env = {"ProgramFiles(x86)": r"D:\Program Files (x86)"}
+        with patch.object(runner.sys, "platform", "win32"), patch.object(
+            runner, "_windows_program_files_x86"
+        ) as lookup:
+            self.assertIs(runner.flutter_test_environment(env), env)
+        lookup.assert_not_called()
+
+    def test_non_windows_does_not_read_the_registry(self):
+        env = {"PATH": "/usr/bin"}
+        with patch.object(runner.sys, "platform", "linux"), patch.object(
+            runner, "_windows_program_files_x86"
+        ) as lookup:
+            self.assertIs(runner.flutter_test_environment(env), env)
+        lookup.assert_not_called()
+
+
 class PolicyGateRunnerTests(unittest.TestCase):
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()

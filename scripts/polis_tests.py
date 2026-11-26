@@ -10,7 +10,7 @@ import sys
 # subprocesses below from writing .pyc files during the validation window.
 sys.dont_write_bytecode = True
 
-from run_polis_gates import prepare_command
+from run_polis_gates import flutter_test_environment, prepare_command
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -61,7 +61,10 @@ for name, command, directory in (
     ),
 ):
     print(f"POLIS tests: {name}", flush=True)
-    command = prepare_command(command, dict(os.environ))
-    result = subprocess.run(command, cwd=directory, check=False)
+    env = dict(os.environ)
+    if name == "frontend":
+        env = flutter_test_environment(env)
+    command = prepare_command(command, env)
+    result = subprocess.run(command, cwd=directory, env=env, check=False)
     if result.returncode != 0:
         sys.exit(result.returncode)
