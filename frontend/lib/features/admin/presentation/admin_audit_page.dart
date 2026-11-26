@@ -888,6 +888,7 @@ class _AdminAuditPageState extends State<AdminAuditPage> with RouteAware {
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               decoration: BoxDecoration(
                 color: adminColors.info.container,
+                borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: adminColors.info.foreground.withValues(alpha: 0.45),
                 ),

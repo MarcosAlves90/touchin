@@ -426,6 +426,13 @@ void main() {
     await enterFilter(tester, 'Nome ou ID do autor', 'draft-user');
     await tester.pump();
 
+    final notice = tester.widget<Container>(
+      find.byKey(const ValueKey<String>('audit-pending-filters')),
+    );
+    expect(
+      (notice.decoration as BoxDecoration).borderRadius,
+      BorderRadius.circular(12),
+    );
     expect(
       find.text(
         'Alterações nos filtros ainda não aplicadas. A lista e o CSV usam os filtros aplicados.',
