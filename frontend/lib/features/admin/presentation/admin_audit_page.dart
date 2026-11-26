@@ -1039,8 +1039,6 @@ class _AdminAuditPageState extends State<AdminAuditPage> with RouteAware {
                       key: const ValueKey<String>('audit-apply-filters'),
                       style: FilledButton.styleFrom(
                           minimumSize: const Size(0, 44)),
-                      style: FilledButton.styleFrom(
-                          minimumSize: const Size(0, 44)),
                       onPressed: () {
                         Navigator.of(sheetContext).pop();
                         _applyFilters();
@@ -1227,6 +1225,8 @@ class _AdminAuditPageState extends State<AdminAuditPage> with RouteAware {
                 children: [
                   FilledButton(
                     key: const ValueKey<String>('audit-apply-filters'),
+                    style:
+                        FilledButton.styleFrom(minimumSize: const Size(0, 44)),
                     onPressed: _applyFilters,
                     child: const Text('Aplicar filtros'),
                   ),
