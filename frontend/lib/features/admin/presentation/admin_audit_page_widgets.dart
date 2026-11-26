@@ -210,9 +210,9 @@ class AuditEventTableHeader extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
 
-    Widget label(String text) => Text(
+    Widget label(String text, {int maxLines = 1}) => Text(
           text,
-          maxLines: 1,
+          maxLines: maxLines,
           overflow: TextOverflow.ellipsis,
           style: theme.textTheme.labelSmall?.copyWith(
             color: colors.onSurfaceVariant,
@@ -231,7 +231,7 @@ class AuditEventTableHeader extends StatelessWidget {
       child: Row(
         children: [
           Expanded(flex: 5, child: label('Evento')),
-          SizedBox(width: 124, child: label('Data/hora (local)')),
+          SizedBox(width: 124, child: label('Data/hora (local)', maxLines: 2)),
           SizedBox(width: 100, child: label('Resultado')),
           Expanded(flex: 3, child: label('Autor')),
           Expanded(flex: 4, child: label('Recurso')),
