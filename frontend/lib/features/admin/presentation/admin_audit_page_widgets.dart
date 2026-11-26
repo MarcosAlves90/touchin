@@ -210,9 +210,9 @@ class AuditEventTableHeader extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
 
-    Widget label(String text) => Text(
+    Widget label(String text, {int maxLines = 1}) => Text(
           text,
-          maxLines: 1,
+          maxLines: maxLines,
           overflow: TextOverflow.ellipsis,
           style: theme.textTheme.labelSmall?.copyWith(
             color: colors.onSurfaceVariant,
@@ -231,7 +231,7 @@ class AuditEventTableHeader extends StatelessWidget {
       child: Row(
         children: [
           Expanded(flex: 5, child: label('Evento')),
-          SizedBox(width: 124, child: label('Data/hora (local)')),
+          SizedBox(width: 124, child: label('Data/hora (local)', maxLines: 2)),
           SizedBox(width: 100, child: label('Resultado')),
           Expanded(flex: 3, child: label('Autor')),
           Expanded(flex: 4, child: label('Recurso')),
@@ -277,7 +277,7 @@ class AuditEventTableRow extends StatelessWidget {
                 bottom: BorderSide(color: colors.outlineVariant),
               ),
             ),
-            padding: const EdgeInsets.fromLTRB(14, 17, 14, 17),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
@@ -295,16 +295,6 @@ class AuditEventTableRow extends StatelessWidget {
                           style: theme.textTheme.bodyMedium?.copyWith(
                             fontWeight: FontWeight.w700,
                             height: 1.25,
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          event.action,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: colors.onSurfaceVariant,
-                            fontFamily: 'monospace',
                           ),
                         ),
                       ],
@@ -359,7 +349,8 @@ class AuditEventTableRow extends StatelessWidget {
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        if (event.actorUserId != null) ...[
+                        if (event.actorUserId != null &&
+                            (event.actorName?.trim().isEmpty ?? true)) ...[
                           const SizedBox(height: 2),
                           AuditTechnicalId(
                             value: event.actorUserId!,
@@ -387,10 +378,10 @@ class AuditEventTableRow extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 2),
-                        AuditTechnicalId(
-                          value: event.entityId,
-                          copyLabel: 'ID da entidade',
-                          showCopyButton: false,
+                        _AuditNameOrId(
+                          name: event.entityName,
+                          id: event.entityId,
+                          idLabel: 'ID da entidade',
                         ),
                       ],
                     ),
@@ -400,10 +391,10 @@ class AuditEventTableRow extends StatelessWidget {
                   flex: 2,
                   child: Padding(
                     padding: const EdgeInsets.only(right: 10),
-                    child: AuditTechnicalId(
-                      value: event.projectId ?? '—',
-                      copyLabel: 'ID do projeto',
-                      showCopyButton: false,
+                    child: _AuditNameOrId(
+                      name: event.projectName,
+                      id: event.projectId,
+                      idLabel: 'ID do projeto',
                     ),
                   ),
                 ),
@@ -469,16 +460,6 @@ class AuditEventCard extends StatelessWidget {
                     height: 1.2,
                   ),
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  event.action,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: colors.onSurfaceVariant,
-                    fontFamily: 'monospace',
-                  ),
-                ),
                 const SizedBox(height: 12),
                 Wrap(
                   alignment: WrapAlignment.spaceBetween,
@@ -513,7 +494,6 @@ class AuditEventCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 12),
-                const SizedBox(height: 12),
                 _AuditCardMeta(
                   icon: Icons.person_outline_rounded,
                   label: 'Autor',
@@ -526,7 +506,8 @@ class AuditEventCard extends StatelessWidget {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      if (event.actorUserId != null) ...[
+                      if (event.actorUserId != null &&
+                          (event.actorName?.trim().isEmpty ?? true)) ...[
                         const SizedBox(height: 2),
                         AuditTechnicalId(
                           value: event.actorUserId!,
@@ -551,9 +532,10 @@ class AuditEventCard extends StatelessWidget {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      AuditTechnicalId(
-                        value: event.entityId,
-                        copyLabel: 'ID da entidade',
+                      _AuditNameOrId(
+                        name: event.entityName,
+                        id: event.entityId,
+                        idLabel: 'ID da entidade',
                       ),
                     ],
                   ),
@@ -562,17 +544,11 @@ class AuditEventCard extends StatelessWidget {
                 _AuditCardMeta(
                   icon: Icons.folder_outlined,
                   label: 'Projeto',
-                  child: event.projectId == null
-                      ? Text(
-                          'Sem projeto',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: colors.onSurfaceVariant,
-                          ),
-                        )
-                      : AuditTechnicalId(
-                          value: event.projectId!,
-                          copyLabel: 'ID do projeto',
-                        ),
+                  child: _AuditNameOrId(
+                    name: event.projectName,
+                    id: event.projectId,
+                    idLabel: 'ID do projeto',
+                  ),
                 ),
                 const SizedBox(height: 6),
                 Divider(color: colors.outlineVariant),
@@ -599,6 +575,43 @@ class AuditEventCard extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _AuditNameOrId extends StatelessWidget {
+  const _AuditNameOrId({
+    required this.name,
+    required this.id,
+    required this.idLabel,
+  });
+
+  final String? name;
+  final String? id;
+  final String idLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final label = name?.trim();
+    if (label != null && label.isNotEmpty) {
+      return Text(
+        label,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+      );
+    }
+    if (id == null) {
+      return Text(
+        'Sem projeto',
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: theme.textTheme.bodySmall
+            ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+      );
+    }
+    return AuditTechnicalId(
+        value: id!, copyLabel: idLabel, showCopyButton: false);
   }
 }
 
@@ -984,6 +997,9 @@ class AuditEventDetailsDialog extends StatelessWidget {
                               fontWeight: FontWeight.w600,
                             ),
                           ),
+                          if (event.entityName case final name?
+                              when name.isNotEmpty)
+                            Text(name),
                           AuditTechnicalId(
                             value: event.entityId,
                             copyLabel: 'ID da entidade',
@@ -1000,9 +1016,17 @@ class AuditEventDetailsDialog extends StatelessWidget {
                                 color: colors.onSurfaceVariant,
                               ),
                             )
-                          : AuditTechnicalId(
-                              value: event.projectId!,
-                              copyLabel: 'ID do projeto',
+                          : Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (event.projectName case final name?
+                                    when name.isNotEmpty)
+                                  Text(name),
+                                AuditTechnicalId(
+                                  value: event.projectId!,
+                                  copyLabel: 'ID do projeto',
+                                ),
+                              ],
                             ),
                     ),
                     field(

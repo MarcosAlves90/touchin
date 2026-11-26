@@ -20,9 +20,11 @@ mixin _$AuditEventResponse {
   String? get actorUserId;
   String? get actorName;
   String? get projectId;
+  String? get projectName;
   String get action;
   String get entityType;
   String get entityId;
+  String? get entityName;
   String get result;
   Map<String, dynamic>? get metadataPayload;
   String? get correlationId;
@@ -51,11 +53,15 @@ mixin _$AuditEventResponse {
                 other.actorName == actorName) &&
             (identical(other.projectId, projectId) ||
                 other.projectId == projectId) &&
+            (identical(other.projectName, projectName) ||
+                other.projectName == projectName) &&
             (identical(other.action, action) || other.action == action) &&
             (identical(other.entityType, entityType) ||
                 other.entityType == entityType) &&
             (identical(other.entityId, entityId) ||
                 other.entityId == entityId) &&
+            (identical(other.entityName, entityName) ||
+                other.entityName == entityName) &&
             (identical(other.result, result) || other.result == result) &&
             const DeepCollectionEquality()
                 .equals(other.metadataPayload, metadataPayload) &&
@@ -70,17 +76,20 @@ mixin _$AuditEventResponse {
       timestamp,
       companyId,
       actorUserId,
+      actorName,
       projectId,
+      projectName,
       action,
       entityType,
       entityId,
+      entityName,
       result,
       const DeepCollectionEquality().hash(metadataPayload),
       correlationId);
 
   @override
   String toString() {
-    return 'AuditEventResponse(id: $id, timestamp: $timestamp, companyId: $companyId, actorUserId: $actorUserId, actorName: $actorName, projectId: $projectId, action: $action, entityType: $entityType, entityId: $entityId, result: $result, metadataPayload: $metadataPayload, correlationId: $correlationId)';
+    return 'AuditEventResponse(id: $id, timestamp: $timestamp, companyId: $companyId, actorUserId: $actorUserId, actorName: $actorName, projectId: $projectId, projectName: $projectName, action: $action, entityType: $entityType, entityId: $entityId, entityName: $entityName, result: $result, metadataPayload: $metadataPayload, correlationId: $correlationId)';
   }
 }
 
@@ -97,9 +106,11 @@ abstract mixin class $AuditEventResponseCopyWith<$Res> {
       String? actorUserId,
       String? actorName,
       String? projectId,
+      String? projectName,
       String action,
       String entityType,
       String entityId,
+      String? entityName,
       String result,
       Map<String, dynamic>? metadataPayload,
       String? correlationId});
@@ -124,9 +135,11 @@ class _$AuditEventResponseCopyWithImpl<$Res>
     Object? actorUserId = freezed,
     Object? actorName = freezed,
     Object? projectId = freezed,
+    Object? projectName = freezed,
     Object? action = null,
     Object? entityType = null,
     Object? entityId = null,
+    Object? entityName = freezed,
     Object? result = null,
     Object? metadataPayload = freezed,
     Object? correlationId = freezed,
@@ -156,6 +169,10 @@ class _$AuditEventResponseCopyWithImpl<$Res>
           ? _self.projectId
           : projectId // ignore: cast_nullable_to_non_nullable
               as String?,
+      projectName: freezed == projectName
+          ? _self.projectName
+          : projectName // ignore: cast_nullable_to_non_nullable
+              as String?,
       action: null == action
           ? _self.action
           : action // ignore: cast_nullable_to_non_nullable
@@ -168,6 +185,10 @@ class _$AuditEventResponseCopyWithImpl<$Res>
           ? _self.entityId
           : entityId // ignore: cast_nullable_to_non_nullable
               as String,
+      entityName: freezed == entityName
+          ? _self.entityName
+          : entityName // ignore: cast_nullable_to_non_nullable
+              as String?,
       result: null == result
           ? _self.result
           : result // ignore: cast_nullable_to_non_nullable
@@ -284,9 +305,11 @@ extension AuditEventResponsePatterns on AuditEventResponse {
             String? actorUserId,
             String? actorName,
             String? projectId,
+            String? projectName,
             String action,
             String entityType,
             String entityId,
+            String? entityName,
             String result,
             Map<String, dynamic>? metadataPayload,
             String? correlationId)?
@@ -303,9 +326,11 @@ extension AuditEventResponsePatterns on AuditEventResponse {
             _that.actorUserId,
             _that.actorName,
             _that.projectId,
+            _that.projectName,
             _that.action,
             _that.entityType,
             _that.entityId,
+            _that.entityName,
             _that.result,
             _that.metadataPayload,
             _that.correlationId);
@@ -336,9 +361,11 @@ extension AuditEventResponsePatterns on AuditEventResponse {
             String? actorUserId,
             String? actorName,
             String? projectId,
+            String? projectName,
             String action,
             String entityType,
             String entityId,
+            String? entityName,
             String result,
             Map<String, dynamic>? metadataPayload,
             String? correlationId)
@@ -354,9 +381,11 @@ extension AuditEventResponsePatterns on AuditEventResponse {
             _that.actorUserId,
             _that.actorName,
             _that.projectId,
+            _that.projectName,
             _that.action,
             _that.entityType,
             _that.entityId,
+            _that.entityName,
             _that.result,
             _that.metadataPayload,
             _that.correlationId);
@@ -386,9 +415,11 @@ extension AuditEventResponsePatterns on AuditEventResponse {
             String? actorUserId,
             String? actorName,
             String? projectId,
+            String? projectName,
             String action,
             String entityType,
             String entityId,
+            String? entityName,
             String result,
             Map<String, dynamic>? metadataPayload,
             String? correlationId)?
@@ -404,9 +435,11 @@ extension AuditEventResponsePatterns on AuditEventResponse {
             _that.actorUserId,
             _that.actorName,
             _that.projectId,
+            _that.projectName,
             _that.action,
             _that.entityType,
             _that.entityId,
+            _that.entityName,
             _that.result,
             _that.metadataPayload,
             _that.correlationId);
@@ -426,9 +459,11 @@ class _AuditEventResponse extends AuditEventResponse {
       this.actorUserId,
       this.actorName,
       this.projectId,
+      this.projectName,
       required this.action,
       required this.entityType,
       required this.entityId,
+      this.entityName,
       required this.result,
       final Map<String, dynamic>? metadataPayload,
       this.correlationId})
@@ -448,11 +483,15 @@ class _AuditEventResponse extends AuditEventResponse {
   @override
   final String? projectId;
   @override
+  final String? projectName;
+  @override
   final String action;
   @override
   final String entityType;
   @override
   final String entityId;
+  @override
+  final String? entityName;
   @override
   final String result;
   final Map<String, dynamic>? _metadataPayload;
@@ -492,11 +531,15 @@ class _AuditEventResponse extends AuditEventResponse {
                 other.actorName == actorName) &&
             (identical(other.projectId, projectId) ||
                 other.projectId == projectId) &&
+            (identical(other.projectName, projectName) ||
+                other.projectName == projectName) &&
             (identical(other.action, action) || other.action == action) &&
             (identical(other.entityType, entityType) ||
                 other.entityType == entityType) &&
             (identical(other.entityId, entityId) ||
                 other.entityId == entityId) &&
+            (identical(other.entityName, entityName) ||
+                other.entityName == entityName) &&
             (identical(other.result, result) || other.result == result) &&
             const DeepCollectionEquality()
                 .equals(other._metadataPayload, _metadataPayload) &&
@@ -513,16 +556,18 @@ class _AuditEventResponse extends AuditEventResponse {
       actorUserId,
       actorName,
       projectId,
+      projectName,
       action,
       entityType,
       entityId,
+      entityName,
       result,
       const DeepCollectionEquality().hash(_metadataPayload),
       correlationId);
 
   @override
   String toString() {
-    return 'AuditEventResponse(id: $id, timestamp: $timestamp, companyId: $companyId, actorUserId: $actorUserId, actorName: $actorName, projectId: $projectId, action: $action, entityType: $entityType, entityId: $entityId, result: $result, metadataPayload: $metadataPayload, correlationId: $correlationId)';
+    return 'AuditEventResponse(id: $id, timestamp: $timestamp, companyId: $companyId, actorUserId: $actorUserId, actorName: $actorName, projectId: $projectId, projectName: $projectName, action: $action, entityType: $entityType, entityId: $entityId, entityName: $entityName, result: $result, metadataPayload: $metadataPayload, correlationId: $correlationId)';
   }
 }
 
@@ -541,9 +586,11 @@ abstract mixin class _$AuditEventResponseCopyWith<$Res>
       String? actorUserId,
       String? actorName,
       String? projectId,
+      String? projectName,
       String action,
       String entityType,
       String entityId,
+      String? entityName,
       String result,
       Map<String, dynamic>? metadataPayload,
       String? correlationId});
@@ -568,9 +615,11 @@ class __$AuditEventResponseCopyWithImpl<$Res>
     Object? actorUserId = freezed,
     Object? actorName = freezed,
     Object? projectId = freezed,
+    Object? projectName = freezed,
     Object? action = null,
     Object? entityType = null,
     Object? entityId = null,
+    Object? entityName = freezed,
     Object? result = null,
     Object? metadataPayload = freezed,
     Object? correlationId = freezed,
@@ -600,6 +649,10 @@ class __$AuditEventResponseCopyWithImpl<$Res>
           ? _self.projectId
           : projectId // ignore: cast_nullable_to_non_nullable
               as String?,
+      projectName: freezed == projectName
+          ? _self.projectName
+          : projectName // ignore: cast_nullable_to_non_nullable
+              as String?,
       action: null == action
           ? _self.action
           : action // ignore: cast_nullable_to_non_nullable
@@ -612,6 +665,10 @@ class __$AuditEventResponseCopyWithImpl<$Res>
           ? _self.entityId
           : entityId // ignore: cast_nullable_to_non_nullable
               as String,
+      entityName: freezed == entityName
+          ? _self.entityName
+          : entityName // ignore: cast_nullable_to_non_nullable
+              as String?,
       result: null == result
           ? _self.result
           : result // ignore: cast_nullable_to_non_nullable
