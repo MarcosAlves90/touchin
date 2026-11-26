@@ -27,6 +27,37 @@ class _LoginPageState extends State<LoginPage>
   bool _obscurePassword = true;
   bool _hasValidationErrors = false;
 
+  ScaffoldFeatureController<SnackBar, SnackBarClosedReason>?
+      _passwordChangeNotice;
+
+  @override
+  void initState() {
+    super.initState();
+    if (!widget.requiredPasswordChanged) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final notice = ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Senha alterada. Entre com a nova senha.'),
+          duration: Duration(seconds: 12),
+        ),
+      );
+      _passwordChangeNotice = notice;
+      notice.closed.then((_) {
+        if (identical(_passwordChangeNotice, notice)) {
+          _passwordChangeNotice = null;
+        }
+      });
+    });
+  }
+
+  void _dismissPasswordChangeNotice() {
+    final notice = _passwordChangeNotice;
+    _passwordChangeNotice = null;
+    notice?.close();
+  }
+
   @override
   void dispose() {
     _emailController.dispose();
@@ -43,6 +74,7 @@ class _LoginPageState extends State<LoginPage>
       return;
     }
 
+    _dismissPasswordChangeNotice();
     await submitAuthAction(
       action: () {
         return _api.login(
@@ -106,29 +138,6 @@ class _LoginPageState extends State<LoginPage>
               ),
             ),
             const SizedBox(height: 28),
-            if (widget.requiredPasswordChanged) ...[
-              Semantics(
-                container: true,
-                liveRegion: true,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Text(
-                      'Senha alterada. Entre com a nova senha.',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.onPrimaryContainer,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-            ],
             if (_hasValidationErrors) const AuthFormValidationMessage(),
             TextFormField(
               controller: _emailController,
@@ -208,6 +217,7 @@ class _LoginPageState extends State<LoginPage>
                 );
                 final forgotPassword = TextButton(
                   onPressed: () {
+                    _dismissPasswordChangeNotice();
                     Navigator.of(context).push(
                       MaterialPageRoute<void>(
                         builder: (_) => const ForgotPasswordPage(),
@@ -257,6 +267,7 @@ class _LoginPageState extends State<LoginPage>
                   const SizedBox(height: 4),
                   TextButton(
                     onPressed: () {
+                      _dismissPasswordChangeNotice();
                       Navigator.of(context).push(
                         MaterialPageRoute<void>(
                           builder: (_) => const RegisterPage(),

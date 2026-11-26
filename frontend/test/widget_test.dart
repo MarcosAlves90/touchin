@@ -243,6 +243,8 @@ void main() {
       expect(find.byType(MustChangePasswordPage), findsNothing);
       expect(storage.savedSession, isNull);
       expect(find.text(message), findsOneWidget);
+      expect(find.ancestor(of: find.text(message), matching: find.byType(SnackBar)),
+          findsOneWidget);
       final liveRegion = find.ancestor(
         of: find.text(message),
         matching: find.byWidgetPredicate(
@@ -253,6 +255,9 @@ void main() {
       await tester.enterText(fields.first, 'funcionario@exemplo.com');
       await tester.pump();
       expect(find.text(message), findsOneWidget);
+      await tester.pump(const Duration(seconds: 13));
+      await tester.pumpAndSettle();
+      expect(find.text(message), findsNothing);
     });
   }
 
