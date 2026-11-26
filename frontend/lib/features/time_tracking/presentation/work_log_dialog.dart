@@ -6,6 +6,8 @@ import 'package:touchin_flutter/contracts/time_clock.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_editor_dialog.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_skeleton.dart';
 import 'package:touchin_flutter/features/time_tracking/presentation/time_clock_controller.dart';
+import 'package:touchin_flutter/theme/app_theme.dart';
+import 'package:touchin_flutter/theme/workspace_menu_style.dart';
 
 class WorkLogSubmission {
   const WorkLogSubmission({
@@ -180,6 +182,9 @@ class _WorkLogDialogState extends State<WorkLogDialog> {
           DropdownButtonFormField<String>(
             key: const Key('work-log-project'),
             initialValue: _selectedProjectId,
+            dropdownColor:
+                WorkspaceMenuStyle.surface(Theme.of(context).colorScheme),
+            borderRadius: WorkspaceMenuStyle.borderRadius,
             decoration: const InputDecoration(labelText: 'Projeto'),
             items: [
               const DropdownMenuItem<String>(
@@ -282,6 +287,9 @@ class _WorkLogDialogState extends State<WorkLogDialog> {
                         return FilterChip(
                           key: Key('work-log-task-suggestion-${item.taskId}'),
                           selected: selected,
+                          checkmarkColor: AppTheme.adminColors(
+                            Theme.of(context),
+                          ).selectedForeground,
                           label: Text(item.taskName),
                           onSelected: (value) => setState(() {
                             if (value) {

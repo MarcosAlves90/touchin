@@ -15,6 +15,355 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('project directory shows compact aligned rows', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1600, 1800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(MaterialApp(home: ProjectTasksPage(api: _MultipleProjectsApi())));
+    await tester.pumpAndSettle();
+    final section = find.ancestor(of: find.text('Selecione um projeto para consultar dados, acessos e tarefas.'), matching: find.byType(WorkspaceSectionCard)).first;
+    final first = find.descendant(of: section, matching: find.text('Projeto principal'));
+    final second = find.descendant(of: section, matching: find.text('Projeto secundário'));
+    expect(tester.getTopLeft(second).dy, greaterThan(tester.getTopLeft(first).dy), reason: 'project_directory_row_layout');
+    expect(tester.getTopLeft(second).dx, closeTo(tester.getTopLeft(first).dx, 1));
+    expect(find.descendant(of: section, matching: find.byTooltip('Editar projeto')), findsNWidgets(2));
+  });
+  testWidgets('project overview leads with the project name', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1600, 1800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(MaterialApp(home: ProjectTasksPage(api: _ProjectSaveApi())));
+    await tester.pumpAndSettle();
+    final section = find.ancestor(of: find.text('Resumo rápido'), matching: find.byType(WorkspaceSectionCard)).first;
+    Finder field(String text) => find.descendant(of: section, matching: find.text(text));
+    expect(tester.getTopLeft(field('Projeto principal')).dy,
+        lessThan(tester.getTopLeft(field('Ativo')).dy), reason: 'overview_name_leads');
+    expect(field('Limite 2/tarefa'), findsNothing);
+    expect(field('Limite por tarefa'), findsOneWidget);
+    expect(field('Editar'), findsOneWidget);
+  });
+  testWidgets('task table truncates long text on desktop and mobile', (tester) async {
+    for (final width in <double>[1600, 390, 320]) {
+      await tester.binding.setSurfaceSize(Size(width, 1800));
+      await tester.pumpWidget(MaterialApp(home: ProjectTasksPage(api: _LongTasksApi())));
+      await tester.pumpAndSettle();
+      final section = find.ancestor(
+        of: find.text('As tarefas podem ter tipo e tarefa-pai, formando uma hierarquia dentro do projeto.'),
+        matching: find.byType(WorkspaceSectionCard),
+      ).first;
+      for (final value in <String>[_longTaskName, _longTaskDescription, 'Subtarefa de: $_longTaskName']) {
+        final text = tester.widget<Text>(find.descendant(of: section, matching: find.text(value)).first);
+        expect(text.maxLines, 1, reason: 'task_text_single_line');
+        expect(text.overflow, TextOverflow.ellipsis);
+        expect(find.byTooltip(value), findsWidgets);
+      }
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+  testWidgets('task table uses compact desktop rows', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1600, 1800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(MaterialApp(home: ProjectTasksPage(api: _MultipleTasksApi())));
+    await tester.pumpAndSettle();
+    final section = find.ancestor(
+      of: find.text('As tarefas podem ter tipo e tarefa-pai, formando uma hierarquia dentro do projeto.'),
+      matching: find.byType(WorkspaceSectionCard),
+    ).first;
+    final title = find.descendant(of: section, matching: find.text('Implementar tela'));
+    final description = find.descendant(of: section, matching: find.text('Descrição da tarefa'));
+    expect(tester.getCenter(description).dy, closeTo(tester.getCenter(title).dy, 8),
+        reason: 'task_compact_description_alignment');
+    expect(tester.getTopLeft(description).dx, greaterThan(tester.getTopRight(title).dx));
+    expect(find.text('Subtarefa de: Implementar tela'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+  testWidgets('task table paginates and preserves actions', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 2400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(MaterialApp(home: ProjectTasksPage(api: _ManyTasksApi())));
+    await tester.pumpAndSettle();
+    expect(find.text('Tarefa 11'), findsNothing, reason: 'tasks_paginated_first_page');
+    expect(find.text('Tarefa 10'), findsOneWidget);
+    await tester.ensureVisible(find.byTooltip('Próxima página'));
+    await tester.tap(find.byTooltip('Próxima página'));
+    await tester.pumpAndSettle();
+    expect(find.text('Tarefa 10'), findsNothing);
+    expect(find.text('Tarefa 11'), findsOneWidget);
+    expect(find.byTooltip('Editar tarefa'), findsNWidgets(2));
+    await tester.tap(find.text('Tarefa 11'));
+    await tester.pumpAndSettle();
+    expect(find.text('Participantes de Tarefa 11'), findsOneWidget);
+    await tester.ensureVisible(find.byTooltip('Página anterior'));
+    await tester.tap(find.byTooltip('Página anterior'));
+    await tester.pumpAndSettle();
+    expect(find.text('Tarefa 10'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+  testWidgets('task directory adapts and preserves selection', (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    for (final width in [1600.0, 390.0, 320.0]) {
+      await tester.binding.setSurfaceSize(Size(width, 2200));
+      await tester.pumpWidget(MaterialApp(home: ProjectTasksPage(api: _MultipleTasksApi())));
+      await tester.pumpAndSettle();
+      final section = find.ancestor(
+        of: find.text('As tarefas podem ter tipo e tarefa-pai, formando uma hierarquia dentro do projeto.'),
+        matching: find.byType(WorkspaceSectionCard),
+      ).first;
+      final first = find.descendant(of: section, matching: find.text('Implementar tela'));
+      final second = find.descendant(of: section, matching: find.text('Testar integração'));
+      expect(first, findsOneWidget);
+      expect(second, findsOneWidget);
+      expect(tester.getTopLeft(second).dy, greaterThan(tester.getTopLeft(first).dy));
+      expect(tester.getTopLeft(second).dx, closeTo(tester.getTopLeft(first).dx, 2));
+      expect(find.text('Subtarefa de: Implementar tela'), findsOneWidget);
+      expect(find.byTooltip('Editar tarefa'), findsNWidgets(2));
+      await tester.ensureVisible(second);
+      await tester.tap(second);
+      await tester.pumpAndSettle();
+      expect(find.text('Participantes de Testar integração'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    }
+  });
+  testWidgets('project metrics use a compact summary', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1600, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(MaterialApp(home: ProjectTasksPage(api: _ProjectSaveApi())));
+    await tester.pumpAndSettle();
+    expect(find.text('Projetos disponíveis para a empresa atual.'), findsNothing);
+    expect(find.text('Participantes e limite da tarefa selecionada.'), findsNothing);
+    final strip = find.byKey(const ValueKey<String>('project-metrics-strip'));
+    expect(tester.getSize(strip).height, lessThan(85));
+    for (final label in ['Projetos', 'Tarefas', 'Acessos', 'Ocupação']) {
+      expect(find.descendant(of: strip, matching: find.text(label)), findsOneWidget);
+    }
+    for (final width in [768.0, 390.0, 320.0]) {
+      await tester.binding.setSurfaceSize(Size(width, 1000));
+      await tester.pumpAndSettle();
+      for (final label in ['Projetos', 'Tarefas', 'Acessos', 'Ocupação']) {
+        final text = find.descendant(of: strip, matching: find.text(label));
+        expect(tester.getRect(strip).contains(tester.getRect(text).center), isTrue);
+      }
+      expect(tester.takeException(), isNull);
+    }
+  });
+  testWidgets('project directory adapts to available width', (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    for (final width in [1920.0, 1440.0, 768.0, 390.0, 320.0]) {
+      await tester.binding.setSurfaceSize(Size(width, 1800));
+      await tester.pumpWidget(MaterialApp(home: ProjectTasksPage(api: _MultipleProjectsApi())));
+      await tester.pumpAndSettle();
+      Finder projectTile(String name) => find.byWidgetPredicate((widget) {
+            if (widget is! InkWell) return false;
+            final tile = find.byWidget(widget);
+            return find.descendant(of: tile, matching: find.text(name)).evaluate().isNotEmpty &&
+                find.descendant(of: tile, matching: find.byTooltip('Editar projeto')).evaluate().isNotEmpty;
+          });
+      final firstTile = projectTile('Projeto principal').first;
+      final secondTile = projectTile('Projeto secundário').first;
+      final first = find.descendant(of: firstTile, matching: find.text('Projeto principal')).first;
+      final second = find.descendant(of: secondTile, matching: find.text('Projeto secundário')).first;
+      expect(tester.getTopLeft(second).dy, greaterThan(tester.getTopLeft(first).dy));
+      expect(tester.getTopLeft(second).dx, closeTo(tester.getTopLeft(first).dx, 2));
+
+      expect(find.descendant(of: secondTile, matching: find.byTooltip('Editar projeto')), findsOneWidget);
+      expect(find.descendant(of: secondTile, matching: find.byTooltip('Excluir projeto')), findsOneWidget);
+      await tester.ensureVisible(second);
+      await tester.tap(second);
+      await tester.pumpAndSettle();
+      expect(find.text('Projeto secundário'), findsWidgets);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    }
+  });
+  testWidgets('project cards align with different name lengths', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 1800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(MaterialApp(home: ProjectTasksPage(api: _MixedHeightProjectsApi())));
+    await tester.pumpAndSettle();
+    Finder card(String name) => find.byWidgetPredicate((widget) {
+          if (widget is! InkWell) return false;
+          final tile = find.byWidget(widget);
+          return find.descendant(of: tile, matching: find.text(name)).evaluate().isNotEmpty &&
+              find.descendant(of: tile, matching: find.byTooltip('Editar projeto')).evaluate().isNotEmpty;
+        }).first;
+    final short = card('Projeto principal');
+    final long = card(_MixedHeightProjectsApi.longName);
+    expect(tester.getTopLeft(long).dy, greaterThan(tester.getTopLeft(short).dy));
+    expect(tester.getSize(short).height, closeTo(tester.getSize(long).height, 1),
+        reason: 'project_card_equal_height');
+    expect(tester.takeException(), isNull);
+  });
+  testWidgets('access section matches project section typography', (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    for (final width in [1600.0, 390.0, 320.0]) {
+      await tester.binding.setSurfaceSize(Size(width, 1800));
+      await tester.pumpWidget(MaterialApp(
+        theme: AppTheme.offlineTheme(Brightness.dark),
+        home: ProjectTasksPage(api: _FakeProjectTasksApi(role: 'manager', employeeId: 'emp-02')),
+      ));
+      await tester.pumpAndSettle();
+      final projects = find.ancestor(
+        of: find.text('Selecione um projeto para consultar dados, acessos e tarefas.'),
+        matching: find.byType(WorkspaceSectionCard),
+      ).first;
+      Text textIn(Finder section, String value) => tester.widget<Text>(
+        find.descendant(of: section, matching: find.text(value)),
+      );
+      final projectTitle = textIn(projects, 'Projetos');
+      final accessTitle = tester.widget<Text>(find.text('Acesso ao projeto'));
+      expect(accessTitle.style?.fontSize, projectTitle.style?.fontSize,
+          reason: 'project_access_heading_size');
+      expect(accessTitle.style?.fontWeight, projectTitle.style?.fontWeight);
+      final projectDescription = textIn(projects, 'Selecione um projeto para consultar dados, acessos e tarefas.');
+      final accessDescription = tester.widget<Text>(find.text(
+        'Somente os funcionários adicionados aqui podem visualizar o projeto e assumir responsabilidades nas tarefas.',
+      ));
+      expect(accessDescription.style?.fontSize, projectDescription.style?.fontSize);
+      expect(accessDescription.style?.fontWeight, projectDescription.style?.fontWeight);
+      expect(find.text('Adicionar ao projeto'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    }
+  });
+
+  testWidgets('project member avatars contrast with their card', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1600, 1800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    double contrast(Color a, Color b) {
+      final x = a.computeLuminance();
+      final y = b.computeLuminance();
+      return ((x > y ? x : y) + 0.05) / ((x < y ? x : y) + 0.05);
+    }
+
+    for (final brightness in [Brightness.light, Brightness.dark]) {
+      final theme = AppTheme.offlineTheme(brightness);
+      await tester.pumpWidget(MaterialApp(
+        theme: theme,
+        home: ProjectTasksPage(
+          api: _FakeProjectTasksApi(role: 'manager', employeeId: 'emp-02'),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      final section = find.ancestor(
+        of: find.text('Acesso ao projeto'),
+        matching: find.byType(WorkspaceSectionCard),
+      ).first;
+      final cardMaterial = tester.widget<Material>(
+        find.descendant(of: section, matching: find.byType(Material)).first,
+      );
+      final background = Color.alphaBlend(cardMaterial.color!, theme.scaffoldBackgroundColor);
+      final avatars = tester.widgetList<CircleAvatar>(
+        find.descendant(of: section, matching: find.byType(CircleAvatar)),
+      );
+      expect(avatars.length, 2);
+      for (final avatar in avatars) {
+        expect(contrast(avatar.backgroundColor!, background), greaterThanOrEqualTo(3),
+            reason: 'project_avatar_background_contrast ($brightness)');
+        expect(contrast(avatar.foregroundColor!, avatar.backgroundColor!),
+            greaterThanOrEqualTo(4.5), reason: 'project_avatar_initials_contrast ($brightness)');
+      }
+      await tester.pumpWidget(const SizedBox());
+    }
+  });
+
+  testWidgets('project members adapt to available space', (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    for (final width in [1600.0, 390.0, 320.0]) {
+      await tester.binding.setSurfaceSize(Size(width, 1800));
+      await tester.pumpWidget(MaterialApp(
+        home: ProjectTasksPage(
+          api: _FakeProjectTasksApi(role: 'manager', employeeId: 'emp-02'),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      final section = find.ancestor(
+        of: find.text('Acesso ao projeto'),
+        matching: find.byType(WorkspaceSectionCard),
+      ).first;
+      Finder member(String name) =>
+          find.descendant(of: section, matching: find.text(name));
+      final first = member('Caio Martins');
+      final second = member('Ana Lima');
+      expect(first, findsOneWidget);
+      expect(second, findsOneWidget);
+      expect(member('Você • emp-02'), findsOneWidget);
+      expect(member('emp-05'), findsOneWidget);
+      final remove = find.descendant(
+          of: section, matching: find.byTooltip('Remover acesso ao projeto'));
+      expect(remove, findsNWidgets(2));
+      expect(tester.getTopLeft(second).dy, greaterThan(tester.getTopLeft(first).dy),
+          reason: 'project_access_rows');
+      expect(tester.getTopLeft(second).dx, closeTo(tester.getTopLeft(first).dx, 2));
+      await tester.ensureVisible(remove.first);
+      await tester.tap(remove.first);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Remover “Caio Martins” deste projeto?'), findsOneWidget);
+      await tester.tap(find.text('Cancelar'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    }
+  });
+
+  testWidgets('selected project header uses horizontal space', (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    for (final width in [1600.0, 390.0, 320.0]) {
+      await tester.binding.setSurfaceSize(Size(width, 1800));
+      await tester.pumpWidget(MaterialApp(
+        home: ProjectTasksPage(
+          api: _FakeProjectTasksApi(role: 'manager', employeeId: 'emp-02'),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      final section = find.ancestor(
+        of: find.text('Resumo rápido'),
+        matching: find.byType(WorkspaceSectionCard),
+      ).first;
+      Finder field(String label) =>
+          find.descendant(of: section, matching: find.text(label));
+      expect(field('Ativo'), findsOneWidget);
+      expect(field('Limite por tarefa'), findsOneWidget);
+      expect(field('Projeto principal'), findsOneWidget);
+      expect(field('Descrição do projeto'), findsOneWidget);
+      expect(field('Editar'), findsOneWidget);
+      if (width == 1600) {
+        expect(tester.getTopLeft(field('Ativo')).dy,
+            greaterThan(tester.getTopLeft(field('Projeto principal')).dy),
+            reason: 'project_header_state_alignment');
+      }
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    }
+  });
+
+  testWidgets('project summary uses available width', (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    for (final width in [1600.0, 390.0, 320.0]) {
+      await tester.binding.setSurfaceSize(Size(width, 1800));
+      await tester.pumpWidget(MaterialApp(home: ProjectTasksPage(api: _ProjectSaveApi())));
+      await tester.pumpAndSettle();
+      final section = find.ancestor(
+        of: find.text('Resumo rápido'), matching: find.byType(WorkspaceSectionCard)).first;
+      Finder field(String label) => find.descendant(of: section, matching: find.text(label));
+      final tasks = field('Tarefas');
+      final access = field('Acessos');
+      final limit = field('Limite por tarefa');
+      final current = field('Tarefa atual');
+      if (width == 1600) {
+        for (final item in [access, limit, current]) {
+          expect(tester.getTopLeft(item).dy, closeTo(tester.getTopLeft(tasks).dy, 2),
+              reason: 'project_summary_wide_alignment');
+        }
+      } else {
+        expect(tester.getTopLeft(current).dy, greaterThan(tester.getTopLeft(tasks).dy));
+      }
+      expect(field('Implementar tela'), findsOneWidget);
+      expect(find.descendant(of: section, matching: find.text('Editar')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    }
+  });
   testWidgets('project directory and details use full width sections', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1600, 1000));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -332,7 +681,7 @@ void main() {
 
     expect(find.text('Administrar projetos'), findsOneWidget);
     expect(find.byType(WorkspaceHeader), findsAtLeastNWidgets(1));
-    expect(find.byType(WorkspaceMetricCard), findsNWidgets(4));
+    expect(find.byKey(const ValueKey<String>('project-metrics-strip')), findsOneWidget);
     expect(find.text('Projetos'), findsWidgets);
     expect(find.text('Tarefas'), findsWidgets);
     expect(find.text('Acessos'), findsWidgets);
@@ -364,7 +713,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final projectIcon = find.byIcon(Icons.folder_open_rounded);
+    final projectIcon = find.byIcon(Icons.radio_button_checked);
 
     expect(projectIcon, findsOneWidget);
     expect(
@@ -715,6 +1064,49 @@ class _FakeProjectTasksApi extends TouchInApi {
   }
 }
 
+const _longTaskName = 'Uma tarefa com nome muito longo para exibir na tabela e também em telas pequenas';
+const _longTaskDescription = 'Uma descrição muito longa que deve permanecer visível sem aumentar a altura da linha da tabela e manter o conteúdo completo disponível';
+
+class _LongTasksApi extends _FakeProjectTasksApi {
+  _LongTasksApi() : super(role: 'manager', employeeId: 'emp-02');
+
+  @override
+  Future<List<TaskRecord>> listTasks(String projectId) async => [
+    TaskRecord(id: 'task-long', projectId: projectId, parentTaskId: null,
+      name: _longTaskName, description: _longTaskDescription, type: TaskType.feature,
+      createdAt: DateTime(2026, 9, 9), updatedAt: DateTime(2026, 9, 9)),
+    TaskRecord(id: 'task-child', projectId: projectId, parentTaskId: 'task-long',
+      name: 'Subtarefa', description: 'Descrição curta', type: TaskType.bug,
+      createdAt: DateTime(2026, 9, 9), updatedAt: DateTime(2026, 9, 9)),
+  ];
+}
+
+class _ManyTasksApi extends _FakeProjectTasksApi {
+  _ManyTasksApi() : super(role: 'manager', employeeId: 'emp-02');
+  @override
+  Future<List<TaskRecord>> listTasks(String projectId) async => [
+    for (var i = 1; i <= 12; i++)
+      TaskRecord(id: 'task-$i', projectId: projectId, parentTaskId: null,
+        name: 'Tarefa $i', description: 'Descrição $i', type: TaskType.feature,
+        createdAt: DateTime(2026, 9, 9), updatedAt: DateTime(2026, 9, 9)),
+  ];
+}
+
+class _MultipleTasksApi extends _FakeProjectTasksApi {
+  _MultipleTasksApi() : super(role: 'manager', employeeId: 'emp-02');
+
+  @override
+  Future<List<TaskRecord>> listTasks(String projectId) async => [
+        ...(await super.listTasks(projectId)),
+        TaskRecord(
+          id: 'task-02', projectId: projectId, parentTaskId: 'task-01',
+          name: 'Testar integração', description: 'Verificar o resultado',
+          type: TaskType.bug, createdAt: DateTime(2026, 9, 9),
+          updatedAt: DateTime(2026, 9, 9),
+        ),
+      ];
+}
+
 class _DelayedProjectsTasksApi extends _FakeProjectTasksApi {
   _DelayedProjectsTasksApi() : super(role: 'manager', employeeId: 'emp-02');
 
@@ -804,6 +1196,35 @@ class _DelayedProjectTasksApi extends _FakeProjectTasksApi {
     attempts++;
     return pending.future;
   }
+}
+
+class _MixedHeightProjectsApi extends _FakeProjectTasksApi {
+  _MixedHeightProjectsApi() : super(role: 'manager', employeeId: 'emp-02');
+  static const longName = 'Portal Aurora — experiência acessível para equipes distribuídas em várias regiões';
+
+  @override
+  Future<List<ProjectSummary>> listProjects({ProjectStatus? status}) async => [
+        ...(await super.listProjects(status: status)),
+        ProjectSummary(
+          id: 'project-02', name: longName, description: 'Outro projeto',
+          taskEmployeeLimit: 5, status: ProjectStatus.active,
+          createdAt: DateTime(2026, 9, 9), updatedAt: DateTime(2026, 9, 9),
+        ),
+      ];
+}
+
+class _MultipleProjectsApi extends _FakeProjectTasksApi {
+  _MultipleProjectsApi() : super(role: 'manager', employeeId: 'emp-02');
+
+  @override
+  Future<List<ProjectSummary>> listProjects({ProjectStatus? status}) async => [
+        ...(await super.listProjects(status: status)),
+        ProjectSummary(
+          id: 'project-02', name: 'Projeto secundário', description: 'Outro projeto',
+          taskEmployeeLimit: 5, status: ProjectStatus.active,
+          createdAt: DateTime(2026, 9, 9), updatedAt: DateTime(2026, 9, 9),
+        ),
+      ];
 }
 
 class _ProjectSaveApi extends _FakeProjectTasksApi {

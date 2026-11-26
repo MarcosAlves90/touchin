@@ -46,19 +46,27 @@ void main() {
       expect(find.byKey(const ValueKey('hierarchy-indicator-task-2')),
           findsOneWidget);
       expect(find.byKey(const ValueKey('backlog-search')), findsOneWidget);
+      expect(tester.getTopLeft(find.text('Status').first).dx,
+          lessThan(tester.getTopLeft(find.text('Ações')).dx));
       final toolbar = find.byKey(const ValueKey('backlog-toolbar'));
-      expect(
-          find.descendant(
-              of: toolbar, matching: find.text('Tarefas do projeto')),
-          findsOneWidget);
-      expect(
-          find.descendant(
-              of: toolbar, matching: find.byIcon(Icons.task_alt_rounded)),
-          findsOneWidget);
+      expect(find.text('Tarefas do projeto'), findsNothing);
+      expect(tester.getSize(toolbar).height, lessThanOrEqualTo(112));
+      final actions = tester.widget<PopupMenuButton<String>>(
+        find.byWidgetPredicate((widget) =>
+            widget is PopupMenuButton<String> &&
+            widget.tooltip == 'Mais ações para #1'),
+      );
+      expect(actions.color, theme.colorScheme.surfaceContainerHighest,
+          reason: 'backlog_action_menu_surface');
+      final shape = actions.shape! as RoundedRectangleBorder;
+      expect(shape.borderRadius, BorderRadius.circular(10),
+          reason: 'backlog_action_menu_radius_10');
+      expect(shape.side.color, theme.colorScheme.outlineVariant,
+          reason: 'backlog_action_menu_border');
       expect(tester.takeException(), isNull);
     }
   });
-  testWidgets('backlog exposes an in-table horizontal scrollbar',
+  testWidgets('compact backlog fits without horizontal scrolling',
       (tester) async {
     await tester.binding.setSurfaceSize(const Size(900, 700));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -106,7 +114,60 @@ void main() {
     ).requestFocus();
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
     await tester.pump();
-    expect(horizontalScrollable.position.pixels, greaterThan(0));
+    expect(horizontalScrollable.position.maxScrollExtent, 0);
+  });
+
+  testWidgets('mobile backlog shows task essentials without horizontal scroll',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: ProjectBacklogView(
+          board: _board(),
+          projectName: 'Projeto Alpha',
+          projectMembers: const <ProjectMemberSummary>[],
+          canManageStructure: true,
+          canManageCards: true,
+          canManageAssignees: true,
+          canMoveCards: true,
+          isBusy: false,
+          onManageColumns: () {},
+          onCreateColumn: () {},
+          onCreateCard: (_) {},
+          onMoveCard: (_, __, ___) {},
+          onEditCard: (_) {},
+          onDeleteCard: (_) {},
+          onManageAssignees: (_) {},
+          onOpenDetails: (_) {},
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('backlog-mobile-list')), findsOneWidget);
+    expect(find.byKey(const ValueKey('backlog-table')), findsNothing);
+    expect(find.text('#1'), findsOneWidget);
+    expect(find.text('Preparar proposta'), findsOneWidget);
+    expect(find.text('A fazer'), findsOneWidget);
+    expect(find.text('Ana Souza'), findsOneWidget);
+    expect(find.byTooltip('Mais ações para #1'), findsOneWidget);
+    final colors = Theme.of(
+      tester.element(find.byKey(const ValueKey('backlog-mobile-list'))),
+    ).colorScheme;
+    final actions = tester.widget<PopupMenuButton<String>>(
+      find.byWidgetPredicate((widget) =>
+          widget is PopupMenuButton<String> &&
+          widget.tooltip == 'Mais ações para #1'),
+    );
+    expect(actions.color, colors.surfaceContainerHighest,
+        reason: 'backlog_mobile_menu_surface');
+    final shape = actions.shape! as RoundedRectangleBorder;
+    expect(shape.borderRadius, BorderRadius.circular(10),
+        reason: 'backlog_mobile_menu_radius_10');
+    expect(shape.side.color, colors.outlineVariant,
+        reason: 'backlog_mobile_menu_border');
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('backlog puts row controls in a dedicated actions column',
@@ -144,7 +205,7 @@ void main() {
     );
     expect(
       actionsColumnIndex,
-      2,
+      4,
       reason: 'backlog_actions_column_order',
     );
     for (final row in table.rows) {
@@ -155,7 +216,7 @@ void main() {
       );
       expect(
         row.cells[actionsColumnIndex].child,
-        isA<IconButtonTheme>(),
+        isA<PopupMenuButton<String>>(),
         reason: 'backlog_actions_column_order',
       );
     }
@@ -198,16 +259,7 @@ void main() {
         final toolbar = find.byKey(const ValueKey('backlog-toolbar'));
         expect(toolbar, findsOneWidget);
         final toolbarMaterial = tester.widget<Material>(toolbar);
-        expect(toolbarMaterial.color, theme.colorScheme.surface);
-        final toolbarPadding = tester.widget<Padding>(
-          find
-              .descendant(
-                of: toolbar,
-                matching: find.byType(Padding),
-              )
-              .first,
-        );
-        expect(toolbarPadding.padding, const EdgeInsets.all(12));
+        expect(toolbarMaterial.color, Colors.transparent);
         expect(
           tester.getSize(find.byKey(const ValueKey('backlog-search'))).height,
           48,
@@ -327,13 +379,21 @@ void main() {
             ),
           );
         }
-        expect(
-            tester.getSize(find.byKey(const ValueKey('backlog-table'))).width,
-            greaterThanOrEqualTo(size.width - 2));
-        final rowAction = find.byTooltip('Editar #1');
+        if (size.width < 600) {
+          expect(find.byKey(const ValueKey('backlog-mobile-list')),
+              findsOneWidget);
+          expect(find.byKey(const ValueKey('backlog-table')), findsNothing);
+        } else {
+          expect(
+              tester.getSize(find.byKey(const ValueKey('backlog-table'))).width,
+              greaterThanOrEqualTo(size.width - 2));
+        }
+        final rowAction = size.width < 600
+            ? find.byTooltip('Mais ações para #1')
+            : find.byTooltip('Mais ações para #1');
         expect(rowAction, findsOneWidget);
-        expect(tester.getSize(rowAction).width, greaterThanOrEqualTo(48));
-        expect(tester.getSize(rowAction).height, greaterThanOrEqualTo(48));
+        expect(tester.getSize(rowAction).width, greaterThanOrEqualTo(40));
+        expect(tester.getSize(rowAction).height, greaterThanOrEqualTo(40));
         if (size.width >= 1440) {
           expect(
             tester.getSize(find.text('Preparar proposta')).width,
@@ -415,7 +475,7 @@ void main() {
         expect(find.text('Gerenciar colunas'), findsNothing);
         expect(find.text('Novo status'), findsNothing);
         expect(find.text('Novo card'), findsNothing);
-        expect(find.byTooltip('Editar #1'), findsNothing);
+        expect(find.byTooltip('Mais ações para #1'), findsOneWidget);
 
         await tester.enterText(search, 'proposta');
         await tester.pumpAndSettle();
@@ -530,9 +590,10 @@ void main() {
     await tester.tap(next);
     await tester.pumpAndSettle();
     expect(find.text('Página 2 de 2'), findsOneWidget);
-    final table = tester.widget<DataTable>(find.byType(DataTable));
-    expect(table.rows.length, 5);
-    expect(table.rows.first.key, const ValueKey('backlog-card-task-51'));
+    expect(
+      find.byKey(const ValueKey('backlog-mobile-card-task-51')),
+      findsOneWidget,
+    );
     expect(tester.takeException(), isNull);
   });
 
@@ -575,12 +636,13 @@ void main() {
     expect(find.byType(DataTable), findsOneWidget);
     expect(find.text('#1'), findsOneWidget);
     expect(find.text('Preparar proposta'), findsOneWidget);
-    expect(find.text('Descrição detalhada'), findsOneWidget);
+    expect(find.byTooltip('Preparar proposta\nDescrição detalhada'),
+        findsOneWidget);
     expect(find.byKey(const ValueKey('backlog-header-status')), findsOneWidget);
     expect(find.byKey(const ValueKey('backlog-status-task-1')), findsOneWidget);
     expect(find.text('A fazer'), findsOneWidget);
     expect(find.text('Em andamento'), findsOneWidget);
-    expect(find.text('Projeto: Projeto Alpha'), findsNWidgets(2));
+    expect(find.text('Projeto: Projeto Alpha'), findsNothing);
     expect(find.text('Ana Souza'), findsOneWidget);
     expect(find.byTooltip('Editar #1'), findsNothing);
     expect(find.byTooltip('Excluir #1'), findsNothing);
@@ -653,10 +715,23 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      final table = tester.widget<DataTable>(find.byType(DataTable));
-      expect(table.rows, hasLength(1));
-      expect(
-          table.rows.single.key, const ValueKey<String>('backlog-card-task-2'));
+      if (size.width < 600) {
+        expect(
+          find.byKey(const ValueKey('backlog-mobile-card-task-2')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('backlog-mobile-card-task-1')),
+          findsNothing,
+        );
+      } else {
+        final table = tester.widget<DataTable>(find.byType(DataTable));
+        expect(table.rows, hasLength(1));
+        expect(
+          table.rows.single.key,
+          const ValueKey<String>('backlog-card-task-2'),
+        );
+      }
       expect(find.byTooltip('Mover #2 para baixo no Kanban'), findsNothing);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
@@ -871,28 +946,52 @@ void main() {
 
     expect(find.text('Gerenciar colunas'), findsOneWidget);
     expect(find.text('Novo card'), findsOneWidget);
-    expect(find.byTooltip('Editar #1'), findsOneWidget);
-    expect(find.byTooltip('Excluir #1'), findsOneWidget);
+    expect(find.byTooltip('Mais ações para #1'), findsOneWidget);
+    expect(find.byTooltip('Editar #1'), findsNothing);
+    expect(find.byTooltip('Excluir #1'), findsNothing);
     expect(find.byTooltip('Mover #1 para cima no Kanban'), findsNothing);
-    expect(find.byTooltip('Mover #3 para cima no Kanban'), findsOneWidget);
-    expect(find.byTooltip('Mover #2 para baixo no Kanban'), findsOneWidget);
+    expect(find.byTooltip('Mais ações para #3'), findsOneWidget);
+    expect(find.byTooltip('Mover #2 para baixo no Kanban'), findsNothing);
     await tester.tap(find.text('Novo status'));
     await tester.tap(find.text('Gerenciar colunas'));
     expect(createColumnCalls, 1);
     expect(manageColumnsCalls, 1);
-    await tester.tap(find.byTooltip('Detalhes de #1'));
+    await tester.tap(find.byTooltip('Mais ações para #1'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Abrir detalhes de #1'));
     await tester.pump();
     expect(openedCard?.id, 'task-1');
     expect(openedCard?.cardNumber, 1);
 
-    await tester.tap(find.byTooltip('Mover #3 para cima no Kanban'));
+    await tester.tap(find.byTooltip('Mais ações para #3'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Mover para cima'));
+    await tester.pumpAndSettle();
     expect(movedTaskId, 'task-3');
     expect(movedColumnId, 'column-2');
     expect(movedIndex, 0);
-    await tester.tap(find.byTooltip('Mover #2 para baixo no Kanban'));
+    await tester.ensureVisible(find.byTooltip('Mais ações para #2'));
+    await tester.tap(find.byTooltip('Mais ações para #2'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Mover para baixo'));
+    await tester.pumpAndSettle();
     expect(movedTaskId, 'task-2');
     expect(movedColumnId, 'column-2');
     expect(movedIndex, 2);
+
+    final headerMenu = tester.widget<PopupMenuButton<String>>(
+      find.byKey(const ValueKey('backlog-header-status')),
+    );
+    final headerColors = Theme.of(
+      tester.element(find.byKey(const ValueKey('backlog-header-status'))),
+    ).colorScheme;
+    expect(headerMenu.color, headerColors.surfaceContainerHighest,
+        reason: 'backlog_header_menu_surface');
+    final headerShape = headerMenu.shape! as RoundedRectangleBorder;
+    expect(headerShape.borderRadius, BorderRadius.circular(10),
+        reason: 'backlog_header_menu_radius_10');
+    expect(headerShape.side.color, headerColors.outlineVariant,
+        reason: 'backlog_header_menu_border');
 
     await tester.tap(find.byKey(const ValueKey('backlog-header-status')));
     await tester.pumpAndSettle();
@@ -902,16 +1001,234 @@ void main() {
         find.byKey(const ValueKey('backlog-sort')));
     expect(sort.value, 'status');
     expect(sort.options.any((option) => option.value == 'status'), isTrue);
-    expect(find.byTooltip('Mover #3 para cima no Kanban'), findsNothing);
+    expect(find.byTooltip('Mais ações para #3'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('backlog-sort')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Ordem do Kanban').last);
     await tester.pumpAndSettle();
-    expect(find.byTooltip('Mover #3 para cima no Kanban'), findsOneWidget);
+    expect(find.byTooltip('Mais ações para #3'), findsOneWidget);
     await tester.enterText(find.byKey(const ValueKey('backlog-search')), '#3');
     await tester.pumpAndSettle();
-    expect(find.byTooltip('Mover #3 para cima no Kanban'), findsNothing);
+    expect(find.byTooltip('Mais ações para #3'), findsOneWidget);
+  });
+
+  testWidgets('move actions show directional icons on desktop and mobile',
+      (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    for (final size in <Size>[
+      const Size(1440, 900),
+      const Size(390, 844),
+    ]) {
+      await tester.binding.setSurfaceSize(size);
+      String? movedTaskId;
+      String? movedColumnId;
+      int? movedIndex;
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: ProjectBacklogView(
+            board: _board(hierarchical: true),
+            projectName: 'Projeto Alpha',
+            projectMembers: const <ProjectMemberSummary>[],
+            canManageStructure: true,
+            canManageCards: true,
+            canManageAssignees: true,
+            canMoveCards: true,
+            isBusy: false,
+            onManageColumns: () {},
+            onCreateColumn: () {},
+            onCreateCard: (_) {},
+            onMoveCard: (taskId, columnId, index) {
+              movedTaskId = taskId;
+              movedColumnId = columnId;
+              movedIndex = index;
+            },
+            onEditCard: (_) {},
+            onDeleteCard: (_) {},
+            onManageAssignees: (_) {},
+            onOpenDetails: (_) {},
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      final actionMenu = find.byTooltip('Mais ações para #3');
+      await tester.ensureVisible(actionMenu);
+      await tester.tap(actionMenu);
+      await tester.pumpAndSettle();
+
+      final icons = <String, IconData>{
+        'Mover para cima': Icons.arrow_upward_rounded,
+        'Mover para baixo': Icons.arrow_downward_rounded,
+      };
+      for (final entry in icons.entries) {
+        final item = find.ancestor(
+          of: find.text(entry.key),
+          matching: find.byWidgetPredicate(
+            (widget) => widget is PopupMenuItem,
+          ),
+        );
+        expect(item, findsOneWidget,
+            reason: 'move_item_${size.width.toInt()}_${entry.key}');
+        expect(
+          find.descendant(of: item, matching: find.byIcon(entry.value)),
+          findsOneWidget,
+          reason: 'move_icon_${size.width.toInt()}_${entry.key}',
+        );
+      }
+
+      await tester.tap(find.text('Mover para cima'));
+      await tester.pumpAndSettle();
+      expect(movedTaskId, 'task-3');
+      expect(movedColumnId, 'column-2');
+      expect(movedIndex, 0);
+
+      final downActionMenu = find.byTooltip('Mais ações para #2');
+      await tester.ensureVisible(downActionMenu);
+      await tester.tap(downActionMenu);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Mover para baixo'));
+      await tester.pumpAndSettle();
+      expect(movedTaskId, 'task-2');
+      expect(movedColumnId, 'column-2');
+      expect(movedIndex, 2);
+    }
+  });
+
+  testWidgets('backlog action menus match kanban icons and group dividers',
+      (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    Future<List<PopupMenuEntry<String>>> buildMenu(
+      Size size, {
+      required bool canManageCards,
+      required bool canManageAssignees,
+      required bool canMoveCards,
+    }) async {
+      await tester.binding.setSurfaceSize(size);
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: ProjectBacklogView(
+            board: _board(hierarchical: true),
+            projectName: 'Projeto Alpha',
+            projectMembers: const <ProjectMemberSummary>[],
+            canManageStructure: true,
+            canManageCards: canManageCards,
+            canManageAssignees: canManageAssignees,
+            canMoveCards: canMoveCards,
+            isBusy: false,
+            onManageColumns: () {},
+            onCreateColumn: () {},
+            onCreateCard: (_) {},
+            onMoveCard: (_, __, ___) {},
+            onEditCard: (_) {},
+            onDeleteCard: (_) {},
+            onManageAssignees: (_) {},
+            onOpenDetails: (_) {},
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      final finder = find.byWidgetPredicate((widget) =>
+          widget is PopupMenuButton<String> &&
+          widget.tooltip == 'Mais ações para #3');
+      final button = tester.widget<PopupMenuButton<String>>(finder);
+      return button.itemBuilder(tester.element(finder));
+    }
+
+    List<String> groupShape(List<PopupMenuEntry<String>> entries) => entries
+        .map((entry) => entry is PopupMenuDivider
+            ? 'divider'
+            : (entry as PopupMenuItem<String>).value ?? '')
+        .toList();
+
+    void expectLeadingIcon(
+      List<PopupMenuEntry<String>> entries,
+      String value,
+      IconData icon,
+      String reason,
+    ) {
+      final item = entries.whereType<PopupMenuItem<String>>().firstWhere(
+            (entry) => entry.value == value,
+          );
+      final leading = (item.child as ListTile).leading;
+      expect(leading, isA<Icon>(), reason: reason);
+      expect((leading as Icon).icon, icon, reason: reason);
+    }
+
+    for (final size in <Size>[
+      const Size(1440, 900),
+      const Size(390, 844),
+    ]) {
+      final label = 'backlog_menu_${size.width.toInt()}';
+      final entries = await buildMenu(
+        size,
+        canManageCards: true,
+        canManageAssignees: true,
+        canMoveCards: true,
+      );
+      expect(
+        groupShape(entries),
+        <String>[
+          'details',
+          'divider',
+          'up',
+          'down',
+          'divider',
+          'edit',
+          'delete',
+          'divider',
+          'assignees',
+        ],
+        reason: '${label}_groups',
+      );
+      for (final expected in <String, IconData>{
+        'details': Icons.open_in_new_rounded,
+        'up': Icons.arrow_upward_rounded,
+        'down': Icons.arrow_downward_rounded,
+        'edit': Icons.edit_outlined,
+        'delete': Icons.delete_outline_rounded,
+        'assignees': Icons.people_outline_rounded,
+      }.entries) {
+        expectLeadingIcon(
+          entries,
+          expected.key,
+          expected.value,
+          '${label}_${expected.key}_icon',
+        );
+      }
+
+      final withoutManagement = await buildMenu(
+        size,
+        canManageCards: false,
+        canManageAssignees: false,
+        canMoveCards: true,
+      );
+      expect(
+        groupShape(withoutManagement),
+        <String>['details', 'divider', 'up', 'down'],
+        reason: '${label}_without_management_groups',
+      );
+
+      final withoutMove = await buildMenu(
+        size,
+        canManageCards: true,
+        canManageAssignees: true,
+        canMoveCards: false,
+      );
+      expect(
+        groupShape(withoutMove),
+        <String>[
+          'details',
+          'divider',
+          'edit',
+          'delete',
+          'divider',
+          'assignees',
+        ],
+        reason: '${label}_without_move_groups',
+      );
+    }
   });
 
   testWidgets('headers filter and sort while children stay below parents',

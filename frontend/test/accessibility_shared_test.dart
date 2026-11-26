@@ -44,7 +44,7 @@ void main() {
 
   for (final dark in [false, true]) {
     for (final width in [360.0, 1200.0]) {
-      testWidgets('select menu radius on $width width dark=$dark',
+      testWidgets('select menu surface on $width width dark=$dark',
           (tester) async {
         tester.view.physicalSize = Size(width, 800);
         tester.view.devicePixelRatio = 1;
@@ -66,18 +66,23 @@ void main() {
         await tester.tap(find.byType(WorkspaceInstantSelectField<String>));
         await tester.pumpAndSettle();
 
+        final colors = Theme.of(
+          tester.element(find.byType(WorkspaceInstantSelectField<String>)),
+        ).colorScheme;
         final menuMaterials = tester.widgetList<Material>(find.ancestor(
           of: find.byType(PopupMenuItem<String>),
           matching: find.byType(Material),
         ));
-        expect(
-          menuMaterials.any((material) =>
-              material.shape is RoundedRectangleBorder &&
-              (material.shape! as RoundedRectangleBorder).borderRadius ==
-                  BorderRadius.circular(8)),
-          isTrue,
-          reason: 'instant_select_menu_radius_8',
+        final menu = menuMaterials.firstWhere(
+          (material) => material.shape is RoundedRectangleBorder,
         );
+        final shape = menu.shape! as RoundedRectangleBorder;
+        expect(menu.color, colors.surfaceContainerHighest,
+            reason: 'instant_select_menu_surface');
+        expect(shape.borderRadius, BorderRadius.circular(10),
+            reason: 'instant_select_menu_radius_10');
+        expect(shape.side.color, colors.outlineVariant,
+            reason: 'instant_select_menu_border');
       });
     }
   }

@@ -29,6 +29,8 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
   late final bool _ownsController;
   bool _showBacklog = false;
   String _taskSearchText = '';
+  String _kanbanStatus = '';
+  String _kanbanAssignee = '';
   String? _searchProjectId;
   final TextEditingController _taskSearchController = TextEditingController();
   final GlobalKey<ProjectKanbanBoardState> _boardKey =
@@ -64,11 +66,21 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
           if (isWide)
             Padding(
               padding: const EdgeInsets.fromLTRB(32, 28, 32, 0),
-              child: const WorkspaceHeader(
-                  kicker: 'KANBAN',
-                  title: 'Acompanhar tarefas',
-                  description: 'Visualize e organize as tarefas do projeto.',
-                  compact: true),
+              child: AnimatedBuilder(
+                animation: _controller,
+                builder: (context, _) => Row(
+                  children: [
+                    const Expanded(
+                        child: WorkspaceHeader(
+                            title: 'Acompanhar tarefas',
+                            description: '',
+                            compact: true)),
+                    if (_buildCreateTaskAction(compact: false)
+                        case final action?)
+                      action,
+                  ],
+                ),
+              ),
             ),
           Expanded(
             child: AnimatedBuilder(
@@ -96,9 +108,8 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
               const Padding(
                 padding: EdgeInsets.fromLTRB(24, 28, 24, 0),
                 child: WorkspaceHeader(
-                    kicker: 'KANBAN',
                     title: 'Acompanhar tarefas',
-                    description: 'Visualize e organize as tarefas do projeto.',
+                    description: '',
                     compact: true),
               ),
               Expanded(child: child),
@@ -146,7 +157,7 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
         final isWide = constraints.maxWidth >= 980;
         final horizontalPadding = isCompact ? 10.0 : (isWide ? 28.0 : 16.0);
         final verticalPadding = isCompact ? 8.0 : 14.0;
-        final gap = isCompact ? 8.0 : 12.0;
+        const gap = 8.0;
 
         final textScale = MediaQuery.textScalerOf(context).scale(16) / 16;
         final minimumBodyHeight =
@@ -161,7 +172,7 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              _buildProjectOverview(compact: isCompact),
+              _buildProjectOverview(compact: isCompact, pageIsWide: pageIsWide),
               SizedBox(height: gap),
               if (!_showBacklog || _controller.board == null)
                 _buildTaskFilterSection(_controller.board, compact: isCompact),
@@ -182,13 +193,15 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
     ));
   }
 
-  Widget _buildProjectOverview({required bool compact}) {
-    final colorScheme = Theme.of(context).colorScheme;
+  Widget _buildProjectOverview(
+      {required bool compact, required bool pageIsWide}) {
     final selectedProjectId = _controller.selectedProjectId;
     if (_searchProjectId != selectedProjectId) {
       _searchProjectId = selectedProjectId;
       _taskSearchText = '';
       _taskSearchController.clear();
+      _kanbanStatus = '';
+      _kanbanAssignee = '';
     }
     final board = _controller.board;
     final cardCount = board?.columns.fold<int>(
@@ -240,37 +253,92 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
           : () => _controller.reload(),
       icon: const Icon(Icons.refresh_rounded),
     );
+    final createTask =
+        !pageIsWide ? _buildCreateTaskAction(compact: compact) : null;
     final viewSwitch = _buildProjectViewSwitch(compact: compact);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        metrics,
-        const SizedBox(height: 8),
-        Material(
-          key: const ValueKey<String>('kanban-project-overview'),
-          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.28),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: BorderSide(color: colorScheme.outlineVariant),
+    return LayoutBuilder(builder: (context, overviewConstraints) {
+      final wideSummary = overviewConstraints.maxWidth >= 1000;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          if (!wideSummary) ...<Widget>[
+            metrics,
+            const SizedBox(height: 8),
+          ],
+          Material(
+            key: const ValueKey<String>('kanban-project-overview'),
+            color: Colors.transparent,
+            child: LayoutBuilder(builder: (context, constraints) {
+              if (constraints.maxWidth >= 700) {
+                return Row(children: <Widget>[
+                  if (wideSummary) ...<Widget>[
+                    SizedBox(width: 360, child: metrics),
+                    const SizedBox(width: 16),
+                  ],
+                  Expanded(child: selector),
+                  if (createTask != null) ...<Widget>[
+                    const SizedBox(width: 8),
+                    createTask,
+                  ],
+                  refresh,
+                  const SizedBox(width: 12),
+                  viewSwitch,
+                ]);
+              }
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  Row(children: <Widget>[
+                    Expanded(child: selector),
+                    if (createTask != null) createTask,
+                    refresh,
+                  ]),
+                  const SizedBox(height: 6),
+                  Align(alignment: Alignment.centerLeft, child: viewSwitch),
+                ],
+              );
+            }),
           ),
-          child: Padding(
-            padding: EdgeInsets.all(compact ? 8 : 10),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: <Widget>[
-                Row(children: <Widget>[Expanded(child: selector), refresh]),
-                const SizedBox(height: 6),
-                Align(alignment: Alignment.centerLeft, child: viewSwitch),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
+        ],
+      );
+    });
+  }
+
+  Widget? _buildCreateTaskAction({required bool compact}) {
+    final board = _controller.board;
+    return board?.columns.isNotEmpty == true && _controller.canManageCards
+        ? compact
+            ? IconButton.filled(
+                key: const ValueKey<String>('kanban-create-task'),
+                tooltip: 'Nova tarefa',
+                constraints:
+                    const BoxConstraints.tightFor(width: 48, height: 48),
+                onPressed: _controller.isMutating
+                    ? null
+                    : () => _openCreateKanbanCard(board!.columns.first),
+                icon: const Icon(Icons.add_rounded),
+              )
+            : FilledButton.icon(
+                key: const ValueKey<String>('kanban-create-task'),
+                style: workspaceToolbarActionStyle(Theme.of(context)),
+                onPressed: _controller.isMutating
+                    ? null
+                    : () => _openCreateKanbanCard(board!.columns.first),
+                icon: const Icon(Icons.add_rounded),
+                label: const Text('Nova tarefa'),
+              )
+        : null;
   }
 
   Widget _buildTaskFilterSection(KanbanBoard? board, {required bool compact}) {
+    if (board != null && !board.columns.any((c) => c.id == _kanbanStatus)) {
+      _kanbanStatus = '';
+    }
+    if (!_controller.projectMembers
+        .any((m) => m.employeeId == _kanbanAssignee)) {
+      _kanbanAssignee = '';
+    }
     final showNavigation = (board?.columns.length ?? 0) > 1;
     final canCreateColumn = board != null && _controller.canManageStructure;
     final createColumnAction = canCreateColumn
@@ -281,59 +349,104 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
             label: const Text('Coluna'),
           )
         : null;
-    return WorkspaceFilterSection(
+    final actions = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        if (compact && createColumnAction != null) createColumnAction,
+        if (showNavigation) ...<Widget>[
+          IconButton(
+            tooltip: 'Ver colunas anteriores',
+            constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+            onPressed: () => _boardKey.currentState?.scrollColumns(-1),
+            icon: const Icon(Icons.chevron_left_rounded),
+          ),
+          IconButton(
+            tooltip: 'Ver próximas colunas',
+            constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+            onPressed: () => _boardKey.currentState?.scrollColumns(1),
+            icon: const Icon(Icons.chevron_right_rounded),
+          ),
+        ],
+        if (!compact && createColumnAction != null) createColumnAction,
+      ],
+    );
+    return LayoutBuilder(
       key: const ValueKey<String>('workspace-task-filter-section'),
-      surfaceKey: const ValueKey<String>('kanban-filter-toolbar'),
-      padding: const EdgeInsets.all(12),
-      headingIcon: Icons.task_alt_rounded,
-      actionsOnLeft: compact,
-      title: 'Tarefas do projeto',
-      description: 'Encontre e organize as tarefas do projeto',
-      searchField: Padding(
-        padding: EdgeInsets.only(top: compact ? 8 : 0),
-        child: _buildTaskSearch(board),
-      ),
-      actions: showNavigation || canCreateColumn
-          ? Padding(
-              padding: EdgeInsets.only(top: compact ? 6 : 0),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  if (compact && createColumnAction != null) ...<Widget>[
-                    createColumnAction,
-                    if (showNavigation) const SizedBox(width: 8),
-                  ],
-                  if (showNavigation) ...<Widget>[
-                    IconButton(
-                      tooltip: 'Ver colunas anteriores',
-                      constraints: const BoxConstraints(
-                        minWidth: 48,
-                        minHeight: 48,
-                      ),
-                      onPressed: () =>
-                          _boardKey.currentState?.scrollColumns(-1),
-                      icon: const Icon(Icons.chevron_left_rounded),
-                    ),
-                    IconButton(
-                      tooltip: 'Ver próximas colunas',
-                      constraints: const BoxConstraints(
-                        minWidth: 48,
-                        minHeight: 48,
-                      ),
-                      onPressed: () => _boardKey.currentState?.scrollColumns(1),
-                      icon: const Icon(Icons.chevron_right_rounded),
-                    ),
-                  ],
-                  if (!compact && createColumnAction != null) ...<Widget>[
-                    if (showNavigation) const SizedBox(width: 8),
-                    createColumnAction,
-                  ],
+      builder: (context, constraints) {
+        final search = _buildTaskSearch(board);
+        final filters = Wrap(spacing: 8, runSpacing: 8, children: [
+          SizedBox(
+              width: 180,
+              height: 48,
+              child: WorkspaceInstantSelectField<String>(
+                key: const ValueKey<String>('kanban-status-filter'),
+                value: _kanbanStatus,
+                semanticLabel: 'Status',
+                decoration: _kanbanFilterDecoration(Icons.view_kanban_outlined),
+                options: [
+                  const WorkspaceSelectOption(
+                      value: '', label: 'Todos os status'),
+                  ...?board?.columns.map(
+                      (c) => WorkspaceSelectOption(value: c.id, label: c.name)),
                 ],
-              ),
-            )
-          : null,
+                onChanged: (value) =>
+                    setState(() => _kanbanStatus = value ?? ''),
+              )),
+          SizedBox(
+              width: 180,
+              height: 48,
+              child: WorkspaceInstantSelectField<String>(
+                key: const ValueKey<String>('kanban-assignee-filter'),
+                value: _kanbanAssignee,
+                semanticLabel: 'Responsável',
+                decoration:
+                    _kanbanFilterDecoration(Icons.person_outline_rounded),
+                options: [
+                  const WorkspaceSelectOption(value: '', label: 'Todos'),
+                  ..._controller.projectMembers.map((m) =>
+                      WorkspaceSelectOption(
+                          value: m.employeeId, label: m.employeeName)),
+                ],
+                onChanged: (value) =>
+                    setState(() => _kanbanAssignee = value ?? ''),
+              )),
+        ]);
+        return Column(
+          key: const ValueKey<String>('kanban-filter-toolbar'),
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            if (constraints.maxWidth < 800) ...[search, actions] else
+              Row(children: [
+                Expanded(
+                    child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 420),
+                            child: search))),
+                if (constraints.maxWidth >= 1000) ...[
+                  const SizedBox(width: 8),
+                  filters
+                ],
+                const SizedBox(width: 8),
+                actions,
+              ]),
+            if (constraints.maxWidth < 1000) ...[
+              const SizedBox(height: 8),
+              filters
+            ],
+          ],
+        );
+      },
     );
   }
+
+  InputDecoration _kanbanFilterDecoration(IconData icon) => InputDecoration(
+        isDense: true,
+        visualDensity: VisualDensity.standard,
+        constraints: const BoxConstraints.tightFor(height: 48),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+        prefixIcon: Icon(icon, size: 17),
+      );
 
   Widget _buildTaskSearch(KanbanBoard? board) {
     final columns = board?.columns ?? const <KanbanColumn>[];
@@ -414,35 +527,49 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
 
   Widget _buildProjectViewSwitch({required bool compact}) {
     final colors = Theme.of(context).colorScheme;
+    Widget tab(Widget child, bool selected) => Stack(
+          alignment: Alignment.bottomCenter,
+          children: <Widget>[
+            Center(child: child),
+            if (selected)
+              Container(
+                key: const ValueKey<String>('project-view-selected-indicator'),
+                height: 2,
+                width: compact ? 28 : 64,
+                color: colors.primary,
+              ),
+          ],
+        );
     return ToggleButtons(
       key: const ValueKey<String>('project-view-switch'),
       borderRadius: BorderRadius.circular(8),
       constraints: BoxConstraints(
         minWidth: compact ? 48 : 94,
-        minHeight: 50,
+        minHeight: 52,
       ),
       color: colors.onSurfaceVariant,
-      selectedColor: colors.onPrimaryContainer,
-      fillColor: colors.primaryContainer,
+      selectedColor: colors.primary,
+      fillColor: Colors.transparent,
+      renderBorder: false,
       borderColor: colors.outlineVariant,
       selectedBorderColor: colors.primary,
       isSelected: <bool>[!_showBacklog, _showBacklog],
       onPressed: (index) => setState(() => _showBacklog = index == 1),
       children: <Widget>[
-        if (compact)
-          const Tooltip(
-            message: 'Kanban',
-            child: Icon(Icons.view_kanban_outlined, size: 18),
-          )
-        else
-          const Text('Kanban'),
-        if (compact)
-          const Tooltip(
-            message: 'Backlog',
-            child: Icon(Icons.view_list_outlined, size: 18),
-          )
-        else
-          const Text('Backlog'),
+        tab(
+            compact
+                ? const Tooltip(
+                    message: 'Kanban',
+                    child: Icon(Icons.view_kanban_outlined, size: 18))
+                : const Text('Kanban'),
+            !_showBacklog),
+        tab(
+            compact
+                ? const Tooltip(
+                    message: 'Backlog',
+                    child: Icon(Icons.view_list_outlined, size: 18))
+                : const Text('Backlog'),
+            _showBacklog),
       ],
     );
   }
@@ -539,6 +666,19 @@ class _ProjectKanbanPageState extends State<ProjectKanbanPage> {
                   child: ProjectKanbanBoard(
                     key: _boardKey,
                     board: board,
+                    visibleCardIds: _kanbanStatus.isEmpty &&
+                            _kanbanAssignee.isEmpty
+                        ? null
+                        : {
+                            for (final column in board.columns)
+                              for (final card in column.cards)
+                                if ((_kanbanStatus.isEmpty ||
+                                        column.id == _kanbanStatus) &&
+                                    (_kanbanAssignee.isEmpty ||
+                                        card.assignees.any((a) =>
+                                            a.employeeId == _kanbanAssignee)))
+                                  card.id
+                          },
                     matchedCardIds: matchedCardIds,
                     isSearchActive: query.isActive,
                     isBusy: isMutating,
@@ -1370,38 +1510,42 @@ class _KanbanMetricsStrip extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
       key: const ValueKey<String>('kanban-project-metrics'),
-      height: 52,
+      constraints: const BoxConstraints(minHeight: 36),
       decoration: BoxDecoration(
-        color: colorScheme.surface.withValues(alpha: 0.58),
-        border: Border.all(color: colorScheme.outlineVariant),
-        borderRadius: BorderRadius.circular(12),
+        border: Border(bottom: BorderSide(color: colorScheme.outlineVariant)),
       ),
-      child: Row(
-        children: <Widget>[
-          Expanded(
-            child: _KanbanMetricCell(
-              icon: Icons.view_column_outlined,
-              label: 'Colunas',
-              value: columns?.toString() ?? '—',
-            ),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: Row(
+            children: <Widget>[
+              Expanded(
+                child: _KanbanMetricCell(
+                  icon: Icons.view_column_outlined,
+                  label: 'Colunas',
+                  value: columns?.toString() ?? '—',
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _KanbanMetricCell(
+                  icon: Icons.task_alt_outlined,
+                  label: 'Cards',
+                  value: cards?.toString() ?? '—',
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _KanbanMetricCell(
+                  icon: Icons.groups_2_outlined,
+                  label: 'Equipe',
+                  value: team.toString(),
+                ),
+              ),
+            ],
           ),
-          VerticalDivider(width: 1, color: colorScheme.outlineVariant),
-          Expanded(
-            child: _KanbanMetricCell(
-              icon: Icons.task_alt_outlined,
-              label: 'Cards',
-              value: cards?.toString() ?? '—',
-            ),
-          ),
-          VerticalDivider(width: 1, color: colorScheme.outlineVariant),
-          Expanded(
-            child: _KanbanMetricCell(
-              icon: Icons.groups_2_outlined,
-              label: 'Equipe',
-              value: team.toString(),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -1429,34 +1573,20 @@ class _KanbanMetricCell extends StatelessWidget {
         children: <Widget>[
           Icon(icon, size: 14, color: colorScheme.primary),
           const SizedBox(width: 6),
+          Text(value,
+              style: theme.textTheme.labelLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+              )),
+          const SizedBox(width: 4),
           Flexible(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  value,
-                  maxLines: 1,
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    fontWeight: FontWeight.w900,
-                    height: 1,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w600,
-                    height: 1,
-                  ),
-                ),
-              ],
+              child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
             ),
-          ),
+          )),
         ],
       ),
     );

@@ -9,6 +9,7 @@ import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_s
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_skeleton.dart';
 import 'package:touchin_flutter/features/admin/presentation/admin_employees_controller.dart';
 import 'package:touchin_flutter/theme/app_theme.dart';
+import 'package:touchin_flutter/theme/workspace_menu_style.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -387,7 +388,7 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
         children: <Widget>[
           _buildWorkspaceHeader(isWide),
           const SizedBox(height: 16),
-          _buildMetricGrid(isWide),
+          _buildMetricGrid(),
           const SizedBox(height: 20),
           _buildEmployeesSection(isWide),
         ],
@@ -420,68 +421,96 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
     return <Widget>[createButton];
   }
 
-  Widget _buildMetricGrid(bool isWide) {
+  Widget _buildMetricGrid() {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final metrics = <(IconData, String, String)>[
+      (Icons.groups_2_rounded, 'Colaboradores', _employees.length.toString()),
+      (Icons.verified_user_rounded, 'Ativos', _activeEmployees.toString()),
+      (
+        Icons.location_on_rounded,
+        'Com geolocalização',
+        _locationTrackedEmployees.toString()
+      ),
+      (
+        Icons.warning_amber_rounded,
+        'Em atenção',
+        _attentionEmployees.toString()
+      ),
+    ];
     return LayoutBuilder(
       builder: (context, constraints) {
-        final useSingleRow = isWide && constraints.maxWidth >= 980;
-        final useTwoColumns = !useSingleRow && constraints.maxWidth >= 500;
-        final itemWidth = useTwoColumns
-            ? (constraints.maxWidth - 8) / 2
-            : constraints.maxWidth;
-        final metricItems = <Widget>[
-          WorkspaceMetricCard(
-            icon: Icons.groups_2_rounded,
-            label: 'Colaboradores',
-            value: _employees.length.toString(),
-            helper: 'Perfis cadastrados na empresa.',
+        final columns = constraints.maxWidth >= 720
+            ? 4
+            : constraints.maxWidth >= 340
+                ? 2
+                : 1;
+        final rows = <Widget>[];
+        for (var start = 0; start < metrics.length; start += columns) {
+          if (start > 0) {
+            rows.add(Divider(
+                height: 1, thickness: 1, color: colorScheme.outlineVariant));
+          }
+          final cells = <Widget>[];
+          for (var i = start; i < start + columns && i < metrics.length; i++) {
+            if (i > start) {
+              cells.add(SizedBox(
+                  width: 1,
+                  height: 56,
+                  child: Container(color: colorScheme.outlineVariant)));
+            }
+            final (icon, label, value) = metrics[i];
+            cells.add(Expanded(
+              child: Semantics(
+                container: true,
+                label: '$label: $value',
+                child: ExcludeSemantics(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 10),
+                    child: Row(children: [
+                      Icon(icon, size: 18, color: colorScheme.onSurfaceVariant),
+                      const SizedBox(width: 8),
+                      Expanded(
+                          child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(label,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.labelMedium?.copyWith(
+                                  color: colorScheme.onSurfaceVariant,
+                                  fontWeight: FontWeight.w600)),
+                          const SizedBox(height: 2),
+                          Text(value,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.w800)),
+                        ],
+                      )),
+                    ]),
+                  ),
+                ),
+              ),
+            ));
+          }
+          rows.add(Row(children: cells));
+        }
+        return Container(
+          key: const ValueKey<String>('team-metrics-strip'),
+          decoration: BoxDecoration(
+            color: colorScheme.surface,
+            border: Border.all(color: colorScheme.outlineVariant),
+            borderRadius: BorderRadius.circular(16),
           ),
-          WorkspaceMetricCard(
-            icon: Icons.verified_user_rounded,
-            label: 'Ativos',
-            value: _activeEmployees.toString(),
-            helper: 'Perfis com vínculo ativo.',
-          ),
-          WorkspaceMetricCard(
-            icon: Icons.location_on_rounded,
-            label: 'Com geolocalização',
-            value: _locationTrackedEmployees.toString(),
-            helper: 'Perfis com localização habilitada.',
-          ),
-          WorkspaceMetricCard(
-            icon: Icons.warning_amber_rounded,
-            label: 'Em atenção',
-            value: _attentionEmployees.toString(),
-            helper: 'Perfis com pendências operacionais.',
-          ),
-        ];
-
-        return useSingleRow
-            ? Row(
-                children: metricItems.asMap().entries.map((entry) {
-                  final index = entry.key;
-                  final item = entry.value;
-                  return Expanded(
-                    child: Padding(
-                      padding: EdgeInsets.only(
-                        right: index == metricItems.length - 1 ? 0 : 8,
-                      ),
-                      child: item,
-                    ),
-                  );
-                }).toList(),
-              )
-            : Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: metricItems
-                    .map(
-                      (item) => SizedBox(
-                        width: itemWidth,
-                        child: item,
-                      ),
-                    )
-                    .toList(),
-              );
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: rows),
+        );
       },
     );
   }
@@ -520,23 +549,23 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
               ),
       ),
     );
-    final heading = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Equipe',
-          style: theme.textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          'Busque e selecione perfis para editar dados principais.',
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ],
+    final heading = Text(
+      'Equipe',
+      style: theme.textTheme.titleLarge?.copyWith(
+        fontWeight: FontWeight.w700,
+      ),
+    );
+    final filters = Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      children: EmployeeFilter.values.map((filter) {
+        return ChoiceChip(
+          label: Text(_filterLabel(filter)),
+          selected: _filter == filter,
+          checkmarkColor: adminColors.selectedForeground,
+          onSelected: (_) => _controller.setFilter(filter),
+        );
+      }).toList(),
     );
 
     return WorkspaceSectionCard(
@@ -544,37 +573,39 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           LayoutBuilder(builder: (context, constraints) {
-            if (constraints.maxWidth < 700) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [heading, const SizedBox(height: 20), search],
+            if (constraints.maxWidth >= 1100) {
+              return Row(
+                children: [
+                  heading,
+                  const SizedBox(width: 24),
+                  filters,
+                  const Spacer(),
+                  const SizedBox(width: 24),
+                  SizedBox(width: 340, child: search),
+                ],
               );
             }
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(child: heading),
-                const SizedBox(width: 24),
-                SizedBox(width: 340, child: search),
+                if (constraints.maxWidth < 700) ...[
+                  heading,
+                  const SizedBox(height: 12),
+                  search,
+                ] else
+                  Row(
+                    children: [
+                      Expanded(child: heading),
+                      const SizedBox(width: 24),
+                      SizedBox(width: 340, child: search),
+                    ],
+                  ),
+                const SizedBox(height: 16),
+                filters,
               ],
             );
           }),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: EmployeeFilter.values.map((filter) {
-              return ChoiceChip(
-                label: Text(_filterLabel(filter)),
-                selected: _filter == filter,
-                checkmarkColor: adminColors.selectedForeground,
-                onSelected: (_) {
-                  _controller.setFilter(filter);
-                },
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 12),
           if (_isLoading)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 24),
@@ -647,26 +678,26 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
           else
             Column(
               children: [
-                ...pagedEmployees.map((employee) {
-                  final selected = employee.id == _selectedEmployee?.id;
-
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _EmployeeListTile(
-                      employee: employee,
-                      selected: selected,
-                      statusColor: _statusColor(employee.status),
-                      statusIcon: _statusIcon(employee.status),
-                      statusLabel: _statusLabel(employee.status),
-                      needsAttention: _needsAttention(employee),
-                      onTap: () => _selectEmployee(employee.id, isWide: isWide),
-                      onEdit: () => _openEditEmployeeDialog(employee),
-                      onDelete: () => _removeEmployee(employee),
-                    ),
-                  );
-                }),
+                Column(
+                    children: pagedEmployees.map((employee) {
+                      return Column(children: [
+                        Divider(height: 1, color: colorScheme.outlineVariant),
+                        _EmployeeListTile(
+                          employee: employee,
+                          selected: employee.id == _selectedEmployee?.id,
+                          statusColor: _statusColor(employee.status),
+                          statusIcon: _statusIcon(employee.status),
+                          statusLabel: _statusLabel(employee.status),
+                          needsAttention: _needsAttention(employee),
+                          onTap: () => _selectEmployee(employee.id, isWide: isWide),
+                          onEdit: () => _openEditEmployeeDialog(employee),
+                          onDelete: () => _removeEmployee(employee),
+                        ),
+                      ]);
+                    }).toList(),
+                ),
                 if (_hasEmployeesPagination) ...[
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 8),
                   PaginationControls(
                     page: _employeesPage,
                     totalPages: _employeesTotalPages,
@@ -1186,13 +1217,20 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
             return Stack(fit: StackFit.passthrough, children: [
               child!,
               Positioned.fill(
-                left: 4, top: 4, right: 4, bottom: 4,
+                left: 4,
+                top: 4,
+                right: 4,
+                bottom: 4,
                 child: IgnorePointer(
                   child: DecoratedBox(
                     key: ValueKey('profile-tab-focus-$label'),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: selected ? selectedTabForeground : colorScheme.onSurface, width: 2),
+                      border: Border.all(
+                          color: selected
+                              ? selectedTabForeground
+                              : colorScheme.onSurface,
+                          width: 2),
                     ),
                   ),
                 ),
@@ -1205,7 +1243,8 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
                     : states.contains(MaterialState.focused)
                         ? AppTheme.navigationColors(Theme.of(context)).focusRing
                         : colorScheme.outlineVariant,
-                width: states.contains(MaterialState.focused) || selected ? 2 : 1,
+                width:
+                    states.contains(MaterialState.focused) || selected ? 2 : 1,
               )),
           shape: MaterialStateProperty.all(
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),

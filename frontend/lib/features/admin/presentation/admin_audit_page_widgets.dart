@@ -37,6 +37,7 @@ String auditEntityLabel(String value) {
         'company': 'Empresa',
         'time_clock': 'Registro de ponto',
         'punch': 'Batida',
+        'company_ai_settings': 'Configurações de sugestões de tarefas com IA',
       }[value] ??
       value;
 }
@@ -194,6 +195,13 @@ class AuditTechnicalId extends StatelessWidget {
   }
 }
 
+String auditActorLabel(AuditEventResponse event) {
+  final name = event.actorName?.trim();
+  if (name != null && name.isNotEmpty) return name;
+  if (event.actorUserId != null) return 'Usuário desconhecido';
+  return 'Sistema';
+}
+
 class AuditEventTableHeader extends StatelessWidget {
   const AuditEventTableHeader({super.key});
 
@@ -225,7 +233,7 @@ class AuditEventTableHeader extends StatelessWidget {
           Expanded(flex: 5, child: label('Evento')),
           SizedBox(width: 124, child: label('Data/hora (local)')),
           SizedBox(width: 100, child: label('Resultado')),
-          Expanded(flex: 3, child: label('Ator')),
+          Expanded(flex: 3, child: label('Autor')),
           Expanded(flex: 4, child: label('Recurso')),
           Expanded(flex: 2, child: label('Projeto')),
           const SizedBox(width: 36),
@@ -253,7 +261,6 @@ class AuditEventTableRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final actor = event.actorUserId;
 
     return Material(
       color: Colors.transparent,
@@ -341,10 +348,26 @@ class AuditEventTableRow extends StatelessWidget {
                   flex: 3,
                   child: Padding(
                     padding: const EdgeInsets.only(right: 10),
-                    child: AuditTechnicalId(
-                      value: actor ?? 'Sistema',
-                      copyLabel: 'ID do ator',
-                      showCopyButton: false,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          auditActorLabel(event),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        if (event.actorUserId != null) ...[
+                          const SizedBox(height: 2),
+                          AuditTechnicalId(
+                            value: event.actorUserId!,
+                            copyLabel: 'ID do autor',
+                            showCopyButton: false,
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 ),
@@ -493,10 +516,24 @@ class AuditEventCard extends StatelessWidget {
                 const SizedBox(height: 12),
                 _AuditCardMeta(
                   icon: Icons.person_outline_rounded,
-                  label: 'Ator',
-                  child: AuditTechnicalId(
-                    value: event.actorUserId ?? 'Sistema',
-                    copyLabel: 'ID do ator',
+                  label: 'Autor',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        auditActorLabel(event),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      if (event.actorUserId != null) ...[
+                        const SizedBox(height: 2),
+                        AuditTechnicalId(
+                          value: event.actorUserId!,
+                          copyLabel: 'ID do autor',
+                        ),
+                      ],
+                    ],
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -916,10 +953,24 @@ class AuditEventDetailsDialog extends StatelessWidget {
                       ),
                     ),
                     field(
-                      'Ator',
-                      AuditTechnicalId(
-                        value: event.actorUserId ?? 'Sistema',
-                        copyLabel: 'ID do ator',
+                      'Autor',
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            auditActorLabel(event),
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          if (event.actorUserId != null) ...[
+                            const SizedBox(height: 4),
+                            AuditTechnicalId(
+                              value: event.actorUserId!,
+                              copyLabel: 'ID do autor',
+                            ),
+                          ],
+                        ],
                       ),
                     ),
                     field(

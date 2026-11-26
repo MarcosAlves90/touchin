@@ -9,6 +9,7 @@ import 'package:touchin_flutter/features/admin/presentation/admin_audit_page_wid
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_skeleton.dart';
 import 'package:touchin_flutter/theme/app_theme.dart';
+import 'package:touchin_flutter/theme/workspace_menu_style.dart';
 
 typedef _AuditFilters = ({
   DateTime? startDate,
@@ -71,6 +72,8 @@ class _AdminAuditPageState extends State<AdminAuditPage> with RouteAware {
     'kanban.column_updated': 'Coluna atualizada',
     'kanban.column_reordered': 'Coluna reordenada',
     'kanban.column_deleted': 'Coluna excluída',
+    'company.ai_task_recommendations.settings_updated':
+        'Configurações de sugestões de tarefas com IA atualizadas',
   };
   static const _resultLabels = {
     'success': 'Sucesso',
@@ -638,7 +641,7 @@ class _AdminAuditPageState extends State<AdminAuditPage> with RouteAware {
     if (filters.actorUserId != null) {
       chips.add(
         _filterChip(
-            Icons.person_outline_rounded, 'Ator: ${filters.actorUserId}'),
+            Icons.person_outline_rounded, 'Autor: ${filters.actorUserId}'),
       );
     }
     if (filters.action != null) {
@@ -1062,6 +1065,9 @@ class _AdminAuditPageState extends State<AdminAuditPage> with RouteAware {
             child: DropdownButtonFormField<String>(
               key: ValueKey<String>(key),
               initialValue: controller.text.isEmpty ? null : controller.text,
+              dropdownColor:
+                  WorkspaceMenuStyle.surface(Theme.of(context).colorScheme),
+              borderRadius: WorkspaceMenuStyle.borderRadius,
               isExpanded: true,
               decoration: InputDecoration(labelText: label, isDense: true),
               hint: Text(hint),
@@ -1081,8 +1087,8 @@ class _AdminAuditPageState extends State<AdminAuditPage> with RouteAware {
               spacing: spacing,
               runSpacing: spacing,
               children: [
-                field('ID do usuário (ator)', _actorUserIdController,
-                    hint: 'ID técnico do ator'),
+                field('ID do usuário (autor)', _actorUserIdController,
+                    hint: 'ID técnico do autor'),
                 dropdown(
                   'Ação',
                   'audit-action-filter',

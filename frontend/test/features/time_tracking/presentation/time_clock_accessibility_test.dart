@@ -72,16 +72,13 @@ void main() {
         ));
         await tester.pump();
 
-        final badge = tester.widget<WorkspaceStatusBadge>(
-          find.widgetWithText(WorkspaceStatusBadge, state.value),
+        final status = tester.widget<Text>(
+          find.byKey(const ValueKey<String>('time-clock-shift-status')),
         );
-        final badgeBackground = Color.alphaBlend(
-          badge.tone.withValues(alpha: 0.14),
-          panel,
-        );
+        expect(status.data, state.value);
         expect(
-            _contrast(badge.tone, badgeBackground), greaterThanOrEqualTo(4.5),
-            reason: '$brightness: ${state.value} badge');
+            _contrast(status.style!.color!, panel), greaterThanOrEqualTo(4.5),
+            reason: '$brightness: ${state.value} status');
 
         final locationHeading = tester.widget<Text>(
           find.byKey(

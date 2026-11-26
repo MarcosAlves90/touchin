@@ -18,6 +18,7 @@ mixin _$AuditEventResponse {
   DateTime get timestamp;
   String get companyId;
   String? get actorUserId;
+  String? get actorName;
   String? get projectId;
   String get action;
   String get entityType;
@@ -46,6 +47,8 @@ mixin _$AuditEventResponse {
                 other.companyId == companyId) &&
             (identical(other.actorUserId, actorUserId) ||
                 other.actorUserId == actorUserId) &&
+            (identical(other.actorName, actorName) ||
+                other.actorName == actorName) &&
             (identical(other.projectId, projectId) ||
                 other.projectId == projectId) &&
             (identical(other.action, action) || other.action == action) &&
@@ -77,7 +80,7 @@ mixin _$AuditEventResponse {
 
   @override
   String toString() {
-    return 'AuditEventResponse(id: $id, timestamp: $timestamp, companyId: $companyId, actorUserId: $actorUserId, projectId: $projectId, action: $action, entityType: $entityType, entityId: $entityId, result: $result, metadataPayload: $metadataPayload, correlationId: $correlationId)';
+    return 'AuditEventResponse(id: $id, timestamp: $timestamp, companyId: $companyId, actorUserId: $actorUserId, actorName: $actorName, projectId: $projectId, action: $action, entityType: $entityType, entityId: $entityId, result: $result, metadataPayload: $metadataPayload, correlationId: $correlationId)';
   }
 }
 
@@ -92,6 +95,7 @@ abstract mixin class $AuditEventResponseCopyWith<$Res> {
       DateTime timestamp,
       String companyId,
       String? actorUserId,
+      String? actorName,
       String? projectId,
       String action,
       String entityType,
@@ -118,6 +122,7 @@ class _$AuditEventResponseCopyWithImpl<$Res>
     Object? timestamp = null,
     Object? companyId = null,
     Object? actorUserId = freezed,
+    Object? actorName = freezed,
     Object? projectId = freezed,
     Object? action = null,
     Object? entityType = null,
@@ -142,6 +147,10 @@ class _$AuditEventResponseCopyWithImpl<$Res>
       actorUserId: freezed == actorUserId
           ? _self.actorUserId
           : actorUserId // ignore: cast_nullable_to_non_nullable
+              as String?,
+      actorName: freezed == actorName
+          ? _self.actorName
+          : actorName // ignore: cast_nullable_to_non_nullable
               as String?,
       projectId: freezed == projectId
           ? _self.projectId
@@ -273,6 +282,7 @@ extension AuditEventResponsePatterns on AuditEventResponse {
             DateTime timestamp,
             String companyId,
             String? actorUserId,
+            String? actorName,
             String? projectId,
             String action,
             String entityType,
@@ -291,6 +301,7 @@ extension AuditEventResponsePatterns on AuditEventResponse {
             _that.timestamp,
             _that.companyId,
             _that.actorUserId,
+            _that.actorName,
             _that.projectId,
             _that.action,
             _that.entityType,
@@ -323,6 +334,7 @@ extension AuditEventResponsePatterns on AuditEventResponse {
             DateTime timestamp,
             String companyId,
             String? actorUserId,
+            String? actorName,
             String? projectId,
             String action,
             String entityType,
@@ -340,6 +352,7 @@ extension AuditEventResponsePatterns on AuditEventResponse {
             _that.timestamp,
             _that.companyId,
             _that.actorUserId,
+            _that.actorName,
             _that.projectId,
             _that.action,
             _that.entityType,
@@ -371,6 +384,7 @@ extension AuditEventResponsePatterns on AuditEventResponse {
             DateTime timestamp,
             String companyId,
             String? actorUserId,
+            String? actorName,
             String? projectId,
             String action,
             String entityType,
@@ -388,6 +402,7 @@ extension AuditEventResponsePatterns on AuditEventResponse {
             _that.timestamp,
             _that.companyId,
             _that.actorUserId,
+            _that.actorName,
             _that.projectId,
             _that.action,
             _that.entityType,
@@ -409,6 +424,7 @@ class _AuditEventResponse extends AuditEventResponse {
       required this.timestamp,
       required this.companyId,
       this.actorUserId,
+      this.actorName,
       this.projectId,
       required this.action,
       required this.entityType,
@@ -427,6 +443,8 @@ class _AuditEventResponse extends AuditEventResponse {
   final String companyId;
   @override
   final String? actorUserId;
+  @override
+  final String? actorName;
   @override
   final String? projectId;
   @override
@@ -470,6 +488,8 @@ class _AuditEventResponse extends AuditEventResponse {
                 other.companyId == companyId) &&
             (identical(other.actorUserId, actorUserId) ||
                 other.actorUserId == actorUserId) &&
+            (identical(other.actorName, actorName) ||
+                other.actorName == actorName) &&
             (identical(other.projectId, projectId) ||
                 other.projectId == projectId) &&
             (identical(other.action, action) || other.action == action) &&
@@ -491,6 +511,7 @@ class _AuditEventResponse extends AuditEventResponse {
       timestamp,
       companyId,
       actorUserId,
+      actorName,
       projectId,
       action,
       entityType,
@@ -501,7 +522,7 @@ class _AuditEventResponse extends AuditEventResponse {
 
   @override
   String toString() {
-    return 'AuditEventResponse(id: $id, timestamp: $timestamp, companyId: $companyId, actorUserId: $actorUserId, projectId: $projectId, action: $action, entityType: $entityType, entityId: $entityId, result: $result, metadataPayload: $metadataPayload, correlationId: $correlationId)';
+    return 'AuditEventResponse(id: $id, timestamp: $timestamp, companyId: $companyId, actorUserId: $actorUserId, actorName: $actorName, projectId: $projectId, action: $action, entityType: $entityType, entityId: $entityId, result: $result, metadataPayload: $metadataPayload, correlationId: $correlationId)';
   }
 }
 
@@ -518,6 +539,7 @@ abstract mixin class _$AuditEventResponseCopyWith<$Res>
       DateTime timestamp,
       String companyId,
       String? actorUserId,
+      String? actorName,
       String? projectId,
       String action,
       String entityType,
@@ -544,6 +566,7 @@ class __$AuditEventResponseCopyWithImpl<$Res>
     Object? timestamp = null,
     Object? companyId = null,
     Object? actorUserId = freezed,
+    Object? actorName = freezed,
     Object? projectId = freezed,
     Object? action = null,
     Object? entityType = null,
@@ -568,6 +591,10 @@ class __$AuditEventResponseCopyWithImpl<$Res>
       actorUserId: freezed == actorUserId
           ? _self.actorUserId
           : actorUserId // ignore: cast_nullable_to_non_nullable
+              as String?,
+      actorName: freezed == actorName
+          ? _self.actorName
+          : actorName // ignore: cast_nullable_to_non_nullable
               as String?,
       projectId: freezed == projectId
           ? _self.projectId

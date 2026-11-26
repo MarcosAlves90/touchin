@@ -59,6 +59,87 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('kanban cards remain compact and distinct from lanes',
+      (tester) async {
+    await _setUpBoardSurface(tester);
+    await tester.pumpWidget(_host(_board()));
+    final laneFinder =
+        find.byKey(const ValueKey<String>('kanban-column-column-a'));
+    final cardFinder =
+        find.byKey(const ValueKey<String>('kanban-card-task-01'));
+    final lane = tester.getSize(laneFinder);
+    final card = tester.getSize(cardFinder);
+    final laneDecoration = tester
+        .widget<AnimatedContainer>(laneFinder)
+        .decoration! as BoxDecoration;
+    final cardDecoration = tester
+        .widget<AnimatedContainer>(find
+            .descendant(
+                of: cardFinder, matching: find.byType(AnimatedContainer))
+            .first)
+        .decoration! as BoxDecoration;
+    expect(lane.width, greaterThan(280));
+    expect(card.height, lessThan(145));
+    expect(laneDecoration.border, isNotNull);
+    expect(cardDecoration.border, isNotNull);
+    expect(cardDecoration.color, isNot(laneDecoration.color));
+    expect(find.text('#1'), findsOneWidget);
+    expect(find.text('Descrição'), findsOneWidget);
+    expect(find.byTooltip('Ações do card #1'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('card action menu has a contrasting surface', (tester) async {
+    await _setUpBoardSurface(tester);
+    await tester.pumpWidget(_host(_board(includeNonmatchingCard: true)));
+    final button = tester.widget<PopupMenuButton<String>>(
+      find.byWidgetPredicate((widget) =>
+          widget is PopupMenuButton<String> &&
+          widget.tooltip == 'Ações do card #1'),
+    );
+    final colors =
+        Theme.of(tester.element(find.byType(ProjectKanbanBoard))).colorScheme;
+    expect(button.color, colors.surfaceContainerHighest);
+    final shape = button.shape! as RoundedRectangleBorder;
+    expect(shape.borderRadius, BorderRadius.circular(10),
+        reason: 'kanban_card_menu_radius_10');
+    expect(shape.side.color, colors.outlineVariant,
+        reason: 'kanban_card_menu_border');
+    await tester.tap(find.byTooltip('Ações do card #1'));
+    await tester.pumpAndSettle();
+    expect(find.text('Editar card'), findsOneWidget);
+    final move = find.ancestor(
+      of: find.text('Mover card para baixo'),
+      matching: find.byType(ListTile),
+    );
+    expect(
+        find.descendant(
+            of: move, matching: find.byIcon(Icons.arrow_downward_rounded)),
+        findsOneWidget);
+  });
+
+  testWidgets('column action menu uses the shared popup surface',
+      (tester) async {
+    await _setUpBoardSurface(tester);
+    await tester.pumpWidget(_host(_board()));
+    final button = tester.widget<PopupMenuButton<String>>(
+      find
+          .byWidgetPredicate((widget) =>
+              widget is PopupMenuButton<String> &&
+              widget.tooltip == 'Opções da coluna')
+          .first,
+    );
+    final colors =
+        Theme.of(tester.element(find.byType(ProjectKanbanBoard))).colorScheme;
+    expect(button.color, colors.surfaceContainerHighest,
+        reason: 'kanban_column_menu_surface');
+    final shape = button.shape! as RoundedRectangleBorder;
+    expect(shape.borderRadius, BorderRadius.circular(10),
+        reason: 'kanban_column_menu_radius_10');
+    expect(shape.side.color, colors.outlineVariant,
+        reason: 'kanban_column_menu_border');
+  });
+
   testWidgets('uses native slivers and no legacy drag/reorder primitives', (
     tester,
   ) async {
@@ -149,6 +230,85 @@ void main() {
     expect(movedIndex, 0);
   });
 
+  testWidgets(
+      'same-slot drop with a hidden card between visible cards is a no-op',
+      (tester) async {
+    await _setUpBoardSurface(tester);
+
+    final moves = <(String, String, int)>[];
+    await tester.pumpWidget(
+      _host(
+        _boardWithHiddenMiddleCard(),
+        visibleCardIds: const <String>{'task-a', 'task-b'},
+        onMoveCard: (taskId, columnId, index) async {
+          moves.add((taskId, columnId, index));
+        },
+      ),
+    );
+
+    final cardA = find.byKey(const ValueKey<String>('kanban-card-task-a'));
+    expect(cardA, findsOneWidget);
+    expect(
+        find.byKey(const ValueKey<String>('kanban-card-task-h')), findsNothing);
+    final handle = find.descendant(
+      of: cardA,
+      matching: find.byIcon(Icons.drag_indicator_rounded),
+    );
+    final rect = tester.getRect(cardA);
+
+    for (final fraction in <double>[0.25, 0.75]) {
+      final gesture = await tester.startGesture(tester.getCenter(handle));
+      await gesture
+          .moveTo(Offset(rect.center.dx, rect.top + rect.height * fraction));
+      await tester.pump();
+      expect(find.text('Solte aqui · posição 1'), findsOneWidget);
+      expect(find.text('Solte aqui · posição 3'), findsNothing);
+      await gesture.up();
+      await tester.pump();
+    }
+
+    expect(moves, isEmpty, reason: 'filtered_same_slot_drop_must_not_reorder');
+  });
+
+  for (final (sourceId, targetId, fraction, expectedIndex)
+      in <(String, String, double, int)>[
+    ('task-a', 'task-b', 0.75, 3),
+    ('task-b', 'task-a', 0.25, 0),
+  ]) {
+    testWidgets(
+        'intentional move from $sourceId toward $targetId keeps its index',
+        (tester) async {
+      await _setUpBoardSurface(tester);
+
+      final moves = <(String, String, int)>[];
+      await tester.pumpWidget(
+        _host(
+          _boardWithHiddenMiddleCard(),
+          visibleCardIds: const <String>{'task-a', 'task-b'},
+          onMoveCard: (taskId, columnId, index) async {
+            moves.add((taskId, columnId, index));
+          },
+        ),
+      );
+
+      final handle = find.descendant(
+        of: find.byKey(ValueKey<String>('kanban-card-$sourceId')),
+        matching: find.byIcon(Icons.drag_indicator_rounded),
+      );
+      final targetRect =
+          tester.getRect(find.byKey(ValueKey<String>('kanban-card-$targetId')));
+      final gesture = await tester.startGesture(tester.getCenter(handle));
+      await gesture.moveTo(Offset(
+          targetRect.center.dx, targetRect.top + targetRect.height * fraction));
+      await tester.pump();
+      await gesture.up();
+      await tester.pump();
+
+      expect(moves,
+          <(String, String, int)>[(sourceId, 'column-a', expectedIndex)]);
+    });
+  }
+
   testWidgets('column reorder action reports the column identity',
       (tester) async {
     await _setUpBoardSurface(tester);
@@ -191,6 +351,7 @@ Widget _host(
   Future<void> Function(String taskId, String columnId, int index)? onMoveCard,
   Future<void> Function(String columnId, int index)? onMoveColumn,
   Set<String> matchedCardIds = const <String>{},
+  Set<String>? visibleCardIds,
 }) {
   return MaterialApp(
     home: Scaffold(
@@ -199,6 +360,7 @@ Widget _host(
           padding: const EdgeInsets.all(16),
           child: ProjectKanbanBoard(
             board: board,
+            visibleCardIds: visibleCardIds,
             matchedCardIds: matchedCardIds,
             isBusy: false,
             canMoveCards: true,
@@ -275,6 +437,45 @@ KanbanBoard _board({bool includeNonmatchingCard = false}) {
         cards: const <KanbanCard>[],
         createdAt: DateTime(2026, 9, 21),
         updatedAt: DateTime(2026, 9, 21),
+      ),
+    ],
+  );
+}
+
+KanbanBoard _boardWithHiddenMiddleCard() {
+  final date = DateTime(2026, 9, 21);
+  KanbanCard card(String id, int number, int position, String name) =>
+      KanbanCard(
+        id: id,
+        projectId: 'project-01',
+        parentTaskId: null,
+        cardNumber: number,
+        kanbanColumnId: 'column-a',
+        kanbanPosition: position,
+        name: name,
+        description: 'Descrição',
+        type: TaskType.feature,
+        assignees: const <TaskMemberSummary>[],
+        createdAt: date,
+        updatedAt: date,
+      );
+
+  return KanbanBoard(
+    projectId: 'project-01',
+    kanbanVersion: 4,
+    columns: <KanbanColumn>[
+      KanbanColumn(
+        id: 'column-a',
+        projectId: 'project-01',
+        name: 'A fazer',
+        position: 0,
+        cards: <KanbanCard>[
+          card('task-a', 1, 0, 'Card A'),
+          card('task-h', 2, 1, 'Card oculto'),
+          card('task-b', 3, 2, 'Card B'),
+        ],
+        createdAt: date,
+        updatedAt: date,
       ),
     ],
   );

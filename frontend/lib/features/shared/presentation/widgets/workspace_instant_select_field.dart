@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:touchin_flutter/theme/workspace_menu_style.dart';
 
 class WorkspaceSelectOption<T> {
   const WorkspaceSelectOption({required this.value, required this.label});
@@ -89,6 +90,7 @@ class _WorkspaceInstantSelectFieldState<T>
   }
 
   Future<void> _openMenu() async {
+    final colorScheme = Theme.of(context).colorScheme;
     final anchorContext = _anchorKey.currentContext;
     final anchor = anchorContext?.findRenderObject();
     final overlay = Overlay.of(context).context.findRenderObject();
@@ -115,12 +117,9 @@ class _WorkspaceInstantSelectFieldState<T>
         minWidth: anchor.size.width,
         maxWidth: anchor.size.width,
       ),
-      color: Theme.of(context).colorScheme.surface,
+      color: WorkspaceMenuStyle.surface(colorScheme),
       surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
-      ),
+      shape: WorkspaceMenuStyle.shape(colorScheme),
       popUpAnimationStyle: AnimationStyle.noAnimation,
       items: widget.options
           .map(

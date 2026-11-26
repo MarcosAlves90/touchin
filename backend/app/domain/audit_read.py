@@ -1,17 +1,25 @@
 import json
+import logging
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Iterator, Sequence
 
+from cryptography.fernet import InvalidToken
 from sqlalchemy import Select, select
 from sqlalchemy.orm import Session
 
+from app.config import get_settings
+from app.crypto import FieldCipher
 from app.db import ensure_utc
-from app.models import AuditEvent
+from app.models import AuditEvent, Employee, UserAccount
 from app.schemas.audit import AuditEventResponse
 
+logger = logging.getLogger(__name__)
 
-def serialize_audit_event(event: AuditEvent) -> AuditEventResponse:
+
+def serialize_audit_event(
+    event: AuditEvent, *, actor_name: str | None = None
+) -> AuditEventResponse:
     metadata = None
     if event.metadata_payload:
         try:
@@ -24,6 +32,7 @@ def serialize_audit_event(event: AuditEvent) -> AuditEventResponse:
         timestamp=ensure_utc(event.timestamp),
         company_id=event.company_id,
         actor_user_id=event.actor_user_id,
+        actor_name=actor_name,
         project_id=event.project_id,
         action=event.action,
         entity_type=event.entity_type,
@@ -80,6 +89,43 @@ def build_audit_query(
     return query.order_by(AuditEvent.timestamp.desc(), AuditEvent.id.desc())
 
 
+def resolve_audit_actor_names(
+    db: Session, *, company_id: str, actor_user_ids: set[str]
+) -> dict[str, str]:
+    if not actor_user_ids:
+        return {}
+
+    rows = db.execute(
+        select(UserAccount.id, Employee.name_ciphertext)
+        .outerjoin(Employee, Employee.id == UserAccount.employee_id)
+        .where(
+            UserAccount.company_id == company_id,
+            UserAccount.id.in_(actor_user_ids),
+        )
+    ).all()
+
+    settings = get_settings()
+    cipher = FieldCipher(settings.encryption_secret or "")
+    names: dict[str, str] = {}
+    undecryptable_names = 0
+    for user_id, name_ciphertext in rows:
+        if not name_ciphertext:
+            continue
+        try:
+            name = (cipher.decrypt(name_ciphertext) or "").strip()
+        except InvalidToken:
+            undecryptable_names += 1
+            continue
+        if name:
+            names[user_id] = name
+    if undecryptable_names:
+        logger.warning(
+            "Skipped %d undecryptable optional audit actor name(s); audit events preserved.",
+            undecryptable_names,
+        )
+    return names
+
+
 def list_audit_events(
     db: Session,
     *,
@@ -111,7 +157,22 @@ def list_audit_events(
     query = query.limit(limit).offset(offset)
 
     events = db.scalars(query).all()
-    return [serialize_audit_event(e) for e in events]
+    actor_names = resolve_audit_actor_names(
+        db,
+        company_id=company_id,
+        actor_user_ids={
+            event.actor_user_id for event in events if event.actor_user_id
+        },
+    )
+    return [
+        serialize_audit_event(
+            event,
+            actor_name=actor_names.get(event.actor_user_id)
+            if event.actor_user_id
+            else None,
+        )
+        for event in events
+    ]
 
 
 def iter_audit_export_rows(

@@ -42,6 +42,7 @@ class WorkspaceFilterSection extends StatelessWidget {
     this.surfaceKey,
     this.headingIcon = Icons.filter_list_rounded,
     this.actionsOnLeft = false,
+    this.compact = false,
     this.padding = const EdgeInsets.symmetric(horizontal: 12),
   });
 
@@ -54,12 +55,48 @@ class WorkspaceFilterSection extends StatelessWidget {
   final Key? surfaceKey;
   final IconData headingIcon;
   final bool actionsOnLeft;
+  final bool compact;
   final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    if (compact) {
+      return Material(
+        key: surfaceKey,
+        color: Colors.transparent,
+        child: LayoutBuilder(builder: (context, constraints) {
+          final inlineFooter = constraints.maxWidth >= 600;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              if (inlineFooter)
+                Row(children: <Widget>[
+                  Flexible(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 420),
+                      child: searchField,
+                    ),
+                  ),
+                  if (footer != null) ...<Widget>[
+                    const SizedBox(width: 16),
+                    SizedBox(width: 260, child: footer!),
+                  ],
+                ])
+              else ...<Widget>[
+                searchField,
+                if (footer != null) footer!,
+              ],
+              if (filters != null) ...<Widget>[
+                const SizedBox(height: 8),
+                filters!,
+              ],
+            ],
+          );
+        }),
+      );
+    }
     return WorkspaceToolbar(
       surfaceKey: surfaceKey,
       padding: padding,
