@@ -15,6 +15,8 @@ class ManagedPunchRecord {
     required this.detail,
     required this.projectId,
     required this.location,
+    this.projectName,
+    this.workLog,
   });
 
   final String id;
@@ -23,6 +25,8 @@ class ManagedPunchRecord {
   final DateTime timestamp;
   final String detail;
   final String? projectId;
+  final String? projectName;
+  final PunchWorkLog? workLog;
   final PunchLocationSnapshot? location;
 
   factory ManagedPunchRecord.fromJson(JsonMap json) {
@@ -35,6 +39,8 @@ class ManagedPunchRecord {
       timestamp: requireDateTime(json, 'timestamp'),
       detail: requireString(json, 'detail'),
       projectId: optionalString(json, 'projectId'),
+      projectName: optionalString(json, 'projectName'),
+      workLog: PunchWorkLog.fromRecordJson(json),
       location: rawLocation == null
           ? null
           : PunchLocationSnapshot.fromJson(

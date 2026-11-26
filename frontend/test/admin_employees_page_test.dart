@@ -320,7 +320,13 @@ void main() {
                       type: PunchType.checkIn,
                       timestamp: DateTime(2026, 5, 1, 8),
                       detail: 'Registro fictício',
-                      projectId: null,
+                      projectId: 'horizonte',
+                      projectName: 'Projeto Horizonte',
+                      workLog: const PunchWorkLog(
+                        projectId: 'atlas',
+                        projectName: 'Projeto Atlas',
+                        taskNames: ['Revisar checklist', 'Validar relatório'],
+                      ),
                       location: null,
                     )
                   ]
@@ -382,6 +388,11 @@ void main() {
             radius(find.text('Registro fictício'), 12);
             radius(find.byIcon(Icons.login_rounded).first, 8);
             radius(find.text('Entrada'), 8);
+            expect(find.text('Projeto: Projeto Horizonte'), findsOneWidget);
+            expect(find.text('Projeto das atividades: Projeto Atlas'), findsOneWidget);
+            expect(find.text('Tarefas selecionadas'), findsOneWidget);
+            expect(find.text('• Revisar checklist'), findsOneWidget);
+            expect(find.text('• Validar relatório'), findsOneWidget);
             final menu = find.byIcon(Icons.more_horiz_rounded).last;
             await tester.ensureVisible(menu);
             final punchMenu = tester.widget<PopupMenuButton>(

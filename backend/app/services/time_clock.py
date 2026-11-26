@@ -10,8 +10,8 @@ from app.crypto import FieldCipher
 from app.db import begin_serialized_write, ensure_utc, utcnow
 from app.domain.project_policy import validate_project_for_punch
 from app.domain.time_clock_read import (
-    serialize_managed_record,
-    serialize_record,
+    serialize_managed_punch_write,
+    serialize_punch_write,
 )
 from app.errors import DomainError, ErrorKind
 from app.models import Employee, Punch, Task, WorkLog
@@ -337,7 +337,7 @@ def create_punch(
 
     db.commit()
     db.refresh(record)
-    return serialize_record(record, cipher=cipher)
+    return serialize_punch_write(db, record, cipher=cipher)
 
 
 def create_managed_punch(
@@ -380,7 +380,7 @@ def create_managed_punch(
         _reconcile_linked_work_log(db, punch_id=subsequent.id)
     db.commit()
     db.refresh(record)
-    return serialize_managed_record(record, cipher=cipher)
+    return serialize_managed_punch_write(db, record, cipher=cipher)
 
 
 def update_managed_punch(
@@ -440,7 +440,7 @@ def update_managed_punch(
         _reconcile_linked_work_log(db, punch_id=affected_id)
     db.commit()
     db.refresh(record)
-    return serialize_managed_record(record, cipher=cipher)
+    return serialize_managed_punch_write(db, record, cipher=cipher)
 
 
 def delete_managed_punch(

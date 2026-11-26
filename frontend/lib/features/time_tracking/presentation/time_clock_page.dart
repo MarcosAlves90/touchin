@@ -5,6 +5,7 @@ import 'package:touchin_flutter/core/network/touchin_api.dart';
 import 'package:touchin_flutter/features/time_tracking/application/punch_location_service.dart';
 
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/punch_work_context.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_skeleton.dart';
 import 'package:touchin_flutter/features/time_tracking/presentation/time_clock_controller.dart';
 import 'package:touchin_flutter/features/time_tracking/presentation/work_log_dialog.dart';
@@ -1221,6 +1222,11 @@ class _TimelineTile extends StatelessWidget {
       ]),
       children: [
         Align(alignment: Alignment.centerLeft, child: Text(record.detail)),
+        PunchWorkContext(
+          projectId: record.projectId,
+          projectName: record.projectName,
+          workLog: record.workLog,
+        ),
         if (location != null) ...[
           const SizedBox(height: 8),
           Align(
