@@ -33,22 +33,19 @@ void main() {
           await tester.ensureVisible(active);
           await tester.tap(active);
           await tester.pumpAndSettle();
-          final tile = find.ancestor(of: active, matching: find.byType(InkWell)).first;
-          final box = find.descendant(of: tile, matching: find.byWidgetPredicate((w) => w is Container && w.decoration is BoxDecoration)).first;
-          final decoration = tester.widget<Container>(box).decoration! as BoxDecoration;
+          final decoration = _employeeTileDecoration(tester, active);
           final border = (decoration.border! as Border).top;
           final localTheme = Theme.of(tester.element(active));
-          final section = find.ancestor(of: tile, matching: find.byType(WorkspaceSectionCard)).first;
+          final section = find.ancestor(of: active, matching: find.byType(WorkspaceSectionCard)).first;
           final panel = tester.widget<Material>(find.descendant(of: section, matching: find.byType(Material)).first);
           final adjacent = Color.alphaBlend(panel.color!, localTheme.scaffoldBackgroundColor);
           expect(border.color, AppTheme.adminColors(localTheme).selectedIndicator, reason: 'Employee selection border must use accessible theme yellow');
           expect(border.width, 2, reason: 'Selected border width is independent of contrast mode');
-          final inactiveTile = find.ancestor(of: inactive, matching: find.byType(InkWell)).first;
-          final inactiveBox = find.descendant(of: inactiveTile, matching: find.byWidgetPredicate((w) => w is Container && w.decoration is BoxDecoration)).first;
-          final inactiveDecoration = tester.widget<Container>(inactiveBox).decoration! as BoxDecoration;
-          final inactiveBorder = (inactiveDecoration.border! as Border).top;
-          expect(inactiveBorder.color, localTheme.colorScheme.outlineVariant);
-          expect(inactiveBorder.width, 1);
+          final inactiveDecoration = _employeeTileDecoration(tester, inactive);
+          expect(inactiveDecoration.color, Colors.transparent,
+              reason: 'Unselected employee rows do not paint a selection surface');
+          expect(inactiveDecoration.border, isNull,
+              reason: 'Unselected employee rows do not render a selection indicator');
           expect(_contrast(border.color, decoration.color!), greaterThanOrEqualTo(3), reason: 'selected surface');
           expect(_contrast(border.color, adjacent), greaterThanOrEqualTo(3), reason: 'composited adjacent panel');
           final selected = find.ancestor(of: active, matching: find.byWidgetPredicate((w) => w is Semantics && w.properties.selected == true));
@@ -62,6 +59,13 @@ void main() {
           await tester.pumpAndSettle();
           expect(find.ancestor(of: inactive, matching: find.byWidgetPredicate((w) => w is Semantics && w.properties.selected == true)), findsWidgets);
           expect(find.ancestor(of: active, matching: find.byWidgetPredicate((w) => w is Semantics && w.properties.selected == false)), findsWidgets);
+          final previouslySelected = _employeeTileDecoration(tester, active);
+          expect(previouslySelected.border, isNull,
+              reason: 'Selection indicator must leave the previously selected row');
+          final newlySelected = _employeeTileDecoration(tester, inactive);
+          final newBorder = (newlySelected.border! as Border).top;
+          expect(newBorder.color, AppTheme.adminColors(localTheme).selectedIndicator);
+          expect(newBorder.width, 2);
           expect(tester.takeException(), isNull);
           semantics.dispose();
         });
@@ -515,6 +519,17 @@ double _contrast(Color foreground, Color background) {
 Color _renderedTextColor(WidgetTester tester, Finder finder) {
   final paragraph = tester.renderObject<RenderParagraph>(finder);
   return paragraph.text.style!.color!;
+}
+
+BoxDecoration _employeeTileDecoration(WidgetTester tester, Finder label) {
+  final tile = find.ancestor(of: label, matching: find.byType(InkWell)).first;
+  final box = find.descendant(
+    of: tile,
+    matching: find.byWidgetPredicate(
+      (widget) => widget is Container && widget.decoration is BoxDecoration,
+    ),
+  ).first;
+  return tester.widget<Container>(box).decoration! as BoxDecoration;
 }
 
 Color? _decorationColorAncestor(
