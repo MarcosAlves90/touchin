@@ -473,7 +473,11 @@ class _SessionGateState extends State<_SessionGate> {
           return _authenticatedContent(session);
         }
         return widget.unauthenticatedBuilder?.call(context) ??
-            const LoginPage();
+            LoginPage(
+              requiredPasswordChanged: widget.router.requiredPasswordChanged,
+              takePasswordChangeNotice:
+                  widget.router.takeRequiredPasswordChangeNotice,
+            );
       },
     );
   }

@@ -72,6 +72,16 @@ class WorkspaceRouter extends RouterDelegate<WorkspaceLocation>
   int _currentIndex = 0;
   int _sessionGeneration = 0;
   bool _sessionRevoked = false;
+  bool _requiredPasswordChanged = false;
+  bool get requiredPasswordChanged => _requiredPasswordChanged;
+  Object? _pendingRequiredPasswordChange;
+
+  bool takeRequiredPasswordChangeNotice() {
+    if (_path != '/') return false;
+    final pending = _requiredPasswordChanged;
+    _requiredPasswordChanged = false;
+    return pending;
+  }
   AuthSession? _verifiedSession;
   bool _verifyingSession = false;
   bool _verificationUnavailable = false;
@@ -212,6 +222,8 @@ class WorkspaceRouter extends RouterDelegate<WorkspaceLocation>
   }
 
   void authenticate(AuthSession session) {
+    _pendingRequiredPasswordChange = null;
+    _requiredPasswordChanged = false;
     _sessionRevoked = false;
     _sessionGeneration++;
     _navigationUser.value = session.user;
@@ -231,7 +243,13 @@ class WorkspaceRouter extends RouterDelegate<WorkspaceLocation>
     _navigationUser.value = session.user;
   }
 
-  void signedOut() {
+  void signedOut({bool requiredPasswordChanged = false}) {
+    _pendingRequiredPasswordChange = null;
+    _signOut(requiredPasswordChanged: requiredPasswordChanged);
+  }
+
+  void _signOut({bool requiredPasswordChanged = false}) {
+    _requiredPasswordChanged = requiredPasswordChanged;
     _sessionGeneration++;
     _sessionRevoked = true;
     _navigationUser.value = null;
@@ -254,6 +272,7 @@ class WorkspaceRouter extends RouterDelegate<WorkspaceLocation>
     if (_sessionGeneration != expectedGeneration) return;
     final activeToken = _verifiedSession?.accessToken;
     if (activeToken != null && activeToken != expectedToken) return;
+    _pendingRequiredPasswordChange = null;
     _sessionGeneration++;
     _sessionRevoked = true;
     _navigationUser.value = null;
@@ -310,7 +329,59 @@ class WorkspaceRouter extends RouterDelegate<WorkspaceLocation>
 
   void revokeSession() {
     if (_sessionRevoked) return;
-    signedOut();
+    // Revocation still signs out immediately. Keep only the ability to
+    // acknowledge an already submitted password change on the login page.
+    _signOut();
+  }
+
+  Future<void> completeRequiredPasswordChange({
+    required Future<void> Function(String token) request,
+    required Future<void> Function(String token) clearCredentials,
+  }) async {
+    final session = _verifiedSession;
+    if (_sessionRevoked ||
+        session == null ||
+        !session.mustChangePassword ||
+        _pendingRequiredPasswordChange != null) {
+      return;
+    }
+    final operation = Object();
+    final token = session.accessToken;
+    _pendingRequiredPasswordChange = operation;
+    try {
+      await request(token);
+      if (!identical(_pendingRequiredPasswordChange, operation)) return;
+      if (_sessionRevoked) {
+        if (_path != '/') return;
+        // Login is already mounted. Update the notice without replacing the
+        // page or losing anything the employee has started typing.
+        _requiredPasswordChanged = true;
+        notifyListeners();
+      } else {
+        _signOutAfterRequiredPasswordChange();
+      }
+      try {
+        await clearCredentials(token);
+      } catch (_) {
+        // The router has already blocked the revoked session.
+      }
+    } finally {
+      if (identical(_pendingRequiredPasswordChange, operation)) {
+        _pendingRequiredPasswordChange = null;
+      }
+    }
+  }
+
+  void _signOutAfterRequiredPasswordChange() {
+    final context = navigatorKey.currentContext;
+    if (context == null || !context.mounted) {
+      signedOut(requiredPasswordChanged: true);
+    } else {
+      Router.neglect(
+        context,
+        () => signedOut(requiredPasswordChanged: true),
+      );
+    }
   }
 
   void _didRemovePage(Page<Object?> page) {
@@ -368,6 +439,7 @@ class WorkspaceRouter extends RouterDelegate<WorkspaceLocation>
 
   @override
   void dispose() {
+    _pendingRequiredPasswordChange = null;
     _navigationUser.dispose();
     super.dispose();
   }

@@ -1,4 +1,5 @@
 import 'package:touchin_flutter/core/network/touchin_api.dart';
+import 'package:touchin_flutter/core/navigation/workspace_router.dart';
 import 'package:touchin_flutter/features/auth/presentation/auth_submission_mixin.dart';
 import 'package:touchin_flutter/features/auth/presentation/widgets/auth_shell.dart';
 import 'package:touchin_flutter/features/auth/presentation/logout_navigation.dart';
@@ -35,6 +36,7 @@ class _MustChangePasswordPageState extends State<MustChangePasswordPage>
   }
 
   Future<void> _submit() async {
+    if (isSubmitting) return;
     FocusScope.of(context).unfocus();
 
     final valid = _formKey.currentState!.validate();
@@ -43,20 +45,34 @@ class _MustChangePasswordPageState extends State<MustChangePasswordPage>
       return;
     }
 
+    // A previous error must not follow us to login, even when revalidation
+    // signs out before the password-change response reaches this page.
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..removeCurrentSnackBar();
+    final api = _api;
+    final currentPassword = _currentPasswordController.text;
+    final newPassword = _newPasswordController.text;
+    final router = WorkspaceRouterScope.maybeOf(context);
+
     await submitAuthAction(
       action: () {
-        return _api.changePassword(
-          currentPassword: _currentPasswordController.text,
-          newPassword: _newPasswordController.text,
+        Future<void> request([String? token]) => api.changePassword(
+              currentPassword: currentPassword,
+              newPassword: newPassword,
+              sessionToken: token,
+            );
+        if (router == null) return request();
+        return router.completeRequiredPasswordChange(
+          request: request,
+          clearCredentials: (token) =>
+              api.clearLocalSession(expectedToken: token),
         );
       },
       onSuccess: (_) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Senha redefinida com sucesso.'),
-          ),
-        );
-        logoutFromWorkspace(context, api: _api);
+        if (router == null) {
+          logoutFromWorkspace(context, api: api, requiredPasswordChanged: true);
+        }
       },
       genericErrorMessage: 'Não foi possível redefinir sua senha.',
     );

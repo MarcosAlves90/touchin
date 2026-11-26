@@ -5,15 +5,16 @@ import 'package:touchin_flutter/features/auth/presentation/login_page.dart';
 import 'package:flutter/material.dart';
 import 'package:touchin_flutter/core/navigation/workspace_router.dart';
 
-Route<void> buildLoggedOutRoute() {
+Route<void> buildLoggedOutRoute({bool requiredPasswordChanged = false}) {
   return MaterialPageRoute<void>(
-    builder: (_) => const LoginPage(),
+    builder: (_) => LoginPage(requiredPasswordChanged: requiredPasswordChanged),
   );
 }
 
 Future<void> logoutFromWorkspace(
   BuildContext context, {
   TouchInApi? api,
+  bool requiredPasswordChanged = false,
 }) async {
   final dependencies = AppDependencies.maybeOf(context);
   if (dependencies?.onLogout case final onLogout?) {
@@ -21,7 +22,14 @@ Future<void> logoutFromWorkspace(
     return;
   }
   try {
-    await (api ?? dependencies?.api ?? TouchInApi()).logout();
+    final authApi = api ?? dependencies?.api ?? TouchInApi();
+    if (requiredPasswordChanged) {
+      // A successful password change revokes the temporary session server-side.
+      // Do not send a logout with that token: a 401 could redirect independently.
+      await authApi.clearLocalSession();
+    } else {
+      await authApi.logout();
+    }
   } on ApiException {
     // O token local ja foi limpo; nao mantenha a sessão ativa por erro remoto.
   } catch (_) {
@@ -34,12 +42,15 @@ Future<void> logoutFromWorkspace(
 
   final router = WorkspaceRouterScope.maybeOf(context);
   if (router != null) {
-    Router.neglect(context, router.signedOut);
+    Router.neglect(
+      context,
+      () => router.signedOut(requiredPasswordChanged: requiredPasswordChanged),
+    );
     return;
   }
 
   Navigator.of(context).pushAndRemoveUntil(
-    buildLoggedOutRoute(),
+    buildLoggedOutRoute(requiredPasswordChanged: requiredPasswordChanged),
     (route) => false,
   );
 }
