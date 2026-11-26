@@ -34,6 +34,49 @@ Future<void> _visibleDrag(
   await gesture.up();
 }
 
+_FakeKanbanApi _filteredKanbanApi() {
+  final api = _FakeKanbanApi(columnCount: 1, cardsPerColumn: 3);
+  api._assigneesByCard['task-01'] = <String>{'emp-01'};
+  api._assigneesByCard['task-1-3'] = <String>{'emp-01'};
+  return api;
+}
+
+Future<void> _pumpFilteredKanbanPage(
+  WidgetTester tester,
+  _FakeKanbanApi api,
+) async {
+  await tester.pumpWidget(MaterialApp(home: ProjectKanbanPage(api: api)));
+  await tester.pumpAndSettle();
+  await tester.tap(find.byKey(const ValueKey('kanban-assignee-filter')));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('Gestor TouchIn').last);
+  await tester.pumpAndSettle();
+  expect(find.byKey(const ValueKey('kanban-card-task-01')), findsOneWidget);
+  expect(find.byKey(const ValueKey('kanban-card-task-1-3')), findsOneWidget);
+  expect(find.byKey(const ValueKey('kanban-card-task-1-2')), findsNothing);
+}
+
+Future<void> _dragKanbanCard(
+  WidgetTester tester,
+  String sourceId,
+  String targetId,
+  double fraction,
+) async {
+  final handle = find.descendant(
+    of: find.byKey(ValueKey<String>('kanban-card-$sourceId')),
+    matching: find.byIcon(Icons.drag_indicator_rounded),
+  );
+  expect(handle, findsOneWidget);
+  final targetRect =
+      tester.getRect(find.byKey(ValueKey<String>('kanban-card-$targetId')));
+  final gesture = await tester.startGesture(tester.getCenter(handle));
+  await gesture.moveTo(Offset(
+      targetRect.center.dx, targetRect.top + targetRect.height * fraction));
+  await tester.pump();
+  await gesture.up();
+  await tester.pumpAndSettle();
+}
+
 void main() {
   testWidgets('task search and filters have equal visible heights',
       (tester) async {
@@ -111,6 +154,54 @@ void main() {
     expect(find.text('Implementar tela'), findsNothing);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('filtered same-slot drop makes no reorder request',
+      (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
+    final api = _filteredKanbanApi();
+    await _pumpFilteredKanbanPage(tester, api);
+
+    await _dragKanbanCard(tester, 'task-01', 'task-01', 0.75);
+
+    expect(api.reorderCardCalls, 0,
+        reason: 'filtered_same_slot_drop_must_not_persist');
+    expect(api.lastCardOrdering, isNull);
+    expect(api.boardVersion, 1);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('filtered intentional moves still reach the versioned API',
+      (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
+    final api = _filteredKanbanApi();
+    await _pumpFilteredKanbanPage(tester, api);
+
+    await _dragKanbanCard(tester, 'task-01', 'task-1-3', 0.75);
+
+    expect(api.reorderCardCalls, 1);
+    expect(api.lastExpectedCardVersion, 1);
+    expect(api.lastCardOrdering?['column-01'],
+        <String>['task-1-2', 'task-1-3', 'task-01']);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('filtered move upward reaches the versioned API', (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
+    final api = _filteredKanbanApi();
+    await _pumpFilteredKanbanPage(tester, api);
+
+    await _dragKanbanCard(tester, 'task-1-3', 'task-01', 0.25);
+
+    expect(api.reorderCardCalls, 1);
+    expect(api.lastExpectedCardVersion, 1);
+    expect(api.lastCardOrdering?['column-01'],
+        <String>['task-1-3', 'task-01', 'task-1-2']);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('desktop project summary shares a compact row', (tester) async {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.binding.setSurfaceSize(const Size(1440, 900));
@@ -2871,6 +2962,7 @@ class _FakeKanbanApi extends TouchInApi {
   int _createdCount = 0;
   Map<String, List<String>>? lastCardOrdering;
   int? lastExpectedCardVersion;
+  int reorderCardCalls = 0;
 
   @override
   Future<TaskRecord> createTask(String projectId, TaskDraft draft) async {
@@ -3077,6 +3169,7 @@ class _FakeKanbanApi extends TouchInApi {
     required int expectedVersion,
     required Map<String, List<String>> columnTaskIds,
   }) async {
+    reorderCardCalls += 1;
     if (expectedVersion != boardVersion) {
       throw ApiException(
         'Kanban version conflict: expected $expectedVersion, current $boardVersion.',

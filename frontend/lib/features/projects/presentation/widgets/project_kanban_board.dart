@@ -510,7 +510,7 @@ class ProjectKanbanBoardState extends State<ProjectKanbanBoard> {
     setState(() {
       _dragSession = null;
     });
-    if (target != null) {
+    if (target != null && !target.noOp) {
       widget.onMoveCard(current.card.id, target.columnId, target.index);
     }
   }
@@ -550,11 +550,19 @@ class ProjectKanbanBoardState extends State<ProjectKanbanBoard> {
               widget.visibleCardIds!.contains(item.id))
           .toList();
       final targetIndex = visualIndex.clamp(0, visibleCards.length).toInt();
+      final sourceVisibleIndex = visibleCards.indexOf(card);
+      final staysInVisibleSlot = sourceVisibleIndex >= 0 &&
+          (targetIndex == sourceVisibleIndex ||
+              targetIndex == sourceVisibleIndex + 1);
+      final sourceIndex = column.cards.indexOf(card);
       return _DropTarget(
         columnId: column.id,
-        index: targetIndex < visibleCards.length
-            ? column.cards.indexOf(visibleCards[targetIndex])
-            : column.cards.length,
+        index: staysInVisibleSlot
+            ? (sourceIndex >= 0 ? sourceIndex : card.kanbanPosition)
+            : targetIndex < visibleCards.length
+                ? column.cards.indexOf(visibleCards[targetIndex])
+                : column.cards.length,
+        noOp: staysInVisibleSlot,
       );
     }
     return null;
@@ -1286,10 +1294,15 @@ class _EmptyBoardState extends StatelessWidget {
 }
 
 class _DropTarget {
-  const _DropTarget({required this.columnId, required this.index});
+  const _DropTarget({
+    required this.columnId,
+    required this.index,
+    this.noOp = false,
+  });
 
   final String columnId;
   final int index;
+  final bool noOp;
 }
 
 class _PointerDragSession {
