@@ -2,7 +2,15 @@ name: CI
 
 on:
   push:
+    branches:
+      - main
   pull_request:
+  workflow_dispatch:
+
+concurrency:
+  # Coalesce updates to a PR, but let main pushes and manual runs finish.
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -288,6 +296,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install backend dependencies
+        if: github.event_name != 'pull_request'
         run: python -m pip install -r backend/requirements.txt
 
       - name: Set up Flutter
@@ -314,6 +323,7 @@ jobs:
         run: go install github.com/MarcosAlves90/polis/v6/cmd/polis@v6.12.0
 
       - name: Set up Chrome for browser smoke
+        if: github.event_name != 'pull_request'
         id: chrome
         uses: browser-actions/setup-chrome@v2
 
@@ -324,7 +334,29 @@ jobs:
           & $polis doctor --repo .
           & $polis plan --repo .
 
+      # Linux runs the full suites and real browser smoke on every PR.
+      # Keep Windows process/CLI and targeted Flutter coverage before merge.
+      - name: Test POLIS adapter on Windows
+        if: github.event_name == 'pull_request'
+        run: python -B -m unittest discover -s scripts/tests -v
+
+      - name: Analyze Flutter with POLIS on Windows
+        if: github.event_name == 'pull_request'
+        shell: pwsh
+        run: |
+          $polis = Join-Path (go env GOPATH) 'bin/polis.exe'
+          & $polis gates --repo . --gate lint
+
+      - name: Test Flutter navigation on Windows
+        if: github.event_name == 'pull_request'
+        working-directory: frontend
+        run: >-
+          flutter test --no-pub --exclude-tags canonical-golden
+          test/core/navigation
+          test/features/auth/auth_session_navigation_test.dart
+
       - name: Run enabled POLIS gates on Windows
+        if: github.event_name != 'pull_request'
         id: polis-gates
         shell: pwsh
         env:
