@@ -53,35 +53,22 @@ Future<void> pumpAuditRow(
 }
 
 void main() {
-  testWidgets('audit table shows the actor name above the id', (tester) async {
+  testWidgets('audit table prioritizes names rather than technical IDs',
+      (tester) async {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await pumpAuditRow(
       tester,
-      authorEvent(actorUserId: 'user_42', actorName: 'Marina Costa'),
+      authorEvent(actorUserId: 'user_42', actorName: 'Marina Costa')
+          .copyWith(entityName: 'Revisar checklist', projectName: 'Atlas'),
       mobile: false,
     );
 
-    final name = find.text('Marina Costa');
-    final id = find.text('user_42');
-    expect(name, findsOneWidget);
-    expect(id, findsOneWidget);
-    expect(
-      tester.getTopLeft(name).dy,
-      lessThan(tester.getTopLeft(id).dy),
-      reason: 'audit_author_name_above_id',
-    );
-    expect(
-      tester.getTopLeft(name).dx,
-      closeTo(tester.getTopLeft(id).dx, 1),
-      reason: 'audit_author_name_and_id_left_aligned',
-    );
-
-    final style = tester.widget<Text>(id).style!;
-    final colors = Theme.of(tester.element(name)).colorScheme;
-    expect(style.color, colors.onSurfaceVariant,
-        reason: 'audit_author_id_uses_muted_style');
-    expect(style.fontFamily, 'monospace',
-        reason: 'audit_author_id_uses_technical_id_style');
+    expect(find.text('Marina Costa'), findsOneWidget);
+    expect(find.text('Revisar checklist'), findsOneWidget);
+    expect(find.text('Atlas'), findsOneWidget);
+    for (final id in ['user_42', 'task_1', 'project_1']) {
+      expect(find.text(id), findsNothing);
+    }
     expect(tester.takeException(), isNull);
   });
 
@@ -112,31 +99,24 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('mobile audit card keeps the same author hierarchy',
+  testWidgets('mobile audit card shows names in light and dark',
       (tester) async {
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     for (final theme in [AppTheme.lightTheme, AppTheme.darkTheme]) {
       await pumpAuditRow(
         tester,
-        authorEvent(actorUserId: 'user_42', actorName: 'Marina Costa'),
+        authorEvent(actorUserId: 'user_42', actorName: 'Marina Costa')
+            .copyWith(entityName: 'Revisar checklist', projectName: 'Atlas'),
         mobile: true,
         theme: theme,
       );
-      final name = find.text('Marina Costa');
-      final id = find.text('user_42');
-      expect(name, findsOneWidget);
-      expect(id, findsOneWidget);
-      expect(
-        tester.getTopLeft(name).dy,
-        lessThan(tester.getTopLeft(id).dy),
-        reason: 'audit_author_card_name_above_id',
-      );
-      expect(
-        tester.getTopLeft(name).dx,
-        closeTo(tester.getTopLeft(id).dx, 1),
-        reason: 'audit_author_card_name_and_id_left_aligned',
-      );
+      expect(find.text('Marina Costa'), findsOneWidget);
+      expect(find.text('Revisar checklist'), findsOneWidget);
+      expect(find.text('Atlas'), findsOneWidget);
+      for (final id in ['user_42', 'task_1', 'project_1']) {
+        expect(find.text(id), findsNothing);
+      }
       expect(tester.takeException(), isNull);
     }
   });

@@ -184,8 +184,14 @@ void main() {
   ) async {
     final api = FakeAuditExportApi(
       events: [
-        event(1, actorName: 'Marina Costa', metadataPayload: {'from': 'todo', 'to': 'doing'}),
-        event(2, result: 'failed', actorUserId: 'user_2', actorName: 'Caio Martins', projectId: 'proj_1'),
+        event(1,
+            actorName: 'Marina Costa',
+            metadataPayload: {'from': 'todo', 'to': 'doing'}),
+        event(2,
+            result: 'failed',
+            actorUserId: 'user_2',
+            actorName: 'Caio Martins',
+            projectId: 'proj_1'),
       ],
     );
 
@@ -271,7 +277,7 @@ void main() {
       findsOneWidget,
     );
 
-    await enterFilter(tester, 'ID do usuário (autor)', 'mobile-user');
+    await enterFilter(tester, 'Nome ou ID do autor', 'mobile-user');
     await applyFilters(tester);
 
     expect(api.listParams!['actorUserId'], 'mobile-user');
@@ -366,11 +372,11 @@ void main() {
     );
 
     await openFilters(tester);
-    await enterFilter(tester, 'ID do usuário (autor)', 'applied-user');
+    await enterFilter(tester, 'Nome ou ID do autor', 'applied-user');
     await selectFilterOption(tester, 'audit-action-filter', 'Tarefa movida');
     await selectFilterOption(tester, 'audit-entity-type-filter', 'Tarefa');
-    await enterFilter(tester, 'ID da entidade', 'card-9');
-    await enterFilter(tester, 'ID do projeto', 'proj-9');
+    await enterFilter(tester, 'Nome ou ID da entidade', 'card-9');
+    await enterFilter(tester, 'Nome ou ID do projeto', 'proj-9');
     await selectFilterOption(tester, 'audit-result-filter', 'Sucesso');
     await tester.tap(find.text('Data inicial'));
     await tester.pumpAndSettle();
@@ -413,11 +419,11 @@ void main() {
     await pumpPage(tester, api);
 
     await openFilters(tester);
-    await enterFilter(tester, 'ID do usuário (autor)', 'applied-user');
+    await enterFilter(tester, 'Nome ou ID do autor', 'applied-user');
     await applyFilters(tester);
 
     await openFilters(tester);
-    await enterFilter(tester, 'ID do usuário (autor)', 'draft-user');
+    await enterFilter(tester, 'Nome ou ID do autor', 'draft-user');
     await tester.pump();
 
     expect(
@@ -512,7 +518,7 @@ void main() {
         .tap(find.byKey(const ValueKey<String>('audit-filters-button')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
-    await enterFilter(tester, 'ID do usuário (autor)', 'new-user');
+    await enterFilter(tester, 'Nome ou ID do autor', 'new-user');
     await tester.tap(
       find.byKey(const ValueKey<String>('audit-apply-filters')),
     );
@@ -646,7 +652,7 @@ void main() {
     );
 
     await openFilters(tester);
-    await enterFilter(tester, 'ID do usuário (autor)', 'changed');
+    await enterFilter(tester, 'Nome ou ID do autor', 'changed');
     await tester.pump();
 
     expect(
@@ -734,7 +740,7 @@ void main() {
 
     await pumpPage(tester, api);
     await openFilters(tester);
-    await enterFilter(tester, 'ID do usuário (autor)', 'filter-user');
+    await enterFilter(tester, 'Nome ou ID do autor', 'filter-user');
     await applyFilters(tester);
 
     expect(find.text('Autor: filter-user'), findsOneWidget);
@@ -828,7 +834,7 @@ void main() {
     expect(find.text('Marina Costa'), findsWidgets);
     expect(find.text('Usuário desconhecido'), findsOneWidget);
     expect(find.text('Sistema'), findsOneWidget);
-    expect(find.text('user_known'), findsOneWidget);
+    expect(find.text('user_known'), findsNothing);
     expect(find.text('user_removed'), findsOneWidget);
 
     await tester.tap(

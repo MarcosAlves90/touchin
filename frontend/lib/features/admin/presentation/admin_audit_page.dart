@@ -608,8 +608,8 @@ class _AdminAuditPageState extends State<AdminAuditPage> with RouteAware {
     });
   }
 
-  void _openFilters(bool compact) {
-    if (compact) {
+  void _openFilters(bool useSheet) {
+    if (useSheet) {
       _openMobileFilters();
     } else {
       _toggleDesktopFilters();
@@ -684,7 +684,7 @@ class _AdminAuditPageState extends State<AdminAuditPage> with RouteAware {
   Widget _filterChip(IconData icon, String label) {
     return Chip(
       avatar: Icon(icon, size: 15),
-      label: Text(label),
+      label: Text(label, maxLines: 2, overflow: TextOverflow.ellipsis),
       visualDensity: VisualDensity.compact,
     );
   }
@@ -720,8 +720,13 @@ class _AdminAuditPageState extends State<AdminAuditPage> with RouteAware {
       contentBuilder: (context, isWide) => LayoutBuilder(
         builder: (context, constraints) {
           final largeText = MediaQuery.textScalerOf(context).scale(1) > 1.3;
-          final compact = constraints.maxWidth < 860 || !isWide || largeText;
-          final pageScroll = !isWide || largeText;
+          final compact = constraints.maxWidth < 860 ||
+              constraints.maxHeight < 480 ||
+              !isWide ||
+              largeText;
+          final pageScroll =
+              !isWide || largeText || (compact && constraints.maxHeight < 600);
+          final useFilterSheet = compact || constraints.maxHeight < 740;
           final header = Padding(
             padding: EdgeInsets.fromLTRB(
               isWide ? 24 : 16,
@@ -734,11 +739,12 @@ class _AdminAuditPageState extends State<AdminAuditPage> with RouteAware {
               children: [
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: _buildHeader(compact: compact),
+                  child: _buildHeader(
+                      compact: compact, useFilterSheet: useFilterSheet),
                 ),
                 const SizedBox(height: 14),
                 _buildActiveFilters(),
-                if (_filterPanelOpen && !compact) ...[
+                if (_filterPanelOpen && !useFilterSheet) ...[
                   const SizedBox(height: 12),
                   _buildDesktopFilterPanel(),
                 ],
@@ -766,7 +772,13 @@ class _AdminAuditPageState extends State<AdminAuditPage> with RouteAware {
             children: [
               ConstrainedBox(
                 constraints: BoxConstraints(
-                  maxHeight: MediaQuery.sizeOf(context).height * 0.64,
+                  maxHeight:
+                      (constraints.maxHeight - (_isLoadingMore ? 350 : 100))
+                          .clamp(
+                    0.0,
+                    constraints.maxHeight *
+                        (_filterPanelOpen && !useFilterSheet ? 0.78 : 0.64),
+                  ),
                 ),
                 child: SingleChildScrollView(
                   key: const ValueKey<String>('audit-header-scroll'),
@@ -784,12 +796,15 @@ class _AdminAuditPageState extends State<AdminAuditPage> with RouteAware {
     );
   }
 
-  Widget _buildHeader({required bool compact}) {
+  Widget _buildHeader({
+    required bool compact,
+    required bool useFilterSheet,
+  }) {
     final actions = <Widget>[
       OutlinedButton.icon(
         key: const ValueKey<String>('audit-filters-button'),
         focusNode: _filterFocusNode,
-        onPressed: () => _openFilters(compact),
+        onPressed: () => _openFilters(useFilterSheet),
         icon: const Icon(Icons.tune_rounded, size: 18),
         label: Text(_filterButtonLabel),
       ),
@@ -806,9 +821,7 @@ class _AdminAuditPageState extends State<AdminAuditPage> with RouteAware {
     return WorkspaceHeader(
       kicker: 'AUDITORIA',
       title: 'Eventos de auditoria',
-      description: compact
-          ? 'Consulte e exporte os eventos registrados da empresa.'
-          : 'Consulte, compare e exporte os eventos registrados para a sua empresa.',
+      description: 'Veja o que mudou, quem fez a alteração e quando.',
       maxContentWidth: 570,
       actions: actions,
       compact: compact,
@@ -823,11 +836,9 @@ class _AdminAuditPageState extends State<AdminAuditPage> with RouteAware {
 
     return Container(
       key: const ValueKey<String>('audit-active-filters'),
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
       decoration: BoxDecoration(
-        color: colorScheme.surface,
-        border: Border.all(color: colorScheme.outlineVariant),
-        borderRadius: BorderRadius.circular(10),
+        border: Border(bottom: BorderSide(color: colorScheme.outlineVariant)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -961,7 +972,7 @@ class _AdminAuditPageState extends State<AdminAuditPage> with RouteAware {
             ],
           ),
           const SizedBox(height: 6),
-          _buildFilterFields(compact: false),
+          _buildFilterFields(),
         ],
       ),
     );
@@ -970,65 +981,88 @@ class _AdminAuditPageState extends State<AdminAuditPage> with RouteAware {
   Widget _buildMobileFilterSheet(BuildContext sheetContext) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    return FractionallySizedBox(
-      heightFactor: 0.9,
-      child: Material(
-        key: const ValueKey<String>('audit-filter-sheet'),
-        color: colorScheme.surface,
-        child: Column(
-          children: [
-            const SizedBox(height: 8),
-            Container(
-              width: 44,
-              height: 4,
-              decoration: BoxDecoration(
-                color: colorScheme.outlineVariant,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 8, 4),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Filtros da auditoria',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
+    final keyboard = MediaQuery.viewInsetsOf(sheetContext).bottom;
+    return Padding(
+      padding: EdgeInsets.only(bottom: keyboard),
+      child: FractionallySizedBox(
+        heightFactor: 0.92,
+        child: Material(
+          key: const ValueKey<String>('audit-filter-sheet'),
+          color: colorScheme.surface,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 6, 8, 2),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Semantics(
+                        header: true,
+                        child: Text('Filtros da auditoria',
+                            style: theme.textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w800)),
                       ),
                     ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(sheetContext).pop(),
-                    tooltip: 'Fechar filtros',
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
-              ),
-            ),
-            Divider(color: colorScheme.outlineVariant),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-                child: _buildFilterFields(
-                  compact: true,
-                  sheetContext: sheetContext,
+                    IconButton(
+                      onPressed: () => Navigator.of(sheetContext).pop(),
+                      tooltip: 'Fechar filtros',
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ],
                 ),
               ),
-            ),
-          ],
+              const Divider(height: 1),
+              Expanded(
+                child: SingleChildScrollView(
+                  key: const ValueKey<String>('audit-filter-sheet-scroll'),
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+                  child: _buildFilterFields(sheetContext: sheetContext),
+                ),
+              ),
+              const Divider(height: 1),
+              SafeArea(
+                top: false,
+                minimum: const EdgeInsets.fromLTRB(16, 6, 68, 8),
+                child: OverflowBar(
+                  alignment: MainAxisAlignment.end,
+                  overflowAlignment: OverflowBarAlignment.end,
+                  spacing: 8,
+                  children: [
+                    TextButton(
+                      key: const ValueKey<String>('audit-cancel-filters'),
+                      onPressed: () => Navigator.of(sheetContext).pop(),
+                      child: const Text('Cancelar'),
+                    ),
+                    FilledButton(
+                      key: const ValueKey<String>('audit-apply-filters'),
+                      style: FilledButton.styleFrom(
+                          minimumSize: const Size(0, 44)),
+                      style: FilledButton.styleFrom(
+                          minimumSize: const Size(0, 44)),
+                      onPressed: () {
+                        Navigator.of(sheetContext).pop();
+                        _applyFilters();
+                      },
+                      child: const Text('Aplicar filtros'),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildFilterFields({
-    required bool compact,
     BuildContext? sheetContext,
   }) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final columns = constraints.maxWidth >= 720
+        final columns = constraints.maxWidth >= 660
             ? 3
             : constraints.maxWidth >= 480
                 ? 2
@@ -1037,8 +1071,7 @@ class _AdminAuditPageState extends State<AdminAuditPage> with RouteAware {
         final fieldWidth =
             (constraints.maxWidth - spacing * (columns - 1)) / columns;
 
-        Widget field(String label, TextEditingController controller,
-            {String? hint}) {
+        Widget field(String label, TextEditingController controller) {
           return SizedBox(
             width: fieldWidth,
             child: TextField(
@@ -1046,7 +1079,6 @@ class _AdminAuditPageState extends State<AdminAuditPage> with RouteAware {
               onChanged: _onDraftChanged,
               decoration: InputDecoration(
                 labelText: label,
-                hintText: hint,
                 isDense: true,
               ),
             ),
@@ -1083,12 +1115,20 @@ class _AdminAuditPageState extends State<AdminAuditPage> with RouteAware {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            Text(
+              'Combine filtros para encontrar os eventos que você procura.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+            ),
+            const SizedBox(height: 12),
             Wrap(
               spacing: spacing,
               runSpacing: spacing,
               children: [
-                field('ID do usuário (autor)', _actorUserIdController,
-                    hint: 'ID técnico do autor'),
+                field('Nome ou ID do autor', _actorUserIdController),
+                field('Nome ou ID da entidade', _entityIdController),
+                field('Nome ou ID do projeto', _projectIdController),
                 dropdown(
                   'Ação',
                   'audit-action-filter',
@@ -1121,8 +1161,6 @@ class _AdminAuditPageState extends State<AdminAuditPage> with RouteAware {
                       )
                       .toList(),
                 ),
-                field('ID da entidade', _entityIdController),
-                field('ID do projeto', _projectIdController),
                 dropdown(
                   'Resultado',
                   'audit-result-filter',
@@ -1146,6 +1184,8 @@ class _AdminAuditPageState extends State<AdminAuditPage> with RouteAware {
               children: [
                 OutlinedButton.icon(
                   key: const ValueKey<String>('audit-start-date'),
+                  style:
+                      OutlinedButton.styleFrom(minimumSize: const Size(0, 44)),
                   onPressed: () => _pickDate(true),
                   icon: const Icon(Icons.calendar_today_rounded, size: 16),
                   label: Text(
@@ -1156,6 +1196,8 @@ class _AdminAuditPageState extends State<AdminAuditPage> with RouteAware {
                 ),
                 OutlinedButton.icon(
                   key: const ValueKey<String>('audit-end-date'),
+                  style:
+                      OutlinedButton.styleFrom(minimumSize: const Size(0, 44)),
                   onPressed: () => _pickDate(false),
                   icon: const Icon(Icons.calendar_today_rounded, size: 16),
                   label: Text(
@@ -1165,34 +1207,17 @@ class _AdminAuditPageState extends State<AdminAuditPage> with RouteAware {
               ],
             ),
             const SizedBox(height: 14),
-            if (compact)
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  FilledButton(
-                    key: const ValueKey<String>('audit-apply-filters'),
-                    onPressed: () {
-                      Navigator.of(sheetContext!).pop();
-                      _applyFilters();
-                    },
-                    child: const Text('Aplicar filtros'),
-                  ),
-                  const SizedBox(height: 8),
-                  OutlinedButton(
-                    key: const ValueKey<String>('audit-clear-filters-sheet'),
-                    onPressed: () {
-                      Navigator.of(sheetContext!).pop();
-                      _clearFilters();
-                    },
-                    child: const Text('Limpar filtros'),
-                  ),
-                  const SizedBox(height: 4),
-                  TextButton(
-                    key: const ValueKey<String>('audit-cancel-filters'),
-                    onPressed: () => Navigator.of(sheetContext!).pop(),
-                    child: const Text('Cancelar'),
-                  ),
-                ],
+            if (sheetContext != null)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton(
+                  key: const ValueKey<String>('audit-clear-filters-sheet'),
+                  onPressed: () {
+                    Navigator.of(sheetContext).pop();
+                    _clearFilters();
+                  },
+                  child: const Text('Limpar filtros'),
+                ),
               )
             else
               Wrap(
@@ -1330,7 +1355,7 @@ class _AdminAuditPageState extends State<AdminAuditPage> with RouteAware {
                   : Column(
                       children: [
                         Padding(
-                          padding: const EdgeInsets.fromLTRB(4, 4, 4, 12),
+                          padding: const EdgeInsets.fromLTRB(8, 10, 8, 12),
                           child: Row(children: [
                             Icon(Icons.history_rounded,
                                 color: Theme.of(context).colorScheme.primary),

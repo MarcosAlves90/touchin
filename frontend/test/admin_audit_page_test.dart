@@ -456,15 +456,20 @@ void main() {
     expect(find.byType(WorkspaceHeader), findsOneWidget);
     expect(find.text('Tarefa reordenada'), findsOneWidget);
     expect(find.text('Sucesso'), findsOneWidget);
-    expect(find.text('card.reordered'), findsOneWidget);
+    expect(find.text('card.reordered'), findsNothing);
     expect(find.text('success'), findsNothing);
+    await tester.tap(find.text('Tarefa reordenada'));
+    await tester.pumpAndSettle();
+    expect(find.text('card.reordered'), findsOneWidget);
+    await tester.tap(find.byTooltip('Fechar detalhes'));
+    await tester.pumpAndSettle();
 
     await openAuditFilters(tester);
-    expect(find.text('ID do usuário (autor)'), findsOneWidget);
+    expect(find.text('Nome ou ID do autor'), findsOneWidget);
     expect(find.text('Ação'), findsOneWidget);
     expect(find.text('Tipo de entidade'), findsOneWidget);
-    expect(find.text('ID da entidade'), findsOneWidget);
-    expect(find.text('ID do projeto'), findsOneWidget);
+    expect(find.text('Nome ou ID da entidade'), findsOneWidget);
+    expect(find.text('Nome ou ID do projeto'), findsOneWidget);
     expect(find.text('Resultado'), findsOneWidget);
     expect(find.text('Aplicar filtros'), findsOneWidget);
     expect(find.text('Limpar filtros'), findsOneWidget);
@@ -487,9 +492,9 @@ void main() {
     await selectAuditFilter(tester, 'audit-action-filter', 'Projeto criado');
     await selectAuditFilter(tester, 'audit-entity-type-filter', 'Projeto');
     await selectAuditFilter(tester, 'audit-result-filter', 'Sucesso');
-    await enterAuditFilter(tester, 'ID do usuário (autor)', 'ser_');
-    await enterAuditFilter(tester, 'ID da entidade', 'ard_');
-    await enterAuditFilter(tester, 'ID do projeto', 'roject_');
+    await enterAuditFilter(tester, 'Nome ou ID do autor', 'ser_');
+    await enterAuditFilter(tester, 'Nome ou ID da entidade', 'ard_');
+    await enterAuditFilter(tester, 'Nome ou ID do projeto', 'roject_');
     await applyAuditFilters(tester);
 
     expect(api.lastParams['actorUserId'], 'ser_');
@@ -593,8 +598,7 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: AdminAuditPage(api: api)));
     await tester.pumpAndSettle();
 
-    final resource =
-        find.text('Configurações de sugestões de tarefas com IA');
+    final resource = find.text('Configurações de sugestões de tarefas com IA');
     await tester.ensureVisible(resource);
     expect(resource, findsOneWidget);
     expect(find.text('company_ai_settings'), findsNothing);
@@ -1253,7 +1257,7 @@ void main() {
     expect(decoration.borderRadius, BorderRadius.circular(16));
     expect(decoration.border, isA<Border>());
     expect(find.text('Filtros da auditoria'), findsOneWidget);
-    expect(find.text('ID do usuário (autor)'), findsOneWidget);
+    expect(find.text('Nome ou ID do autor'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -1271,7 +1275,7 @@ void main() {
     expect(tester.getSize(pageScroll).height, greaterThan(600));
 
     await openAuditFilters(tester);
-    final actor = find.widgetWithText(TextField, 'ID do usuário (autor)');
+    final actor = find.widgetWithText(TextField, 'Nome ou ID do autor');
     final action = find.byKey(const ValueKey<String>('audit-action-filter'));
     expect(actor, findsOneWidget);
     expect(action, findsOneWidget);
@@ -1300,6 +1304,37 @@ void main() {
     await tester.tap(find.text('Cancelar'));
     await tester.pumpAndSettle();
     expect(find.byTooltip('Abrir menu'), findsOneWidget);
+  });
+
+  testWidgets('short windows and the mobile keyboard leave Apply reachable',
+      (tester) async {
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    for (final size in [const Size(1366, 600), const Size(320, 620)]) {
+      tester.view.physicalSize = size;
+      await tester.pumpWidget(MaterialApp(
+        key: ValueKey(size),
+        home: AdminAuditPage(api: FakeTouchInApi()),
+      ));
+      await tester.pumpAndSettle();
+      await openAuditFilters(tester);
+      final sheet = find.byKey(const ValueKey<String>('audit-filter-sheet'));
+      expect(sheet, findsOneWidget);
+      final apply = find.byKey(const ValueKey<String>('audit-apply-filters'));
+      expect(apply.hitTestable(), findsOneWidget);
+      if (size.width == 320) {
+        await enterAuditFilter(tester, 'Nome ou ID do autor', 'Marina');
+        tester.view.viewInsets = const FakeViewPadding(bottom: 280);
+        await tester.pumpAndSettle();
+        expect(tester.getBottomLeft(apply).dy, lessThanOrEqualTo(340));
+        expect(apply.hitTestable(), findsOneWidget);
+        tester.view.resetViewInsets();
+      }
+      await tester.tap(apply);
+      await tester.pumpAndSettle();
+      expect(sheet, findsNothing);
+      expect(tester.takeException(), isNull);
+    }
   });
 
   testWidgets('AdminAuditPage loads events and shows filters',
@@ -1369,7 +1404,7 @@ void main() {
     expect(find.text('Falha'), findsOneWidget);
 
     await openAuditFilters(tester);
-    await enterAuditFilter(tester, 'ID do usuário (autor)', 'user_1');
+    await enterAuditFilter(tester, 'Nome ou ID do autor', 'user_1');
     await selectAuditFilter(
       tester,
       'audit-action-filter',
@@ -1380,7 +1415,7 @@ void main() {
       'audit-entity-type-filter',
       'Tarefa',
     );
-    await enterAuditFilter(tester, 'ID da entidade', 'task_1');
+    await enterAuditFilter(tester, 'Nome ou ID da entidade', 'task_1');
     await selectAuditFilter(tester, 'audit-result-filter', 'Sucesso');
 
     mockApi.requestedPages.clear();

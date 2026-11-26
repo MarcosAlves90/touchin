@@ -12,9 +12,11 @@ class AuditEventResponse(BaseModel):
     actor_user_id: str | None
     actor_name: str | None = None
     project_id: str | None
+    project_name: str | None = None
     action: str
     entity_type: str
     entity_id: str
+    entity_name: str | None = None
     result: str
     metadata_payload: dict[str, Any] | None = None
     correlation_id: str | None
