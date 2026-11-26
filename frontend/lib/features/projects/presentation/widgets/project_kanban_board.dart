@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:touchin_flutter/contracts/kanban.dart';
 import 'package:touchin_flutter/contracts/task.dart';
+import 'package:touchin_flutter/theme/workspace_menu_style.dart';
 
 class ProjectKanbanBoard extends StatefulWidget {
   static const double laneGap = 12;
@@ -15,6 +16,7 @@ class ProjectKanbanBoard extends StatefulWidget {
   const ProjectKanbanBoard({
     super.key,
     required this.board,
+    this.visibleCardIds,
     this.matchedCardIds = const <String>{},
     this.isSearchActive = false,
     required this.isBusy,
@@ -34,6 +36,7 @@ class ProjectKanbanBoard extends StatefulWidget {
   });
 
   final KanbanBoard board;
+  final Set<String>? visibleCardIds;
   final Set<String> matchedCardIds;
   final bool isSearchActive;
   final bool isBusy;
@@ -59,13 +62,16 @@ class ProjectKanbanBoard extends StatefulWidget {
 class ProjectKanbanBoardState extends State<ProjectKanbanBoard> {
   double get _cardExtent {
     final textScale = MediaQuery.textScalerOf(context).scale(1);
-    return 154 + math.max(0, textScale - 1) * 60;
+    return 136 + math.max(0, textScale - 1) * 60;
   }
 
   double _laneWidth(double width) {
     final textScale = MediaQuery.textScalerOf(context).scale(1);
+    final balancedWidth = widget.board.columns.length == 3
+        ? math.min(480.0, (width - 4 * ProjectKanbanBoard.laneGap) / 3)
+        : 0.0;
     return math.max(
-      ProjectKanbanBoard.laneWidthFor(width),
+      math.max(ProjectKanbanBoard.laneWidthFor(width), balancedWidth),
       280 + math.max(0, textScale - 1) * 80,
     );
   }
@@ -272,176 +278,56 @@ class ProjectKanbanBoardState extends State<ProjectKanbanBoard> {
       ScrollController.new,
     );
     final laneKey = _laneBodyKeys.putIfAbsent(column.id, GlobalKey.new);
+    final visibleCards = column.cards
+        .where((card) =>
+            widget.visibleCardIds == null ||
+            widget.visibleCardIds!.contains(card.id))
+        .toList();
 
     return RepaintBoundary(
       child: AnimatedContainer(
         key: ValueKey<String>('kanban-column-${column.id}'),
-      duration: const Duration(milliseconds: 140),
-      curve: Curves.easeOut,
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-            color:
-                isDropTarget ? colorScheme.primary : colorScheme.outlineVariant,
-          width: isDropTarget ? 2 : 1,
-        ),
-        boxShadow: isDropTarget
-            ? <BoxShadow>[
-                BoxShadow(
-                  color: colorScheme.primary.withValues(alpha: 0.12),
-                  blurRadius: 18,
-                  spreadRadius: 1,
-                ),
-              ]
-            : const <BoxShadow>[],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        clipBehavior: Clip.antiAlias,
-        borderRadius: BorderRadius.circular(12),
-        child: Column(
-          children: <Widget>[
-            _LaneHeader(
-              column: column,
-              columnIndex: columnIndex,
-              columnCount: widget.board.columns.length,
-              isBusy: widget.isBusy,
-              canManageStructure: widget.canManageStructure,
-              canManageCards: widget.canManageCards,
-              onMoveColumn: widget.onMoveColumn,
-              onRenameColumn: widget.onRenameColumn,
-              onDeleteColumn: widget.onDeleteColumn,
-              onCreateCard: widget.onCreateCard,
-            ),
-            const Divider(height: 1),
-            Expanded(
-              child: Stack(
-                key: laneKey,
-                children: <Widget>[
-                  CustomScrollView(
-                      key:
-                          ValueKey<String>('kanban-column-scroll-${column.id}'),
-                    controller: laneController,
-                    physics: const ClampingScrollPhysics(),
-                    cacheExtent: _cardExtent * 2,
-                    slivers: <Widget>[
-                      if (column.cards.isEmpty)
-                        SliverFillRemaining(
-                          hasScrollBody: false,
-                          child: _EmptyLaneState(
-                            canCreateCard: widget.canManageCards,
-                          ),
-                        )
-                      else
-                        SliverPadding(
-                          padding: const EdgeInsets.all(10),
-                          sliver: SliverFixedExtentList(
-                            itemExtent: _cardExtent,
-                            delegate: SliverChildBuilderDelegate(
-                              (context, index) {
-                                final card = column.cards[index];
-                                return Padding(
-                                  padding: const EdgeInsets.only(bottom: 10),
-                                  child: _KanbanCardTile(
-                                    key: ValueKey<String>(
-                                      'kanban-card-${card.id}',
-                                    ),
-                                    card: card,
-                                    column: column,
-                                      isSearchActive: widget.isSearchActive ||
-                                          widget.matchedCardIds.isNotEmpty,
-                                      isSearchMatch: widget.matchedCardIds
-                                          .contains(card.id),
-                                    position: index,
-                                    columns: widget.board.columns,
-                                    isBusy: widget.isBusy,
-                                    isDragging:
-                                        _dragSession?.card.id == card.id,
-                                    canMove: widget.canMoveCards,
-                                    canManageCards: widget.canManageCards,
-                                    canManageAssignees:
-                                        widget.canManageAssignees,
-                                    onPointerDown: (event) =>
-                                        _startDrag(card, event),
-                                    onPointerMove: _updateDrag,
-                                    onPointerUp: _finishDrag,
-                                    onPointerCancel: _cancelDrag,
-                                    onEdit: () => widget.onEditCard(card),
-                                    onDelete: () => widget.onDeleteCard(card),
-                                    onManageAssignees: () =>
-                                        widget.onManageAssignees(card),
-                                      onMove: (columnId, index) => widget
-                                          .onMoveCard(card.id, columnId, index),
-                                  ),
-                                );
-                              },
-                              childCount: column.cards.length,
-                              addAutomaticKeepAlives: false,
-                              addRepaintBoundaries: false,
-                            ),
-                          ),
-                        ),
-                    ],
+        duration: const Duration(milliseconds: 140),
+        curve: Curves.easeOut,
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(10),
+          border: isDropTarget
+              ? Border.all(color: colorScheme.primary, width: 2)
+              : Border.all(color: colorScheme.outlineVariant),
+          boxShadow: isDropTarget
+              ? <BoxShadow>[
+                  BoxShadow(
+                    color: colorScheme.primary.withValues(alpha: 0.12),
+                    blurRadius: 18,
+                    spreadRadius: 1,
                   ),
-                  if (isDropTarget)
-                    Positioned(
-                      left: 8,
-                      right: 8,
-                      top: 8,
-                      child: IgnorePointer(
-                        child: Material(
-                          color: colorScheme.primaryContainer,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            side: BorderSide(color: colorScheme.primary),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 7,
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: <Widget>[
-                                Icon(
-                                  Icons.vertical_align_center_rounded,
-                                  size: 16,
-                                  color: colorScheme.onPrimaryContainer,
-                                ),
-                                const SizedBox(width: 6),
-                                Flexible(
-                                  child: Text(
-                                    'Solte aqui · posição ${(_dragSession?.targetIndex ?? 0) + 1}',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                      style:
-                                          theme.textTheme.labelMedium?.copyWith(
-                                      color: colorScheme.onPrimaryContainer,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
+                ]
+              : const <BoxShadow>[],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          clipBehavior: Clip.antiAlias,
+          borderRadius: BorderRadius.circular(10),
+          child: Column(
+            children: <Widget>[
+              _LaneHeader(
+                column: column,
+                columnIndex: columnIndex,
+                columnCount: widget.board.columns.length,
+                isBusy: widget.isBusy,
+                canManageStructure: widget.canManageStructure,
+                canManageCards: widget.canManageCards,
+                onMoveColumn: widget.onMoveColumn,
+                onRenameColumn: widget.onRenameColumn,
+                onDeleteColumn: widget.onDeleteColumn,
+                onCreateCard: widget.onCreateCard,
               ),
-            ),
-            if (widget.canManageCards) ...<Widget>[
               const Divider(height: 1),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(8, 5, 8, 7),
-                child: SizedBox(
-                  width: double.infinity,
+              if (widget.canManageCards)
+                Align(
+                  alignment: Alignment.centerLeft,
                   child: TextButton.icon(
-                    style: TextButton.styleFrom(
-                      minimumSize: const Size(0, 38),
-                      alignment: Alignment.centerLeft,
-                    ),
                     onPressed: widget.isBusy
                         ? null
                         : () => widget.onCreateCard(column),
@@ -449,11 +335,129 @@ class ProjectKanbanBoardState extends State<ProjectKanbanBoard> {
                     label: const Text('Adicionar card'),
                   ),
                 ),
+              Expanded(
+                child: Stack(
+                  key: laneKey,
+                  children: <Widget>[
+                    CustomScrollView(
+                      key:
+                          ValueKey<String>('kanban-column-scroll-${column.id}'),
+                      controller: laneController,
+                      physics: const ClampingScrollPhysics(),
+                      cacheExtent: _cardExtent * 2,
+                      slivers: <Widget>[
+                        if (visibleCards.isEmpty)
+                          SliverFillRemaining(
+                            hasScrollBody: false,
+                            child: widget.visibleCardIds != null &&
+                                    column.cards.isNotEmpty
+                                ? const Center(
+                                    child: Text(
+                                        'Nenhuma tarefa corresponde aos filtros'))
+                                : _EmptyLaneState(
+                                    canCreateCard: widget.canManageCards),
+                          )
+                        else
+                          SliverPadding(
+                            padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
+                            sliver: SliverFixedExtentList(
+                              itemExtent: _cardExtent,
+                              delegate: SliverChildBuilderDelegate(
+                                (context, index) {
+                                  final card = visibleCards[index];
+                                  return Padding(
+                                    padding: const EdgeInsets.only(bottom: 6),
+                                    child: _KanbanCardTile(
+                                      key: ValueKey<String>(
+                                        'kanban-card-${card.id}',
+                                      ),
+                                      card: card,
+                                      column: column,
+                                      isSearchActive: widget.isSearchActive ||
+                                          widget.matchedCardIds.isNotEmpty,
+                                      isSearchMatch: widget.matchedCardIds
+                                          .contains(card.id),
+                                      position: column.cards.indexOf(card),
+                                      columns: widget.board.columns,
+                                      isBusy: widget.isBusy,
+                                      isDragging:
+                                          _dragSession?.card.id == card.id,
+                                      canMove: widget.canMoveCards,
+                                      canManageCards: widget.canManageCards,
+                                      canManageAssignees:
+                                          widget.canManageAssignees,
+                                      onPointerDown: (event) =>
+                                          _startDrag(card, event),
+                                      onPointerMove: _updateDrag,
+                                      onPointerUp: _finishDrag,
+                                      onPointerCancel: _cancelDrag,
+                                      onEdit: () => widget.onEditCard(card),
+                                      onDelete: () => widget.onDeleteCard(card),
+                                      onManageAssignees: () =>
+                                          widget.onManageAssignees(card),
+                                      onMove: (columnId, index) => widget
+                                          .onMoveCard(card.id, columnId, index),
+                                    ),
+                                  );
+                                },
+                                childCount: visibleCards.length,
+                                addAutomaticKeepAlives: false,
+                                addRepaintBoundaries: false,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    if (isDropTarget)
+                      Positioned(
+                        left: 8,
+                        right: 8,
+                        top: 8,
+                        child: IgnorePointer(
+                          child: Material(
+                            color: colorScheme.primaryContainer,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              side: BorderSide(color: colorScheme.primary),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 7,
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: <Widget>[
+                                  Icon(
+                                    Icons.vertical_align_center_rounded,
+                                    size: 16,
+                                    color: colorScheme.onPrimaryContainer,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Flexible(
+                                    child: Text(
+                                      'Solte aqui · posição ${(_dragSession?.targetIndex ?? 0) + 1}',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style:
+                                          theme.textTheme.labelMedium?.copyWith(
+                                        color: colorScheme.onPrimaryContainer,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ],
-          ],
+          ),
         ),
-      ),
       ),
     );
   }
@@ -540,9 +544,17 @@ class ProjectKanbanBoardState extends State<ProjectKanbanBoard> {
           controller?.hasClients == true ? controller!.offset : 0.0;
       final contentY = math.max(0.0, local.dy + scrollOffset - 10);
       final visualIndex = (contentY / _cardExtent).round();
+      final visibleCards = column.cards
+          .where((item) =>
+              widget.visibleCardIds == null ||
+              widget.visibleCardIds!.contains(item.id))
+          .toList();
+      final targetIndex = visualIndex.clamp(0, visibleCards.length).toInt();
       return _DropTarget(
         columnId: column.id,
-        index: visualIndex.clamp(0, column.cards.length).toInt(),
+        index: targetIndex < visibleCards.length
+            ? column.cards.indexOf(visibleCards[targetIndex])
+            : column.cards.length,
       );
     }
     return null;
@@ -587,8 +599,14 @@ class _LaneHeader extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
+    final laneTone = switch (columnIndex % 3) {
+      0 => colorScheme.primary,
+      1 => colorScheme.tertiary,
+      _ => colorScheme.secondary,
+    };
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 10, 6, 9),
+      padding: const EdgeInsets.fromLTRB(12, 4, 4, 3),
       child: Row(
         children: <Widget>[
           Expanded(
@@ -598,18 +616,18 @@ class _LaneHeader extends StatelessWidget {
                   width: 8,
                   height: 8,
                   decoration: BoxDecoration(
-                    color: colorScheme.primary,
+                    color: laneTone,
                     shape: BoxShape.circle,
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 7),
                 Flexible(
                   child: Text(
                     column.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
@@ -620,14 +638,13 @@ class _LaneHeader extends StatelessWidget {
                   height: 22,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: colorScheme.primary.withValues(alpha: 0.12),
+                    color: laneTone.withValues(alpha: 0.14),
                     borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: colorScheme.outlineVariant),
                   ),
                   child: Text(
                     '${column.cards.length}',
                     style: theme.textTheme.labelSmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
+                      color: laneTone,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -652,6 +669,8 @@ class _LaneHeader extends StatelessWidget {
             PopupMenuButton<String>(
               popUpAnimationStyle: AnimationStyle.noAnimation,
               tooltip: 'Opções da coluna',
+              color: WorkspaceMenuStyle.surface(colorScheme),
+              shape: WorkspaceMenuStyle.shape(colorScheme),
               style: IconButton.styleFrom(
                 minimumSize: const Size(48, 48),
                 maximumSize: const Size(48, 48),
@@ -775,239 +794,243 @@ class _KanbanCardTileState extends State<_KanbanCardTile> {
     return RepaintBoundary(
       child: MouseRegion(
         onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: AnimatedOpacity(
-        opacity: widget.isDragging ? 0.4 : 1,
-        duration: const Duration(milliseconds: 120),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 140),
-          curve: Curves.easeOut,
-          decoration: BoxDecoration(
-            color: _hovered
-                ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.9)
-                : colorScheme.surface,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-                color: widget.isSearchMatch
-                    ? colorScheme.primary
-                    : _hovered
-                  ? colorScheme.primary.withValues(alpha: 0.7)
-                  : colorScheme.outlineVariant,
-                width: widget.isSearchMatch ? 2 : 1,
+        onExit: (_) => setState(() => _hovered = false),
+        child: AnimatedOpacity(
+          opacity: widget.isDragging ? 0.4 : 1,
+          duration: const Duration(milliseconds: 120),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 140),
+            curve: Curves.easeOut,
+            decoration: BoxDecoration(
+              color: _hovered
+                  ? Color.alphaBlend(
+                      colorScheme.onSurface.withValues(alpha: 0.06),
+                      colorScheme.surfaceContainerHighest,
+                    )
+                  : colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(8),
+              border: widget.isSearchMatch
+                  ? Border.all(color: colorScheme.primary, width: 2)
+                  : Border.all(color: colorScheme.outlineVariant),
+              boxShadow: _hovered
+                  ? <BoxShadow>[
+                      BoxShadow(
+                        color: colorScheme.shadow.withValues(alpha: 0.12),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ]
+                  : const <BoxShadow>[],
             ),
-            boxShadow: _hovered
-                ? <BoxShadow>[
-                    BoxShadow(
-                      color: colorScheme.shadow.withValues(alpha: 0.12),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ]
-                : const <BoxShadow>[],
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(9, 4, 7, 4),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
+            child: Material(
+              color: Colors.transparent,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(9, 5, 5, 4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
                     Row(
                       children: <Widget>[
                         Expanded(
-                          child: Text(
-                    widget.card.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      height: 1.2,
-                    ),
-                  ),
+                          child: Tooltip(
+                            message: widget.card.name,
+                            child: Text(
+                              widget.card.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                height: 1.2,
+                              ),
+                            ),
+                          ),
                         ),
-                        if (widget.isSearchActive &&
-                            widget.isSearchMatch) ...<Widget>[
+                        if (widget.isSearchActive && widget.isSearchMatch)
+                          Semantics(
+                            label: 'Correspondência da busca',
+                            child: Text('Encontrado',
+                                style: theme.textTheme.labelSmall),
+                          ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '#${widget.card.cardNumber}',
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 11,
+                          ),
+                        ),
+                        if (widget.canMove && !widget.isBusy) ...<Widget>[
                           const SizedBox(width: 4),
                           Semantics(
-                            container: true,
-                            label: 'Correspondência da busca',
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: <Widget>[
-                                Icon(Icons.check_circle_outline_rounded,
-                                    size: 14, color: colorScheme.primary),
-                                const SizedBox(width: 2),
-                                Text('Encontrado',
-                                    style: theme.textTheme.labelSmall),
-                              ],
+                            label: 'Arrastar card #${widget.card.cardNumber}. '
+                                'Para mover com teclado, use ações do card.',
+                            child: Tooltip(
+                              message:
+                                  'Arraste para mover ou use ações do card',
+                              child: MouseRegion(
+                                cursor: SystemMouseCursors.grab,
+                                child: Listener(
+                                  onPointerDown: widget.onPointerDown,
+                                  onPointerMove: widget.onPointerMove,
+                                  onPointerUp: widget.onPointerUp,
+                                  onPointerCancel: widget.onPointerCancel,
+                                  child: const Padding(
+                                    padding: EdgeInsets.all(3),
+                                    child: Icon(
+                                      Icons.drag_indicator_rounded,
+                                      size: 18,
+                                    ),
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
                         ],
-                      ],
-                    ),
-                  const SizedBox(height: 2),
-                  Row(
-                    children: <Widget>[
-                      _TaskTypeBadge(type: widget.card.type),
-                      const Spacer(),
-                      Text(
-                        '#${widget.card.cardNumber}',
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 11,
-                        ),
-                      ),
-                      if (widget.canMove && !widget.isBusy) ...<Widget>[
-                        const SizedBox(width: 4),
-                        Semantics(
-                          label: 'Arrastar card #${widget.card.cardNumber}. '
-                              'Para mover com teclado, use ações do card.',
-                          child: Tooltip(
-                              message:
-                                  'Arraste para mover ou use ações do card',
-                            child: MouseRegion(
-                              cursor: SystemMouseCursors.grab,
-                              child: Listener(
-                                onPointerDown: widget.onPointerDown,
-                                onPointerMove: widget.onPointerMove,
-                                onPointerUp: widget.onPointerUp,
-                                onPointerCancel: widget.onPointerCancel,
-                                child: const Padding(
-                                  padding: EdgeInsets.all(3),
-                                  child: Icon(
-                                    Icons.drag_indicator_rounded,
-                                    size: 18,
-                                  ),
-                                ),
-                              ),
+                        if (widget.canManageCards || canMoveWithMenu)
+                          PopupMenuButton<String>(
+                            popUpAnimationStyle: AnimationStyle.noAnimation,
+                            tooltip: 'Ações do card #${widget.card.cardNumber}',
+                            color: WorkspaceMenuStyle.surface(colorScheme),
+                            shape: WorkspaceMenuStyle.shape(colorScheme),
+                            padding: EdgeInsets.zero,
+                            iconSize: 18,
+                            style: IconButton.styleFrom(
+                              minimumSize: const Size(48, 48),
+                              maximumSize: const Size(48, 48),
+                              padding: EdgeInsets.zero,
+                              tapTargetSize: MaterialTapTargetSize.padded,
+                              visualDensity: VisualDensity.standard,
                             ),
-                          ),
-                        ),
-                      ],
-                      if (widget.canManageCards || canMoveWithMenu)
-                        PopupMenuButton<String>(
-                          popUpAnimationStyle: AnimationStyle.noAnimation,
-                          tooltip: 'Ações do card #${widget.card.cardNumber}',
-                          padding: EdgeInsets.zero,
-                          iconSize: 18,
-                          style: IconButton.styleFrom(
-                            minimumSize: const Size(48, 48),
-                            maximumSize: const Size(48, 48),
-                            padding: EdgeInsets.zero,
-                            tapTargetSize: MaterialTapTargetSize.padded,
-                            visualDensity: VisualDensity.standard,
-                          ),
-                          enabled: !widget.isBusy,
-                          onSelected: (value) {
-                            if (value == 'edit') {
-                              widget.onEdit();
-                            } else if (value == 'delete') {
-                              widget.onDelete();
-                            } else if (value == 'up') {
-                              widget.onMove(
-                                  widget.column.id, widget.position - 1);
-                            } else if (value == 'down') {
-                              // The controller adjusts for the source removal.
-                              widget.onMove(
-                                  widget.column.id, widget.position + 2);
-                            } else if (value.startsWith('column:')) {
-                              final targetId =
-                                  value.substring('column:'.length);
-                              final target = widget.columns.firstWhere(
-                                (column) => column.id == targetId,
-                              );
-                              widget.onMove(target.id, target.cards.length);
-                            }
-                          },
-                          itemBuilder: (_) => <PopupMenuEntry<String>>[
-                            if (widget
-                                .canManageCards) ...<PopupMenuEntry<String>>[
-                              const PopupMenuItem(
-                                value: 'edit',
-                                child: ListTile(
-                                  dense: true,
-                                  leading: Icon(Icons.edit_outlined),
-                                  title: Text('Editar card'),
-                                ),
-                              ),
-                              const PopupMenuItem(
-                                value: 'delete',
-                                child: ListTile(
-                                  dense: true,
-                                  leading: Icon(Icons.delete_outline_rounded),
-                                  title: Text('Excluir card'),
-                                ),
-                              ),
-                            ],
-                            if (widget.canManageCards && canMoveWithMenu)
-                              const PopupMenuDivider(),
-                            if (widget.canMove && widget.position > 0)
-                              const PopupMenuItem(
-                                value: 'up',
-                                child: Text('Mover card para cima'),
-                              ),
-                            if (widget.canMove &&
-                                widget.position <
-                                    widget.column.cards.length - 1)
-                              const PopupMenuItem(
-                                value: 'down',
-                                child: Text('Mover card para baixo'),
-                              ),
-                            if (widget.canMove)
-                              for (final target in widget.columns)
-                                if (target.id != widget.column.id)
-                                  PopupMenuItem(
-                                    value: 'column:${target.id}',
-                                    child: Text('Mover para ${target.name}'),
+                            enabled: !widget.isBusy,
+                            onSelected: (value) {
+                              if (value == 'edit') {
+                                widget.onEdit();
+                              } else if (value == 'delete') {
+                                widget.onDelete();
+                              } else if (value == 'up') {
+                                widget.onMove(
+                                    widget.column.id, widget.position - 1);
+                              } else if (value == 'down') {
+                                // The controller adjusts for the source removal.
+                                widget.onMove(
+                                    widget.column.id, widget.position + 2);
+                              } else if (value.startsWith('column:')) {
+                                final targetId =
+                                    value.substring('column:'.length);
+                                final target = widget.columns.firstWhere(
+                                  (column) => column.id == targetId,
+                                );
+                                widget.onMove(target.id, target.cards.length);
+                              }
+                            },
+                            itemBuilder: (_) => <PopupMenuEntry<String>>[
+                              if (widget
+                                  .canManageCards) ...<PopupMenuEntry<String>>[
+                                const PopupMenuItem(
+                                  value: 'edit',
+                                  child: ListTile(
+                                    dense: true,
+                                    leading: Icon(Icons.edit_outlined),
+                                    title: Text('Editar card'),
                                   ),
-                          ],
-                        ),
-                    ],
-                  ),
-                  if (widget.card.description.trim().isNotEmpty) ...<Widget>[
-                    const SizedBox(height: 2),
-                    Text(
-                      widget.card.description,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        height: 1.25,
-                      ),
-                    ),
-                  ],
-                  const Spacer(),
-                  Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: _AssigneeSummary(
-                          assignees: widget.card.assignees,
-                        ),
-                      ),
-                      if (widget.canManageAssignees)
-                        IconButton(
-                          tooltip: 'Gerenciar responsáveis',
-                          visualDensity: VisualDensity.standard,
-                          style: IconButton.styleFrom(
-                            minimumSize: const Size(48, 48),
-                            maximumSize: const Size(48, 48),
-                            padding: EdgeInsets.zero,
-                            tapTargetSize: MaterialTapTargetSize.padded,
+                                ),
+                                const PopupMenuItem(
+                                  value: 'delete',
+                                  child: ListTile(
+                                    dense: true,
+                                    leading: Icon(Icons.delete_outline_rounded),
+                                    title: Text('Excluir card'),
+                                  ),
+                                ),
+                              ],
+                              if (widget.canManageCards && canMoveWithMenu)
+                                const PopupMenuDivider(),
+                              if (widget.canMove && widget.position > 0)
+                                const PopupMenuItem(
+                                  value: 'up',
+                                  child: ListTile(
+                                    dense: true,
+                                    leading: Icon(Icons.arrow_upward_rounded),
+                                    title: Text('Mover card para cima'),
+                                  ),
+                                ),
+                              if (widget.canMove &&
+                                  widget.position <
+                                      widget.column.cards.length - 1)
+                                const PopupMenuItem(
+                                  value: 'down',
+                                  child: ListTile(
+                                    dense: true,
+                                    leading: Icon(Icons.arrow_downward_rounded),
+                                    title: Text('Mover card para baixo'),
+                                  ),
+                                ),
+                              if (widget.canMove)
+                                for (final target in widget.columns)
+                                  if (target.id != widget.column.id)
+                                    PopupMenuItem(
+                                      value: 'column:${target.id}',
+                                      child: ListTile(
+                                        dense: true,
+                                        leading: const Icon(
+                                            Icons.arrow_forward_rounded),
+                                        title:
+                                            Text('Mover para ${target.name}'),
+                                      ),
+                                    ),
+                            ],
                           ),
-                          onPressed:
-                              widget.isBusy ? null : widget.onManageAssignees,
+                      ],
+                    ),
+                    if (widget.card.description.trim().isNotEmpty) ...<Widget>[
+                      const SizedBox(height: 2),
+                      Tooltip(
+                        message: widget.card.description,
+                        child: Text(
+                          widget.card.description,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                            height: 1.25,
+                          ),
+                        ),
+                      ),
+                    ],
+                    const Spacer(),
+                    Row(
+                      children: <Widget>[
+                        _TaskTypeBadge(type: widget.card.type),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _AssigneeSummary(
+                            assignees: widget.card.assignees,
+                          ),
+                        ),
+                        if (widget.canManageAssignees)
+                          IconButton(
+                            tooltip: 'Gerenciar responsáveis',
+                            visualDensity: VisualDensity.standard,
+                            style: IconButton.styleFrom(
+                              minimumSize: const Size(48, 48),
+                              maximumSize: const Size(48, 48),
+                              padding: EdgeInsets.zero,
+                              tapTargetSize: MaterialTapTargetSize.padded,
+                            ),
+                            onPressed:
+                                widget.isBusy ? null : widget.onManageAssignees,
                             icon:
                                 const Icon(Icons.group_add_outlined, size: 17),
-                        ),
-                    ],
-                  ),
-                ],
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
         ),
-      ),
       ),
     );
   }
@@ -1040,8 +1063,7 @@ class _TaskTypeBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
         color: tone.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: tone.withValues(alpha: 0.32)),
+        borderRadius: BorderRadius.circular(5),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

@@ -253,6 +253,72 @@ Future<void> _selectTask(WidgetTester tester, String taskName) async {
   await tester.pumpAndSettle();
 }
 
+double _contrastRatio(Color a, Color b) {
+  final l1 = a.computeLuminance();
+  final l2 = b.computeLuminance();
+  final lighter = l1 > l2 ? l1 : l2;
+  final darker = l1 > l2 ? l2 : l1;
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+({Color? checkmark, bool show, bool? selected, Color background})
+    _selectedChipRenderState(WidgetTester tester, Finder chipFinder) {
+  final renderFinder = find.descendant(
+    of: chipFinder,
+    matching: find.byWidgetPredicate(
+      (widget) => widget.runtimeType.toString() == '_ChipRenderWidget',
+    ),
+  );
+  final renderObject = tester.renderObject<RenderBox>(renderFinder);
+  final dynamic chipRender = renderObject;
+  // ignore: avoid_dynamic_calls
+  final Color? checkmark = chipRender.theme.checkmarkColor as Color?;
+  // ignore: avoid_dynamic_calls
+  final bool show = chipRender.theme.showCheckmark as bool;
+  // ignore: avoid_dynamic_calls
+  final bool? selected = chipRender.value as bool?;
+
+  final theme = Theme.of(tester.element(chipFinder));
+  final material = tester.widget<Material>(
+    find.ancestor(of: renderFinder, matching: find.byType(Material)).first,
+  );
+  final selectedColor =
+      theme.chipTheme.selectedColor ?? theme.colorScheme.secondaryContainer;
+  return (
+    checkmark: checkmark,
+    show: show,
+    selected: selected,
+    background: Color.alphaBlend(
+      selectedColor,
+      material.color ?? theme.colorScheme.surface,
+    ),
+  );
+}
+
+Future<({Finder chipFinder, ThemeData theme})> _selectAiSuggestion(
+  WidgetTester tester,
+  Brightness brightness,
+) async {
+  final theme = AppTheme.offlineTheme(brightness);
+  await _pumpPage(tester, theme: theme);
+  await tester.tap(find.text('Iniciar pausa'));
+  await tester.pumpAndSettle();
+  await _openProject(tester, 'Projeto A');
+  await tester.enterText(
+    find.byKey(const Key('work-log-description')),
+    'Corrigi o problema de sessão',
+  );
+  await tester.pump(const Duration(milliseconds: 500));
+  await tester.pumpAndSettle();
+
+  final chipFinder = find.byKey(const Key('work-log-task-suggestion-task-a'));
+  await tester.ensureVisible(chipFinder);
+  await tester.pumpAndSettle();
+  await tester.tap(chipFinder, warnIfMissed: false);
+  await tester.pumpAndSettle();
+  return (chipFinder: chipFinder, theme: theme);
+}
+
 void main() {
   testWidgets('selected task delete retains keyboard focus and tooltip',
       (tester) async {
@@ -692,6 +758,80 @@ void main() {
       'description': 'Corrigi o problema de sessão',
       'taskIds': <String>['task-a'],
     });
+  });
+
+  testWidgets(
+      'selected AI suggestion shows a visible contrasting indicator in light and dark themes',
+      (tester) async {
+    for (final brightness in Brightness.values) {
+      final selected = await _selectAiSuggestion(tester, brightness);
+      final chipFinder = selected.chipFinder;
+
+      final chip = tester.widget<FilterChip>(chipFinder);
+      expect(chip.selected, isTrue,
+          reason: 'suggestion must be selected in $brightness');
+
+      final context = tester.element(chipFinder);
+      final theme = Theme.of(context);
+      final chipTheme = theme.chipTheme;
+      final showCheckmark = chip.showCheckmark ?? chipTheme.showCheckmark ?? true;
+      expect(showCheckmark, isTrue,
+          reason: 'selected AI suggestion must show a checkmark in $brightness');
+
+      final checkmarkColor = chip.checkmarkColor ?? chipTheme.checkmarkColor;
+      expect(checkmarkColor, isNotNull,
+          reason: 'selected AI suggestion checkmark color must be explicit in $brightness');
+
+      final selectedColor = chip.selectedColor ??
+          chipTheme.selectedColor ??
+          theme.colorScheme.secondaryContainer;
+      final effectiveSelected = Color.alphaBlend(
+        selectedColor,
+        theme.colorScheme.surfaceContainerLow,
+      );
+      expect(
+        _contrastRatio(checkmarkColor!, effectiveSelected),
+        greaterThanOrEqualTo(3.0),
+        reason:
+            'selected AI suggestion checkmark must contrast in $brightness',
+      );
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+    }
+  });
+
+  testWidgets(
+      'selected AI suggestion renders an effective contrasting checkmark in light and dark themes',
+      (tester) async {
+    for (final brightness in Brightness.values) {
+      final selected = await _selectAiSuggestion(tester, brightness);
+      final chipFinder = selected.chipFinder;
+      final theme = selected.theme;
+
+      final chip = tester.widget<FilterChip>(chipFinder);
+      expect(chip.selected, isTrue,
+          reason: 'suggestion must be selected in $brightness');
+
+      final state = _selectedChipRenderState(tester, chipFinder);
+      expect(state.show, isTrue,
+          reason: 'checkmark must be drawn in $brightness');
+      expect(state.selected, isTrue,
+          reason: 'selected chip state must reach the painter in $brightness');
+      expect(state.checkmark, AppTheme.adminColors(theme).selectedForeground,
+          reason:
+              'effective painted checkmark must use the amber contrast color in $brightness');
+      expect(state.checkmark, isNot(theme.chipTheme.checkmarkColor),
+          reason:
+              'explicit suggestion color must win over the global chip theme in $brightness');
+      expect(_contrastRatio(state.checkmark!, state.background),
+          greaterThanOrEqualTo(3.0),
+          reason:
+              'painted checkmark must contrast with the selected chip in $brightness');
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+    }
   });
 
   testWidgets('AI suggestions have clearer vertical spacing', (tester) async {

@@ -9,6 +9,7 @@ import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_e
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_skeleton.dart';
 import 'package:touchin_flutter/theme/app_theme.dart';
+import 'package:touchin_flutter/theme/workspace_menu_style.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -373,54 +374,21 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
               ),
             )
           else
-            LayoutBuilder(builder: (context, constraints) {
-              const spacing = 12.0;
-              final columns = constraints.maxWidth >= 1350
-                  ? 3
-                  : constraints.maxWidth >= 850
-                      ? 2
-                      : 1;
-              final width =
-                  (constraints.maxWidth - spacing * (columns - 1)) / columns;
-              return Column(
-                children: [
-                  for (var start = 0;
-                      start < _controller.projects.length;
-                      start += columns) ...[
-                    if (start > 0) const SizedBox(height: 8),
-                    IntrinsicHeight(
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          for (var i = start;
-                              i < _controller.projects.length &&
-                                  i < start + columns;
-                              i++) ...[
-                            if (i > start) const SizedBox(width: spacing),
-                            SizedBox(
-                              width: width,
-                              child: _ProjectListTile(
-                                project: _controller.projects[i],
-                                selected: _controller.projects[i].id ==
-                                    _controller.selectedProjectId,
-                                canManage: _controller.canManageProjects,
-                                isCompact: width - 34 < 400,
-                                onTap: () => _controller
-                                    .selectProject(_controller.projects[i].id),
-                                onEdit: () =>
-                                    _openEditProject(_controller.projects[i]),
-                                onDelete: () => _confirmDeleteProject(
-                                    _controller.projects[i]),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ],
+            Column(
+              children: <Widget>[
+                for (final project in _controller.projects) ...<Widget>[
+                  Divider(height: 1, color: colorScheme.outlineVariant),
+                  _ProjectListTile(
+                    project: project,
+                    selected: project.id == _controller.selectedProjectId,
+                    canManage: _controller.canManageProjects,
+                    onTap: () => _controller.selectProject(project.id),
+                    onEdit: () => _openEditProject(project),
+                    onDelete: () => _confirmDeleteProject(project),
+                  ),
                 ],
-              );
-            }),
+              ],
+            ),
         ],
       ),
     );
@@ -597,51 +565,61 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
             )
           else
             LayoutBuilder(builder: (context, constraints) {
-              const spacing = 16.0;
-              final columns = constraints.maxWidth >= 1350
-                  ? 3
-                  : constraints.maxWidth >= 700
-                      ? 2
-                      : 1;
-              final width =
-                  (constraints.maxWidth - spacing * (columns - 1)) / columns;
+              final wide = constraints.maxWidth >= 700;
               final colors = Theme.of(context).colorScheme;
-              return Wrap(
-                spacing: spacing,
-                runSpacing: 4,
+              return Column(
                 children: _controller.projectMembers.map((member) {
                   final isCurrent =
                       member.employeeId == _controller.currentEmployeeId;
-                  return SizedBox(
-                    width: width,
-                    child: ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: CircleAvatar(
-                        radius: 18,
-                        backgroundColor: colors.brightness == Brightness.dark
-                            ? colors.primary
-                            : colors.onSurfaceVariant,
-                        foregroundColor: colors.brightness == Brightness.dark
-                            ? colors.onPrimary
-                            : colors.surface,
-                        child: Text(_initials(member.employeeName)),
-                      ),
-                      title: Text(member.employeeName),
-                      subtitle: Text(
-                        isCurrent
-                            ? 'Você • ${member.employeeId}'
-                            : member.employeeId,
-                      ),
-                      trailing: _controller.canManageProjects
-                          ? IconButton(
+                  final identifier = isCurrent
+                      ? 'Você • ${member.employeeId}'
+                      : member.employeeId;
+                  final name = Text(member.employeeName,
+                      maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall);
+                  final id = Text(identifier, maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                          color: colors.onSurfaceVariant));
+                  return Column(
+                    children: [
+                      Divider(height: 1, color: colors.outlineVariant),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 18,
+                              backgroundColor: colors.brightness == Brightness.dark
+                                  ? colors.primary : colors.onSurfaceVariant,
+                              foregroundColor: colors.brightness == Brightness.dark
+                                  ? colors.onPrimary : colors.surface,
+                              child: Text(_initials(member.employeeName)),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(child: wide ? Row(children: [
+                              Expanded(child: Tooltip(message: member.employeeName, child: name)),
+                              const SizedBox(width: 16),
+                              Expanded(child: Tooltip(message: identifier, child: id)),
+                            ]) : Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Tooltip(message: member.employeeName, child: name),
+                                Tooltip(message: identifier, child: id),
+                              ],
+                            )),
+                            if (_controller.canManageProjects)
+                              IconButton(
                               tooltip: 'Remover acesso ao projeto',
                               onPressed: _controller.isMutating
                                   ? null
                                   : () => _confirmRemoveProjectMember(member),
                               icon: const Icon(Icons.person_remove_outlined),
-                            )
-                          : null,
-                    ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   );
                 }).toList(),
               );
@@ -1138,7 +1116,6 @@ class _ProjectListTile extends StatelessWidget {
     required this.project,
     required this.selected,
     required this.canManage,
-    required this.isCompact,
     required this.onTap,
     required this.onEdit,
     required this.onDelete,
@@ -1147,7 +1124,6 @@ class _ProjectListTile extends StatelessWidget {
   final ProjectSummary project;
   final bool selected;
   final bool canManage;
-  final bool isCompact;
   final VoidCallback onTap;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
@@ -1162,50 +1138,21 @@ class _ProjectListTile extends StatelessWidget {
       child: Semantics(
         selected: selected,
         child: InkWell(
-          borderRadius: BorderRadius.circular(8),
           onTap: onTap,
           child: Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
               color: selected
                   ? colorScheme.primary.withValues(alpha: 0.08)
-                  : colorScheme.surface.withValues(alpha: 0.8),
-              border: Border.all(
-                color:
-                    selected ? colorScheme.primary : colorScheme.outlineVariant,
-              ),
+                  : Colors.transparent,
             ),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: <Widget>[
-                if (!isCompact) ...<Widget>[
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8),
-                      color: selected
-                          ? colorScheme.primary.withValues(alpha: 0.16)
-                          : colorScheme.surfaceContainerHighest
-                              .withValues(alpha: 0.72),
-                      border: Border.all(
-                        color: selected
-                            ? colorScheme.primary.withValues(alpha: 0.36)
-                            : colorScheme.outlineVariant,
-                      ),
-                    ),
-                    child: Icon(
-                      Icons.folder_open_rounded,
-                      size: 20,
-                      color: selected
-                          ? colorScheme.primary
-                          : colorScheme.onSurface,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                ],
+                Icon(selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                    size: 20, color: selected ? colorScheme.primary : colorScheme.onSurfaceVariant),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1213,12 +1160,15 @@ class _ProjectListTile extends StatelessWidget {
                       Row(
                         children: <Widget>[
                           Expanded(
-                            child: Text(
-                              project.name,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w700,
+                            child: Tooltip(
+                              message: project.name,
+                              child: Text(
+                                project.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
                             ),
                           ),
@@ -1229,8 +1179,8 @@ class _ProjectListTile extends StatelessWidget {
                               icon: const Icon(Icons.edit_outlined, size: 18),
                               padding: EdgeInsets.zero,
                               constraints: const BoxConstraints.tightFor(
-                                width: 32,
-                                height: 32,
+                                width: 40,
+                                height: 48,
                               ),
                               visualDensity: VisualDensity.compact,
                               tooltip: 'Editar projeto',
@@ -1244,8 +1194,8 @@ class _ProjectListTile extends StatelessWidget {
                               ),
                               padding: EdgeInsets.zero,
                               constraints: const BoxConstraints.tightFor(
-                                width: 32,
-                                height: 32,
+                                width: 40,
+                                height: 48,
                               ),
                               visualDensity: VisualDensity.compact,
                               tooltip: 'Excluir projeto',
@@ -1652,6 +1602,9 @@ class _ProjectEditorDialogState extends State<_ProjectEditorDialog> {
               const SizedBox(height: 14),
               DropdownButtonFormField<ProjectStatus>(
                 initialValue: _status,
+                dropdownColor:
+                    WorkspaceMenuStyle.surface(Theme.of(context).colorScheme),
+                borderRadius: WorkspaceMenuStyle.borderRadius,
                 decoration: const InputDecoration(labelText: 'Status'),
                 items: const <DropdownMenuItem<ProjectStatus>>[
                   DropdownMenuItem(
@@ -1776,6 +1729,9 @@ class _AddProjectMemberDialogState extends State<_AddProjectMemberDialog> {
                 )
               : DropdownButtonFormField<String>(
                   initialValue: _selectedEmployeeId,
+                  dropdownColor:
+                      WorkspaceMenuStyle.surface(Theme.of(context).colorScheme),
+                  borderRadius: WorkspaceMenuStyle.borderRadius,
                   decoration: const InputDecoration(labelText: 'Funcionário'),
                   items: availableEmployees
                       .map(
@@ -1852,6 +1808,9 @@ class _AddTaskMemberDialogState extends State<_AddTaskMemberDialog> {
                 )
               : DropdownButtonFormField<String>(
                   initialValue: _selectedEmployeeId,
+                  dropdownColor:
+                      WorkspaceMenuStyle.surface(Theme.of(context).colorScheme),
+                  borderRadius: WorkspaceMenuStyle.borderRadius,
                   decoration: const InputDecoration(
                     labelText: 'Membro do projeto',
                     helperText:

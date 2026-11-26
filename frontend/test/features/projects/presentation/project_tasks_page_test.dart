@@ -15,6 +15,18 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('project directory shows compact aligned rows', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1600, 1800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(MaterialApp(home: ProjectTasksPage(api: _MultipleProjectsApi())));
+    await tester.pumpAndSettle();
+    final section = find.ancestor(of: find.text('Selecione um projeto para consultar dados, acessos e tarefas.'), matching: find.byType(WorkspaceSectionCard)).first;
+    final first = find.descendant(of: section, matching: find.text('Projeto principal'));
+    final second = find.descendant(of: section, matching: find.text('Projeto secundário'));
+    expect(tester.getTopLeft(second).dy, greaterThan(tester.getTopLeft(first).dy), reason: 'project_directory_row_layout');
+    expect(tester.getTopLeft(second).dx, closeTo(tester.getTopLeft(first).dx, 1));
+    expect(find.descendant(of: section, matching: find.byTooltip('Editar projeto')), findsNWidgets(2));
+  });
   testWidgets('project overview leads with the project name', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1600, 1800));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -151,13 +163,8 @@ void main() {
       final secondTile = projectTile('Projeto secundário').first;
       final first = find.descendant(of: firstTile, matching: find.text('Projeto principal')).first;
       final second = find.descendant(of: secondTile, matching: find.text('Projeto secundário')).first;
-      if (width >= 1440) {
-        expect(tester.getTopLeft(second).dy, closeTo(tester.getTopLeft(first).dy, 2),
-            reason: 'project_directory_wide_alignment');
-        expect(tester.getTopLeft(second).dx, greaterThan(tester.getTopLeft(first).dx + 250));
-      } else {
-        expect(tester.getTopLeft(second).dy, greaterThan(tester.getTopLeft(first).dy));
-      }
+      expect(tester.getTopLeft(second).dy, greaterThan(tester.getTopLeft(first).dy));
+      expect(tester.getTopLeft(second).dx, closeTo(tester.getTopLeft(first).dx, 2));
 
       expect(find.descendant(of: secondTile, matching: find.byTooltip('Editar projeto')), findsOneWidget);
       expect(find.descendant(of: secondTile, matching: find.byTooltip('Excluir projeto')), findsOneWidget);
@@ -182,7 +189,7 @@ void main() {
         }).first;
     final short = card('Projeto principal');
     final long = card(_MixedHeightProjectsApi.longName);
-    expect(tester.getTopLeft(short).dy, closeTo(tester.getTopLeft(long).dy, 1));
+    expect(tester.getTopLeft(long).dy, greaterThan(tester.getTopLeft(short).dy));
     expect(tester.getSize(short).height, closeTo(tester.getSize(long).height, 1),
         reason: 'project_card_equal_height');
     expect(tester.takeException(), isNull);
@@ -285,14 +292,9 @@ void main() {
       final remove = find.descendant(
           of: section, matching: find.byTooltip('Remover acesso ao projeto'));
       expect(remove, findsNWidgets(2));
-      if (width == 1600) {
-        expect(tester.getTopLeft(second).dy,
-            closeTo(tester.getTopLeft(first).dy, 2),
-            reason: 'project_access_wide_alignment');
-        expect(tester.getTopLeft(second).dx, greaterThan(tester.getTopLeft(first).dx));
-      } else {
-        expect(tester.getTopLeft(second).dy, greaterThan(tester.getTopLeft(first).dy));
-      }
+      expect(tester.getTopLeft(second).dy, greaterThan(tester.getTopLeft(first).dy),
+          reason: 'project_access_rows');
+      expect(tester.getTopLeft(second).dx, closeTo(tester.getTopLeft(first).dx, 2));
       await tester.ensureVisible(remove.first);
       await tester.tap(remove.first);
       await tester.pumpAndSettle();
@@ -711,7 +713,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final projectIcon = find.byIcon(Icons.folder_open_rounded);
+    final projectIcon = find.byIcon(Icons.radio_button_checked);
 
     expect(projectIcon, findsOneWidget);
     expect(

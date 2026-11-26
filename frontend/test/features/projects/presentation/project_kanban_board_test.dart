@@ -59,6 +59,84 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('kanban cards remain compact and distinct from lanes',
+      (tester) async {
+    await _setUpBoardSurface(tester);
+    await tester.pumpWidget(_host(_board()));
+    final laneFinder =
+        find.byKey(const ValueKey<String>('kanban-column-column-a'));
+    final cardFinder =
+        find.byKey(const ValueKey<String>('kanban-card-task-01'));
+    final lane = tester.getSize(laneFinder);
+    final card = tester.getSize(cardFinder);
+    final laneDecoration = tester
+        .widget<AnimatedContainer>(laneFinder)
+        .decoration! as BoxDecoration;
+    final cardDecoration = tester
+        .widget<AnimatedContainer>(find
+            .descendant(
+                of: cardFinder, matching: find.byType(AnimatedContainer))
+            .first)
+        .decoration! as BoxDecoration;
+    expect(lane.width, greaterThan(280));
+    expect(card.height, lessThan(145));
+    expect(laneDecoration.border, isNotNull);
+    expect(cardDecoration.border, isNotNull);
+    expect(cardDecoration.color, isNot(laneDecoration.color));
+    expect(find.text('#1'), findsOneWidget);
+    expect(find.text('Descrição'), findsOneWidget);
+    expect(find.byTooltip('Ações do card #1'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('card action menu has a contrasting surface', (tester) async {
+    await _setUpBoardSurface(tester);
+    await tester.pumpWidget(_host(_board(includeNonmatchingCard: true)));
+    final button = tester.widget<PopupMenuButton<String>>(
+      find.byWidgetPredicate((widget) =>
+          widget is PopupMenuButton<String> &&
+          widget.tooltip == 'Ações do card #1'),
+    );
+    final colors =
+        Theme.of(tester.element(find.byType(ProjectKanbanBoard))).colorScheme;
+    expect(button.color, colors.surfaceContainerHighest);
+    final shape = button.shape! as RoundedRectangleBorder;
+    expect(shape.borderRadius, BorderRadius.circular(10),
+        reason: 'kanban_card_menu_radius_10');
+    expect(shape.side.color, colors.outlineVariant,
+        reason: 'kanban_card_menu_border');
+    await tester.tap(find.byTooltip('Ações do card #1'));
+    await tester.pumpAndSettle();
+    expect(find.text('Editar card'), findsOneWidget);
+    final move = find.ancestor(
+      of: find.text('Mover card para baixo'),
+      matching: find.byType(ListTile),
+    );
+    expect(
+        find.descendant(
+            of: move, matching: find.byIcon(Icons.arrow_downward_rounded)),
+        findsOneWidget);
+  });
+
+  testWidgets('column action menu uses the shared popup surface', (tester) async {
+    await _setUpBoardSurface(tester);
+    await tester.pumpWidget(_host(_board()));
+    final button = tester.widget<PopupMenuButton<String>>(
+      find.byWidgetPredicate((widget) =>
+          widget is PopupMenuButton<String> &&
+          widget.tooltip == 'Opções da coluna').first,
+    );
+    final colors =
+        Theme.of(tester.element(find.byType(ProjectKanbanBoard))).colorScheme;
+    expect(button.color, colors.surfaceContainerHighest,
+        reason: 'kanban_column_menu_surface');
+    final shape = button.shape! as RoundedRectangleBorder;
+    expect(shape.borderRadius, BorderRadius.circular(10),
+        reason: 'kanban_column_menu_radius_10');
+    expect(shape.side.color, colors.outlineVariant,
+        reason: 'kanban_column_menu_border');
+  });
+
   testWidgets('uses native slivers and no legacy drag/reorder primitives', (
     tester,
   ) async {

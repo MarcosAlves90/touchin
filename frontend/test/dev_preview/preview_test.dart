@@ -515,6 +515,19 @@ void main() {
       await openDrawer();
       final dropdown = find.byKey(ValueKey('$label-$currentValue'));
       expect(dropdown, findsOneWidget, reason: 'missing dropdown $label');
+      final select = tester.widget<DropdownButton<dynamic>>(
+        find.descendant(
+          of: dropdown,
+          matching: find.byWidgetPredicate(
+            (widget) => widget is DropdownButton,
+          ),
+        ),
+      );
+      final colors = Theme.of(tester.element(dropdown)).colorScheme;
+      expect(select.dropdownColor, colors.surfaceContainerHighest,
+          reason: 'preview_dropdown_surface');
+      expect(select.borderRadius, BorderRadius.circular(10),
+          reason: 'preview_dropdown_radius_10');
       await tester.tap(dropdown);
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull, reason: '$reason: $label menu');

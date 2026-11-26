@@ -7,6 +7,7 @@ import 'package:touchin_flutter/dev_preview/preview_fixtures.dart';
 import 'package:touchin_flutter/dev_preview/preview_theme.dart';
 import 'package:touchin_flutter/main.dart';
 import 'package:touchin_flutter/features/time_tracking/application/punch_location_service.dart';
+import 'package:touchin_flutter/theme/workspace_menu_style.dart';
 
 class PreviewWorkspace extends StatefulWidget {
   const PreviewWorkspace({super.key, required this.onExit, this.controller});
@@ -193,24 +194,28 @@ class _PreviewControls extends StatelessWidget {
               'Identidade sintética • dados apenas em memória. Nenhuma chamada à API real.'),
           const SizedBox(height: 20),
           _select(
+              context,
               'Perfil fictício',
               controller.persona,
               PreviewPersona.values,
               const ['Administrador', 'Gestor', 'Funcionário'],
               controller.setPersona),
           _select(
+              context,
               'Dados da página',
               controller.data,
               PreviewData.values,
               const ['Preenchidos', 'Vazios', 'Erro simulado'],
               (value) => controller.configure(data: value)),
           _select(
+              context,
               'Tempo das requisições',
               controller.timing,
               PreviewTiming.values,
               const ['Instantâneo', 'Com atraso', 'Pendente até cancelar'],
               (value) => controller.configure(timing: value)),
           _select(
+              context,
               'Atraso',
               controller.delay.inMilliseconds,
               const [250, 1000, 2000, 5000, 8000],
@@ -225,6 +230,7 @@ class _PreviewControls extends StatelessWidget {
                   controller.configure(delay: Duration(milliseconds: value))),
           const Divider(height: 32),
           _select(
+              context,
               'Inicialização do servidor',
               controller.server,
               PreviewServer.values,
@@ -263,13 +269,15 @@ class _PreviewControls extends StatelessWidget {
         ],
       ));
 
-  Widget _select<T>(String label, T value, List<T> values, List<String> labels,
-          ValueChanged<T> onChanged) =>
+  Widget _select<T>(BuildContext context, String label, T value,
+          List<T> values, List<String> labels, ValueChanged<T> onChanged) =>
       Padding(
         padding: const EdgeInsets.only(bottom: 16),
         child: DropdownButtonFormField<T>(
           key: ValueKey('$label-$value'),
           initialValue: values.contains(value) ? value : values.first,
+          dropdownColor: WorkspaceMenuStyle.surface(Theme.of(context).colorScheme),
+          borderRadius: WorkspaceMenuStyle.borderRadius,
           isExpanded: true,
           decoration: InputDecoration(
               labelText: label, border: const OutlineInputBorder()),

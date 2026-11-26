@@ -460,7 +460,7 @@ void main() {
     expect(find.text('success'), findsNothing);
 
     await openAuditFilters(tester);
-    expect(find.text('ID do usuário (ator)'), findsOneWidget);
+    expect(find.text('ID do usuário (autor)'), findsOneWidget);
     expect(find.text('Ação'), findsOneWidget);
     expect(find.text('Tipo de entidade'), findsOneWidget);
     expect(find.text('ID da entidade'), findsOneWidget);
@@ -487,7 +487,7 @@ void main() {
     await selectAuditFilter(tester, 'audit-action-filter', 'Projeto criado');
     await selectAuditFilter(tester, 'audit-entity-type-filter', 'Projeto');
     await selectAuditFilter(tester, 'audit-result-filter', 'Sucesso');
-    await enterAuditFilter(tester, 'ID do usuário (ator)', 'ser_');
+    await enterAuditFilter(tester, 'ID do usuário (autor)', 'ser_');
     await enterAuditFilter(tester, 'ID da entidade', 'ard_');
     await enterAuditFilter(tester, 'ID do projeto', 'roject_');
     await applyAuditFilters(tester);
@@ -501,6 +501,114 @@ void main() {
     expect(find.text('Ação: Projeto criado'), findsOneWidget);
     expect(find.text('Tipo: Projeto'), findsOneWidget);
     expect(find.text('Resultado: Sucesso'), findsOneWidget);
+  });
+
+  testWidgets(
+      'ai task recommendations settings audit action uses a pt-BR label and unknown actions keep their fallback',
+      (tester) async {
+    final api = FakeTouchInApi()
+      ..mockEvents = [
+        AuditEventResponse(
+          id: 'evt_ai_settings',
+          timestamp: DateTime.utc(2026, 10, 20),
+          companyId: 'company_1',
+          actorUserId: 'user_1',
+          projectId: null,
+          action: 'company.ai_task_recommendations.settings_updated',
+          entityType: 'company_ai_settings',
+          entityId: 'company_1',
+          result: 'success',
+          metadataPayload: null,
+        ),
+        AuditEventResponse(
+          id: 'evt_unknown',
+          timestamp: DateTime.utc(2026, 10, 20),
+          companyId: 'company_1',
+          actorUserId: 'user_1',
+          projectId: null,
+          action: 'future.action',
+          entityType: 'future_entity',
+          entityId: 'entity_1',
+          result: 'future_result',
+          metadataPayload: null,
+        ),
+      ];
+    await tester.binding.setSurfaceSize(const Size(1280, 800));
+    await tester.pumpWidget(MaterialApp(home: AdminAuditPage(api: api)));
+    await tester.pumpAndSettle();
+
+    final localized =
+        find.text('Configurações de sugestões de tarefas com IA atualizadas');
+    await tester.ensureVisible(localized);
+    expect(localized, findsOneWidget);
+    expect(
+      find.text(
+          'Ação desconhecida (company.ai_task_recommendations.settings_updated)'),
+      findsNothing,
+    );
+
+    final unknown = find.text('Ação desconhecida (future.action)');
+    final scrollable = find.descendant(
+      of: find.byKey(const ValueKey<String>('audit-events-table')),
+      matching: find.byType(Scrollable),
+    );
+    await tester.scrollUntilVisible(unknown, 200, scrollable: scrollable);
+    await tester.pumpAndSettle();
+    expect(unknown, findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets(
+      'company AI settings audit resource uses a pt-BR label while unknown resources keep their fallback',
+      (tester) async {
+    final api = FakeTouchInApi()
+      ..mockEvents = [
+        AuditEventResponse(
+          id: 'evt_ai_settings',
+          timestamp: DateTime.utc(2026, 10, 20),
+          companyId: 'company_1',
+          actorUserId: 'user_1',
+          projectId: null,
+          action: 'company.ai_task_recommendations.settings_updated',
+          entityType: 'company_ai_settings',
+          entityId: 'company_1',
+          result: 'success',
+          metadataPayload: null,
+        ),
+        AuditEventResponse(
+          id: 'evt_unknown',
+          timestamp: DateTime.utc(2026, 10, 20),
+          companyId: 'company_1',
+          actorUserId: 'user_1',
+          projectId: null,
+          action: 'future.action',
+          entityType: 'future_entity',
+          entityId: 'entity_1',
+          result: 'future_result',
+          metadataPayload: null,
+        ),
+      ];
+    await tester.binding.setSurfaceSize(const Size(1280, 800));
+    await tester.pumpWidget(MaterialApp(home: AdminAuditPage(api: api)));
+    await tester.pumpAndSettle();
+
+    final resource =
+        find.text('Configurações de sugestões de tarefas com IA');
+    await tester.ensureVisible(resource);
+    expect(resource, findsOneWidget);
+    expect(find.text('company_ai_settings'), findsNothing);
+
+    final unknown = find.text('future_entity');
+    final scrollable = find.descendant(
+      of: find.byKey(const ValueKey<String>('audit-events-table')),
+      matching: find.byType(Scrollable),
+    );
+    await tester.scrollUntilVisible(unknown, 200, scrollable: scrollable);
+    await tester.pumpAndSettle();
+    expect(unknown, findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.binding.setSurfaceSize(null);
   });
 
   testWidgets(
@@ -1145,7 +1253,7 @@ void main() {
     expect(decoration.borderRadius, BorderRadius.circular(16));
     expect(decoration.border, isA<Border>());
     expect(find.text('Filtros da auditoria'), findsOneWidget);
-    expect(find.text('ID do usuário (ator)'), findsOneWidget);
+    expect(find.text('ID do usuário (autor)'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -1163,7 +1271,7 @@ void main() {
     expect(tester.getSize(pageScroll).height, greaterThan(600));
 
     await openAuditFilters(tester);
-    final actor = find.widgetWithText(TextField, 'ID do usuário (ator)');
+    final actor = find.widgetWithText(TextField, 'ID do usuário (autor)');
     final action = find.byKey(const ValueKey<String>('audit-action-filter'));
     expect(actor, findsOneWidget);
     expect(action, findsOneWidget);
@@ -1171,6 +1279,17 @@ void main() {
       tester.widget<DropdownButtonFormField<String>>(action),
       isA<DropdownButtonFormField<String>>(),
     );
+    final button = tester.widget<DropdownButton<String>>(
+      find.descendant(
+        of: action,
+        matching: find.byType(DropdownButton<String>),
+      ),
+    );
+    final colors = Theme.of(tester.element(action)).colorScheme;
+    expect(button.dropdownColor, colors.surfaceContainerHighest,
+        reason: 'audit_dropdown_surface');
+    expect(button.borderRadius, BorderRadius.circular(10),
+        reason: 'audit_dropdown_radius_10');
     expect(tester.getTopLeft(actor).dx, tester.getTopLeft(action).dx);
     await tester.ensureVisible(
       find.byKey(const ValueKey<String>('audit-result-filter')),
@@ -1250,7 +1369,7 @@ void main() {
     expect(find.text('Falha'), findsOneWidget);
 
     await openAuditFilters(tester);
-    await enterAuditFilter(tester, 'ID do usuário (ator)', 'user_1');
+    await enterAuditFilter(tester, 'ID do usuário (autor)', 'user_1');
     await selectAuditFilter(
       tester,
       'audit-action-filter',

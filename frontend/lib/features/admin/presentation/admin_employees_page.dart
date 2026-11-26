@@ -9,6 +9,7 @@ import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_s
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_skeleton.dart';
 import 'package:touchin_flutter/features/admin/presentation/admin_employees_controller.dart';
 import 'package:touchin_flutter/theme/app_theme.dart';
+import 'package:touchin_flutter/theme/workspace_menu_style.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -677,22 +678,11 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
           else
             Column(
               children: [
-                LayoutBuilder(builder: (context, constraints) {
-                  const spacing = 12.0;
-                  final columns = constraints.maxWidth >= 1350
-                      ? 3
-                      : constraints.maxWidth >= 900
-                          ? 2
-                          : 1;
-                  final itemWidth =
-                      (constraints.maxWidth - spacing * (columns - 1)) / columns;
-                  return Wrap(
-                    spacing: spacing,
-                    runSpacing: 8,
+                Column(
                     children: pagedEmployees.map((employee) {
-                      return SizedBox(
-                        width: itemWidth,
-                        child: _EmployeeListTile(
+                      return Column(children: [
+                        Divider(height: 1, color: colorScheme.outlineVariant),
+                        _EmployeeListTile(
                           employee: employee,
                           selected: employee.id == _selectedEmployee?.id,
                           statusColor: _statusColor(employee.status),
@@ -703,10 +693,9 @@ class _AdminEmployeesPageState extends State<AdminEmployeesPage> {
                           onEdit: () => _openEditEmployeeDialog(employee),
                           onDelete: () => _removeEmployee(employee),
                         ),
-                      );
+                      ]);
                     }).toList(),
-                  );
-                }),
+                ),
                 if (_hasEmployeesPagination) ...[
                   const SizedBox(height: 8),
                   PaginationControls(

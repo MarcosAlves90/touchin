@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:touchin_flutter/theme/workspace_menu_style.dart';
 
 class HighContrastMarker extends ThemeExtension<HighContrastMarker> {
   const HighContrastMarker();
@@ -174,6 +175,8 @@ class AppTheme {
         ),
       ),
       chipTheme: theme.chipTheme.copyWith(
+        showCheckmark: true,
+        checkmarkColor: scheme.onSurface,
         selectedColor: colors.selectedContainer,
         side: BorderSide(color: scheme.outline),
       ),
@@ -347,6 +350,8 @@ class AppTheme {
         shape: const RoundedRectangleBorder(borderRadius: _radius),
       ),
       chipTheme: baseTheme.chipTheme.copyWith(
+        showCheckmark: true,
+        checkmarkColor: colorScheme.onSurface,
         backgroundColor: colorScheme.surfaceContainerHighest,
         selectedColor: accent.withValues(alpha: 0.16),
         side: BorderSide(color: colorScheme.outlineVariant),
@@ -355,6 +360,11 @@ class AppTheme {
           color: colorScheme.onSurface,
         ),
         shape: const RoundedRectangleBorder(borderRadius: _radius),
+      ),
+      popupMenuTheme: PopupMenuThemeData(
+        color: WorkspaceMenuStyle.surface(colorScheme),
+        surfaceTintColor: Colors.transparent,
+        shape: WorkspaceMenuStyle.shape(colorScheme),
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,

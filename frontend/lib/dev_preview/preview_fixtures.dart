@@ -208,6 +208,7 @@ class PreviewFixtures {
               'timestamp': date,
               'company_id': companyId,
               'actor_user_id': 'preview-user-admin',
+              'actor_name': names.first,
               'project_id': projects.first['id'],
               'action': [
                 'task.create',

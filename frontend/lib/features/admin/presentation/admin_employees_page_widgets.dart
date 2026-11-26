@@ -453,6 +453,8 @@ class _EmployeeEditorDialogState extends State<_EmployeeEditorDialog> {
   Widget _buildStatusDropdown() {
     return DropdownButtonFormField<EmployeeStatus>(
       initialValue: _status,
+      dropdownColor: WorkspaceMenuStyle.surface(Theme.of(context).colorScheme),
+      borderRadius: WorkspaceMenuStyle.borderRadius,
       decoration: const InputDecoration(
         labelText: 'Status',
         prefixIcon: Icon(Icons.flag_outlined),
@@ -478,6 +480,8 @@ class _EmployeeEditorDialogState extends State<_EmployeeEditorDialog> {
   Widget _buildWorkModeDropdown() {
     return DropdownButtonFormField<EmployeeWorkMode>(
       initialValue: _workMode,
+      dropdownColor: WorkspaceMenuStyle.surface(Theme.of(context).colorScheme),
+      borderRadius: WorkspaceMenuStyle.borderRadius,
       decoration: const InputDecoration(
         labelText: 'Modo de trabalho',
         prefixIcon: Icon(Icons.work_outline_rounded),
@@ -503,6 +507,8 @@ class _EmployeeEditorDialogState extends State<_EmployeeEditorDialog> {
   Widget _buildRoleDropdown() {
     return DropdownButtonFormField<RoleLevel>(
       initialValue: _roleLevel,
+      dropdownColor: WorkspaceMenuStyle.surface(Theme.of(context).colorScheme),
+      borderRadius: WorkspaceMenuStyle.borderRadius,
       decoration: const InputDecoration(
         labelText: 'Nível',
         prefixIcon: Icon(Icons.shield_outlined),
@@ -529,6 +535,8 @@ class _EmployeeEditorDialogState extends State<_EmployeeEditorDialog> {
     return DropdownButtonFormField<EmployeeAccessRole?>(
       key: const ValueKey('employee-access-role-dropdown'),
       initialValue: _accessRole ?? EmployeeAccessRole.employee,
+      dropdownColor: WorkspaceMenuStyle.surface(Theme.of(context).colorScheme),
+      borderRadius: WorkspaceMenuStyle.borderRadius,
       decoration: const InputDecoration(
         labelText: 'Perfil de acesso',
         prefixIcon: Icon(Icons.admin_panel_settings_outlined),
@@ -656,23 +664,20 @@ class _EmployeeListTile extends StatelessWidget {
           onTap: onTap,
           child: Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
               color: selected
                   ? (theme.extension<HighContrastMarker>() != null
                       ? adminColors.selectedContainer
                       : colorScheme.surfaceContainerHighest)
-                  : colorScheme.surface,
-              border: Border.all(
-                color: selected
-                    ? adminColors.selectedIndicator
-                    : colorScheme.outlineVariant,
-                width: selected ? 2 : 1,
-              ),
+                  : Colors.transparent,
+              border: selected ? Border.all(color: adminColors.selectedIndicator, width: 2) : null,
             ),
             child: LayoutBuilder(
               builder: (context, constraints) {
+                if (constraints.maxWidth >= 850) {
+                  return _buildWideContent(theme, colorScheme, adminColors);
+                }
                 final isCompact = constraints.maxWidth < 400;
                 return _buildContent(
                   context,
@@ -686,6 +691,45 @@ class _EmployeeListTile extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Widget _buildWideContent(ThemeData theme, ColorScheme colors, AdminSemanticColors adminColors) {
+    final details = '${employee.role} · ${employee.department} · ${employee.unit}';
+    return Row(children: [
+      Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: selected ? colors.surface : colors.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: colors.outlineVariant),
+        ),
+        child: Icon(Icons.badge_rounded, size: 20,
+            color: selected ? adminColors.selectedForeground : colors.onSurface),
+      ),
+      const SizedBox(width: 10),
+      Expanded(flex: 3, child: Tooltip(message: employee.name, child: Text(
+        employee.name, maxLines: 1, overflow: TextOverflow.ellipsis,
+        style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+      ))),
+      const SizedBox(width: 16),
+      Expanded(flex: 4, child: Tooltip(message: details, child: Text(
+        details, maxLines: 1, overflow: TextOverflow.ellipsis,
+        style: theme.textTheme.bodyMedium?.copyWith(color: colors.onSurfaceVariant),
+      ))),
+      const SizedBox(width: 12),
+      SizedBox(width: 210, child: Wrap(spacing: 8, runSpacing: 4, children: [
+        if (employee.status != EmployeeStatus.active)
+          _InlinePill(label: statusLabel, tone: statusColor, icon: statusIcon, teamSurface: true),
+        if (needsAttention)
+          _InlinePill(label: 'Acompanhamento', tone: adminColors.warning.foreground,
+              icon: Icons.priority_high_rounded, teamSurface: true),
+      ])),
+      IconButton(onPressed: onEdit, tooltip: 'Editar funcionário',
+          icon: const Icon(Icons.edit_outlined, size: 18)),
+      IconButton(onPressed: onDelete, tooltip: 'Remover funcionário',
+          icon: const Icon(Icons.delete_outline_rounded, size: 18)),
+    ]);
   }
 
   Widget _buildContent(
@@ -1428,6 +1472,8 @@ class _ManagedPunchEditorDialogState extends State<_ManagedPunchEditorDialog> {
                   const SizedBox(height: 20),
                   DropdownButtonFormField<PunchType>(
                     initialValue: _type,
+                    dropdownColor: WorkspaceMenuStyle.surface(colorScheme),
+                    borderRadius: WorkspaceMenuStyle.borderRadius,
                     decoration: const InputDecoration(
                       labelText: 'Tipo de ponto',
                       prefixIcon: Icon(Icons.bolt_rounded),
@@ -1645,6 +1691,8 @@ class _ManagedPunchTile extends StatelessWidget {
           ),
           PopupMenuButton<_ManagedPunchAction>(
             icon: const Icon(Icons.more_horiz_rounded),
+            color: WorkspaceMenuStyle.surface(colorScheme),
+            shape: WorkspaceMenuStyle.shape(colorScheme),
             onSelected: (action) {
               if (action == _ManagedPunchAction.edit) {
                 onEdit();

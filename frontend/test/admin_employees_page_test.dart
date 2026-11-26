@@ -384,6 +384,22 @@ void main() {
             radius(find.text('Entrada'), 8);
             final menu = find.byIcon(Icons.more_horiz_rounded).last;
             await tester.ensureVisible(menu);
+            final punchMenu = tester.widget<PopupMenuButton>(
+              find.ancestor(
+                of: menu,
+                matching: find.byWidgetPredicate(
+                  (widget) => widget is PopupMenuButton,
+                ),
+              ).first,
+            );
+            final menuColors = Theme.of(tester.element(menu)).colorScheme;
+            expect(punchMenu.color, menuColors.surfaceContainerHighest,
+                reason: 'punch_menu_surface');
+            final punchShape = punchMenu.shape! as RoundedRectangleBorder;
+            expect(punchShape.borderRadius, BorderRadius.circular(10),
+                reason: 'punch_menu_radius_10');
+            expect(punchShape.side.color, menuColors.outlineVariant,
+                reason: 'punch_menu_border');
             await tester.tap(menu);
             await tester.pumpAndSettle();
             expect(find.text('Remover'), findsWidgets);
@@ -676,13 +692,9 @@ void main() {
       final second = find.text('Zeca Lima').first;
       final firstPosition = tester.getTopLeft(first);
       final secondPosition = tester.getTopLeft(second);
-      if (width > 1000) {
-        expect(secondPosition.dy, closeTo(firstPosition.dy, 2));
-        expect(secondPosition.dx, greaterThan(firstPosition.dx + 250));
-      } else {
-        expect(secondPosition.dy, greaterThan(firstPosition.dy + 40));
-        expect(secondPosition.dx, closeTo(firstPosition.dx, 2));
-      }
+      expect(secondPosition.dy, greaterThan(firstPosition.dy + 40),
+          reason: 'team_directory_rows');
+      expect(secondPosition.dx, closeTo(firstPosition.dx, 2));
       await tester.ensureVisible(second);
       await tester.tap(second);
       await tester.pumpAndSettle();
@@ -707,14 +719,8 @@ void main() {
       await tester.pumpAndSettle();
       final first = find.text('Renata Souza').first;
       final third = find.text('Zora Silva').first;
-      if (width == 1920) {
-        expect(tester.getTopLeft(third).dy, closeTo(tester.getTopLeft(first).dy, 2),
-            reason: 'team_three_columns_alignment');
-        expect(tester.getTopLeft(third).dx, greaterThan(tester.getTopLeft(first).dx + 500));
-      } else {
-        expect(tester.getTopLeft(third).dy, greaterThan(tester.getTopLeft(first).dy));
-        expect(tester.widget<Text>(first).maxLines, 2);
-      }
+      expect(tester.getTopLeft(third).dy, greaterThan(tester.getTopLeft(first).dy),
+          reason: 'team_directory_three_rows');
       expect(find.byTooltip('Editar funcionário'), findsNWidgets(3));
       expect(find.byTooltip('Remover funcionário'), findsNWidgets(3));
       expect(tester.takeException(), isNull);

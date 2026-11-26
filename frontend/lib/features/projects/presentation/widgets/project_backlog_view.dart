@@ -5,6 +5,7 @@ import 'package:touchin_flutter/contracts/project.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_editor_dialog.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_instant_select_field.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_toolbar.dart';
+import 'package:touchin_flutter/theme/workspace_menu_style.dart';
 
 class ProjectBacklogView extends StatefulWidget {
   const ProjectBacklogView({
@@ -200,6 +201,14 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
               : LayoutBuilder(builder: (context, constraints) {
                   final theme = Theme.of(context);
                   final colors = theme.colorScheme;
+                  final compact = constraints.maxWidth < 1100;
+                  if (constraints.maxWidth < 600) {
+                    return _buildMobileRows(
+                      visibleRows,
+                      positionById,
+                      byId,
+                    );
+                  }
                   return DecoratedBox(
                     key: const ValueKey<String>('backlog-table-surface'),
                     decoration: BoxDecoration(
@@ -267,23 +276,24 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
                                   dataTextStyle: theme.textTheme.bodySmall,
                                   dividerThickness: 0.5,
                                   columns: <DataColumn>[
-                                    for (final field in <(String, String)>[
-                                      ('number', '#'),
-                                      ('title', 'Título'),
-                                    ])
-                                      DataColumn(
-                                          label: _header(field.$1, field.$2)),
+                                    DataColumn(label: _header('number', '#')),
+                                    DataColumn(
+                                        label: _header('title', 'Título')),
+                                    DataColumn(
+                                        label: _header('status', 'Status')),
+                                    DataColumn(
+                                        label: _header(
+                                            'assignees', 'Responsáveis')),
                                     DataColumn(label: Text('Ações')),
-                                    for (final field in <(String, String)>[
-                                      ('description', 'Descrição'),
-                                      ('status', 'Status'),
-                                      ('assignees', 'Responsáveis'),
-                                      ('project', 'Projeto'),
-                                      ('created', 'Criado'),
-                                      ('updated', 'Atualizado'),
-                                    ])
-                                      DataColumn(
-                                          label: _header(field.$1, field.$2)),
+                                    if (!compact)
+                                      for (final field in <(String, String)>[
+                                        ('description', 'Descrição'),
+                                        ('project', 'Projeto'),
+                                        ('created', 'Criado'),
+                                        ('updated', 'Atualizado'),
+                                      ])
+                                        DataColumn(
+                                            label: _header(field.$1, field.$2)),
                                   ],
                                   rows: <DataRow>[
                                     for (final row in visibleRows)
@@ -298,7 +308,7 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
                                                     color: colors.primary),
                                           )),
                                           DataCell(SizedBox(
-                                            width: 280,
+                                            width: compact ? 180 : 280,
                                             child: Row(children: <Widget>[
                                               Expanded(
                                                 child: Padding(
@@ -328,7 +338,9 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
                                                       ),
                                                     Expanded(
                                                         child: Tooltip(
-                                                      message: row.card.name,
+                                                      message: _cardTooltip(
+                                                        row.card,
+                                                      ),
                                                       child: InkWell(
                                                         onTap: () => widget
                                                             .onOpenDetails(
@@ -352,30 +364,6 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
                                               ),
                                             ]),
                                           )),
-                                          DataCell(_cardActions(
-                                            row.card,
-                                            row.column,
-                                            positionById[row.card.id]!,
-                                          )),
-                                          DataCell(
-                                            SizedBox(
-                                              width: 220,
-                                              child: Tooltip(
-                                                message: row.card.description,
-                                                child: Text(
-                                                  row.card.description,
-                                                  style: theme
-                                                      .textTheme.bodySmall
-                                                      ?.copyWith(
-                                                          color: colors
-                                                              .onSurfaceVariant),
-                                                  maxLines: 1,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                ),
-                                              ),
-                                            ),
-                                          ),
                                           DataCell(Container(
                                             padding: const EdgeInsets.symmetric(
                                                 horizontal: 10, vertical: 6),
@@ -398,23 +386,44 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
                                             SizedBox(
                                               width: 150,
                                               child: Text(
-                                                row.card.assignees.isEmpty
-                                                    ? 'Sem responsáveis'
-                                                    : row.card.assignees
-                                                        .map((item) =>
-                                                            item.employeeName)
-                                                        .join(', '),
+                                                _assigneesLabel(row.card),
                                                 maxLines: 1,
                                                 overflow: TextOverflow.ellipsis,
                                               ),
                                             ),
                                           ),
-                                          DataCell(Text(
-                                              'Projeto: ${widget.projectName}')),
-                                          DataCell(Text(
-                                              _shortDate(row.card.createdAt))),
-                                          DataCell(Text(
-                                              _shortDate(row.card.updatedAt))),
+                                          DataCell(_cardActions(
+                                            row.card,
+                                            row.column,
+                                            positionById[row.card.id]!,
+                                          )),
+                                          if (!compact)
+                                            DataCell(SizedBox(
+                                              width: 220,
+                                              child: Tooltip(
+                                                message: row.card.description,
+                                                child: Text(
+                                                  row.card.description,
+                                                  style: theme
+                                                      .textTheme.bodySmall
+                                                      ?.copyWith(
+                                                          color: colors
+                                                              .onSurfaceVariant),
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            )),
+                                          if (!compact)
+                                            DataCell(Text(
+                                                'Projeto: ${widget.projectName}')),
+                                          if (!compact)
+                                            DataCell(Text(_shortDate(
+                                                row.card.createdAt))),
+                                          if (!compact)
+                                            DataCell(Text(_shortDate(
+                                                row.card.updatedAt))),
                                         ],
                                       ),
                                   ],
@@ -429,6 +438,131 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
                 }),
         ),
       ],
+    );
+  }
+
+  Widget _buildMobileRows(
+    Iterable<({KanbanColumn column, KanbanCard card, int depth})> rows,
+    Map<String, int> positionById,
+    Map<String, KanbanCard> byId,
+  ) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return DecoratedBox(
+      key: const ValueKey<String>('backlog-mobile-list'),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colors.outlineVariant),
+      ),
+      child: Semantics(
+        label: 'Lista de tarefas do backlog',
+        child: ListView.separated(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          itemCount: rows.length,
+          separatorBuilder: (_, __) => Divider(
+            height: 1,
+            color: colors.outlineVariant,
+          ),
+          itemBuilder: (context, index) {
+            final row = rows.elementAt(index);
+            final card = row.card;
+            final parent =
+                card.parentTaskId == null ? null : byId[card.parentTaskId];
+            return Padding(
+              key: ValueKey<String>('backlog-mobile-card-${card.id}'),
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Row(
+                children: <Widget>[
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => widget.onOpenDetails(card),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Row(children: <Widget>[
+                              Text(
+                                '#${card.cardNumber}',
+                                style: theme.textTheme.labelMedium?.copyWith(
+                                  color: colors.primary,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Tooltip(
+                                  message: _cardTooltip(card),
+                                  child: Text(
+                                    card.name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ]),
+                            const SizedBox(height: 5),
+                            Row(children: <Widget>[
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: colors.primaryContainer.withValues(
+                                    alpha: .45,
+                                  ),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  row.column.name,
+                                  key: ValueKey<String>(
+                                    'backlog-status-${card.id}',
+                                  ),
+                                  style: theme.textTheme.labelSmall,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  _assigneesLabel(card),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: colors.onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                              if (parent != null)
+                                Tooltip(
+                                  message: 'Subtarefa de ${parent.name}',
+                                  child: Icon(
+                                    Icons.subdirectory_arrow_right_rounded,
+                                    size: 17,
+                                    color: colors.primary,
+                                  ),
+                                ),
+                            ]),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  _cardActions(
+                    card,
+                    row.column,
+                    positionById[card.id]!,
+                    shortLabels: true,
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
     );
   }
 
@@ -564,6 +698,7 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
     return WorkspaceFilterSection(
       key: const ValueKey<String>('workspace-task-filter-section'),
       surfaceKey: const ValueKey<String>('backlog-toolbar'),
+      compact: true,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       headingIcon: Icons.task_alt_rounded,
       title: 'Tarefas do projeto',
@@ -656,6 +791,7 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
 
   InputDecoration _filterDecoration(IconData icon) => InputDecoration(
         isDense: true,
+        visualDensity: VisualDensity.standard,
         constraints: const BoxConstraints.tightFor(height: 48),
         contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
         prefixIcon: Icon(icon, size: 17),
@@ -665,47 +801,51 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
             const BoxConstraints(minWidth: 36, minHeight: 48),
       );
 
-  Widget _header(String field, String label) => PopupMenuButton<String>(
-        key: ValueKey<String>('backlog-header-$field'),
-        tooltip: 'Filtrar ou ordenar $label',
-        popUpAnimationStyle: AnimationStyle.noAnimation,
-        onSelected: (action) {
-          if (action == 'filter') {
-            _filterColumn(field, label);
-          } else {
-            setState(() {
-              if (action == 'clear') {
-                _columnFilters.remove(field);
-              } else {
-                _sort = field;
-                _sortAscending = action == 'asc';
-              }
-              _resetPage();
-            });
-          }
-        },
-        itemBuilder: (_) => <PopupMenuEntry<String>>[
-          const PopupMenuItem(value: 'asc', child: Text('Ordenar crescente')),
-          const PopupMenuItem(
-              value: 'desc', child: Text('Ordenar decrescente')),
-          const PopupMenuItem(value: 'filter', child: Text('Filtrar coluna')),
-          if (_columnFilters.containsKey(field))
-            const PopupMenuItem(value: 'clear', child: Text('Limpar filtro')),
-        ],
-        child: Row(mainAxisSize: MainAxisSize.min, children: <Widget>[
-          Text(label),
-          const SizedBox(width: 6),
-          Icon(
-              _sort == field
-                  ? (_sortAscending
-                      ? Icons.arrow_upward_rounded
-                      : Icons.arrow_downward_rounded)
-                  : Icons.unfold_more_rounded,
-              size: 14),
-          if (_columnFilters.containsKey(field))
-            const Icon(Icons.filter_alt_outlined, size: 14),
-        ]),
-      );
+  Widget _header(String field, String label) {
+    final colors = Theme.of(context).colorScheme;
+    return PopupMenuButton<String>(
+      key: ValueKey<String>('backlog-header-$field'),
+      tooltip: 'Filtrar ou ordenar $label',
+      popUpAnimationStyle: AnimationStyle.noAnimation,
+      color: WorkspaceMenuStyle.surface(colors),
+      shape: WorkspaceMenuStyle.shape(colors),
+      onSelected: (action) {
+        if (action == 'filter') {
+          _filterColumn(field, label);
+        } else {
+          setState(() {
+            if (action == 'clear') {
+              _columnFilters.remove(field);
+            } else {
+              _sort = field;
+              _sortAscending = action == 'asc';
+            }
+            _resetPage();
+          });
+        }
+      },
+      itemBuilder: (_) => <PopupMenuEntry<String>>[
+        const PopupMenuItem(value: 'asc', child: Text('Ordenar crescente')),
+        const PopupMenuItem(value: 'desc', child: Text('Ordenar decrescente')),
+        const PopupMenuItem(value: 'filter', child: Text('Filtrar coluna')),
+        if (_columnFilters.containsKey(field))
+          const PopupMenuItem(value: 'clear', child: Text('Limpar filtro')),
+      ],
+      child: Row(mainAxisSize: MainAxisSize.min, children: <Widget>[
+        Text(label),
+        const SizedBox(width: 6),
+        Icon(
+            _sort == field
+                ? (_sortAscending
+                    ? Icons.arrow_upward_rounded
+                    : Icons.arrow_downward_rounded)
+                : Icons.unfold_more_rounded,
+            size: 14),
+        if (_columnFilters.containsKey(field))
+          const Icon(Icons.filter_alt_outlined, size: 14),
+      ]),
+    );
+  }
 
   Future<void> _filterColumn(String field, String label) async {
     var value = _columnFilters[field] ?? '';
@@ -735,15 +875,21 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
     });
   }
 
+  String _cardTooltip(KanbanCard card) => card.description.trim().isEmpty
+      ? card.name
+      : '${card.name}\n${card.description}';
+
+  String _assigneesLabel(KanbanCard card) => card.assignees.isEmpty
+      ? 'Sem responsáveis'
+      : card.assignees.map((item) => item.employeeName).join(', ');
+
   String _fieldValue(KanbanCard card, String field, [KanbanColumn? column]) =>
       switch (field) {
         'number' => '#${card.cardNumber}',
         'title' => card.name,
         'description' => card.description,
         'status' => column?.name ?? '',
-        'assignees' => card.assignees.isEmpty
-            ? 'Sem responsáveis'
-            : card.assignees.map((item) => item.employeeName).join(', '),
+        'assignees' => _assigneesLabel(card),
         'project' => widget.projectName,
         'created' => _shortDate(card.createdAt),
         'updated' => _shortDate(card.updatedAt),
@@ -760,66 +906,126 @@ class _ProjectBacklogViewState extends State<ProjectBacklogView> {
       _assignee.isEmpty &&
       _columnFilters.isEmpty;
 
-  Widget _cardActions(KanbanCard card, KanbanColumn column, int position) {
-    final actionButtons = <Widget>[
-      IconButton(
-        tooltip: 'Detalhes de #${card.cardNumber}',
-        visualDensity: VisualDensity.standard,
-        onPressed: () => widget.onOpenDetails(card),
-        icon: const Icon(Icons.open_in_new_rounded, size: 18),
-      ),
-      if (_canReorder && column.cards.length > 1) ...<Widget>[
-        IconButton(
-          tooltip: 'Mover #${card.cardNumber} para cima no Kanban',
-          visualDensity: VisualDensity.standard,
-          onPressed: widget.isBusy || position == 0
-              ? null
-              : () => widget.onMoveCard(card.id, column.id, position - 1),
-          icon: const Icon(Icons.arrow_upward_rounded, size: 18),
-        ),
-        IconButton(
-          tooltip: 'Mover #${card.cardNumber} para baixo no Kanban',
-          visualDensity: VisualDensity.standard,
-          onPressed: widget.isBusy || position == column.cards.length - 1
-              ? null
-              : () => widget.onMoveCard(card.id, column.id, position + 2),
-          icon: const Icon(Icons.arrow_downward_rounded, size: 18),
-        ),
-      ],
-      if (widget.canManageCards) ...<Widget>[
-        IconButton(
-          tooltip: 'Editar #${card.cardNumber}',
-          visualDensity: VisualDensity.standard,
-          onPressed: widget.isBusy ? null : () => widget.onEditCard(card),
-          icon: const Icon(Icons.edit_outlined, size: 18),
-        ),
-        IconButton(
-          tooltip: 'Excluir #${card.cardNumber}',
-          visualDensity: VisualDensity.standard,
-          onPressed: widget.isBusy ? null : () => widget.onDeleteCard(card),
-          icon: const Icon(Icons.delete_outline_rounded, size: 18),
-        ),
-      ],
-      if (widget.canManageAssignees)
-        IconButton(
-          tooltip: 'Responsáveis de #${card.cardNumber}',
-          visualDensity: VisualDensity.standard,
-          onPressed:
-              widget.isBusy ? null : () => widget.onManageAssignees(card),
-          icon: const Icon(Icons.people_outline_rounded, size: 18),
-        ),
-    ];
-    return IconButtonTheme(
-      data: IconButtonThemeData(
-          style: IconButton.styleFrom(
-        minimumSize: const Size(48, 48),
-        maximumSize: const Size(48, 48),
-        padding: const EdgeInsets.all(6),
-        tapTargetSize: MaterialTapTargetSize.padded,
-        foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      )),
-      child: Row(mainAxisSize: MainAxisSize.min, children: actionButtons),
+  void _onCardAction(
+    String action,
+    KanbanCard card,
+    KanbanColumn column,
+    int position,
+  ) {
+    switch (action) {
+      case 'details':
+        widget.onOpenDetails(card);
+      case 'up':
+        widget.onMoveCard(card.id, column.id, position - 1);
+      case 'down':
+        widget.onMoveCard(card.id, column.id, position + 2);
+      case 'edit':
+        widget.onEditCard(card);
+      case 'delete':
+        widget.onDeleteCard(card);
+      case 'assignees':
+        widget.onManageAssignees(card);
+    }
+  }
+
+  Widget _cardActions(
+    KanbanCard card,
+    KanbanColumn column,
+    int position, {
+    bool shortLabels = false,
+  }) {
+    final colors = Theme.of(context).colorScheme;
+    final labels = (
+      details: shortLabels
+          ? 'Abrir detalhes'
+          : 'Abrir detalhes de #${card.cardNumber}',
+      edit: shortLabels ? 'Editar tarefa' : 'Editar #${card.cardNumber}',
+      delete: shortLabels ? 'Excluir tarefa' : 'Excluir #${card.cardNumber}',
+      assignees: shortLabels
+          ? 'Gerenciar responsáveis'
+          : 'Responsáveis de #${card.cardNumber}',
+    );
+    return PopupMenuButton<String>(
+      tooltip: 'Mais ações para #${card.cardNumber}',
+      color: WorkspaceMenuStyle.surface(colors),
+      shape: WorkspaceMenuStyle.shape(colors),
+      enabled: !widget.isBusy,
+      onSelected: (action) => _onCardAction(action, card, column, position),
+      itemBuilder: (_) {
+        final canMoveMenu = _canReorder && column.cards.length > 1;
+        final canManage = widget.canManageCards;
+        final canManagePeople = widget.canManageAssignees;
+        return <PopupMenuEntry<String>>[
+          PopupMenuItem(
+            value: 'details',
+            child: ListTile(
+              dense: true,
+              leading: const Icon(Icons.open_in_new_rounded),
+              title: Text(labels.details),
+            ),
+          ),
+          if (canMoveMenu || canManage || canManagePeople)
+            const PopupMenuDivider(),
+          if (canMoveMenu) ...<PopupMenuEntry<String>>[
+            PopupMenuItem(
+              value: 'up',
+              enabled: position > 0,
+              child: const ListTile(
+                dense: true,
+                leading: Icon(Icons.arrow_upward_rounded),
+                title: Text('Mover para cima'),
+              ),
+            ),
+            PopupMenuItem(
+              value: 'down',
+              enabled: position < column.cards.length - 1,
+              child: const ListTile(
+                dense: true,
+                leading: Icon(Icons.arrow_downward_rounded),
+                title: Text('Mover para baixo'),
+              ),
+            ),
+          ],
+          if (canMoveMenu && (canManage || canManagePeople))
+            const PopupMenuDivider(),
+          if (canManage) ...<PopupMenuEntry<String>>[
+            PopupMenuItem(
+              value: 'edit',
+              child: ListTile(
+                dense: true,
+                leading: const Icon(Icons.edit_outlined),
+                title: Text(labels.edit),
+              ),
+            ),
+            PopupMenuItem(
+              value: 'delete',
+              child: ListTile(
+                dense: true,
+                leading: const Icon(Icons.delete_outline_rounded),
+                title: Text(labels.delete),
+              ),
+            ),
+          ],
+          if (canManage && canManagePeople) const PopupMenuDivider(),
+          if (canManagePeople)
+            PopupMenuItem(
+              value: 'assignees',
+              child: ListTile(
+                dense: true,
+                leading: const Icon(Icons.people_outline_rounded),
+                title: Text(labels.assignees),
+              ),
+            ),
+        ];
+      },
+      icon: shortLabels ? null : const Icon(Icons.more_horiz_rounded),
+      child: shortLabels
+          ? const SizedBox(
+              width: 48,
+              height: 48,
+              child: Icon(Icons.more_horiz_rounded),
+            )
+          : null,
     );
   }
 
