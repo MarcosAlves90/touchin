@@ -1133,7 +1133,7 @@ void main() {
           widget is PopupMenuButton<String> &&
           widget.tooltip == 'Mais ações para #3');
       final button = tester.widget<PopupMenuButton<String>>(finder);
-      return button.itemBuilder!(tester.element(finder));
+      return button.itemBuilder(tester.element(finder));
     }
 
     List<String> groupShape(List<PopupMenuEntry<String>> entries) => entries
