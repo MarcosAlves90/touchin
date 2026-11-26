@@ -72,6 +72,8 @@ class WorkspaceRouter extends RouterDelegate<WorkspaceLocation>
   int _currentIndex = 0;
   int _sessionGeneration = 0;
   bool _sessionRevoked = false;
+  bool _requiredPasswordChanged = false;
+  bool get requiredPasswordChanged => _requiredPasswordChanged;
   AuthSession? _verifiedSession;
   bool _verifyingSession = false;
   bool _verificationUnavailable = false;
@@ -212,6 +214,7 @@ class WorkspaceRouter extends RouterDelegate<WorkspaceLocation>
   }
 
   void authenticate(AuthSession session) {
+    _requiredPasswordChanged = false;
     _sessionRevoked = false;
     _sessionGeneration++;
     _navigationUser.value = session.user;
@@ -231,7 +234,8 @@ class WorkspaceRouter extends RouterDelegate<WorkspaceLocation>
     _navigationUser.value = session.user;
   }
 
-  void signedOut() {
+  void signedOut({bool requiredPasswordChanged = false}) {
+    _requiredPasswordChanged = requiredPasswordChanged;
     _sessionGeneration++;
     _sessionRevoked = true;
     _navigationUser.value = null;

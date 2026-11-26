@@ -51,12 +51,11 @@ class _MustChangePasswordPageState extends State<MustChangePasswordPage>
         );
       },
       onSuccess: (_) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Senha redefinida com sucesso.'),
-          ),
-        );
-        logoutFromWorkspace(context, api: _api);
+        // Do not carry a previous failed attempt's SnackBar onto login.
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..removeCurrentSnackBar();
+        logoutFromWorkspace(context, api: _api, requiredPasswordChanged: true);
       },
       genericErrorMessage: 'Não foi possível redefinir sua senha.',
     );

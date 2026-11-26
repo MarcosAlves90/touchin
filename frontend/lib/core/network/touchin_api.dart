@@ -139,9 +139,14 @@ class TouchInApi {
     try {
       await _client.post('/auth/logout', withAuth: true);
     } finally {
-      invalidateAuthContext();
-      await _tokenStorage.clearAccessToken();
+      await clearLocalSession();
     }
+  }
+
+  /// Clear credentials after the backend has already revoked the session.
+  Future<void> clearLocalSession() async {
+    invalidateAuthContext();
+    await _tokenStorage.clearAccessToken();
   }
 
   Future<String> resetPassword({required String email}) async {

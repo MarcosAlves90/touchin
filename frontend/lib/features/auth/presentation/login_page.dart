@@ -8,7 +8,9 @@ import 'package:flutter/material.dart';
 import 'package:touchin_flutter/core/navigation/workspace_router.dart';
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key});
+  const LoginPage({super.key, this.requiredPasswordChanged = false});
+
+  final bool requiredPasswordChanged;
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -104,6 +106,29 @@ class _LoginPageState extends State<LoginPage>
               ),
             ),
             const SizedBox(height: 28),
+            if (widget.requiredPasswordChanged) ...[
+              Semantics(
+                container: true,
+                liveRegion: true,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Text(
+                      'Senha alterada. Entre com a nova senha.',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onPrimaryContainer,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
             if (_hasValidationErrors) const AuthFormValidationMessage(),
             TextFormField(
               controller: _emailController,

@@ -186,10 +186,75 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(LoginPage), findsOneWidget);
+    expect(find.text('Senha alterada. Entre com a nova senha.'), findsOneWidget);
+    expect(api.logoutRequests, 0);
     expect(find.byType(AdminEmployeesPage), findsNothing);
     expect(find.text('Criar nova senha'), findsNothing);
     expect(storage.savedSession, isNull);
   });
+
+  for (final succeeds in [true, false]) {
+    testWidgets('required password change through the router (success: $succeeds)',
+        (tester) async {
+      final storage = _InMemoryTokenStorage()
+        ..savedSession = AuthSession(
+          accessToken: 'temporary-token',
+          tokenType: 'bearer',
+          expiresAt: DateTime.parse('2099-04-26T18:00:00Z'),
+          mustChangePassword: true,
+          company: company,
+          user: user,
+        );
+      final api = _FakeTouchInApi(
+        tokenStorage: storage,
+        authContext: const AuthContext(company: company, user: user),
+        changePasswordError: succeeds
+            ? null
+            : ApiException('Senha temporária incorreta.', statusCode: 401),
+      );
+      const message = 'Senha alterada. Entre com a nova senha.';
+      await tester.pumpWidget(
+        MyApp(api: api, workspaceApi: api, tokenStorage: storage),
+      );
+      await tester.pumpAndSettle();
+
+      final fields = find.byType(TextFormField);
+      await tester.enterText(fields.at(0), 'TempSenha123!');
+      await tester.enterText(fields.at(1), 'NovaSenha123!');
+      await tester.enterText(fields.at(2), 'NovaSenha123!');
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Redefinir senha'));
+      await tester.pumpAndSettle();
+
+      expect(api.changePasswordRequests, 1);
+      expect(api.logoutRequests, 0);
+      if (!succeeds) {
+        expect(find.byType(MustChangePasswordPage), findsOneWidget);
+        expect(find.text('Senha temporária incorreta.'), findsOneWidget);
+        expect(find.text(message), findsNothing);
+        expect(storage.savedSession?.accessToken, 'temporary-token');
+        api.changePasswordError = null;
+        await tester.tap(find.widgetWithText(ElevatedButton, 'Redefinir senha'));
+        await tester.pumpAndSettle();
+        expect(api.changePasswordRequests, 2);
+        expect(find.text('Senha temporária incorreta.'), findsNothing);
+      }
+
+      expect(find.byType(LoginPage), findsOneWidget);
+      expect(find.byType(MustChangePasswordPage), findsNothing);
+      expect(storage.savedSession, isNull);
+      expect(find.text(message), findsOneWidget);
+      final liveRegion = find.ancestor(
+        of: find.text(message),
+        matching: find.byWidgetPredicate(
+          (widget) => widget is Semantics && widget.properties.liveRegion == true,
+        ),
+      );
+      expect(liveRegion, findsOneWidget);
+      await tester.enterText(fields.first, 'funcionario@exemplo.com');
+      await tester.pump();
+      expect(find.text(message), findsOneWidget);
+    });
+  }
 
   testWidgets('startup splash explains pending session verification', (
     WidgetTester tester,
@@ -1928,6 +1993,7 @@ class _FakeTouchInApi extends TouchInApi {
     this.authContextRequestCompleters,
     this.resetConfirmCompleter,
     this.resetConfirmError,
+    this.changePasswordError,
   }) : super(tokenStorage: tokenStorage);
 
   final TokenStorage tokenStorage;
@@ -1938,6 +2004,8 @@ class _FakeTouchInApi extends TouchInApi {
   final Map<int, Completer<AuthContext>>? authContextRequestCompleters;
   final Completer<void>? resetConfirmCompleter;
   final ApiException? resetConfirmError;
+  ApiException? changePasswordError;
+  int logoutRequests = 0;
   int authContextRequests = 0;
   int resetConfirmRequests = 0;
   int changePasswordRequests = 0;
@@ -1961,10 +2029,12 @@ class _FakeTouchInApi extends TouchInApi {
     required String newPassword,
   }) async {
     changePasswordRequests++;
+    if (changePasswordError != null) throw changePasswordError!;
   }
 
   @override
   Future<void> logout() async {
+    logoutRequests++;
     await tokenStorage.clearAccessToken();
   }
 
