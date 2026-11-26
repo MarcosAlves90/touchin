@@ -8,9 +8,14 @@ import 'package:flutter/material.dart';
 import 'package:touchin_flutter/core/navigation/workspace_router.dart';
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key, this.requiredPasswordChanged = false});
+  const LoginPage({
+    super.key,
+    this.requiredPasswordChanged = false,
+    this.takePasswordChangeNotice,
+  });
 
   final bool requiredPasswordChanged;
+  final bool Function()? takePasswordChangeNotice;
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -33,10 +38,24 @@ class _LoginPageState extends State<LoginPage>
   @override
   void initState() {
     super.initState();
-    if (!widget.requiredPasswordChanged) return;
+    if (widget.requiredPasswordChanged) _schedulePasswordChangeNotice();
+  }
 
+  @override
+  void didUpdateWidget(covariant LoginPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.requiredPasswordChanged && !oldWidget.requiredPasswordChanged) {
+      _schedulePasswordChangeNotice();
+    }
+  }
+
+  void _schedulePasswordChangeNotice() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
+      if (!mounted ||
+          !widget.requiredPasswordChanged ||
+          widget.takePasswordChangeNotice?.call() == false) {
+        return;
+      }
       final notice = ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Senha alterada. Entre com a nova senha.'),
@@ -86,6 +105,7 @@ class _LoginPageState extends State<LoginPage>
         );
       },
       onSuccess: (session) {
+        _dismissPasswordChangeNotice();
         final authSession = session!;
         WorkspaceRouterScope.replaceWithAuthenticated(context, authSession);
       },

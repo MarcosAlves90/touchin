@@ -144,9 +144,13 @@ class TouchInApi {
   }
 
   /// Clear credentials after the backend has already revoked the session.
-  Future<void> clearLocalSession() async {
-    invalidateAuthContext();
-    await _tokenStorage.clearAccessToken();
+  Future<void> clearLocalSession({String? expectedToken}) async {
+    invalidateAuthContext(token: expectedToken);
+    if (expectedToken == null) {
+      await _tokenStorage.clearAccessToken();
+    } else {
+      await _tokenStorage.clearSessionIfTokenMatches(expectedToken);
+    }
   }
 
   Future<String> resetPassword({required String email}) async {
@@ -175,22 +179,20 @@ class TouchInApi {
   Future<void> changePassword({
     required String currentPassword,
     required String newPassword,
+    String? sessionToken,
   }) async {
-    await _client.post(
-      '/auth/change-password',
-      withAuth: true,
-      body: {
-        'currentPassword': currentPassword,
-        'newPassword': newPassword,
-      },
-    );
-
-    final session = await _tokenStorage.readAuthSession();
-    if (session != null && session.mustChangePassword) {
-      await _tokenStorage.saveAuthSession(
-        session.copyWith(mustChangePassword: false),
-      );
+    const path = '/auth/change-password';
+    final body = {
+      'currentPassword': currentPassword,
+      'newPassword': newPassword,
+    };
+    if (sessionToken == null) {
+      await _client.post(path, withAuth: true, body: body);
+    } else {
+      await _client.postWithAuthToken(path, sessionToken, body: body);
     }
+    // This endpoint revokes the temporary token, so do not promote any
+    // persisted session (including one written by a newer login).
   }
 
   Future<List<EmployeeProfile>> listEmployees() async {

@@ -119,6 +119,24 @@ class ApiClient {
     bool withAuth = false,
   }) async {
     final headers = await _headers(withAuth: withAuth);
+    return _postWithHeaders(path, headers, body);
+  }
+
+  Future<dynamic> postWithAuthToken(
+    String path,
+    String token, {
+    Object? body,
+  }) async {
+    final headers = await _headers();
+    headers['Authorization'] = 'Bearer $token';
+    return _postWithHeaders(path, headers, body);
+  }
+
+  Future<dynamic> _postWithHeaders(
+    String path,
+    Map<String, String> headers,
+    Object? body,
+  ) async {
     final response = await _client.post(
       _uri(path),
       headers: headers,

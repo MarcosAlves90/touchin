@@ -261,6 +261,108 @@ void main() {
     });
   }
 
+  for (final result in ['success', 'failure', 'newer login']) {
+    testWidgets('revalidation revokes before password response ($result)',
+        (tester) async {
+      final temporarySession = AuthSession(
+        accessToken: 'temporary-token',
+        tokenType: 'bearer',
+        expiresAt: DateTime.parse('2099-04-26T18:00:00Z'),
+        mustChangePassword: true,
+        company: company,
+        user: user,
+      );
+      final storage = _InMemoryTokenStorage()..savedSession = temporarySession;
+      final revalidation = Completer<AuthContext>();
+      final passwordChange = Completer<void>();
+      final api = _FakeTouchInApi(
+        tokenStorage: storage,
+        authContext: const AuthContext(company: company, user: user),
+        authContextRequestCompleters: {2: revalidation},
+        changePasswordCompleter: passwordChange,
+      );
+      const message = 'Senha alterada. Entre com a nova senha.';
+      await tester.pumpWidget(
+        MyApp(api: api, workspaceApi: api, tokenStorage: storage),
+      );
+      await tester.pumpAndSettle();
+
+      final fields = find.byType(TextFormField);
+      await tester.enterText(fields.at(0), 'TempSenha123!');
+      await tester.enterText(fields.at(1), 'NovaSenha123!');
+      await tester.enterText(fields.at(2), 'NovaSenha123!');
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Redefinir senha'));
+      await tester.pump();
+      expect(api.changePasswordRequests, 1);
+      expect(api.passwordChangeToken, temporarySession.accessToken);
+
+      final loginAttemptToken = temporarySession.accessToken;
+      AuthRejectionEvents.onRejected!(loginAttemptToken);
+      await tester.pump();
+      expect(api.authContextRequests, 2);
+      revalidation.completeError(ApiException('Revogada', statusCode: 401));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(MustChangePasswordPage), findsNothing);
+      expect(find.byType(AdminEmployeesPage), findsNothing);
+      expect(find.byType(LoginPage), findsOneWidget);
+      expect(storage.savedSession, isNull);
+      expect(find.text(message), findsNothing);
+
+      const typedEmail = 'funcionario@exemplo.com';
+      if (result == 'newer login') {
+        final newSession = AuthSession(
+          accessToken: 'new-token',
+          tokenType: 'bearer',
+          expiresAt: temporarySession.expiresAt,
+          company: company,
+          user: user,
+        );
+        await storage.saveAuthSession(newSession);
+        WorkspaceRouterScope.replaceWithAuthenticated(
+          tester.element(find.byType(LoginPage)),
+          newSession,
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 500));
+        expect(find.byType(AdminEmployeesPage), findsOneWidget);
+      } else {
+        await tester.enterText(fields.first, typedEmail);
+      }
+
+      if (result == 'failure') {
+        passwordChange.completeError(
+          ApiException('Senha temporária incorreta.', statusCode: 401),
+        );
+      } else {
+        passwordChange.complete();
+      }
+      if (result == 'newer login') {
+        await tester.pump();
+      } else {
+        await tester.pumpAndSettle();
+      }
+      expect(api.logoutRequests, 0);
+
+      if (result == 'newer login') {
+        expect(storage.savedSession?.accessToken, 'new-token');
+        expect(find.byType(AdminEmployeesPage), findsOneWidget);
+        expect(find.byType(LoginPage), findsNothing);
+        expect(find.text(message), findsNothing);
+      } else {
+        expect(storage.savedSession, isNull);
+        expect(find.byType(AdminEmployeesPage), findsNothing);
+        expect(find.byType(LoginPage), findsOneWidget);
+        expect(find.text(typedEmail), findsOneWidget);
+        expect(find.text(message),
+            result == 'success' ? findsOneWidget : findsNothing);
+        await tester.pump(const Duration(seconds: 13));
+        await tester.pumpAndSettle();
+        expect(find.text(message), findsNothing);
+      }
+    });
+  }
+
   testWidgets('startup splash explains pending session verification', (
     WidgetTester tester,
   ) async {
@@ -1999,6 +2101,7 @@ class _FakeTouchInApi extends TouchInApi {
     this.resetConfirmCompleter,
     this.resetConfirmError,
     this.changePasswordError,
+    this.changePasswordCompleter,
   }) : super(tokenStorage: tokenStorage);
 
   final TokenStorage tokenStorage;
@@ -2010,6 +2113,8 @@ class _FakeTouchInApi extends TouchInApi {
   final Completer<void>? resetConfirmCompleter;
   final ApiException? resetConfirmError;
   ApiException? changePasswordError;
+  final Completer<void>? changePasswordCompleter;
+  String? passwordChangeToken;
   int logoutRequests = 0;
   int authContextRequests = 0;
   int resetConfirmRequests = 0;
@@ -2032,8 +2137,11 @@ class _FakeTouchInApi extends TouchInApi {
   Future<void> changePassword({
     required String currentPassword,
     required String newPassword,
+    String? sessionToken,
   }) async {
     changePasswordRequests++;
+    passwordChangeToken = sessionToken;
+    if (changePasswordCompleter case final pending?) await pending.future;
     if (changePasswordError != null) throw changePasswordError!;
   }
 

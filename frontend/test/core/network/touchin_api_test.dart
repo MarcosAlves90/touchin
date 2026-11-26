@@ -11,6 +11,7 @@ import 'package:touchin_flutter/core/storage/token_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 const _validCredentialFixture = 'fixture-auth-value';
 const _invalidCredentialFixture = 'invalid-auth-value';
@@ -202,25 +203,37 @@ void main() {
     });
   });
 
-  test('successful forced password change clears the stored session flag',
-      () async {
-    final client = _FakeApiClient(
-      postResponses: {'/auth/change-password': null},
+  test('forced password change is bound to its submitted session', () async {
+    final response = Completer<http.Response>();
+    final captured = Completer<http.Request>();
+    final tokenStorage = _InMemoryTokenStorage();
+    final client = ApiClient(
+      client: MockClient((request) {
+        captured.complete(request);
+        return response.future;
+      }),
+      tokenStorage: tokenStorage,
     );
-    final tokenStorage = _InMemoryTokenStorage()
-      ..savedSession = AuthSession.fromJson(<String, dynamic>{
-        ..._authSessionResponse(),
-        'mustChangePassword': true,
-      });
     final api = TouchInApi(client: client, tokenStorage: tokenStorage);
-
-    await api.changePassword(
+    final pending = api.changePassword(
       currentPassword: _validCredentialFixture,
       newPassword: 'new-password-fixture',
+      sessionToken: 'temporary-token',
     );
+    final request = await captured.future;
+    expect(request.url.path, endsWith('/auth/change-password'));
+    expect(request.headers['Authorization'], 'Bearer temporary-token');
 
-    expect(tokenStorage.savedSession?.mustChangePassword, isFalse);
-    expect(client.lastPath, '/auth/change-password');
+    final newerSession = AuthSession.fromJson({
+      ..._authSessionResponse(),
+      'accessToken': 'newer-token',
+      'mustChangePassword': true,
+    });
+    await tokenStorage.saveAuthSession(newerSession);
+    response.complete(http.Response('', 204));
+    await pending;
+    expect(tokenStorage.savedSession, same(newerSession));
+    expect(tokenStorage.savedSession?.mustChangePassword, isTrue);
   });
 
   test('failed forced password change preserves the stored session flag',

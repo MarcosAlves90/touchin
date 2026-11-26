@@ -475,6 +475,8 @@ class _SessionGateState extends State<_SessionGate> {
         return widget.unauthenticatedBuilder?.call(context) ??
             LoginPage(
               requiredPasswordChanged: widget.router.requiredPasswordChanged,
+              takePasswordChangeNotice:
+                  widget.router.takeRequiredPasswordChangeNotice,
             );
       },
     );
