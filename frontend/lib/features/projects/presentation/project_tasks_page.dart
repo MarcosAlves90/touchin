@@ -66,6 +66,34 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
     );
   }
 
+  int? get _taskCount => _controller.isLoadingTasks || _controller.tasksError != null
+      ? null
+      : _controller.tasks.length;
+
+  int? get _accessCount =>
+      _controller.isLoadingProjectMembers || _controller.projectMembersError != null
+          ? null
+          : _controller.projectMembers.length;
+
+  int? get _participantCount =>
+      _controller.isLoadingMembers || _controller.membersError != null
+          ? null
+          : _controller.taskMembers.length;
+
+  String get _taskSummaryName {
+    if (_controller.isLoadingTasks) return 'Carregando…';
+    if (_controller.tasksError != null) return 'Indisponível';
+    return _controller.selectedTask?.name ?? 'Nenhuma';
+  }
+
+  String get _taskListSummary {
+    if (_controller.isLoadingTasks) return 'Carregando tarefas…';
+    if (_controller.tasksError != null) return 'Tarefas indisponíveis.';
+    return 'Selecione uma tarefa para consultar participantes.';
+  }
+
+  String _countLabel(int? count) => count?.toString() ?? '—';
+
   Widget _buildSidebar() {
     final project = _controller.selectedProject;
     final task = _controller.selectedTask;
@@ -74,7 +102,9 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
         WorkspaceSummaryStripe(
           label: 'Projetos',
           value:
-              _controller.isLoading ? '...' : '${_controller.projects.length}',
+              _controller.isLoading || _controller.loadError != null
+                  ? '—'
+                  : '${_controller.projects.length}',
           helper: 'Projetos ativos disponíveis para a empresa atual.',
         ),
         WorkspaceSummaryStripe(
@@ -82,14 +112,14 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
           value: project?.name ?? 'Nenhum',
           helper: project == null
               ? 'Selecione ou crie um projeto para começar.'
-              : '${_controller.tasks.length} tarefa(s) • limite ${project.taskEmployeeLimit} por tarefa',
+              : '${_countLabel(_taskCount)} tarefa(s) • limite ${project.taskEmployeeLimit} por tarefa',
         ),
         WorkspaceSummaryStripe(
           label: 'Tarefa selecionada',
-          value: task?.name ?? 'Nenhuma',
-          helper: task == null
-              ? 'Selecione uma tarefa para consultar participantes.'
-              : '${_controller.taskMembers.length} participante(s) na tarefa atual.',
+          value: _taskSummaryName,
+          helper: task == null || _taskCount == null
+              ? _taskListSummary
+              : '${_countLabel(_participantCount)} participante(s) na tarefa atual.',
         ),
       ],
     );
@@ -229,17 +259,10 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
     final project = _controller.selectedProject;
     final task = _controller.selectedTask;
     final colors = Theme.of(context).colorScheme;
-    final taskCount = _controller.isLoadingTasks || _controller.tasksError != null
+    final participantCount = _participantCount;
+    final occupancy = project == null || task == null || _taskCount == null || participantCount == null
         ? '—'
-        : _controller.tasks.length.toString();
-    final accessCount = _controller.isLoadingProjectMembers ||
-            _controller.projectMembersError != null
-        ? '—'
-        : _controller.projectMembers.length.toString();
-    final occupancy = project == null || task == null ||
-            _controller.isLoadingMembers || _controller.membersError != null
-        ? '—'
-        : '${_controller.taskMembers.length}/${project.taskEmployeeLimit}';
+        : '$participantCount/${project.taskEmployeeLimit}';
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -257,12 +280,12 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
           _ProjectMetricItem(
             icon: Icons.account_tree_outlined,
             label: 'Tarefas',
-            value: project == null ? '—' : taskCount,
+            value: _countLabel(project == null ? null : _taskCount),
           ),
           _ProjectMetricItem(
             icon: Icons.groups_2_outlined,
             label: 'Acessos',
-            value: project == null ? '—' : accessCount,
+            value: _countLabel(project == null ? null : _accessCount),
           ),
           _ProjectMetricItem(
             icon: Icons.group_work_outlined,
@@ -471,7 +494,7 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
                     child: _ProjectOverviewCard(
                       icon: Icons.account_tree_outlined,
                       label: 'Tarefas',
-                      value: _controller.tasks.length.toString(),
+                      value: _countLabel(_taskCount),
                     ),
                   ),
                   SizedBox(
@@ -479,7 +502,7 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
                     child: _ProjectOverviewCard(
                       icon: Icons.groups_2_outlined,
                       label: 'Acessos',
-                      value: _controller.projectMembers.length.toString(),
+                      value: _countLabel(_accessCount),
                     ),
                   ),
                   SizedBox(
@@ -495,7 +518,7 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
                     child: _ProjectOverviewCard(
                       icon: Icons.task_alt_outlined,
                       label: 'Tarefa atual',
-                      value: _controller.selectedTask?.name ?? 'Nenhuma',
+                      value: _taskSummaryName,
                     ),
                   ),
                 ],
@@ -745,24 +768,27 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
 
   Widget _buildMembershipCard() {
     final task = _controller.selectedTask;
+    if (_taskCount == null) return const SizedBox.shrink();
     if (task == null) {
-      return const _EmptyCard(
+      return _EmptyCard(
         icon: Icons.group_outlined,
         title: 'Selecione uma tarefa',
-        description:
-            'Escolha uma tarefa acima para consultar e gerenciar seus participantes.',
+        description: _taskListSummary,
       );
     }
 
     final project = _controller.selectedProject!;
+    final participantCount = _participantCount;
+    final occupancyDescription = participantCount == null
+        ? 'Ocupação ainda não confirmada.'
+        : '$participantCount de ${project.taskEmployeeLimit} vaga(s) ocupada(s).';
     return WorkspaceSectionCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           WorkspaceHeader(
             title: 'Participantes de ${task.name}',
-            description:
-                '${_controller.taskMembers.length} de ${project.taskEmployeeLimit} vaga(s) ocupada(s).',
+            description: occupancyDescription,
             maxContentWidth: 520,
             actions: <Widget>[
               if (_controller.canManageOwnTaskMembership &&
