@@ -66,9 +66,46 @@ def test_employee_and_team_history_show_the_same_historical_tasks(client, closin
     }
     assert "description" not in original
 
+    def assert_legacy_history():
+        for path, headers in (
+            (f"{ROOT}/me?limit=1", employee_headers),
+            (f"{TEAM_HISTORY}?limit=1", admin_headers),
+            (f"{TEAM_HISTORY}?limit=1", manager_headers),
+        ):
+            response = client.get(path, headers=headers)
+            assert response.status_code == 200, response.text
+            [record] = response.json()["records"]
+            assert record["workLog"]["taskNames"] == original["taskNames"]
+            assert record["workLog"]["tasks"] == [
+                {"name": name, "id": None, "cardNumber": None}
+                for name in original["taskNames"]
+            ]
+
+    with SessionLocal() as db:
+        source = db.query(WorkLog).filter_by(employee_id="emp-04").one()
+        structured_snapshot = source.task_snapshots_ciphertext
+        source.task_snapshots_ciphertext = cipher.encrypt_json(original["taskNames"])
+        # The current matches remain unique even though both titles were swapped.
+        db.get(Task, "history-task-1").name_ciphertext = cipher.encrypt("Validar relatório")
+        db.get(Task, "history-task-2").name_ciphertext = cipher.encrypt("Revisar checklist")
+        db.commit()
+
+    assert_legacy_history()
+
+    with SessionLocal() as db:
+        # Card 1 keeps the historical title of deleted card 2.
+        db.delete(db.get(Task, "history-task-2"))
+        db.commit()
+
+    assert_legacy_history()
+
+    with SessionLocal() as db:
+        source = db.query(WorkLog).filter_by(employee_id="emp-04").one()
+        source.task_snapshots_ciphertext = structured_snapshot
+        db.commit()
+
     with SessionLocal() as db:
         db.get(Task, "history-task-1").name_ciphertext = cipher.encrypt("Nome posterior")
-        db.delete(db.get(Task, "history-task-2"))
         db.commit()
         # A same-company log for another employee, even if incorrectly linked,
         # must not supply activity details to this punch.
@@ -108,19 +145,6 @@ def test_employee_and_team_history_show_the_same_historical_tasks(client, closin
     current = client.get(f"{ROOT}/me?limit=1", headers=employee_headers).json()["records"][0]
     assert current["projectName"] == "Projeto Horizonte"
     assert current["workLog"] == original
-
-    # Existing name-only snapshots must not get a guessed ID from a renamed or
-    # deleted task. A still-linked task with the same unique name keeps its ID.
-    with SessionLocal() as db:
-        db.get(Task, "history-task-1").name_ciphertext = cipher.encrypt("Revisar checklist")
-        source = db.query(WorkLog).filter_by(employee_id="emp-04").one()
-        source.task_snapshots_ciphertext = cipher.encrypt('["Revisar checklist","Validar relatório"]')
-        db.commit()
-    legacy = client.get(f"{TEAM_HISTORY}?limit=1", headers=admin_headers).json()["records"][0]
-    assert legacy["workLog"]["tasks"] == [
-        {"name": "Revisar checklist", "id": "history-task-1", "cardNumber": 1},
-        {"name": "Validar relatório", "id": None, "cardNumber": None},
-    ]
 
     # Old punches without a linked log remain readable; no unrelated tasks are inferred.
     old = client.get(f"{TEAM_HISTORY}?page=2&limit=1", headers=admin_headers).json()["records"][0]

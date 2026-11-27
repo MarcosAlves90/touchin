@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections import Counter, defaultdict
 from collections.abc import Sequence
 from math import ceil
 
@@ -17,16 +16,15 @@ from app.domain.time_clock import (
     derive_shift_status,
     group_today_records,
 )
-from app.errors import DomainError, ErrorKind
 from app.domain.work_log_tasks import read_task_snapshots
-from app.models import Employee, Project, Punch, Task, WorkLog, WorkLogTask
+from app.errors import DomainError, ErrorKind
+from app.models import Employee, Project, Punch, WorkLog
 from app.schemas.punch import (
     ManagedPunchPageResponse,
     ManagedPunchRecordResponse,
     PunchLocationSnapshotPayload,
     PunchRecordResponse,
     PunchType,
-    PunchTaskResponse,
     PunchWorkLogResponse,
     TimeClockEmployeeSummary,
     TimeClockStateResponse,
@@ -90,43 +88,12 @@ def _record_contexts(
         ):
             project_names[project_id] = _decrypt_optional(cipher, encrypted_name).strip() or None
 
+    # Legacy snapshots store only names. Current task titles cannot prove
+    # which card a historical name referred to, even if they match uniquely.
     snapshots = {
         log.id: read_task_snapshots(log.task_snapshots_ciphertext, cipher=cipher) or []
         for log in logs.values()
     }
-    legacy_log_ids = [
-        log_id for log_id, tasks in snapshots.items() if any(task.id is None for task in tasks)
-    ]
-    legacy_matches = defaultdict(list)
-    for offset in range(0, len(legacy_log_ids), 400):
-        rows = db.execute(
-            select(WorkLogTask.work_log_id, Task.id, Task.card_number, Task.name_ciphertext)
-            .join(Task, Task.id == WorkLogTask.task_id)
-            .join(WorkLog, WorkLog.id == WorkLogTask.work_log_id)
-            .join(Project, Project.id == Task.project_id)
-            .where(
-                WorkLogTask.work_log_id.in_(legacy_log_ids[offset:offset + 400]),
-                Task.project_id == WorkLog.project_id,
-                Project.company_id == company_id,
-            ),
-        )
-        for log_id, task_id, card_number, encrypted_name in rows:
-            name = _decrypt_optional(cipher, encrypted_name).strip()
-            if name:
-                legacy_matches[log_id, name].append((task_id, card_number))
-
-    for log_id in legacy_log_ids:
-        titles = Counter(task.name for task in snapshots[log_id])
-        resolved = []
-        for task in snapshots[log_id]:
-            matches = legacy_matches.get((log_id, task.name), [])
-            # Old snapshots stored names without IDs; never guess when names
-            # are duplicated, renamed or the underlying link is gone.
-            if task.id is None and titles[task.name] == 1 and len(matches) == 1:
-                task_id, card_number = matches[0]
-                task = PunchTaskResponse(name=task.name, id=task_id, card_number=card_number)
-            resolved.append(task)
-        snapshots[log_id] = resolved
 
     def context_for(record: Punch):
         log = logs.get(record.id)
