@@ -191,12 +191,25 @@ void main() {
   test('clears previous task state immediately when project changes', () async {
     final api = _ControlledProjectApi();
     final controller = ProjectTasksController(api: api);
+    addTearDown(controller.dispose);
     await controller.start();
 
     expect(controller.tasks, isNotEmpty);
     api.controlProjectMembers = true;
 
+    // Record what widgets actually observe, including the first notification.
+    final published = <({String? project, List<String> taskProjects, String? error})>[];
+    controller.addListener(() {
+      published.add((
+        project: controller.selectedProjectId,
+        taskProjects: [for (final task in controller.tasks) task.projectId],
+        error: controller.tasksError,
+      ));
+    });
     final switching = controller.selectProject('project-b');
+    expect(published.first.project, 'project-b');
+    expect(published.first.taskProjects, isEmpty);
+    expect(published.first.error, isNull);
 
     expect(controller.selectedProjectId, 'project-b');
     expect(controller.tasks, isEmpty);
@@ -210,6 +223,7 @@ void main() {
       _projectMember('project-b', 'emp-04'),
     ]);
     await switching;
+    expect(published.expand((state) => state.taskProjects), everyElement('project-b'));
   });
 
   test('does not keep inactive projects in the active management list', () async {

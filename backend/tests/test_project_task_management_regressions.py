@@ -37,7 +37,13 @@ def _controller_source() -> str:
 def test_project_task_management_controller_requests_only_active_projects():
     source = _controller_source()
 
-    assert "projects = await _api.listProjects(status: ProjectStatus.active);" in source
+    startup = source.split("Future<void> start() async {", 1)[1].split(
+        "Future<List<EmployeeProfile>> listEmployeesForProjectAccess()", 1
+    )[0]
+    assert re.search(
+        r"await\s+_api\.listProjects\(\s*status:\s*ProjectStatus\.active\s*,?\s*\)",
+        startup,
+    )
 
 
 def test_project_task_management_controller_discards_stale_async_loads():
@@ -180,12 +186,23 @@ def test_project_task_buttons_use_square_global_button_shape():
 def test_project_switch_clears_previous_task_state_before_notifying():
     source = _controller_source()
     method = source.split("Future<void> selectProject(String projectId) async {", 1)[1].split(
+        "void _resetProjectSelection(", 1
+    )[0]
+    reset = source.split("void _resetProjectSelection(", 1)[1].split(
         "Future<void> reloadProjectMembers()", 1
     )[0]
+    sections = source.split("Future<void> _loadProjectSections()", 1)[1].split(
+        "Future<void> retry()", 1
+    )[0]
 
-    notify_index = method.index("notifyListeners();")
-    assert method.index("tasks = <TaskRecord>[];") < notify_index
-    assert method.index("tasksError = null;") < notify_index
+    assert method.index("_resetProjectSelection(projectId);") < method.index(
+        "await _loadProjectSections();"
+    )
+    assert "notifyListeners();" not in method
+    assert "notifyListeners();" not in reset
+    assert "tasks = <TaskRecord>[];" in reset
+    assert "tasksError = null;" in reset
+    assert "notifyListeners();" in sections
 
 
 def test_inactive_projects_never_remain_in_active_controller_list():
