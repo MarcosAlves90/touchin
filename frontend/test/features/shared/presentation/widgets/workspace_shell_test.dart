@@ -640,6 +640,45 @@ void main() {
     expect(drawer, findsNothing);
   });
 
+  testWidgets('mobile drawer keeps its brand and list inside system insets', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 420);
+    const insets = FakeViewPadding(left: 20, top: 48, bottom: 32);
+    tester.view.padding = insets;
+    tester.view.viewPadding = insets;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(MaterialApp(
+      home: WorkspaceScaffold(
+        contentBuilder: (_, __) => const Text('Workspace content'),
+      ),
+    ));
+    await tester.tap(find.byTooltip('Abrir menu'));
+    await tester.pumpAndSettle();
+
+    final drawer = find.byKey(
+      const ValueKey<String>('workspace-navigation-drawer'),
+    );
+    final brand = find.descendant(
+      of: drawer,
+      matching: find.byType(WorkspaceNavigationBrand),
+    );
+    final list = find.descendant(of: drawer, matching: find.byType(ListView));
+    expect(tester.getRect(drawer).top, 0);
+    expect(tester.getRect(brand).top, 48);
+    expect(tester.getRect(brand).left, 20);
+    expect(tester.getRect(list).bottom, 388);
+
+    await tester.drag(list, const Offset(0, -600));
+    await tester.pumpAndSettle();
+    final logout = find.text('Sair do Sistema');
+    expect(logout.hitTestable(), findsOneWidget);
+    expect(tester.getRect(logout).bottom, lessThan(388));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('desktop and drawer expose the same destination source', (
     tester,
   ) async {
