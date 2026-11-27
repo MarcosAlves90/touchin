@@ -1,0 +1,162 @@
+{
+  "schema_version": 6,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      "frontend/lib/features/admin/presentation/admin_employees_page.dart",
+      "frontend/test/admin_employees_page_test.dart",
+      "docs/contracts/team-profile-tab-focus-v1.polis.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/admin_employees_page_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Restore a visible distinct keyboard focus indicator on selected and unselected employee profile tabs without altering selection or layout.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "Show a distinct focus indicator with at least 3:1 contrast on selected and unselected tabs while preserving the selected yellow 2px border."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "Preserve tab actions, keyboard activation, semantics and responsive geometry in light, dark and high-contrast themes."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "Archive the locked contract byte-identically."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "Widget tests exercise keyboard focus, activation, visibility, contrast and geometry across mobile and desktop and normal and high-contrast themes.",
+        "requirements": [
+          "REQ-001",
+          "REQ-002"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "Archived contract equals locked bytes.",
+        "requirements": [
+          "REQ-003"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "No global changes or changes to unrelated tabs, content or behavior."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "Focus and selection are visually indistinguishable."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "Theme, viewport, employee and selection actions."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "Accessible profile tab selection."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "Regression fails on incorrect selected indicator."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "d595778926ff4f840b823baafde6ae0d06facf62",
+    "base_tree": "83f6be46c38c0778223a1540c8a5912c0d24c343",
+    "policy_sha256": "7714a10ab2b65f58941086f500de93fa62fc6acb6fd59d8b39292980364774dd",
+    "specification_sha256": "7eecb1510103368575306ee2358817e00e39185b9387cfcb2e3761c5369f5a82"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "--reporter",
+      "expanded",
+      "test/admin_employees_page_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "--reporter",
+      "expanded",
+      "test/admin_employees_page_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "--reporter",
+        "expanded",
+        "test/admin_employees_page_test.dart",
+        "--plain-name",
+        "profile keyboard focus"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 600,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "profile_tab_focus_invisible"
+    ]
+  }
+}

@@ -1,0 +1,173 @@
+{
+  "schema_version": 6,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      "docs/contracts/workspace-visual-consistency-v2.polis.json",
+      "frontend/lib/features/projects/presentation/widgets/project_backlog_view.dart",
+      "frontend/test/features/projects/presentation/project_backlog_view_test.dart",
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/features/projects/presentation/project_backlog_view_test.dart",
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Restore readable task titles in the backlog while retaining accessible row actions after interaction targets were enlarged.",
+    "requirements": [
+      {
+        "id": "REQ-BACKLOG-TITLE-01",
+        "statement": "At a 1440 logical-pixel viewport, a backlog row with all available actions reserves at least 160 logical pixels for its task title."
+      },
+      {
+        "id": "REQ-BACKLOG-ACTIONS-01",
+        "statement": "All existing detail, reorder, edit, delete, and assignee actions remain permission-aware and keyboard/touch accessible with at least 48 by 48 logical-pixel targets."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-BACKLOG-LAYOUT-01",
+        "statement": "With all row actions enabled at a 1440-pixel viewport, the title text area is at least 160 pixels wide and the backlog has no layout exception.",
+        "requirements": [
+          "REQ-BACKLOG-TITLE-01"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-BACKLOG-ACTIONS-01",
+        "statement": "All row actions remain reachable through 48 by 48 pixel controls, retain their permissions/disabled states, and invoke their existing callbacks.",
+        "requirements": [
+          "REQ-BACKLOG-ACTIONS-01"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-BACKLOG-CONTRACT-01",
+        "statement": "docs/contracts/workspace-visual-consistency-v2.polis.json is byte-for-byte identical to the locked contract.",
+        "requirements": [
+          "REQ-BACKLOG-TITLE-01",
+          "REQ-BACKLOG-ACTIONS-01"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-BACKLOG-01",
+        "statement": "Preserve the existing backlog columns, row data, labels, callback behavior, permission checks, busy-state behavior, routing, API calls, and persistence."
+      },
+      {
+        "id": "INV-BACKLOG-02",
+        "statement": "Do not reduce any interactive target below 48 by 48 logical pixels or add dependencies."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-BACKLOG-01",
+        "statement": "Row actions consume so much of the title cell that the title area is narrower than 160 pixels at the specified viewport."
+      },
+      {
+        "id": "FORB-BACKLOG-02",
+        "statement": "Any existing row action becomes inaccessible, permission-inappropriate, or loses its callback or busy-state handling."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-BACKLOG-01",
+        "statement": "Backlog viewport, task rows, permission flags, busy state, and available row actions."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-BACKLOG-01",
+        "statement": "Readable task titles and accessible row actions in the backlog."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-BACKLOG-01",
+        "statement": "Widget regression tests fail with a labeled backlog_title_minimum_width assertion or an action/target mismatch when the contract is violated."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "99fc36c2547616e357b45ad4a7502b6a683d78bb",
+    "base_tree": "ee11ae82deacdca1b4e58df10dc2476c4f114e41",
+    "policy_sha256": "5563facc34ae2a1a07cf7ec7ec2f115cb8d250c49dd6e2bd5c7a3de4c977d450",
+    "specification_sha256": "08148c54d3b8bae3f3febb47494be1ecbe0e478cc1180b3f09ba89ab758fb497"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/features/projects/presentation/project_backlog_view_test.dart",
+      "--plain-name",
+      "production themes keep backlog controls compact and responsive"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 360,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/features/projects/presentation/project_backlog_view_test.dart",
+      "test/features/projects/presentation/project_kanban_page_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "test/features/projects/presentation/project_backlog_view_test.dart",
+        "--plain-name",
+        "production themes keep backlog controls compact and responsive"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 360,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "backlog_title_minimum_width"
+    ]
+  }
+}

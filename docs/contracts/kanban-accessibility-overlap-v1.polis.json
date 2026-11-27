@@ -1,0 +1,149 @@
+{
+  "schema_version": 6,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      "docs/contracts/kanban-accessibility-overlap-v1.polis.json",
+      "frontend/lib/features/projects/presentation/project_kanban_page.dart",
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Prevent accessibility overlap and preserve horizontal Kanban scroll across responsive width changes.",
+    "requirements": [
+      {
+        "id": "REQ-KANBAN-TOOLBAR-ALIGN-01",
+        "statement": "Keep footers clear of accessibility controls while preserving usable cards, independent scrolling and horizontal scroll position across responsive width changes when the offset remains in range."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-KANBAN-TOOLBAR-ALIGN-01",
+        "statement": "Cover viewport and safe-area matrix, usable card space, footer separation, pointer scrolling, width-breakpoint roundtrip persistence with five populated columns, card creation and accessibility interaction.",
+        "requirements": [
+          "REQ-KANBAN-TOOLBAR-ALIGN-01"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-DOC-01",
+        "statement": "docs/contracts/kanban-accessibility-overlap-v1.polis.json is byte-for-byte identical to the locked contract.",
+        "requirements": [
+          "REQ-KANBAN-TOOLBAR-ALIGN-01"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-KANBAN-TOOLBAR-ALIGN-01",
+        "statement": "Preserve creation permissions and callbacks, board scrolling and loading, empty and backlog states; do not alter global overlay or dialogs. Preserve card and column reordering and controller disposal."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-KANBAN-TOOLBAR-ALIGN-01",
+        "statement": "An accessibility button overlaps a visible fixed Kanban footer."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-KANBAN-TOOLBAR-ALIGN-01",
+        "statement": "Viewport dimensions, safe area insets and populated Kanban columns."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-KANBAN-TOOLBAR-ALIGN-01",
+        "statement": "Accessible fixed footer actions and scrollable cards."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-KANBAN-TOOLBAR-ALIGN-01",
+        "statement": "The regression fails with kanban_accessibility_overlap on the baseline."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "ee19fc668d86789826b81e29f70b38ee95ceba33",
+    "base_tree": "eecee1d6eee0573801bc7fb192beb1ef2033fd53",
+    "policy_sha256": "7714a10ab2b65f58941086f500de93fa62fc6acb6fd59d8b39292980364774dd",
+    "specification_sha256": "49df99b34859f9e2243417589a132ac71885e5037d06c551c9bc53266537da5c"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/features/projects/presentation/project_kanban_page_test.dart",
+      "--plain-name",
+      "Kanban footer avoids accessibility overlay"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 360,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/features/projects/presentation/project_kanban_page_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "test/features/projects/presentation/project_kanban_page_test.dart",
+        "--plain-name",
+        "Kanban footer avoids accessibility overlay"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 360,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "kanban_accessibility_overlap"
+    ]
+  }
+}

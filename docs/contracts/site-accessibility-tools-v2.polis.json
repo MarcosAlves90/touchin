@@ -1,0 +1,157 @@
+{
+  "schema_version": 6,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      "frontend/lib/features/shared/presentation/widgets/accessibility_tools.dart",
+      "frontend/test/accessibility_tools_test.dart",
+      "docs/contracts/site-accessibility-tools-v2.polis.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/accessibility_tools_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Correct site accessibility text scaling so untouched and reset states retain the exact platform-provided TextScaler behavior, while user adjustments compose with that scaler instead of linearizing it. This follow-up supersedes the text-scaling interpretation in site-accessibility-tools-v1.",
+    "requirements": [
+      {
+        "id": "REQ-1",
+        "statement": "Before any user adjustment and after restoring defaults, the accessibility wrapper preserves the incoming TextScaler behavior, including nonlinear scaling across font sizes."
+      },
+      {
+        "id": "REQ-2",
+        "statement": "While a user adjustment is active, the selected multiplier composes with each incoming scaled font size without replacing the platform scaler's nonlinear behavior."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-1",
+        "statement": "A widget regression with a deliberately nonlinear incoming TextScaler verifies its outputs at multiple font sizes before adjustment and after reset.",
+        "requirements": [
+          "REQ-1"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-2",
+        "statement": "The same widget regression verifies that active text-size adjustment multiplies the nonlinear scaler's outputs at multiple font sizes.",
+        "requirements": [
+          "REQ-2"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-1",
+        "statement": "When the adjustment is 100%, the incoming platform TextScaler is passed through unchanged, including after reset."
+      },
+      {
+        "id": "INV-2",
+        "statement": "The adjustment changes only the output of the incoming TextScaler and does not linearize or replace its per-font-size scaling behavior."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORBID-1",
+        "statement": "A nonlinear platform TextScaler is replaced by a linear TextScaler before adjustment or after reset."
+      },
+      {
+        "id": "FORBID-2",
+        "statement": "An active user multiplier is applied to one estimated scale factor rather than to each font-size-specific scaled output."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-1",
+        "statement": "The TextScaler provided by the surrounding MediaQuery and the user's accessibility text-size adjustment."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-1",
+        "statement": "The original TextScaler when the user multiplier is 100%, or a composed TextScaler while the user multiplier is active."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-1",
+        "statement": "On the locked baseline, the regression fails with the literal marker a11y_scaler_composition_missing because the nonlinear incoming TextScaler is reduced to a linear scale."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "1e6bc110244fc048350960eda5401f4845d53863",
+    "base_tree": "c0416a32cb4a5d75ced4a112a05617decf381e1a",
+    "policy_sha256": "5563facc34ae2a1a07cf7ec7ec2f115cb8d250c49dd6e2bd5c7a3de4c977d450",
+    "specification_sha256": "d4b9e55bcd5dd89c3659ce5d0be223af7a419239bb1b11edeeb4aaea8bd52e1c"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/accessibility_tools_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 360,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/accessibility_tools_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 360,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "python3",
+        "-c",
+        "import subprocess,sys; r=subprocess.run(['flutter','test','test/accessibility_tools_test.dart','--plain-name','accessibility settings preserve nonlinear platform text scaling'],cwd='frontend'); print('a11y_scaler_composition_missing' if r.returncode else 'a11y_scaler_composition_present'); sys.exit(r.returncode)"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 420,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "a11y_scaler_composition_missing"
+    ]
+  }
+}

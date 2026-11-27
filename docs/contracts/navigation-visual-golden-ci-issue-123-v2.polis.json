@@ -1,0 +1,200 @@
+{
+  "schema_version": 6,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      ".github/workflows/ci.yml",
+      "scripts/tests/test_ci_flutter_golden_setup.py",
+      "docs/contracts/navigation-visual-golden-ci-issue-123-v2.polis.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "scripts/tests/test_ci_flutter_golden_setup.py"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Close the post-audit evidence gaps in #123 while preserving the canonical Ubuntu Flutter 3.47.2 golden job, the four existing snapshots, and all non-golden Linux/Windows functional checks.",
+    "requirements": [
+      {
+        "id": "REQ-123-01",
+        "statement": "The canonical Ubuntu golden job configures subosito/flutter-action with the exact flutter-version 3.47.2 and confirms the installed runtime with flutter --version before comparing screenshots."
+      },
+      {
+        "id": "REQ-123-02",
+        "statement": "The canonical navigation golden comparison runs only in frontend-golden-ubuntu; Linux and Windows functional jobs continue to run every non-golden functional test, excluding only cases explicitly tagged canonical-golden."
+      },
+      {
+        "id": "REQ-123-03",
+        "statement": "On failure of the canonical golden comparison, GitHub Actions uploads a reviewable artifact containing the Flutter failure images, including actual and expected/diff images when produced, using an upload step guarded by if: failure()."
+      },
+      {
+        "id": "REQ-123-04",
+        "statement": "The four existing issue-119 PNG snapshots remain unchanged; any future snapshot update requires a successful canonical Ubuntu run and review of its image diff."
+      },
+      {
+        "id": "REQ-123-05",
+        "statement": "Every Project Policy gate whose effective mode is command is required to execute and pass; no such configured required gate may be disabled or skipped. Gates explicitly declared not_applicable by the committed policy are outside this requirement and must not be reclassified to evade a required gate."
+      },
+      {
+        "id": "REQ-123-06",
+        "statement": "A successful GitHub Actions run for the candidate revision on Ubuntu that records Flutter 3.47.2 and passes the isolated canonical golden comparison is required evidence before claiming Ubuntu runner compatibility."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-123-01",
+        "statement": "The regression test scopes its assertions to the frontend-golden-ubuntu job and verifies the exact Flutter 3.47.2 setup, runtime confirmation, golden command, and failure-only upload-artifact step and artifact path. Moving these steps elsewhere or removing/changing them fails the regression.",
+        "requirements": [
+          "REQ-123-01",
+          "REQ-123-03"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-123-02",
+        "statement": "The real GitHub Actions Ubuntu run for the candidate revision logs Flutter 3.47.2 and the isolated navigation golden test passes on that runner. Until this run is available and reviewed, Ubuntu runner compatibility remains unproven and must not be claimed.",
+        "requirements": [
+          "REQ-123-01",
+          "REQ-123-06"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-123-03",
+        "statement": "Ubuntu and Windows functional jobs continue to run the non-golden suite, excluding only the canonical-golden tag, and their test failures remain blocking.",
+        "requirements": [
+          "REQ-123-02"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-123-04",
+        "statement": "All four existing issue-119 PNG snapshots are byte-identical to the locked baseline; the workflow artifact makes failure images available for review without rewriting snapshots.",
+        "requirements": [
+          "REQ-123-03",
+          "REQ-123-04"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-123-05",
+        "statement": "Every Project Policy gate configured with effective mode command executes and passes on the resulting source; none of those required command gates is disabled or skipped. Gates explicitly configured as not_applicable remain outside this criterion and are not counted as required gates.",
+        "requirements": [
+          "REQ-123-05"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-123-01",
+        "statement": "No application behavior, API, backend, or visual layout is changed to hide renderer differences."
+      },
+      {
+        "id": "INV-123-02",
+        "statement": "Linux and Windows retain all non-golden functional tests; only explicitly tagged canonical-golden cases are excluded from those functional runs."
+      },
+      {
+        "id": "INV-123-03",
+        "statement": "The four canonical snapshots remain byte-identical in this change; a later change to them requires successful Ubuntu evidence and reviewed diffs."
+      },
+      {
+        "id": "INV-123-04",
+        "statement": "The v1 contract, its lock, and historical Red proof remain byte-identical and unmodified."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-123-01",
+        "statement": "The frontend-golden-ubuntu job selects channel stable without exact Flutter version 3.47.2."
+      },
+      {
+        "id": "FORB-123-02",
+        "statement": "The golden test is skipped in every CI job or allowed to fail."
+      },
+      {
+        "id": "FORB-123-03",
+        "statement": "A macOS or Windows render is used to regenerate canonical Ubuntu screenshots."
+      },
+      {
+        "id": "FORB-123-04",
+        "statement": "A required Project Policy command gate is disabled, skipped, or relabeled not_applicable to obtain a passing result."
+      },
+      {
+        "id": "FORB-123-05",
+        "statement": "Ubuntu runner compatibility is claimed without a successful real GitHub Actions run for the candidate revision."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-123-01",
+        "statement": "The committed #123 implementation, current CI workflow, regression test, four canonical issue-119 snapshots, and committed Project Policy."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-123-01",
+        "statement": "Workflow and regression coverage that retain failure artifacts and bind Flutter pin/runtime/golden/artifact expectations to the canonical Ubuntu job, with prior Linux/Windows checks and snapshots preserved."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-123-01",
+        "statement": "Missing or misplaced canonical job setup/steps, absent failure artifact upload, failed golden comparison, failure of a non-golden Linux/Windows functional test, disabled/skipped required Project Policy gate, or failed configured gate blocks the change. Lack of a real successful Ubuntu Actions run leaves runner compatibility unproven."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "4f2887ba92577f3e9821c421fe72eb290a3e2a93",
+    "base_tree": "d6a5406c281684aef50cebd6f90ea689a3363362",
+    "policy_sha256": "5563facc34ae2a1a07cf7ec7ec2f115cb8d250c49dd6e2bd5c7a3de4c977d450",
+    "specification_sha256": "77a21e0f59a0fab11d3d34204bc3f519297451bf8695c91cfc19c05e3d256377"
+  },
+  "behavior": {
+    "argv": [
+      "python",
+      "scripts/polis_tests.py"
+    ],
+    "cwd": ".",
+    "timeout_seconds": 1200,
+    "environment": {
+      "mode": "inherit"
+    }
+  },
+  "affected": {
+    "argv": [
+      "python",
+      "scripts/polis_tests.py"
+    ],
+    "cwd": ".",
+    "timeout_seconds": 1200,
+    "environment": {
+      "mode": "inherit"
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "python3",
+        "-B",
+        "-m",
+        "unittest",
+        "scripts.tests.test_ci_flutter_golden_setup",
+        "-v"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 300,
+      "environment": {
+        "mode": "inherit"
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "issue123_golden_failure_artifact_missing"
+    ]
+  }
+}

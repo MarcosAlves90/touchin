@@ -1,0 +1,28 @@
+diff --git a/frontend/test/features/time_tracking/presentation/time_clock_page_test.dart b/frontend/test/features/time_tracking/presentation/time_clock_page_test.dart
+index 790ccfba60d43856c34d9d34f2001f61f7ba2bcb..6d8c7f7fa8a0a3fe16061e2ca63da2e2b38a3cfc 100644
+--- a/frontend/test/features/time_tracking/presentation/time_clock_page_test.dart
++++ b/frontend/test/features/time_tracking/presentation/time_clock_page_test.dart
+@@ -145,6 +145,23 @@ void main() {
+     controller.dispose();
+   });
+ 
++  testWidgets('last punch summary label is spelled correctly',
++      (WidgetTester tester) async {
++    final controller = _FakeTimeClockController(<int, TimeClockState>{
++      1: _timelineState(page: 1, records: const <PunchRecord>[], totalPages: 1),
++    })..isLoadingState = false;
++    tester.view.physicalSize = const Size(1400, 1800);
++    tester.view.devicePixelRatio = 1.0;
++    addTearDown(tester.view.reset);
++
++    await tester.pumpWidget(MaterialApp(home: TimeClockPage(controller: controller)));
++    await tester.pump();
++
++    expect(find.text('Último evento'), findsOneWidget);
++    expect(find.text('Útimo evento'), findsNothing);
++    controller.dispose();
++  });
++
+   testWidgets('keeps workspace visible while initial state loads',
+       (WidgetTester tester) async {
+     final controller = _LoadingTimeClockController();

@@ -1,61 +1,293 @@
-import 'package:bunchin_flutter/contracts/auth.dart';
-import 'package:bunchin_flutter/core/network/api_client.dart';
-import 'package:bunchin_flutter/core/network/bunchin_api.dart';
-import 'package:bunchin_flutter/core/storage/token_storage.dart';
-import 'package:bunchin_flutter/core/theme/theme_mode_controller.dart';
-import 'package:bunchin_flutter/features/auth/presentation/auth_session_navigation.dart';
-import 'package:bunchin_flutter/features/auth/presentation/login_page.dart';
-import 'package:bunchin_flutter/theme/app_theme.dart';
+import 'dart:async';
+
+import 'package:touchin_flutter/contracts/auth.dart';
+import 'package:touchin_flutter/core/network/api_client.dart';
+import 'package:touchin_flutter/core/network/touchin_api.dart';
+import 'package:touchin_flutter/core/network/app_dependencies.dart';
+import 'package:touchin_flutter/dev_preview/preview_build_mode.dart';
+import 'package:touchin_flutter/dev_preview/preview_launcher.dart';
+import 'package:touchin_flutter/core/storage/token_storage.dart';
+import 'package:touchin_flutter/core/navigation/workspace_router.dart';
+import 'package:touchin_flutter/core/theme/theme_mode_controller.dart';
+import 'package:touchin_flutter/features/auth/presentation/auth_session_navigation.dart';
+import 'package:touchin_flutter/features/auth/presentation/login_page.dart';
+import 'package:touchin_flutter/features/auth/presentation/reset_password_page.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/accessibility_tools.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_skeleton.dart';
+import 'package:touchin_flutter/startup_ascii_orb.dart';
+import 'package:touchin_flutter/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:touchin_flutter/features/time_tracking/application/punch_location_service.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await ThemeModeController.instance.load();
-  runApp(const MyApp());
+  runApp(developerPreviewAvailable ? const PreviewLauncher() : const MyApp());
 }
 
 class MyApp extends StatefulWidget {
-  const MyApp({super.key, this.api, this.tokenStorage});
+  const MyApp(
+      {super.key,
+      this.api,
+      this.workspaceApi,
+      this.punchLocationService,
+      this.tokenStorage,
+      this.initialPath,
+      this.workspaceRevision = 0,
+      this.onLocationChanged,
+      this.onLogout,
+      this.unauthenticatedBuilder,
+      this.applicationBuilder,
+      this.theme,
+      this.darkTheme});
 
-  final BunchinApi? api;
+  final TouchInApi? api;
+
+  /// Optional feature dependency; the bootstrap API retains its existing role.
+  final TouchInApi? workspaceApi;
+  final PunchLocationService? punchLocationService;
   final TokenStorage? tokenStorage;
+  final String? initialPath;
+  final int workspaceRevision;
+  final ValueChanged<String>? onLocationChanged;
+  final VoidCallback? onLogout;
+  final WidgetBuilder? unauthenticatedBuilder;
+  final Widget Function(BuildContext, Widget)? applicationBuilder;
+  final ThemeData? theme;
+  final ThemeData? darkTheme;
 
   @override
   State<MyApp> createState() => _MyAppState();
 }
 
-class _MyAppState extends State<MyApp> {
-  late final Future<AuthSession?> _bootstrapFuture = _bootstrapSession();
-
-  BunchinApi get _api => widget.api ?? BunchinApi();
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  static const _revalidationInterval = Duration(minutes: 5);
+  Timer? _revalidationTimer;
+  String? _scheduledSessionToken;
+  Future<void>? _revalidationInFlight;
+  String? _revalidatingToken;
+  Future<_SessionBootstrapResult>? _bootstrapInFlight;
+  bool _startupResolved = false;
+  late final WorkspaceRouter _router = WorkspaceRouter(
+    initialPath: widget.initialPath ??
+        WidgetsBinding.instance.platformDispatcher.defaultRouteName,
+    buildRoute: (context, path, session) => _SessionGate(
+      key: ValueKey<String>(path),
+      routeName: path,
+      initialSession: session,
+      isStartup: !_startupResolved,
+      onStartupResolved: _markStartupResolved,
+      bootstrap: _bootstrapSession,
+      revalidate: _revalidateActiveSession,
+      api: _api,
+      workspaceApi: widget.workspaceApi,
+      tokenStorage: _tokenStorage,
+      router: _router,
+      workspaceRevision: widget.workspaceRevision,
+      unauthenticatedBuilder: widget.unauthenticatedBuilder,
+    ),
+  );
+  final WorkspaceRouteParser _routeParser = WorkspaceRouteParser();
+  TouchInApi get _api => widget.api ?? TouchInApi();
 
   TokenStorage get _tokenStorage => widget.tokenStorage ?? TokenStorage();
 
-  Future<AuthSession?> _bootstrapSession() async {
-    final persistedSession = await _tokenStorage.readAuthSession();
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _router.addListener(_onRouterChanged);
+    AuthRejectionEvents.onRejected = _onProtectedRequestRejected;
+  }
+
+  void _onRouterChanged() {
+    widget.onLocationChanged?.call(_router.currentConfiguration.path);
+    final session = _router.verifiedSession;
+    if (session == null) {
+      _revalidationTimer?.cancel();
+      _revalidationTimer = null;
+      _scheduledSessionToken = null;
+      TouchInApi.invalidateAuthContext();
+      return;
+    }
+    if (_scheduledSessionToken == session.accessToken) return;
+    _scheduleRevalidation(session);
+  }
+
+  void _scheduleRevalidation(AuthSession session) {
+    _revalidationTimer?.cancel();
+    _scheduledSessionToken = session.accessToken;
+    final remaining = session.expiresAt.difference(DateTime.now().toUtc());
+    final delay = remaining < _revalidationInterval
+        ? (remaining.isNegative ? Duration.zero : remaining)
+        : _revalidationInterval;
+    _revalidationTimer = Timer(delay, () {
+      _scheduledSessionToken = null;
+      unawaited(_revalidateActiveSession());
+    });
+  }
+
+  void _onProtectedRequestRejected(String token) {
+    if (_router.verifiedSession?.accessToken == token) {
+      unawaited(_revalidateActiveSession());
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _router.verifiedSession != null) {
+      unawaited(_revalidateActiveSession());
+    }
+  }
+
+  Future<void> _revalidateActiveSession() {
+    final token = _router.verifiedSession?.accessToken;
+    final pending = _revalidationInFlight;
+    if (pending != null && token == _revalidatingToken) return pending;
+    final request = _performRevalidation();
+    _revalidatingToken = token;
+    _revalidationInFlight = request;
+    request.whenComplete(() {
+      if (identical(_revalidationInFlight, request)) {
+        _revalidationInFlight = null;
+        _revalidatingToken = null;
+      }
+    });
+    return request;
+  }
+
+  Future<void> _performRevalidation() async {
+    final session = _router.verifiedSession;
+    if (session == null || _router.sessionRevoked) return;
+    final generation = _router.sessionGeneration;
+    final token = session.accessToken;
+    if (!session.expiresAt.isAfter(DateTime.now().toUtc())) {
+      _router.revokeSession();
+      await _clearRejectedSession(token);
+      return;
+    }
+    // Every explicit validation reaches the server, even if a page reused its
+    // session context. Concurrent page loads share the same in-flight read.
+    TouchInApi.invalidateAuthContext(token: token);
+    try {
+      final context = await _api.getAuthContext();
+      if (!mounted ||
+          generation != _router.sessionGeneration ||
+          _router.verifiedSession?.accessToken != token) {
+        return;
+      }
+      TouchInApi.rememberAuthContext(token, context);
+      _router.restoreVerifiedSession(session.copyWith(
+        company: context.company,
+        user: context.user,
+      ));
+      _scheduleRevalidation(session);
+    } on ApiException catch (error) {
+      if (!mounted ||
+          generation != _router.sessionGeneration ||
+          _router.verifiedSession?.accessToken != token) {
+        return;
+      }
+      if (error.statusCode == 401 || error.statusCode == 403) {
+        _router.revokeSession();
+        await _clearRejectedSession(token);
+      } else {
+        _router.failRevalidation();
+      }
+    } catch (_) {
+      if (mounted &&
+          generation == _router.sessionGeneration &&
+          _router.verifiedSession?.accessToken == token) {
+        _router.failRevalidation();
+      }
+    }
+  }
+
+  Future<void> _clearRejectedSession(String rejectedToken) async {
+    try {
+      await _tokenStorage.clearSessionIfTokenMatches(rejectedToken);
+    } catch (_) {
+      // Keep protected content inaccessible if local storage cannot be cleared.
+    }
+  }
+
+  Future<_SessionBootstrapResult> _bootstrapSession() {
+    return _bootstrapInFlight ??= _performBootstrap().whenComplete(() {
+      _bootstrapInFlight = null;
+    });
+  }
+
+  Future<_SessionBootstrapResult> _performBootstrap() async {
+    final generation = _router.sessionGeneration;
+    AuthSession? persistedSession;
+    try {
+      persistedSession = await _tokenStorage.readAuthSession();
+    } catch (_) {
+      return const _SessionBootstrapResult.unauthenticated();
+    }
+
     if (persistedSession == null) {
-      return null;
+      return const _SessionBootstrapResult.unauthenticated();
+    }
+    if (!mounted ||
+        generation != _router.sessionGeneration ||
+        _router.sessionRevoked) {
+      return const _SessionBootstrapResult.unauthenticated();
     }
 
     final now = DateTime.now().toUtc();
     if (!persistedSession.expiresAt.isAfter(now)) {
-      await _tokenStorage.clearAccessToken();
-      return null;
+      try {
+        if (mounted && generation == _router.sessionGeneration) {
+          await _tokenStorage.clearSessionIfTokenMatches(
+            persistedSession.accessToken,
+          );
+        }
+      } catch (_) {
+        // Continue to login when browser storage cannot be cleared.
+      }
+      return const _SessionBootstrapResult.unauthenticated();
     }
 
     try {
+      TouchInApi.invalidateAuthContext(token: persistedSession.accessToken);
       final authContext = await _api.getAuthContext();
-      return persistedSession.copyWith(
+      if (!mounted || generation != _router.sessionGeneration) {
+        return const _SessionBootstrapResult.unauthenticated();
+      }
+      final verified = persistedSession.copyWith(
         company: authContext.company,
         user: authContext.user,
       );
+      TouchInApi.rememberAuthContext(verified.accessToken, authContext);
+      _router.restoreVerifiedSession(verified);
+      return _SessionBootstrapResult.authenticated(verified);
     } on ApiException catch (error) {
       if (error.statusCode == 401 || error.statusCode == 403) {
-        await _tokenStorage.clearAccessToken();
+        if (!mounted || generation != _router.sessionGeneration) {
+          return const _SessionBootstrapResult.unauthenticated();
+        }
+        _router.revokeSession();
+        try {
+          await _tokenStorage.clearSessionIfTokenMatches(
+            persistedSession.accessToken,
+          );
+        } catch (_) {
+          // The rejected session still must not reach protected content.
+        }
+        return const _SessionBootstrapResult.unauthenticated();
       }
-      return null;
+      return const _SessionBootstrapResult.unavailable();
+    } catch (_) {
+      return const _SessionBootstrapResult.unavailable();
     }
+  }
+
+  void _markStartupResolved() {
+    if (!mounted || _startupResolved) return;
+    setState(() => _startupResolved = true);
   }
 
   @override
@@ -63,11 +295,11 @@ class _MyAppState extends State<MyApp> {
     return AnimatedBuilder(
       animation: ThemeModeController.instance,
       builder: (context, _) {
-        return MaterialApp(
-          title: 'Bunchin',
+        return MaterialApp.router(
+          title: 'TouchIn',
           debugShowCheckedModeBanner: false,
-          theme: AppTheme.lightTheme,
-          darkTheme: AppTheme.darkTheme,
+          theme: widget.theme ?? AppTheme.lightTheme,
+          darkTheme: widget.darkTheme ?? AppTheme.darkTheme,
           themeMode: ThemeModeController.instance.mode,
           localizationsDelegates: const [
             GlobalMaterialLocalizations.delegate,
@@ -76,48 +308,498 @@ class _MyAppState extends State<MyApp> {
           ],
           supportedLocales: const [Locale('pt', 'BR')],
           locale: const Locale('pt', 'BR'),
-          home: FutureBuilder<AuthSession?>(
-            future: _bootstrapFuture,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState != ConnectionState.done) {
-                return const _StartupSplash();
-              }
-
-              final session = snapshot.data;
-              if (session != null) {
-                return _BootstrapSessionView(session: session);
-              }
-
-              return const LoginPage();
-            },
+          routerDelegate: _router,
+          routeInformationParser: _routeParser,
+          backButtonDispatcher: RootBackButtonDispatcher(),
+          builder: (context, child) => AppDependencies(
+            api: widget.workspaceApi,
+            punchLocationService: widget.punchLocationService,
+            onLogout: widget.onLogout,
+            child: AccessibilityTools(
+                child: WorkspaceRouterScope(
+              router: _router,
+              child: widget.applicationBuilder?.call(context, child!) ?? child!,
+            )),
           ),
         );
       },
     );
   }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _router.removeListener(_onRouterChanged);
+    _revalidationTimer?.cancel();
+    if (AuthRejectionEvents.onRejected == _onProtectedRequestRejected) {
+      AuthRejectionEvents.onRejected = null;
+    }
+    _router.dispose();
+    super.dispose();
+  }
 }
 
-class _BootstrapSessionView extends StatelessWidget {
-  const _BootstrapSessionView({required this.session});
+class _SessionGate extends StatefulWidget {
+  const _SessionGate({
+    super.key,
+    required this.routeName,
+    required this.initialSession,
+    required this.isStartup,
+    required this.onStartupResolved,
+    required this.bootstrap,
+    required this.revalidate,
+    required this.api,
+    this.workspaceApi,
+    required this.tokenStorage,
+    required this.router,
+    required this.workspaceRevision,
+    this.unauthenticatedBuilder,
+  });
 
-  final AuthSession session;
+  final String routeName;
+  final int workspaceRevision;
+  final WidgetBuilder? unauthenticatedBuilder;
+  final AuthSession? initialSession;
+  final bool isStartup;
+  final VoidCallback onStartupResolved;
+  final Future<_SessionBootstrapResult> Function() bootstrap;
+  final Future<void> Function() revalidate;
+  final TouchInApi api;
+  final TouchInApi? workspaceApi;
+  final TokenStorage tokenStorage;
+  final WorkspaceRouter router;
+
+  @override
+  State<_SessionGate> createState() => _SessionGateState();
+}
+
+class _SessionGateState extends State<_SessionGate> {
+  late Future<_SessionBootstrapResult> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _resolveSession();
+  }
+
+  @override
+  void didUpdateWidget(_SessionGate oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialSession != oldWidget.initialSession) {
+      _future = _resolveSession();
+    }
+  }
+
+  void _redirectIfRequired(AuthSession session) {
+    if (widget.router.passwordResetVerificationPending ||
+        widget.router.verificationUnavailable) {
+      return;
+    }
+    if (widget.routeName != '/' &&
+        (!session.mustChangePassword ||
+            widget.routeName == '/must-change-password')) {
+      return;
+    }
+    final generation = widget.router.sessionGeneration;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted &&
+          generation == widget.router.sessionGeneration &&
+          !widget.router.sessionRevoked &&
+          !widget.router.passwordResetVerificationPending &&
+          !widget.router.verificationUnavailable) {
+        Router.neglect(context, () => widget.router.authenticate(session));
+      }
+    });
+  }
+
+  Future<_SessionBootstrapResult> _resolveSession() async {
+    if (Uri.parse(widget.routeName).path == '/reset-password') {
+      return const _SessionBootstrapResult.unauthenticated();
+    }
+    final isStartup = widget.isStartup;
+    final result = widget.initialSession == null || widget.router.sessionRevoked
+        ? await widget.bootstrap()
+        : _SessionBootstrapResult.authenticated(widget.initialSession!);
+    if (isStartup && result.status != _SessionBootstrapStatus.unavailable) {
+      widget.onStartupResolved();
+    }
+    return result;
+  }
 
   @override
   Widget build(BuildContext context) {
-    final route = buildAuthenticatedWorkspaceRoute(session)
-        as MaterialPageRoute<void>;
+    if (Uri.parse(widget.routeName).path == '/reset-password') {
+      final token = Uri.parse(widget.routeName).queryParameters['token'] ??
+          Uri.parse(Uri.base.fragment).queryParameters['token'] ??
+          '';
+      return ResetPasswordPage(
+        token: token,
+        api: widget.api,
+        tokenStorage: widget.tokenStorage,
+      );
+    }
+    final existing = widget.initialSession;
+    if (!widget.router.sessionRevoked &&
+        existing != null &&
+        existing.expiresAt.isAfter(DateTime.now().toUtc())) {
+      _redirectIfRequired(existing);
+      return _authenticatedContent(existing);
+    }
+    return FutureBuilder<_SessionBootstrapResult>(
+      future: _future,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return widget.isStartup
+              ? const _StartupSplash()
+              : const _RouteSessionSkeleton();
+        }
+        final result = snapshot.data;
+        if (snapshot.hasError ||
+            result == null ||
+            result.status == _SessionBootstrapStatus.unavailable) {
+          void onRetry() {
+            setState(() {
+              _future = _resolveSession();
+            });
+          }
+
+          return widget.isStartup
+              ? _SessionVerificationError(onRetry: onRetry)
+              : _RouteSessionVerificationError(onRetry: onRetry);
+        }
+        final session = result.session;
+        if (session != null) {
+          _redirectIfRequired(session);
+          return _authenticatedContent(session);
+        }
+        return widget.unauthenticatedBuilder?.call(context) ??
+            LoginPage(
+              requiredPasswordChanged: widget.router.requiredPasswordChanged,
+              takePasswordChangeNotice:
+                  widget.router.takeRequiredPasswordChangeNotice,
+            );
+      },
+    );
+  }
+
+  Widget _authenticatedContent(AuthSession session) {
+    final unavailable = widget.router.verificationUnavailable;
+    final checkingReset = widget.router.passwordResetVerificationPending;
+    final concealed = unavailable || checkingReset;
+    return Stack(
+      fit: StackFit.expand,
+      children: <Widget>[
+        // Preserve mounted forms and dialogs during an unsuccessful background
+        // check, but hide their content and prevent interactions until /auth/me
+        // can be verified again.
+        Offstage(
+          offstage: concealed,
+          child: TickerMode(
+            enabled: !concealed,
+            child: _BootstrapSessionView(
+              key: ValueKey(widget.workspaceRevision),
+              session: session,
+              routeName: widget.routeName,
+              api: widget.workspaceApi,
+            ),
+          ),
+        ),
+        if (checkingReset)
+          const _RouteSessionSkeleton()
+        else if (unavailable)
+          _RouteSessionVerificationError(onRetry: widget.revalidate),
+      ],
+    );
+  }
+}
+
+class _RouteSessionSkeleton extends StatelessWidget {
+  const _RouteSessionSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return WorkspaceScaffold(
+      contentBuilder: (context, _) => WorkspaceSkeletonRegion(
+        label: 'Carregando conteúdo da página',
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            key: const ValueKey<String>('route-session-skeleton'),
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              const WorkspaceSkeleton(width: 240, height: 32),
+              const SizedBox(height: 12),
+              const WorkspaceSkeleton(width: 360, height: 16),
+              const SizedBox(height: 28),
+              for (var index = 0; index < 3; index++) ...<Widget>[
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surface,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: colorScheme.outlineVariant),
+                  ),
+                  child: Row(
+                    children: <Widget>[
+                      const WorkspaceSkeleton(
+                        width: 44,
+                        height: 44,
+                        shape: WorkspaceSkeletonShape.circle,
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            const FractionallySizedBox(
+                              widthFactor: 0.6,
+                              alignment: Alignment.centerLeft,
+                              child: WorkspaceSkeleton(height: 16),
+                            ),
+                            const SizedBox(height: 10),
+                            const FractionallySizedBox(
+                              widthFactor: 0.85,
+                              alignment: Alignment.centerLeft,
+                              child: WorkspaceSkeleton(height: 12),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RouteSessionVerificationError extends StatelessWidget {
+  const _RouteSessionVerificationError({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return WorkspaceScaffold(
+      contentBuilder: (context, _) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 440),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Icon(
+                  Icons.cloud_off_outlined,
+                  size: 48,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Não foi possível validar sua sessão',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.titleLarge,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Verifique sua conexão e tente novamente.',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                FilledButton(
+                  onPressed: onRetry,
+                  child: const Text('Tentar novamente'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+enum _SessionBootstrapStatus { authenticated, unauthenticated, unavailable }
+
+class _SessionBootstrapResult {
+  const _SessionBootstrapResult.authenticated(AuthSession session)
+      : this._(_SessionBootstrapStatus.authenticated, session);
+
+  const _SessionBootstrapResult.unauthenticated()
+      : this._(_SessionBootstrapStatus.unauthenticated, null);
+
+  const _SessionBootstrapResult.unavailable()
+      : this._(_SessionBootstrapStatus.unavailable, null);
+
+  const _SessionBootstrapResult._(this.status, this.session);
+
+  final _SessionBootstrapStatus status;
+  final AuthSession? session;
+}
+
+class _BootstrapSessionView extends StatelessWidget {
+  const _BootstrapSessionView(
+      {super.key, required this.session, this.routeName, this.api});
+
+  final AuthSession session;
+  final String? routeName;
+  final TouchInApi? api;
+
+  @override
+  Widget build(BuildContext context) {
+    final route = buildAuthenticatedWorkspaceRoute(
+      session,
+      routeName: routeName,
+      api: api,
+      punchLocationService:
+          AppDependencies.maybeOf(context)?.punchLocationService,
+    ) as MaterialPageRoute<void>;
     return route.builder(context);
   }
 }
 
-class _StartupSplash extends StatelessWidget {
-  const _StartupSplash();
+class _SessionVerificationError extends StatelessWidget {
+  const _SessionVerificationError({required this.onRetry});
+
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
+    final theme = Theme.of(context);
+    return Scaffold(
       body: Center(
-        child: CircularProgressIndicator(),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 440),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Icon(
+                  Icons.cloud_off_outlined,
+                  size: 48,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Não foi possível validar sua sessão',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.titleLarge,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Verifique sua conexão e tente novamente.',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                FilledButton(
+                  onPressed: onRetry,
+                  child: const Text('Tentar novamente'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StartupSplash extends StatefulWidget {
+  const _StartupSplash();
+
+  @override
+  State<_StartupSplash> createState() => _StartupSplashState();
+}
+
+class _StartupSplashState extends State<_StartupSplash> {
+  static const _statusMessages = <String>[
+    'Escrevendo documentos',
+    'Organizando rotinas',
+    'Alinhando os planetas',
+    'Preparando tudo por aqui',
+  ];
+
+  late final Timer _statusTimer;
+  int _statusIndex = 0;
+  int _dotCount = 0;
+  int _ticks = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _statusTimer = Timer.periodic(const Duration(milliseconds: 500), (_) {
+      setState(() {
+        _ticks += 1;
+        _dotCount = _ticks % 4;
+        if (_ticks % 6 == 0) {
+          _statusIndex = (_statusIndex + 1) % _statusMessages.length;
+        }
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _statusTimer.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Scaffold(
+      // Match the near-black ground of the Estuary reference.
+      backgroundColor: const Color(0xFF0B0B0A),
+      body: StartupAsciiOrb(
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              const CircularProgressIndicator(color: Color(0xFFF3BA32)),
+              const SizedBox(height: 20),
+              Text(
+                'Aguardando o servidor',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: const Color(0xFFF5F1E8),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Text(
+                    _statusMessages[_statusIndex],
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: const Color(0xFFF5F1E8),
+                    ),
+                  ),
+                  Text(
+                    '.' * _dotCount,
+                    key: const ValueKey<String>('startup-status-dots'),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: const Color(0xFFF5F1E8),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -1,0 +1,189 @@
+{
+  "schema_version": 6,
+  "kind": "feature",
+  "scope": {
+    "allowed_paths": [
+      "docs/contracts/workspace-toolbar-consistency-v2.polis.json",
+      "frontend/lib/features/projects/presentation/widgets/project_backlog_view.dart",
+      "frontend/lib/features/projects/presentation/project_kanban_page.dart",
+      "frontend/lib/features/projects/presentation/widgets/project_kanban_board.dart",
+      "frontend/lib/features/shared/presentation/widgets/workspace_toolbar.dart",
+      "frontend/test/features/projects/presentation/project_backlog_view_test.dart",
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/features/projects/presentation/project_backlog_view_test.dart",
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Make the backlog and Kanban top action areas visually consistent while preserving their distinct controls and responsive behavior.",
+    "requirements": [
+      {
+        "id": "REQ-WORKSPACE-TOOLBAR-01",
+        "statement": "Backlog and Kanban action areas use one shared toolbar surface with the same surface color, outline, and 12-pixel padding."
+      },
+      {
+        "id": "REQ-WORKSPACE-TOOLBAR-02",
+        "statement": "Interactive controls in both action areas align to a 48-logical-pixel minimum height while retaining existing labels, callbacks, permission checks, and behavior."
+      },
+      {
+        "id": "REQ-WORKSPACE-OVERVIEW-01",
+        "statement": "The project selector, view switch, metrics strip, and refresh control in the shared project overview align to the same 52-logical-pixel height."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-WORKSPACE-TOOLBAR-01",
+        "statement": "The backlog and Kanban each render exactly one shared toolbar surface with the same border, surface, and padding tokens.",
+        "requirements": [
+          "REQ-WORKSPACE-TOOLBAR-01"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-WORKSPACE-TOOLBAR-02",
+        "statement": "Backlog search, filters, and actions plus Kanban navigation and column creation controls are at least 48 logical pixels high and remain usable at wide and narrow viewports.",
+        "requirements": [
+          "REQ-WORKSPACE-TOOLBAR-02"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-WORKSPACE-TOOLBAR-03",
+        "statement": "The shared project overview selector, view switch, metrics strip, and refresh control are each 52 logical pixels high.",
+        "requirements": [
+          "REQ-WORKSPACE-OVERVIEW-01"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-WORKSPACE-TOOLBAR-04",
+        "statement": "docs/contracts/workspace-toolbar-consistency-v2.polis.json is byte-for-byte identical to the locked contract.",
+        "requirements": [
+          "REQ-WORKSPACE-TOOLBAR-01",
+          "REQ-WORKSPACE-TOOLBAR-02",
+          "REQ-WORKSPACE-OVERVIEW-01"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-WORKSPACE-TOOLBAR-01",
+        "statement": "Preserve the existing project selector, view switch, metrics, refresh control, filter options, content, routing, callbacks, permissions, loading state, and persistence."
+      },
+      {
+        "id": "INV-WORKSPACE-TOOLBAR-02",
+        "statement": "Keep narrow layouts horizontally usable without layout exceptions and do not reduce any interactive target below 48 by 48 logical pixels."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-WORKSPACE-TOOLBAR-01",
+        "statement": "Backlog and Kanban action areas use mismatched surface, border, padding, or control heights."
+      },
+      {
+        "id": "FORB-WORKSPACE-TOOLBAR-02",
+        "statement": "The responsive toolbar clips actions, introduces a layout exception, or changes existing behavior or authorization."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-WORKSPACE-TOOLBAR-01",
+        "statement": "Backlog and Kanban viewport constraints, project board data, and existing permission/state flags."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-WORKSPACE-TOOLBAR-01",
+        "statement": "Consistently styled, accessible, responsive action areas for backlog and Kanban."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-WORKSPACE-TOOLBAR-01",
+        "statement": "Flutter widget tests fail with the workspace_overview_control_height or workspace_toolbar_shared_surface marker when the contract is violated."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "eaeae4028091153c8d5387f16f67c31c23e31b93",
+    "base_tree": "37a209a1ce4d01af544bada782d10a9f38808e9f",
+    "policy_sha256": "7714a10ab2b65f58941086f500de93fa62fc6acb6fd59d8b39292980364774dd",
+    "specification_sha256": "e95465c966c84266167fdf733b3c56e389901673dc6af808b4b07504f87244e2"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/features/projects/presentation/project_kanban_page_test.dart",
+      "--plain-name",
+      "kanban toolbar shares the surface and 48-pixel control height"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 360,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/features/projects/presentation/project_backlog_view_test.dart",
+      "test/features/projects/presentation/project_kanban_page_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "test/features/projects/presentation/project_kanban_page_test.dart",
+        "--plain-name",
+        "kanban toolbar shares the surface and 48-pixel control height"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 360,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "workspace_overview_control_height"
+    ]
+  }
+}

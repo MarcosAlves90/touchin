@@ -1,7 +1,7 @@
-import 'package:bunchin_flutter/contracts/contract_parsing.dart';
-import 'package:bunchin_flutter/contracts/employee.dart';
-import 'package:bunchin_flutter/contracts/location.dart';
-import 'package:bunchin_flutter/contracts/punch.dart';
+import 'package:touchin_flutter/contracts/contract_parsing.dart';
+import 'package:touchin_flutter/contracts/employee.dart';
+import 'package:touchin_flutter/contracts/location.dart';
+import 'package:touchin_flutter/contracts/punch.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'time_clock.freezed.dart';
@@ -15,6 +15,8 @@ class ManagedPunchRecord {
     required this.detail,
     required this.projectId,
     required this.location,
+    this.projectName,
+    this.workLog,
   });
 
   final String id;
@@ -23,6 +25,8 @@ class ManagedPunchRecord {
   final DateTime timestamp;
   final String detail;
   final String? projectId;
+  final String? projectName;
+  final PunchWorkLog? workLog;
   final PunchLocationSnapshot? location;
 
   factory ManagedPunchRecord.fromJson(JsonMap json) {
@@ -35,6 +39,8 @@ class ManagedPunchRecord {
       timestamp: requireDateTime(json, 'timestamp'),
       detail: requireString(json, 'detail'),
       projectId: optionalString(json, 'projectId'),
+      projectName: optionalString(json, 'projectName'),
+      workLog: PunchWorkLog.fromRecordJson(json),
       location: rawLocation == null
           ? null
           : PunchLocationSnapshot.fromJson(
@@ -103,14 +109,16 @@ class ManagedPunchDraft {
     PunchType? type,
     DateTime? timestamp,
     String? detail,
-    String? projectId,
+    Object? projectId = _managedPunchProjectSentinel,
     Object? location = _managedPunchLocationSentinel,
   }) {
     return ManagedPunchDraft(
       type: type ?? this.type,
       timestamp: timestamp ?? this.timestamp,
       detail: detail ?? this.detail,
-      projectId: projectId ?? this.projectId,
+      projectId: identical(projectId, _managedPunchProjectSentinel)
+          ? this.projectId
+          : projectId as String?,
       location: identical(location, _managedPunchLocationSentinel)
           ? this.location
           : location as PunchLocationSnapshot?,
@@ -122,7 +130,7 @@ class ManagedPunchDraft {
       'type': punchTypeToApi(type),
       'timestamp': timestamp.toUtc().toIso8601String(),
       'detail': detail,
-      if (projectId != null && projectId!.trim().isNotEmpty)
+      if (type.supportsWorkContext && projectId != null && projectId!.trim().isNotEmpty)
         'projectId': projectId!.trim(),
       if (location != null) 'location': location!.toApiJson(),
     };
@@ -133,16 +141,36 @@ class ManagedPunchDraft {
       'type': punchTypeToApi(type),
       'timestamp': timestamp.toUtc().toIso8601String(),
       'detail': detail,
-      if (projectId != null && projectId!.trim().isNotEmpty)
-        'projectId': projectId!.trim(),
+      // Managed edits are complete form submissions. Explicit null clears the
+      // old project; omitting this key would retain the previous association.
+      'projectId': !type.supportsWorkContext || projectId == null || projectId!.trim().isEmpty
+          ? null
+          : projectId!.trim(),
       if (location != null) 'location': location!.toApiJson(),
     };
-    payload.removeWhere((key, value) => value == null);
     return payload;
   }
 }
 
 const Object _managedPunchLocationSentinel = Object();
+const Object _managedPunchProjectSentinel = Object();
+
+class WorkLogPayload {
+  const WorkLogPayload({
+    required this.description,
+    required this.taskIds,
+  });
+
+  final String description;
+  final List<String> taskIds;
+
+  JsonMap toApiJson() {
+    return <String, dynamic>{
+      'description': description.trim(),
+      'taskIds': taskIds,
+    };
+  }
+}
 
 @freezed
 abstract class CreatePunchRequest with _$CreatePunchRequest {
@@ -150,13 +178,19 @@ abstract class CreatePunchRequest with _$CreatePunchRequest {
 
   const factory CreatePunchRequest({
     required PunchType type,
+    String? projectId,
     PunchLocationSnapshot? location,
+    WorkLogPayload? workLog,
   }) = _CreatePunchRequest;
 
   JsonMap toApiJson() {
     return {
       'type': punchTypeToApi(type),
+      if (type.supportsWorkContext && projectId != null && projectId!.trim().isNotEmpty)
+        'projectId': projectId!.trim(),
+      if (type.supportsWorkContext && projectId == null && workLog != null) 'projectId': null,
       if (location != null) 'location': location!.toApiJson(),
+      if (type.supportsWorkContext && workLog != null) 'workLog': workLog!.toApiJson(),
     };
   }
 }

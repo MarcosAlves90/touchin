@@ -1,0 +1,47 @@
+name: Task or maintenance
+description: Define a bounded task and its completion conditions
+title: "[Task]: "
+body:
+  - type: markdown
+    attributes:
+      value: >
+        Do not include credentials, access tokens, personal data, or unredacted logs.
+        Redact sensitive details before submitting any optional evidence.
+  - type: input
+    id: objective
+    attributes:
+      label: Objective
+      description: State the outcome this task should deliver.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: Describe what is included and any important boundaries. Use N/A where needed.
+    validations:
+      required: true
+  - type: textarea
+    id: implementation-notes
+    attributes:
+      label: Implementation notes (optional)
+      description: Add useful technical context or constraints, if known.
+    validations:
+      required: false
+  - type: textarea
+    id: definition-of-done
+    attributes:
+      label: Definition of done
+      description: List observable completion conditions that can be checked before closing this task.
+      placeholder: |
+        - [ ] ...
+        - [ ] ...
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Supporting evidence (optional)
+      description: Add sanitized references or artifacts only if useful. Never include credentials, tokens, personal data, or unredacted logs.
+    validations:
+      required: false

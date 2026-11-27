@@ -1,0 +1,175 @@
+{
+  "schema_version": 6,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      "frontend/lib/features/time_tracking/presentation/time_clock_page.dart",
+      "frontend/test/features/time_tracking/presentation/time_clock_page_test.dart",
+      "docs/contracts/time-clock-last-event-label-v1.polis.json",
+      "docs/validation/time-clock-last-event-label/README.md",
+      "docs/validation/time-clock-last-event-label/polis/red-regression.patch",
+      "docs/validation/time-clock-last-event-label/polis/workspace-validation.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/features/time_tracking/presentation/time_clock_page_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Spell the time clock summary card for the most recent punch as \"Último evento\" instead of the misspelled \"Útimo evento\", without changing any other text, value or layout of the time clock page.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "The time clock summary card that shows the time of the most recent punch of the day is labeled \"Último evento\"."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "No frontend source shows the misspelled label \"Útimo evento\"; the remaining summary cards, their values, helper texts and the page layout are unchanged."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "A widget test renders the time clock page with a loaded state and finds exactly one \"Último evento\" label and no \"Útimo evento\" label.",
+        "requirements": [
+          "REQ-001",
+          "REQ-002"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "Flutter analysis, the full frontend test suite, POLIS project gates (test.complete, lint, build, smoke), git diff check and complete diff review pass.",
+        "requirements": [
+          "REQ-001",
+          "REQ-002"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "Only the label text changes; the summary value, helper text, icon, ordering and API contracts are unchanged."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "The time clock page shows the misspelled label \"Útimo evento\"."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "A loaded TimeClockController state with a last punch time."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "The time clock summary card labeled \"Último evento\"."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "If the summary label is missing or misspelled, the widget regression exits nonzero naming the test \"last punch summary label is spelled correctly\"."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "b343e7570021e0a07def9b6bd46a991b563d96fe",
+    "base_tree": "5f4eb715955f923abf607313bc58e085373acda6",
+    "policy_sha256": "5563facc34ae2a1a07cf7ec7ec2f115cb8d250c49dd6e2bd5c7a3de4c977d450",
+    "specification_sha256": "d7dece63d79bbef0b7deb1cb552421deb3aa15e4f7cf2970a10dec6b1cc8f4c8"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 1200,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP",
+        "SystemRoot",
+        "COMSPEC",
+        "PATHEXT",
+        "USERPROFILE",
+        "LOCALAPPDATA",
+        "PYTHONUTF8",
+        "PYTHONIOENCODING"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/features/time_tracking/presentation/time_clock_page_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP",
+        "SystemRoot",
+        "COMSPEC",
+        "PATHEXT",
+        "USERPROFILE",
+        "LOCALAPPDATA",
+        "PYTHONUTF8",
+        "PYTHONIOENCODING"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "test/features/time_tracking/presentation/time_clock_page_test.dart"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 600,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP",
+          "SystemRoot",
+          "COMSPEC",
+          "PATHEXT",
+          "USERPROFILE",
+          "LOCALAPPDATA",
+          "PYTHONUTF8",
+          "PYTHONIOENCODING"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "last punch summary label is spelled correctly",
+      "Some tests failed"
+    ]
+  }
+}

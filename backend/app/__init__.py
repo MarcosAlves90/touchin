@@ -1,1 +1,1 @@
-"""Bunchin backend package."""
+"""TouchIn backend package."""

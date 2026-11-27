@@ -1,0 +1,226 @@
+{
+  "schema_version": 6,
+  "kind": "behavior_preserving",
+  "scope": {
+    "allowed_paths": [
+      "docs/contracts/navigation-visual-golden-ci-issue-123-v5.polis.json",
+      "docs/validation/issue-119/README.md",
+      "docs/validation/issue-119/desktop-dark.png",
+      "docs/validation/issue-119/desktop-light.png",
+      "docs/validation/issue-119/mobile-dark.png",
+      "docs/validation/issue-119/mobile-light.png",
+      "frontend/test/features/shared/presentation/widgets/workspace_shell_test.dart"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/features/shared/presentation/widgets/workspace_shell_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Correct the #123 canonical visual golden mismatch using only reviewed outputs from the exact Ubuntu 24.04 x64 / Flutter 3.47.2 runtime, while ensuring every desktop and mobile theme case executes and reports independently.",
+    "requirements": [
+      {
+        "id": "REQ-123-V5-01",
+        "statement": "The canonical golden test registers desktop-light, desktop-dark, mobile-light, and mobile-dark as independent test cases tagged canonical-golden, preserving each existing fixture, viewport, theme, and visual state."
+      },
+      {
+        "id": "REQ-123-V5-02",
+        "statement": "The four golden cases execute on the Ubuntu 24.04 x64 runner with Flutter 3.47.2 and report each case's outcome independently; a failure in one case does not prevent remaining cases from producing their result and review artifacts."
+      },
+      {
+        "id": "REQ-123-V5-03",
+        "statement": "Only a snapshot whose expected/master, actual, and diff images are produced by a canonical run tied to the candidate commit and visually reviewed may be updated; every updated PNG records its source run and SHA-256 in the validation README."
+      },
+      {
+        "id": "REQ-123-V5-04",
+        "statement": "Snapshots without reviewed canonical output remain byte-identical; no production layout, behavior, matcher tolerance, CI failure semantics, or non-golden functional coverage changes."
+      },
+      {
+        "id": "REQ-123-V5-05",
+        "statement": "The complete canonical-golden suite passes on the candidate after any approved snapshot updates, and all non-golden frontend functional tests pass."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-123-V5-01",
+        "statement": "The test file contains four separately registered canonical-golden cases with the existing dimensions and fixture/theme state, and a failure in one case does not skip any other case.",
+        "requirements": [
+          "REQ-123-V5-01",
+          "REQ-123-V5-02"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-123-V5-02",
+        "statement": "A canonical Ubuntu 24.04 x64 / Flutter 3.47.2 run for the exact candidate commit reports all four case results and provides actual/expected/diff artifacts for every mismatch.",
+        "requirements": [
+          "REQ-123-V5-02",
+          "REQ-123-V5-03"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-123-V5-03",
+        "statement": "Each changed PNG is byte-identical to its reviewed actual output from the candidate's canonical run; the README records the run ID, candidate SHA, Flutter version, and PNG SHA-256. Unchanged snapshots retain their baseline SHA-256.",
+        "requirements": [
+          "REQ-123-V5-03",
+          "REQ-123-V5-04"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-123-V5-04",
+        "statement": "The focused non-golden workspace shell tests and the full non-golden Flutter test suite pass; the full canonical-golden suite passes on the resulting candidate runtime.",
+        "requirements": [
+          "REQ-123-V5-04",
+          "REQ-123-V5-05"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-123-V5-05",
+        "statement": "All effective command gates in the committed Project Policy pass, and contracts and historical proof artifacts v1-v4 remain byte-identical.",
+        "requirements": [
+          "REQ-123-V5-04",
+          "REQ-123-V5-05"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-123-V5-01",
+        "statement": "Preserve all v1-v4 contract and proof bytes and preserve every snapshot that lacks an individually reviewed canonical actual."
+      },
+      {
+        "id": "INV-123-V5-02",
+        "statement": "The canonical visual oracle remains Ubuntu 24.04 x64 with Flutter 3.47.2; local macOS/arm64 or Linux/arm64 renders are not snapshot sources."
+      },
+      {
+        "id": "INV-123-V5-03",
+        "statement": "Do not change production UI/layout, golden matcher tolerance, or functional test behavior to make a raster comparison pass."
+      },
+      {
+        "id": "INV-123-V5-04",
+        "statement": "Keep the golden comparison blocking and retain all non-golden functional tests."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-123-V5-01",
+        "statement": "A canonical snapshot is updated from an artifact not tied to the exact source commit or without review of its actual and diff."
+      },
+      {
+        "id": "FORB-123-V5-02",
+        "statement": "Any snapshot without canonical evidence is changed, or historical v1-v4 contract/proof bytes are rewritten."
+      },
+      {
+        "id": "FORB-123-V5-03",
+        "statement": "A local macOS/arm64 or Linux/arm64 screenshot is treated as canonical."
+      },
+      {
+        "id": "FORB-123-V5-04",
+        "statement": "The golden test is skipped, made non-blocking, or the matcher is weakened."
+      },
+      {
+        "id": "FORB-123-V5-05",
+        "statement": "A test failure in one viewport/theme prevents the other canonical cases from executing."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-123-V5-01",
+        "statement": "Clean baseline c00ae1efb173c67081c2165db29405b1d07d509f, .polis/policy.json, contracts v1-v4, and the four issue-119 PNG snapshots."
+      },
+      {
+        "id": "IN-123-V5-02",
+        "statement": "Canonical Ubuntu 24.04 x64 / Flutter 3.47.2 run 40430110600 and its desktop-light expected/actual/diff artifact, tied to baseline c00ae1efb173c67081c2165db29405b1d07d509f."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-123-V5-01",
+        "statement": "Independent canonical-golden case reporting, only individually justified snapshot updates, and corresponding source-run/hash provenance."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-123-V5-01",
+        "statement": "Any unreviewed snapshot, missing canonical case result, failed canonical comparison, non-golden test failure, changed historical artifact, or failed effective policy command gate blocks completion."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "c00ae1efb173c67081c2165db29405b1d07d509f",
+    "base_tree": "0cef0dbd7b7c7f5243c3452b5c5898bfd0d6ea55",
+    "policy_sha256": "5563facc34ae2a1a07cf7ec7ec2f115cb8d250c49dd6e2bd5c7a3de4c977d450",
+    "specification_sha256": "cae9cd0e52ce654cafce18ef4dc4914f4298881c007d9bdfeeb59d8e30e2ca5b"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "--exclude-tags",
+      "canonical-golden"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 1200,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "--exclude-tags",
+      "canonical-golden",
+      "test/features/shared/presentation/widgets/workspace_shell_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 300,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "green_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "--exclude-tags",
+        "canonical-golden"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 1200,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    }
+  }
+}

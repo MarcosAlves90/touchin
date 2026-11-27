@@ -1,11 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:touchin_flutter/theme/workspace_menu_style.dart';
+
+class HighContrastMarker extends ThemeExtension<HighContrastMarker> {
+  const HighContrastMarker();
+
+  @override
+  HighContrastMarker copyWith() => this;
+
+  @override
+  HighContrastMarker lerp(
+          ThemeExtension<HighContrastMarker>? other, double t) =>
+      this;
+}
 
 class AppTheme {
   AppTheme._();
 
   static const Color accent = Color(0xFFFFB020);
-  static const BorderRadius _radius = BorderRadius.zero;
+  static const BorderRadius _radius = BorderRadius.all(Radius.circular(8));
 
   static const Color _lightBackground = Color(0xFFFAFAF7);
   static const Color _lightSurface = Color(0xFFFFFFFF);
@@ -17,6 +30,38 @@ class AppTheme {
   static const Color _darkSurfaceVariant = Color(0xFF2A2A2A);
   static const Color _darkText = Color(0xFFF5F1E8);
 
+  static const AdminSemanticColors _lightAdminColors = AdminSemanticColors(
+    selectedForeground: Color(0xFF704600),
+    selectedContainer: Color(0xFFFFF1D6),
+    selectedIndicator: Color(0xFF704600),
+    success: AdminToneColors(
+        foreground: Color(0xFF1B5E20), container: Color(0xFFE8F5E9)),
+    warning: AdminToneColors(
+        foreground: Color(0xFF704600), container: Color(0xFFFFF1D6)),
+    info: AdminToneColors(
+        foreground: Color(0xFF075985), container: Color(0xFFE0F2FE)),
+    danger: AdminToneColors(
+        foreground: Color(0xFF8B1E1E), container: Color(0xFFFCE8E6)),
+    neutral: AdminToneColors(
+        foreground: Color(0xFF4E4739), container: Color(0xFFF1EFE8)),
+  );
+
+  static const AdminSemanticColors _darkAdminColors = AdminSemanticColors(
+    selectedForeground: Color(0xFFFFE6A6),
+    selectedContainer: Color(0xFF4A3200),
+    selectedIndicator: Color(0xFFFFD180),
+    success: AdminToneColors(
+        foreground: Color(0xFFA5D6A7), container: Color(0xFF1B3A20)),
+    warning: AdminToneColors(
+        foreground: Color(0xFFFFCC80), container: Color(0xFF4B3300)),
+    info: AdminToneColors(
+        foreground: Color(0xFF81D4FA), container: Color(0xFF123746)),
+    danger: AdminToneColors(
+        foreground: Color(0xFFFFB4AB), container: Color(0xFF4B1E1B)),
+    neutral: AdminToneColors(
+        foreground: Color(0xFFD1C6B4), container: Color(0xFF303030)),
+  );
+
   static ThemeData get lightTheme => _buildTheme(
         colorScheme: _lightColorScheme,
         backgroundColor: _lightBackground,
@@ -26,6 +71,117 @@ class AppTheme {
         colorScheme: _darkColorScheme,
         backgroundColor: _darkBackground,
       );
+
+  /// Reuse every application style without invoking the Google Fonts loader.
+  /// The developer preview supplies this theme explicitly at its boundary.
+  static ThemeData offlineTheme(Brightness brightness) => _buildTheme(
+        colorScheme: brightness == Brightness.dark
+            ? _darkColorScheme
+            : _lightColorScheme,
+        backgroundColor:
+            brightness == Brightness.dark ? _darkBackground : _lightBackground,
+        fetchFonts: false,
+      );
+
+  static WorkspaceNavigationColors navigationColors(ThemeData theme) =>
+      theme.extension<WorkspaceNavigationColors>() ??
+      (theme.brightness == Brightness.dark
+          ? WorkspaceNavigationColors.dark
+          : WorkspaceNavigationColors.light);
+
+  static AdminSemanticColors adminColors(ThemeData theme) =>
+      theme.extension<AdminSemanticColors>() ??
+      (theme.brightness == Brightness.dark
+          ? _darkAdminColors
+          : _lightAdminColors);
+
+  static ThemeData highContrastTheme(ThemeData theme) {
+    final dark = theme.brightness == Brightness.dark;
+    final surface = dark ? Colors.black : Colors.white;
+    final foreground = dark ? Colors.white : Colors.black;
+    final panel = dark ? const Color(0xFF202020) : const Color(0xFFF0F0F0);
+    final primary = dark ? const Color(0xFFFFD180) : const Color(0xFF704600);
+    final onPrimary = dark ? Colors.black : Colors.white;
+    final scheme = theme.colorScheme.copyWith(
+      primary: primary,
+      onPrimary: onPrimary,
+      secondary: primary,
+      onSecondary: onPrimary,
+      surface: surface,
+      onSurface: foreground,
+      surfaceContainerLowest: surface,
+      surfaceContainerLow: panel,
+      surfaceContainer: panel,
+      surfaceContainerHigh: panel,
+      surfaceContainerHighest: panel,
+      onSurfaceVariant: foreground,
+      outline: foreground,
+      outlineVariant: foreground,
+    );
+    final base = _buildTheme(colorScheme: scheme, backgroundColor: surface);
+    return adminContrastTheme(base.copyWith(
+      extensions: [...base.extensions.values, const HighContrastMarker()],
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: base.elevatedButtonTheme.style?.copyWith(
+          backgroundColor: WidgetStateProperty.resolveWith((states) =>
+              states.contains(WidgetState.disabled) ? panel : primary),
+          foregroundColor: WidgetStateProperty.resolveWith((states) =>
+              states.contains(WidgetState.disabled) ? foreground : onPrimary),
+          side: WidgetStateProperty.resolveWith((states) =>
+              states.contains(WidgetState.disabled)
+                  ? BorderSide(color: foreground)
+                  : BorderSide.none),
+        ),
+      ),
+      floatingActionButtonTheme: base.floatingActionButtonTheme.copyWith(
+        backgroundColor: primary,
+        foregroundColor: onPrimary,
+      ),
+    ));
+  }
+
+  static ThemeData adminContrastTheme(ThemeData theme) {
+    final scheme = theme.colorScheme;
+    final colors = adminColors(theme);
+    final extensions = Map<Object, ThemeExtension<dynamic>>.from(
+      theme.extensions,
+    )..[AdminSemanticColors] = colors;
+    return theme.copyWith(
+      extensions: extensions.values,
+      inputDecorationTheme: theme.inputDecorationTheme.copyWith(
+        filled: true,
+        fillColor: scheme.surfaceContainerHighest,
+        border: OutlineInputBorder(
+          borderRadius: _radius,
+          borderSide: BorderSide(color: scheme.outline),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: _radius,
+          borderSide: BorderSide(color: scheme.outline),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: _radius,
+          borderSide: BorderSide(color: scheme.outline, width: 2),
+        ),
+        disabledBorder: OutlineInputBorder(
+          borderRadius: _radius,
+          borderSide: BorderSide(color: scheme.outlineVariant),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style:
+            (theme.outlinedButtonTheme.style ?? const ButtonStyle()).copyWith(
+          side: WidgetStatePropertyAll(BorderSide(color: scheme.outline)),
+        ),
+      ),
+      chipTheme: theme.chipTheme.copyWith(
+        showCheckmark: true,
+        checkmarkColor: scheme.onSurface,
+        selectedColor: colors.selectedContainer,
+        side: BorderSide(color: scheme.outline),
+      ),
+    );
+  }
 
   static const ColorScheme _lightColorScheme = ColorScheme(
     brightness: Brightness.light,
@@ -72,6 +228,7 @@ class AppTheme {
   static ThemeData _buildTheme({
     required ColorScheme colorScheme,
     required Color backgroundColor,
+    bool fetchFonts = true,
   }) {
     final baseTheme = ThemeData(
       useMaterial3: true,
@@ -81,13 +238,24 @@ class AppTheme {
       brightness: colorScheme.brightness,
     );
 
-    final textTheme = GoogleFonts.poppinsTextTheme(baseTheme.textTheme).apply(
+    final textTheme = (fetchFonts
+            ? GoogleFonts.poppinsTextTheme(baseTheme.textTheme)
+            : baseTheme.textTheme)
+        .apply(
       bodyColor: colorScheme.onSurface,
       displayColor: colorScheme.onSurface,
     );
 
     return baseTheme.copyWith(
+      extensions: <ThemeExtension<dynamic>>[
+        colorScheme.brightness == Brightness.dark
+            ? WorkspaceNavigationColors.dark
+            : WorkspaceNavigationColors.light,
+      ],
       textTheme: textTheme,
+      datePickerTheme: DatePickerThemeData(
+        shape: RoundedRectangleBorder(borderRadius: _radius),
+      ),
       appBarTheme: AppBarTheme(
         backgroundColor: colorScheme.surface,
         foregroundColor: colorScheme.onSurface,
@@ -127,7 +295,12 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: _radius,
-          borderSide: const BorderSide(color: accent, width: 1.5),
+          borderSide: BorderSide(
+            color: colorScheme.brightness == Brightness.dark
+                ? _darkAdminColors.selectedIndicator
+                : _lightAdminColors.selectedIndicator,
+            width: 1.5,
+          ),
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
@@ -153,6 +326,23 @@ class AppTheme {
           ),
         ),
       ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          minimumSize: const Size.fromHeight(52),
+          shape: const RoundedRectangleBorder(borderRadius: _radius),
+          textStyle: textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          shape: const RoundedRectangleBorder(borderRadius: _radius),
+          textStyle: textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: accent,
         foregroundColor: colorScheme.onPrimary,
@@ -160,6 +350,8 @@ class AppTheme {
         shape: const RoundedRectangleBorder(borderRadius: _radius),
       ),
       chipTheme: baseTheme.chipTheme.copyWith(
+        showCheckmark: true,
+        checkmarkColor: colorScheme.onSurface,
         backgroundColor: colorScheme.surfaceContainerHighest,
         selectedColor: accent.withValues(alpha: 0.16),
         side: BorderSide(color: colorScheme.outlineVariant),
@@ -168,6 +360,11 @@ class AppTheme {
           color: colorScheme.onSurface,
         ),
         shape: const RoundedRectangleBorder(borderRadius: _radius),
+      ),
+      popupMenuTheme: PopupMenuThemeData(
+        color: WorkspaceMenuStyle.surface(colorScheme),
+        surfaceTintColor: Colors.transparent,
+        shape: WorkspaceMenuStyle.shape(colorScheme),
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
@@ -182,6 +379,165 @@ class AppTheme {
         modalBackgroundColor: colorScheme.surface,
         shape: const RoundedRectangleBorder(borderRadius: _radius),
       ),
+    );
+  }
+}
+
+@immutable
+class WorkspaceNavigationColors
+    extends ThemeExtension<WorkspaceNavigationColors> {
+  const WorkspaceNavigationColors({
+    required this.itemForeground,
+    required this.selectedForeground,
+    required this.selectedContainer,
+    required this.focusRing,
+    required this.hoverOverlay,
+  });
+
+  static const WorkspaceNavigationColors light = WorkspaceNavigationColors(
+    itemForeground: AppTheme._lightText,
+    selectedForeground: Color(0xFF704600),
+    selectedContainer: Color(0xFFFFF1D6),
+    focusRing: Color(0xFF704600),
+    hoverOverlay: Color(0x0F1D1B16),
+  );
+
+  static const WorkspaceNavigationColors dark = WorkspaceNavigationColors(
+    itemForeground: AppTheme._darkText,
+    selectedForeground: Color(0xFFFFE6A6),
+    selectedContainer: Color(0xFF4A3200),
+    focusRing: Color(0xFFFFD180),
+    hoverOverlay: Color(0x0FF5F1E8),
+  );
+
+  final Color itemForeground;
+  final Color selectedForeground;
+  final Color selectedContainer;
+  final Color focusRing;
+  final Color hoverOverlay;
+
+  static WorkspaceNavigationColors of(ThemeData theme) =>
+      AppTheme.navigationColors(theme);
+
+  @override
+  WorkspaceNavigationColors copyWith({
+    Color? itemForeground,
+    Color? selectedForeground,
+    Color? selectedContainer,
+    Color? focusRing,
+    Color? hoverOverlay,
+  }) =>
+      WorkspaceNavigationColors(
+        itemForeground: itemForeground ?? this.itemForeground,
+        selectedForeground: selectedForeground ?? this.selectedForeground,
+        selectedContainer: selectedContainer ?? this.selectedContainer,
+        focusRing: focusRing ?? this.focusRing,
+        hoverOverlay: hoverOverlay ?? this.hoverOverlay,
+      );
+
+  @override
+  WorkspaceNavigationColors lerp(
+    covariant ThemeExtension<WorkspaceNavigationColors>? other,
+    double t,
+  ) {
+    if (other is! WorkspaceNavigationColors) {
+      return this;
+    }
+    return WorkspaceNavigationColors(
+      itemForeground: Color.lerp(itemForeground, other.itemForeground, t)!,
+      selectedForeground: Color.lerp(
+        selectedForeground,
+        other.selectedForeground,
+        t,
+      )!,
+      selectedContainer: Color.lerp(
+        selectedContainer,
+        other.selectedContainer,
+        t,
+      )!,
+      focusRing: Color.lerp(focusRing, other.focusRing, t)!,
+      hoverOverlay: Color.lerp(hoverOverlay, other.hoverOverlay, t)!,
+    );
+  }
+}
+
+@immutable
+class AdminToneColors {
+  const AdminToneColors({required this.foreground, required this.container});
+
+  final Color foreground;
+  final Color container;
+
+  AdminToneColors lerp(AdminToneColors other, double t) => AdminToneColors(
+        foreground: Color.lerp(foreground, other.foreground, t)!,
+        container: Color.lerp(container, other.container, t)!,
+      );
+}
+
+@immutable
+class AdminSemanticColors extends ThemeExtension<AdminSemanticColors> {
+  const AdminSemanticColors({
+    required this.selectedForeground,
+    required this.selectedContainer,
+    required this.selectedIndicator,
+    required this.success,
+    required this.warning,
+    required this.info,
+    required this.danger,
+    required this.neutral,
+  });
+
+  final Color selectedForeground;
+  final Color selectedContainer;
+  final Color selectedIndicator;
+  final AdminToneColors success;
+  final AdminToneColors warning;
+  final AdminToneColors info;
+  final AdminToneColors danger;
+  final AdminToneColors neutral;
+
+  @override
+  AdminSemanticColors copyWith({
+    Color? selectedForeground,
+    Color? selectedContainer,
+    Color? selectedIndicator,
+    AdminToneColors? success,
+    AdminToneColors? warning,
+    AdminToneColors? info,
+    AdminToneColors? danger,
+    AdminToneColors? neutral,
+  }) =>
+      AdminSemanticColors(
+        selectedForeground: selectedForeground ?? this.selectedForeground,
+        selectedContainer: selectedContainer ?? this.selectedContainer,
+        selectedIndicator: selectedIndicator ?? this.selectedIndicator,
+        success: success ?? this.success,
+        warning: warning ?? this.warning,
+        info: info ?? this.info,
+        danger: danger ?? this.danger,
+        neutral: neutral ?? this.neutral,
+      );
+
+  @override
+  AdminSemanticColors lerp(
+    covariant ThemeExtension<AdminSemanticColors>? other,
+    double t,
+  ) {
+    if (other is! AdminSemanticColors) {
+      return this;
+    }
+    return AdminSemanticColors(
+      selectedForeground:
+          Color.lerp(selectedForeground, other.selectedForeground, t)!,
+      selectedContainer:
+          Color.lerp(selectedContainer, other.selectedContainer, t)!,
+      selectedIndicator:
+          Color.lerp(selectedIndicator, other.selectedIndicator, t)!,
+      success: success.lerp(other.success, t),
+      warning: warning.lerp(other.warning, t),
+      info: info.lerp(other.info, t),
+      danger: danger.lerp(other.danger, t),
+      neutral: neutral.lerp(other.neutral, t),
     );
   }
 }

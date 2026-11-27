@@ -8,14 +8,16 @@ from app.config import Settings, get_settings
 from app.crypto import lookup_digest
 from app.db import SessionLocal, ensure_utc, utcnow
 from app.models import AuthSession, UserAccount
-from app.services.auth import change_password, login, reset_password
+from app.services.auth import change_password, login
+from app.services.password_reset import request_password_reset, confirm_password_reset
 from app.services.auth import _resolve_user, _ensure_accounts_active, resolve_context
 from app.schemas.auth import LoginRequest
+from app.errors import DomainError
 
 
 def test_resolve_user_returns_user_and_email_hash(client):
     with SessionLocal() as db:
-        user, _, _ = _resolve_user(db, email="marina.costa@bunchin.com")
+        user, _, _ = _resolve_user(db, email="marina.costa@touchin.com")
         assert user is not None
         assert user.id is not None
 
@@ -51,31 +53,34 @@ def test_ensure_accounts_active_raises_for_inactive_user(client):
             _ensure_accounts_active(user, company)
 
 
-def test_reset_password_sets_must_change_password_flag(client):
+def test_reset_request_does_not_change_password_or_flag(client):
     with SessionLocal() as db:
         user_before = db.query(UserAccount).filter(
             UserAccount.email_hash == lookup_digest(
-                "marina.costa@bunchin.com",
+                "marina.costa@touchin.com",
                 get_settings().encryption_secret or "",
             )
         ).first()
         assert user_before is not None
         assert not user_before.must_change_password
+        previous_hash = user_before.password_hash
 
-    _, _, _ = reset_password(
-        db=SessionLocal(),
-        email="marina.costa@bunchin.com",
-    )
+    with SessionLocal() as db:
+        job = request_password_reset(
+            db=db, email="marina.costa@touchin.com", client_ip="192.0.2.10"
+        )
+    assert job is not None
 
     with SessionLocal() as db:
         user_after = db.query(UserAccount).filter(
             UserAccount.email_hash == lookup_digest(
-                "marina.costa@bunchin.com",
+                "marina.costa@touchin.com",
                 get_settings().encryption_secret or "",
             )
         ).first()
         assert user_after is not None
-        assert user_after.must_change_password is True
+        assert user_after.must_change_password is False
+        assert user_after.password_hash == previous_hash
 
 
 def test_change_password_clears_must_change_password_flag(client):
@@ -83,15 +88,16 @@ def test_change_password_clears_must_change_password_flag(client):
     db = SessionLocal()
 
     try:
-        # First reset to set the flag and get temp password
-        _, _, temp_password = reset_password(db=db, email="marina.costa@bunchin.com")
+        user = db.query(UserAccount).first()
+        assert user is not None
+        user.must_change_password = True
+        db.commit()
 
-        # Login with the temporary password
         auth_response = login(
             db=db,
             payload=LoginRequest(
-                email="marina.costa@bunchin.com",
-                password=temp_password,
+                email="marina.costa@touchin.com",
+                password=get_settings().seed_admin_password,
                 keep_connected=True,
             ),
         )
@@ -102,13 +108,13 @@ def test_change_password_clears_must_change_password_flag(client):
         _, _ = change_password(
             db=db,
             context=context,
-            current_password=temp_password,
+            current_password=get_settings().seed_admin_password,
             new_password=fresh_password,
         )
 
         user = db.query(UserAccount).filter(
             UserAccount.email_hash == lookup_digest(
-                "marina.costa@bunchin.com",
+                "marina.costa@touchin.com",
                 get_settings().encryption_secret or "",
             )
         ).first()
@@ -122,12 +128,102 @@ def test_login_response_includes_must_change_password(client):
     auth_response = login(
         db=SessionLocal(),
         payload=LoginRequest(
-            email="marina.costa@bunchin.com",
+            email="marina.costa@touchin.com",
             password=get_settings().seed_admin_password,
             keep_connected=True,
         ),
     )
     assert auth_response.must_change_password is False
+
+
+def test_password_reset_revokes_all_parallel_sessions(client):
+    db = SessionLocal()
+    check_db = SessionLocal()
+    try:
+        first = login(
+            db=db,
+            payload=LoginRequest(
+                email="marina.costa@touchin.com",
+                password=get_settings().seed_admin_password,
+                keep_connected=True,
+            ),
+        )
+        second = login(
+            db=db,
+            payload=LoginRequest(
+                email="marina.costa@touchin.com",
+                password=get_settings().seed_admin_password,
+                keep_connected=True,
+            ),
+        )
+
+        job = request_password_reset(
+            db=db,
+            email="marina.costa@touchin.com",
+            client_ip="192.0.2.10",
+        )
+        assert job is not None
+        for token in (first.access_token, second.access_token):
+            assert resolve_context(db=check_db, token=token)
+        new_password = "NewSecurePassword!123"
+        confirm_password_reset(
+            db=db, token=job[2], new_password=new_password,
+            client_ip="192.0.2.10",
+        )
+
+        for token in (first.access_token, second.access_token):
+            with pytest.raises(DomainError):
+                resolve_context(db=check_db, token=token)
+
+        changed_session = login(
+            db=db,
+            payload=LoginRequest(
+                email="marina.costa@touchin.com",
+                password=new_password,
+                keep_connected=True,
+            ),
+        )
+        assert changed_session.must_change_password is False
+    finally:
+        check_db.close()
+        db.close()
+
+
+def test_password_change_revokes_all_parallel_sessions(client):
+    db = SessionLocal()
+    check_db = SessionLocal()
+    try:
+        first = login(
+            db=db,
+            payload=LoginRequest(
+                email="marina.costa@touchin.com",
+                password=get_settings().seed_admin_password,
+                keep_connected=True,
+            ),
+        )
+        second = login(
+            db=db,
+            payload=LoginRequest(
+                email="marina.costa@touchin.com",
+                password=get_settings().seed_admin_password,
+                keep_connected=True,
+            ),
+        )
+        context = resolve_context(db=db, token=first.access_token)
+
+        change_password(
+            db=db,
+            context=context,
+            current_password=get_settings().seed_admin_password,
+            new_password="NewSecurePass@123",
+        )
+
+        for token in (first.access_token, second.access_token):
+            with pytest.raises(DomainError):
+                resolve_context(db=check_db, token=token)
+    finally:
+        check_db.close()
+        db.close()
 
 
 def test_resolve_context_throttles_last_used_touch(client, monkeypatch):
@@ -136,7 +232,7 @@ def test_resolve_context_throttles_last_used_touch(client, monkeypatch):
         auth_response = login(
             db=db,
             payload=LoginRequest(
-                email="marina.costa@bunchin.com",
+                email="marina.costa@touchin.com",
                 password=get_settings().seed_admin_password,
                 keep_connected=True,
             ),
@@ -166,12 +262,12 @@ def test_resolve_context_throttles_last_used_touch(client, monkeypatch):
 
 
 def test_seed_on_startup_defaults_off_in_production(monkeypatch):
-    monkeypatch.setenv("BUNCHIN_ENV", "production")
-    monkeypatch.delenv("BUNCHIN_SEED_ON_STARTUP", raising=False)
-    monkeypatch.delenv("BUNCHIN_BOOTSTRAP_DATABASE_ON_STARTUP", raising=False)
-    monkeypatch.setenv("BUNCHIN_TOKEN_SECRET", "token-secret")
-    monkeypatch.setenv("BUNCHIN_ENCRYPTION_SECRET", "encryption-secret")
-    monkeypatch.setenv("BUNCHIN_SEED_ADMIN_PASSWORD", "admin-password")
+    monkeypatch.setenv("TOUCHIN_ENV", "production")
+    monkeypatch.delenv("TOUCHIN_SEED_ON_STARTUP", raising=False)
+    monkeypatch.delenv("TOUCHIN_BOOTSTRAP_DATABASE_ON_STARTUP", raising=False)
+    monkeypatch.setenv("TOUCHIN_TOKEN_SECRET", "token-secret")
+    monkeypatch.setenv("TOUCHIN_ENCRYPTION_SECRET", "encryption-secret")
+    monkeypatch.setenv("TOUCHIN_SEED_ADMIN_PASSWORD", "admin-password")
 
     settings = Settings()
 

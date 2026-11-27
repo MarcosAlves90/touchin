@@ -1,0 +1,191 @@
+{
+  "schema_version": 6,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      ".github/workflows/ci.yml",
+      "scripts/polis_tests.py",
+      "scripts/tests/test_ci_flutter_golden_setup.py",
+      "frontend/test/features/shared/presentation/widgets/workspace_shell_test.dart",
+      "docs/validation/issue-119/desktop-dark.png",
+      "docs/validation/issue-119/desktop-light.png",
+      "docs/validation/issue-119/mobile-dark.png",
+      "docs/validation/issue-119/mobile-light.png",
+      "docs/contracts/navigation-visual-golden-ci-issue-123-v1.polis.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "scripts/tests/test_ci_flutter_golden_setup.py",
+      "frontend/test/features/shared/presentation/widgets/workspace_shell_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Make the #123 visual golden reproducible by running screenshot comparison only on Ubuntu with Flutter 3.47.2 pinned, while retaining functional Flutter coverage on Linux and Windows.",
+    "requirements": [
+      {
+        "id": "REQ-123-01",
+        "statement": "The canonical Ubuntu golden job configures subosito/flutter-action with the exact flutter-version 3.47.2 and confirms the installed runtime with flutter --version before comparing screenshots."
+      },
+      {
+        "id": "REQ-123-02",
+        "statement": "The navigation visual golden test is isolated to the canonical Ubuntu job; non-golden functional Flutter tests continue to run and block CI on Ubuntu and Windows."
+      },
+      {
+        "id": "REQ-123-03",
+        "statement": "POLIS test.complete on Windows and the ordinary functional test job exclude only tests explicitly tagged canonical-golden; all other functional tests remain in the suite."
+      },
+      {
+        "id": "REQ-123-04",
+        "statement": "The four existing issue-119 screenshots remain the canonical snapshots; a snapshot changes only when a reproducible canonical Ubuntu run demonstrates a visual baseline difference and the image diff is reviewed."
+      },
+      {
+        "id": "REQ-123-05",
+        "statement": "A missing or incorrect Flutter pin, skipped functional suite, failed golden comparison, or failed functional test keeps CI red."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-123-01",
+        "statement": "A workflow regression test detects the exact Flutter 3.47.2 pin and fails when the setup action resolves only channel stable.",
+        "requirements": [
+          "REQ-123-01"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-123-02",
+        "statement": "The GitHub Actions Ubuntu log confirms Flutter 3.47.2 is installed and the isolated navigation golden test passes using that runtime.",
+        "requirements": [
+          "REQ-123-01",
+          "REQ-123-02"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-123-03",
+        "statement": "Ubuntu and Windows run the non-golden functional suite, excluding only the canonical-golden tag; a functional failure on either platform fails CI.",
+        "requirements": [
+          "REQ-123-02",
+          "REQ-123-03",
+          "REQ-123-05"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-123-04",
+        "statement": "The canonical job compares all four issue-119 snapshots; any changed snapshot is produced by the canonical run and has a reviewable image diff.",
+        "requirements": [
+          "REQ-123-04"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-123-05",
+        "statement": "Configured POLIS test.complete, lint, build, and smoke gates pass on the resulting source; no policy gate is disabled.",
+        "requirements": [
+          "REQ-123-05"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-123-01",
+        "statement": "No application behavior, API, backend, or visual layout is changed to hide renderer differences."
+      },
+      {
+        "id": "INV-123-02",
+        "statement": "Linux and Windows retain all non-golden functional tests; only explicitly tagged golden cases are excluded from those runs."
+      },
+      {
+        "id": "INV-123-03",
+        "statement": "Snapshots and historical #119 evidence are not changed before a GitHub Actions Ubuntu run confirms the pinned runtime."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-123-01",
+        "statement": "The workflow selects channel stable without an exact Flutter version for the canonical golden job."
+      },
+      {
+        "id": "FORB-123-02",
+        "statement": "The golden test is skipped from every CI job or is allowed to fail."
+      },
+      {
+        "id": "FORB-123-03",
+        "statement": "A macOS or Windows render is used to regenerate canonical Ubuntu screenshots."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-123-01",
+        "statement": "The existing navigation visual test and four versioned issue-119 screenshots, plus the GitHub Actions workflow and configured POLIS gates."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-123-01",
+        "statement": "A CI workflow with pinned canonical Ubuntu golden comparison and preserved Linux/Windows functional coverage."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-123-01",
+        "statement": "Version-pin mismatch, setup failure, golden mismatch, functional test failure on Linux or Windows, or configured POLIS gate failure returns nonzero and blocks CI."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "a69c7f11a12d330c6365bfbbd2cbf2aa149ed3a0",
+    "base_tree": "53e6479598c71fbe8da72956d8d1eb8f92f36c23",
+    "policy_sha256": "5563facc34ae2a1a07cf7ec7ec2f115cb8d250c49dd6e2bd5c7a3de4c977d450",
+    "specification_sha256": "674408721dd4510fd9c2743a565c8e74337f16ee8d5513cc46887d2a5e39ca49"
+  },
+  "behavior": {
+    "argv": [
+      "python",
+      "scripts/polis_tests.py"
+    ],
+    "cwd": ".",
+    "timeout_seconds": 1200,
+    "environment": {
+      "mode": "inherit"
+    }
+  },
+  "affected": {
+    "argv": [
+      "python",
+      "scripts/polis_tests.py"
+    ],
+    "cwd": ".",
+    "timeout_seconds": 1200,
+    "environment": {
+      "mode": "inherit"
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "python3",
+        "-B",
+        "-m",
+        "unittest",
+        "scripts.tests.test_ci_flutter_golden_setup",
+        "-v"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 300,
+      "environment": {
+        "mode": "inherit"
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "FAIL"
+    ]
+  }
+}

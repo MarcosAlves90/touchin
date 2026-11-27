@@ -30,6 +30,12 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
@@ -79,8 +85,11 @@ jobs:
             echo "storeFile=../release-keystore.jks"
           } > android/key.properties
 
+      - name: Verify frontend defaults to production
+        run: flutter test --no-pub test/developer_preview_entry_test.dart
+
       - name: Run frontend tests
-        run: flutter test
+        run: flutter test --no-pub --concurrency=1 --exclude-tags canonical-golden --dart-define=TOUCHIN_FRONTEND_DEV_MODE=true
 
       - name: Build Android App Bundle
         run: flutter build appbundle --release --dart-define=API_BASE_URL=https://self-bunchin-app.onrender.com/api/v1
@@ -90,14 +99,40 @@ jobs:
 
       - name: Verify Android release artifacts
         run: |
+          set -euo pipefail
           test -f build/app/outputs/bundle/release/app-release.aab
           test -f build/app/outputs/flutter-apk/app-release.apk
           AAPT="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)/aapt"
           "$AAPT" dump badging build/app/outputs/flutter-apk/app-release.apk | grep "package: name='com.bunchin.app'"
           "$AAPT" dump badging build/app/outputs/flutter-apk/app-release.apk | grep "application-label:'Bunchin'"
+          "$AAPT" dump badging build/app/outputs/flutter-apk/app-release.apk | grep "versionCode='$RELEASE_BUILD_NUMBER'"
           "$AAPT" dump badging build/app/outputs/flutter-apk/app-release.apk | grep "versionName='$RELEASE_VERSION'"
           "$AAPT" dump badging build/app/outputs/flutter-apk/app-release.apk | grep "uses-permission: name='android.permission.INTERNET'"
-          unzip -p build/app/outputs/flutter-apk/app-release.apk lib/arm64-v8a/libapp.so | strings | grep 'https://self-bunchin-app.onrender.com/api/v1'
+          "$AAPT" dump badging build/app/outputs/flutter-apk/app-release.apk | grep "uses-permission: name='android.permission.ACCESS_COARSE_LOCATION'"
+          "$AAPT" dump badging build/app/outputs/flutter-apk/app-release.apk | grep "uses-permission: name='android.permission.ACCESS_FINE_LOCATION'"
+          unzip -p build/app/outputs/flutter-apk/app-release.apk lib/arm64-v8a/libapp.so | strings | grep -F 'https://self-bunchin-app.onrender.com/api/v1'
+          "$AAPT" dump badging build/app/outputs/flutter-apk/app-release.apk | grep "launchable-activity: name='com.bunchin.app.MainActivity'"
+          jarsigner -verify build/app/outputs/bundle/release/app-release.aab | grep -F 'jar verified.'
+
+      - name: Verify APK can update the previous release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          APKSIGNER="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)/apksigner"
+          previous_tag="$(git describe --tags --abbrev=0 --match 'v[0-9]*' HEAD)"
+          previous_dir="$(mktemp -d)"
+          gh release download "$previous_tag" --pattern app-release.apk --dir "$previous_dir"
+          signer() {
+            "$APKSIGNER" verify --print-certs "$1" | awk '/certificate SHA-256 digest:/ {print $NF}' | sort
+          }
+          previous_signer="$(signer "$previous_dir/app-release.apk")"
+          current_signer="$(signer build/app/outputs/flutter-apk/app-release.apk)"
+          test -n "$previous_signer"
+          test "$previous_signer" = "$current_signer" || {
+            echo "The APK signing certificate does not match the previous release."
+            exit 1
+          }
 
       - name: Create release tag
         run: |
@@ -110,9 +145,16 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
+          notes_file="release/notes/$RELEASE_TAG.md"
+          if [[ -f "$notes_file" ]]; then
+            release_notes_args=(--notes-file "$notes_file")
+          else
+            release_notes_args=(--notes "$RELEASE_NOTES")
+          fi
           gh release create "$RELEASE_TAG" \
             build/app/outputs/bundle/release/app-release.aab \
             build/app/outputs/flutter-apk/app-release.apk \
             --title "$RELEASE_NAME" \
-            --notes "$RELEASE_NOTES" \
+            "${release_notes_args[@]}" \
             --prerelease

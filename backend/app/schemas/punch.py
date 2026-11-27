@@ -21,6 +21,10 @@ class PunchType(str, Enum):
     break_end = "breakEnd"
     check_out = "checkOut"
 
+    @property
+    def supports_work_context(self) -> bool:
+        return self in (PunchType.break_start, PunchType.check_out)
+
 
 class PunchLocationSnapshotPayload(CamelModel):
     latitude: float = Field(ge=-90, le=90)
@@ -29,18 +33,47 @@ class PunchLocationSnapshotPayload(CamelModel):
     captured_at: datetime
 
 
+class PunchTaskResponse(CamelModel):
+    name: str
+    id: str | None = None
+    card_number: int | None = None
+
+
+class PunchWorkLogResponse(CamelModel):
+    project_id: str | None = None
+    project_name: str | None = None
+    task_names: list[str] = Field(default_factory=list)
+    tasks: list[PunchTaskResponse] = Field(default_factory=list)
+
+
 class PunchRecordResponse(CamelModel):
     type: PunchType
     timestamp: datetime
     detail: str
     project_id: str | None = None
+    project_name: str | None = None
+    work_log: PunchWorkLogResponse | None = None
     location: PunchLocationSnapshotPayload | None = None
+
+
+class WorkLogPayload(CamelModel):
+    description: str = Field(min_length=1)
+    task_ids: list[str]
+
+    @field_validator("description")
+    @classmethod
+    def validate_description(cls, value: str) -> str:
+        description = value.strip()
+        if not description:
+            raise ValueError("A descrição da atividade é obrigatória.")
+        return description
 
 
 class CreatePunchRequest(CamelModel):
     type: PunchType
     project_id: str | None = None
     location: PunchLocationSnapshotPayload | None = None
+    work_log: WorkLogPayload | None = None
 
     @field_validator("location")
     @classmethod

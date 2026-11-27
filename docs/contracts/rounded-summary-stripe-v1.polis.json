@@ -1,0 +1,151 @@
+{
+  "schema_version": 6,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      "frontend/lib/features/shared/presentation/widgets/workspace_shell.dart",
+      "frontend/test/features/shared/presentation/widgets/workspace_shell_test.dart",
+      "docs/contracts/rounded-summary-stripe-v1.polis.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/features/shared/presentation/widgets/workspace_shell_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Round the shared sidebar summary cards without changing their content, colors or layout.",
+    "requirements": [
+      {
+        "id": "REQ-ROUND-01",
+        "statement": "Shared workspace summary cards have 12 logical pixel corner radii in light and dark themes."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-ROUND-01",
+        "statement": "Summary cards render with 12 pixel radii in both themes and preserve their content and theme-derived colors.",
+        "requirements": [
+          "REQ-ROUND-01"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-CONTRACT-01",
+        "statement": "docs/contracts/rounded-summary-stripe-v1.polis.json is byte-for-byte identical to the locked contract.",
+        "requirements": [
+          "REQ-ROUND-01"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-ROUND-01",
+        "statement": "Preserve labels, values, helpers, layout, color and border in all uses; do not add dependencies."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-ROUND-01",
+        "statement": "Summary cards retain square outer corners."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-ROUND-01",
+        "statement": "Summary label, value, helper and current theme."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-ROUND-01",
+        "statement": "Rounded summary card with unchanged content and theme colors."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-ROUND-01",
+        "statement": "Regression test reports summary_radius on a square card."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "07c96d88ed5ab9ab6dab1a7f2aba6c135f920607",
+    "base_tree": "b823f8c2afae85b66501c2ac424267f8c36c38dd",
+    "policy_sha256": "7714a10ab2b65f58941086f500de93fa62fc6acb6fd59d8b39292980364774dd",
+    "specification_sha256": "2ad967dc8659abe9628437c2533b4b74fcb4a5a09740b71ce233ec33014d6a18"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/features/shared/presentation/widgets/workspace_shell_test.dart",
+      "--plain-name",
+      "summary cards have rounded theme surfaces"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 360,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/features/shared/presentation/widgets/workspace_shell_test.dart",
+      "--exclude-tags",
+      "canonical-golden"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 360,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "test/features/shared/presentation/widgets/workspace_shell_test.dart",
+        "--plain-name",
+        "summary cards have rounded theme surfaces"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 360,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "summary_radius"
+    ]
+  }
+}

@@ -26,6 +26,7 @@ class _EmployeeEditorDialogState extends State<_EmployeeEditorDialog> {
   late EmployeeWorkMode _workMode;
   late RoleLevel _roleLevel;
   late EmployeeAccessRole? _accessRole;
+  bool _accessRoleChanged = false;
   late bool _requiresLocationOnPunch;
   late bool _trustedDeviceRequired;
 
@@ -71,7 +72,11 @@ class _EmployeeEditorDialogState extends State<_EmployeeEditorDialog> {
     _status = draft.status;
     _workMode = draft.workMode;
     _roleLevel = draft.roleLevel;
-    _accessRole = draft.accessRole;
+    _accessRole = switch (widget.employee?.accessRole) {
+      'employee' => EmployeeAccessRole.employee,
+      'manager' => EmployeeAccessRole.manager,
+      _ => draft.accessRole,
+    };
     _requiresLocationOnPunch = draft.requiresLocationOnPunch;
     _trustedDeviceRequired = draft.trustedDeviceRequired;
   }
@@ -108,7 +113,7 @@ class _EmployeeEditorDialogState extends State<_EmployeeEditorDialog> {
         status: _status,
         workMode: _workMode,
         roleLevel: _roleLevel,
-        accessRole: _accessRole,
+        accessRole: _isEditing && !_accessRoleChanged ? null : _accessRole,
         requiresLocationOnPunch: _requiresLocationOnPunch,
         trustedDeviceRequired: _trustedDeviceRequired,
         notes: _notesController.text.trim(),
@@ -121,9 +126,9 @@ class _EmployeeEditorDialogState extends State<_EmployeeEditorDialog> {
     return Dialog(
       insetPadding: const EdgeInsets.all(24),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.zero,
+        borderRadius: BorderRadius.circular(12),
         side: BorderSide(
-          color: Theme.of(context).colorScheme.outlineVariant,
+          color: Theme.of(context).colorScheme.outline,
         ),
       ),
       child: ConstrainedBox(
@@ -139,9 +144,10 @@ class _EmployeeEditorDialogState extends State<_EmployeeEditorDialog> {
                 children: <Widget>[
                   Text(
                     _isEditing ? 'Editar funcionário' : 'Novo funcionário',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
+                    style: Theme.of(context)
+                        .textTheme
+                        .headlineSmall
+                        ?.copyWith(fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 8),
                   Text(
@@ -166,6 +172,7 @@ class _EmployeeEditorDialogState extends State<_EmployeeEditorDialog> {
                     hintText: 'Ex.: Analista Financeira',
                     icon: Icons.badge_outlined,
                     validatorMessage: 'Informe o cargo principal.',
+                    minLength: 2,
                   ),
                   const SizedBox(height: 16),
                   _buildTextField(
@@ -174,6 +181,7 @@ class _EmployeeEditorDialogState extends State<_EmployeeEditorDialog> {
                     hintText: 'Ex.: Financeiro',
                     icon: Icons.apartment_rounded,
                     validatorMessage: 'Informe o departamento.',
+                    minLength: 2,
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
@@ -221,6 +229,7 @@ class _EmployeeEditorDialogState extends State<_EmployeeEditorDialog> {
                     hintText: 'Ex.: Matriz Paulista',
                     icon: Icons.location_city_outlined,
                     validatorMessage: 'Informe a unidade de referência.',
+                    minLength: 2,
                   ),
                   const SizedBox(height: 16),
                   Row(
@@ -247,7 +256,7 @@ class _EmployeeEditorDialogState extends State<_EmployeeEditorDialog> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  _buildAccessRoleDropdown(),
+                  _buildAccessRoleEditor(),
                   const SizedBox(height: 16),
                   _buildStatusDropdown(),
                   const SizedBox(height: 16),
@@ -356,6 +365,7 @@ class _EmployeeEditorDialogState extends State<_EmployeeEditorDialog> {
     String? hintText,
     required IconData icon,
     required String validatorMessage,
+    int minLength = 3,
     TextInputType? keyboardType,
     List<TextInputFormatter>? inputFormatters,
     String? Function(String? value)? validator,
@@ -371,7 +381,7 @@ class _EmployeeEditorDialogState extends State<_EmployeeEditorDialog> {
       ),
       validator: validator ??
           (value) {
-            if (value == null || value.trim().length < 3) {
+            if (value == null || value.trim().length < minLength) {
               return validatorMessage;
             }
             return null;
@@ -437,15 +447,14 @@ class _EmployeeEditorDialogState extends State<_EmployeeEditorDialog> {
 
   TimeOfDay _parseTimeOfDay(String value) {
     final parts = value.trim().split(':');
-    return TimeOfDay(
-      hour: int.parse(parts[0]),
-      minute: int.parse(parts[1]),
-    );
+    return TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
   }
 
   Widget _buildStatusDropdown() {
     return DropdownButtonFormField<EmployeeStatus>(
       initialValue: _status,
+      dropdownColor: WorkspaceMenuStyle.surface(Theme.of(context).colorScheme),
+      borderRadius: WorkspaceMenuStyle.borderRadius,
       decoration: const InputDecoration(
         labelText: 'Status',
         prefixIcon: Icon(Icons.flag_outlined),
@@ -471,6 +480,8 @@ class _EmployeeEditorDialogState extends State<_EmployeeEditorDialog> {
   Widget _buildWorkModeDropdown() {
     return DropdownButtonFormField<EmployeeWorkMode>(
       initialValue: _workMode,
+      dropdownColor: WorkspaceMenuStyle.surface(Theme.of(context).colorScheme),
+      borderRadius: WorkspaceMenuStyle.borderRadius,
       decoration: const InputDecoration(
         labelText: 'Modo de trabalho',
         prefixIcon: Icon(Icons.work_outline_rounded),
@@ -496,6 +507,8 @@ class _EmployeeEditorDialogState extends State<_EmployeeEditorDialog> {
   Widget _buildRoleDropdown() {
     return DropdownButtonFormField<RoleLevel>(
       initialValue: _roleLevel,
+      dropdownColor: WorkspaceMenuStyle.surface(Theme.of(context).colorScheme),
+      borderRadius: WorkspaceMenuStyle.borderRadius,
       decoration: const InputDecoration(
         labelText: 'Nível',
         prefixIcon: Icon(Icons.shield_outlined),
@@ -520,7 +533,10 @@ class _EmployeeEditorDialogState extends State<_EmployeeEditorDialog> {
 
   Widget _buildAccessRoleDropdown() {
     return DropdownButtonFormField<EmployeeAccessRole?>(
+      key: const ValueKey('employee-access-role-dropdown'),
       initialValue: _accessRole ?? EmployeeAccessRole.employee,
+      dropdownColor: WorkspaceMenuStyle.surface(Theme.of(context).colorScheme),
+      borderRadius: WorkspaceMenuStyle.borderRadius,
       decoration: const InputDecoration(
         labelText: 'Perfil de acesso',
         prefixIcon: Icon(Icons.admin_panel_settings_outlined),
@@ -536,9 +552,46 @@ class _EmployeeEditorDialogState extends State<_EmployeeEditorDialog> {
       onChanged: (value) {
         setState(() {
           _accessRole = value;
+          _accessRoleChanged = true;
         });
       },
     );
+  }
+
+  Widget _buildAccessRoleEditor() {
+    if (!_isEditing) {
+      return _buildAccessRoleDropdown();
+    }
+    final employee = widget.employee!;
+    if (employee.hasAccount == false) {
+      return const ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: Icon(Icons.no_accounts_outlined),
+        title: Text('Sem acesso ao sistema'),
+      );
+    }
+    if (employee.hasAccount != true) {
+      return const ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: Icon(Icons.help_outline_rounded),
+        title: Text('Vínculo de acesso indisponível'),
+      );
+    }
+    if (employee.accessRole == 'admin') {
+      return const ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: Icon(Icons.admin_panel_settings_outlined),
+        title: Text('Administrador (não editável)'),
+      );
+    }
+    if (employee.accessRole != 'employee' && employee.accessRole != 'manager') {
+      return const ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: Icon(Icons.help_outline_rounded),
+        title: Text('Papel de acesso indisponível'),
+      );
+    }
+    return _buildAccessRoleDropdown();
   }
 }
 
@@ -601,36 +654,82 @@ class _EmployeeListTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final adminColors = AppTheme.adminColors(theme);
 
     return Material(
       color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          decoration: BoxDecoration(
-            color: selected
-                ? AppTheme.accent.withValues(alpha: 0.08)
-                : colorScheme.surface.withValues(alpha: 0.8),
-            border: Border.all(
-              color: selected ? AppTheme.accent : colorScheme.outlineVariant,
+      child: Semantics(
+        selected: selected,
+        child: InkWell(
+          onTap: onTap,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: selected
+                  ? (theme.extension<HighContrastMarker>() != null
+                      ? adminColors.selectedContainer
+                      : colorScheme.surfaceContainerHighest)
+                  : Colors.transparent,
+              border: selected ? Border.all(color: adminColors.selectedIndicator, width: 2) : null,
             ),
-          ),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final isCompact = constraints.maxWidth < 560;
-              return _buildContent(
-                context,
-                theme,
-                colorScheme,
-                isCompact: isCompact,
-              );
-            },
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                if (constraints.maxWidth >= 850) {
+                  return _buildWideContent(theme, colorScheme, adminColors);
+                }
+                final isCompact = constraints.maxWidth < 400;
+                return _buildContent(
+                  context,
+                  theme,
+                  colorScheme,
+                  isCompact: isCompact,
+                );
+              },
+            ),
           ),
         ),
       ),
     );
+  }
+
+  Widget _buildWideContent(ThemeData theme, ColorScheme colors, AdminSemanticColors adminColors) {
+    final details = '${employee.role} · ${employee.department} · ${employee.unit}';
+    return Row(children: [
+      Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: selected ? colors.surface : colors.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: colors.outlineVariant),
+        ),
+        child: Icon(Icons.badge_rounded, size: 20,
+            color: selected ? adminColors.selectedForeground : colors.onSurface),
+      ),
+      const SizedBox(width: 10),
+      Expanded(flex: 3, child: Tooltip(message: employee.name, child: Text(
+        employee.name, maxLines: 1, overflow: TextOverflow.ellipsis,
+        style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+      ))),
+      const SizedBox(width: 16),
+      Expanded(flex: 4, child: Tooltip(message: details, child: Text(
+        details, maxLines: 1, overflow: TextOverflow.ellipsis,
+        style: theme.textTheme.bodyMedium?.copyWith(color: colors.onSurfaceVariant),
+      ))),
+      const SizedBox(width: 12),
+      SizedBox(width: 210, child: Wrap(spacing: 8, runSpacing: 4, children: [
+        if (employee.status != EmployeeStatus.active)
+          _InlinePill(label: statusLabel, tone: statusColor, icon: statusIcon, teamSurface: true),
+        if (needsAttention)
+          _InlinePill(label: 'Acompanhamento', tone: adminColors.warning.foreground,
+              icon: Icons.priority_high_rounded, teamSurface: true),
+      ])),
+      IconButton(onPressed: onEdit, tooltip: 'Editar funcionário',
+          icon: const Icon(Icons.edit_outlined, size: 18)),
+      IconButton(onPressed: onDelete, tooltip: 'Remover funcionário',
+          icon: const Icon(Icons.delete_outline_rounded, size: 18)),
+    ]);
   }
 
   Widget _buildContent(
@@ -642,6 +741,7 @@ class _EmployeeListTile extends StatelessWidget {
     final hasSignals =
         employee.status != EmployeeStatus.active || needsAttention;
     final showLeadingIcon = !isCompact;
+    final adminColors = AppTheme.adminColors(theme);
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -652,18 +752,23 @@ class _EmployeeListTile extends StatelessWidget {
             height: 40,
             decoration: BoxDecoration(
               color: selected
-                  ? AppTheme.accent.withValues(alpha: 0.16)
-                  : colorScheme.surfaceContainerHighest.withValues(alpha: 0.72),
+                  ? (theme.extension<HighContrastMarker>() != null
+                      ? adminColors.selectedContainer
+                      : colorScheme.surface)
+                  : colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: selected
-                    ? AppTheme.accent.withValues(alpha: 0.36)
+                color: selected && theme.extension<HighContrastMarker>() != null
+                    ? adminColors.selectedIndicator
                     : colorScheme.outlineVariant,
               ),
             ),
             child: Icon(
               Icons.badge_rounded,
               size: 20,
-              color: selected ? AppTheme.accent : colorScheme.onSurface,
+              color: selected
+                  ? adminColors.selectedForeground
+                  : colorScheme.onSurface,
             ),
           ),
           const SizedBox(width: 10),
@@ -678,7 +783,7 @@ class _EmployeeListTile extends StatelessWidget {
                   Expanded(
                     child: Text(
                       employee.name,
-                      maxLines: 1,
+                      maxLines: isCompact ? 2 : 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w700,
@@ -713,8 +818,8 @@ class _EmployeeListTile extends StatelessWidget {
               ),
               const SizedBox(height: 3),
               Text(
-                '${employee.role} | ${employee.department}',
-                maxLines: 1,
+                '${employee.role} · ${employee.department} · ${employee.unit}',
+                maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: colorScheme.onSurfaceVariant,
@@ -722,15 +827,24 @@ class _EmployeeListTile extends StatelessWidget {
                 ),
               ),
               if (hasSignals) ...<Widget>[
-                const SizedBox(height: 6),
-                Text(
-                  _compactSignalsLabel(),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
-                  ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: <Widget>[
+                    if (employee.status != EmployeeStatus.active)
+                      _InlinePill(
+                          label: statusLabel,
+                          tone: statusColor,
+                          icon: statusIcon,
+                          teamSurface: true),
+                    if (needsAttention)
+                      _InlinePill(
+                          label: 'Acompanhamento',
+                          tone: adminColors.warning.foreground,
+                          icon: Icons.priority_high_rounded,
+                          teamSurface: true),
+                  ],
                 ),
               ],
             ],
@@ -739,77 +853,21 @@ class _EmployeeListTile extends StatelessWidget {
       ],
     );
   }
-
-  String _compactSignalsLabel() {
-    final labels = <String>[
-      if (employee.status != EmployeeStatus.active) statusLabel,
-      if (needsAttention) 'Acompanhamento',
-    ];
-    return labels.join(' • ');
-  }
-
-}
-
-class _AdminMetricItem extends StatelessWidget {
-  const _AdminMetricItem({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: colorScheme.surface.withValues(alpha: 0.58),
-        border: Border.all(color: colorScheme.outlineVariant),
-      ),
-      child: Row(
-        children: <Widget>[
-          Icon(icon, size: 16, color: colorScheme.onSurfaceVariant),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Text(
-            value,
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _InlinePill extends StatelessWidget {
-  const _InlinePill({
-    required this.label,
-    required this.tone,
-    this.icon,
-  });
+  const _InlinePill(
+      {required this.label,
+      required this.tone,
+      this.icon,
+      this.rounded = true,
+      this.teamSurface = false});
 
   final String label;
   final Color tone;
   final IconData? icon;
+  final bool rounded;
+  final bool teamSurface;
 
   @override
   Widget build(BuildContext context) {
@@ -818,8 +876,12 @@ class _InlinePill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: tone.withValues(alpha: 0.12),
-        border: Border.all(color: tone.withValues(alpha: 0.22)),
+        color: theme.colorScheme.surfaceContainerHighest,
+        border: Border.all(
+            color: teamSurface
+                ? theme.colorScheme.outlineVariant
+                : theme.colorScheme.outline),
+        borderRadius: rounded ? BorderRadius.circular(8) : null,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -828,11 +890,13 @@ class _InlinePill extends StatelessWidget {
             Icon(icon, size: 14, color: tone),
             const SizedBox(width: 6),
           ],
-          Text(
-            label,
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: tone,
-              fontWeight: FontWeight.w700,
+          Flexible(
+            child: Text(
+              label,
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: theme.colorScheme.onSurface,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ],
@@ -870,9 +934,10 @@ class _EmployeeDetailHero extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: colorScheme.surface.withValues(alpha: 0.82),
+        borderRadius: BorderRadius.circular(12),
+        color: colorScheme.surfaceContainerLow,
         border: Border.all(color: colorScheme.outlineVariant),
       ),
       child: LayoutBuilder(
@@ -886,9 +951,9 @@ class _EmployeeDetailHero extends StatelessWidget {
                   width: 56,
                   height: 56,
                   decoration: BoxDecoration(
-                    color: statusColor.withValues(alpha: 0.12),
-                    border:
-                        Border.all(color: statusColor.withValues(alpha: 0.28)),
+                    color: colorScheme.surfaceContainerHighest,
+                    border: Border.all(color: colorScheme.outlineVariant),
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(
                     Icons.manage_accounts_rounded,
@@ -911,29 +976,6 @@ class _EmployeeDetailHero extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 6),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: <Widget>[
-                        _InlinePill(
-                          label: statusLabel,
-                          tone: statusColor,
-                          icon: statusIcon,
-                        ),
-                        _InlinePill(
-                          label: workModeLabel,
-                          tone: colorScheme.onSurfaceVariant,
-                          icon: workModeIcon,
-                        ),
-                        if (needsAttention)
-                          const _InlinePill(
-                            label: 'Atenção operacional',
-                            tone: Color(0xFF8C5D00),
-                            icon: Icons.priority_high_rounded,
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
                     Text(
                       employee.name,
                       style: theme.textTheme.titleLarge?.copyWith(
@@ -967,6 +1009,37 @@ class _EmployeeDetailHero extends StatelessWidget {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 14),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: <Widget>[
+                        _InlinePill(
+                          label: statusLabel,
+                          tone: statusColor,
+                          icon: statusIcon,
+                          rounded: true,
+                          teamSurface: true,
+                        ),
+                        _InlinePill(
+                          label: workModeLabel,
+                          tone: colorScheme.onSurfaceVariant,
+                          icon: workModeIcon,
+                          rounded: true,
+                          teamSurface: true,
+                        ),
+                        if (needsAttention)
+                          _InlinePill(
+                            label: 'Atenção operacional',
+                            tone:
+                                AppTheme.adminColors(theme).warning.foreground,
+                            icon: Icons.priority_high_rounded,
+                            rounded: true,
+                            teamSurface: true,
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
                   ],
                 ),
               ),
@@ -1032,8 +1105,9 @@ class _EmployeeNarrativeCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.54),
-        border: Border.all(color: colorScheme.outlineVariant),
+        color: colorScheme.surfaceContainerHighest,
+        border: Border.all(color: colorScheme.outline),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1087,8 +1161,9 @@ class _EmployeeOverviewCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: colorScheme.surface.withValues(alpha: 0.82),
+        color: colorScheme.surface,
         border: Border.all(color: colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1097,9 +1172,9 @@ class _EmployeeOverviewCard extends StatelessWidget {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color:
-                  colorScheme.surfaceContainerHighest.withValues(alpha: 0.88),
+              color: colorScheme.surfaceContainerHighest,
               border: Border.all(color: colorScheme.outlineVariant),
+              borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(icon, size: 18, color: colorScheme.onSurfaceVariant),
           ),
@@ -1202,8 +1277,9 @@ class _EmployeePolicyRow extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: colorScheme.surface.withValues(alpha: 0.82),
-        border: Border.all(color: colorScheme.outlineVariant),
+        color: colorScheme.surface,
+        border: Border.all(color: colorScheme.outline),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1212,8 +1288,9 @@ class _EmployeePolicyRow extends StatelessWidget {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: tone.withValues(alpha: 0.12),
-              border: Border.all(color: tone.withValues(alpha: 0.22)),
+              color: colorScheme.surfaceContainerHighest,
+              border: Border.all(color: colorScheme.outline),
+              borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(icon, size: 18, color: tone),
           ),
@@ -1248,10 +1325,7 @@ class _EmployeePolicyRow extends StatelessWidget {
 }
 
 class _ManagedPunchEditorDialog extends StatefulWidget {
-  const _ManagedPunchEditorDialog({
-    required this.employee,
-    this.punch,
-  });
+  const _ManagedPunchEditorDialog({required this.employee, this.punch});
 
   final EmployeeProfile employee;
   final ManagedPunchRecord? punch;
@@ -1352,7 +1426,7 @@ class _ManagedPunchEditorDialogState extends State<_ManagedPunchEditorDialog> {
         type: _type,
         timestamp: _timestamp,
         detail: _detailController.text.trim(),
-        projectId: _projectIdController.text.trim().isEmpty
+        projectId: !_type.supportsWorkContext || _projectIdController.text.trim().isEmpty
             ? null
             : _projectIdController.text.trim(),
       ),
@@ -1367,8 +1441,8 @@ class _ManagedPunchEditorDialogState extends State<_ManagedPunchEditorDialog> {
     return Dialog(
       insetPadding: const EdgeInsets.all(16),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.zero,
-        side: BorderSide(color: colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: colorScheme.outline),
       ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 720),
@@ -1398,6 +1472,8 @@ class _ManagedPunchEditorDialogState extends State<_ManagedPunchEditorDialog> {
                   const SizedBox(height: 20),
                   DropdownButtonFormField<PunchType>(
                     initialValue: _type,
+                    dropdownColor: WorkspaceMenuStyle.surface(colorScheme),
+                    borderRadius: WorkspaceMenuStyle.borderRadius,
                     decoration: const InputDecoration(
                       labelText: 'Tipo de ponto',
                       prefixIcon: Icon(Icons.bolt_rounded),
@@ -1453,15 +1529,17 @@ class _ManagedPunchEditorDialogState extends State<_ManagedPunchEditorDialog> {
                       return null;
                     },
                   ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _projectIdController,
-                    decoration: const InputDecoration(
-                      labelText: 'Projeto opcional',
-                      hintText: 'ID do projeto',
-                      prefixIcon: Icon(Icons.folder_open_rounded),
+                  if (_type.supportsWorkContext) ...[
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _projectIdController,
+                      decoration: const InputDecoration(
+                        labelText: 'Projeto opcional',
+                        hintText: 'ID do projeto',
+                        prefixIcon: Icon(Icons.folder_open_rounded),
+                      ),
                     ),
-                  ),
+                  ],
                   const SizedBox(height: 24),
                   LayoutBuilder(
                     builder: (context, constraints) {
@@ -1540,14 +1618,15 @@ class _ManagedPunchTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final tone = _punchTypeTone(punch.type);
+    final tone = _punchTypeTone(punch.type, theme);
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: colorScheme.surface.withValues(alpha: 0.82),
-        border: Border.all(color: colorScheme.outlineVariant),
+        color: colorScheme.surface,
+        border: Border.all(color: colorScheme.outline),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1556,14 +1635,11 @@ class _ManagedPunchTile extends StatelessWidget {
             width: 34,
             height: 34,
             decoration: BoxDecoration(
-              color: tone.withValues(alpha: 0.12),
-              border: Border.all(color: tone.withValues(alpha: 0.24)),
+              color: colorScheme.surfaceContainerHighest,
+              border: Border.all(color: colorScheme.outline),
+              borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(
-              _punchTypeIcon(punch.type),
-              size: 17,
-              color: tone,
-            ),
+            child: Icon(_punchTypeIcon(punch.type), size: 17, color: tone),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -1576,6 +1652,7 @@ class _ManagedPunchTile extends StatelessWidget {
                       label: _punchTypeLabel(punch.type),
                       tone: tone,
                       icon: _punchTypeIcon(punch.type),
+                      rounded: true,
                     ),
                     const SizedBox(width: 6),
                     Expanded(
@@ -1600,22 +1677,19 @@ class _ManagedPunchTile extends StatelessWidget {
                     height: 1.25,
                   ),
                 ),
-                if (punch.projectId != null && punch.projectId!.isNotEmpty) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    'Projeto: ${punch.projectId}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
+                PunchWorkContext(
+                  type: punch.type,
+                  projectId: punch.projectId,
+                  projectName: punch.projectName,
+                  workLog: punch.workLog,
+                ),
               ],
             ),
           ),
           PopupMenuButton<_ManagedPunchAction>(
             icon: const Icon(Icons.more_horiz_rounded),
+            color: WorkspaceMenuStyle.surface(colorScheme),
+            shape: WorkspaceMenuStyle.shape(colorScheme),
             onSelected: (action) {
               if (action == _ManagedPunchAction.edit) {
                 onEdit();
@@ -1671,11 +1745,12 @@ IconData _punchTypeIcon(PunchType type) {
   };
 }
 
-Color _punchTypeTone(PunchType type) {
+Color _punchTypeTone(PunchType type, ThemeData theme) {
+  final colors = AppTheme.adminColors(theme);
   return switch (type) {
-    PunchType.checkIn => const Color(0xFF2F8F46),
-    PunchType.breakStart => const Color(0xFFB26A00),
-    PunchType.breakEnd => const Color(0xFF1F6F8B),
-    PunchType.checkOut => const Color(0xFFB3261E),
+    PunchType.checkIn => colors.success.foreground,
+    PunchType.breakStart => colors.warning.foreground,
+    PunchType.breakEnd => colors.info.foreground,
+    PunchType.checkOut => colors.danger.foreground,
   };
 }

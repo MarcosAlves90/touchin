@@ -1,0 +1,180 @@
+{
+  "schema_version": 6,
+  "kind": "behavior_preserving",
+  "scope": {
+    "allowed_paths": [
+      "docs/contracts/navigation-visual-golden-ci-issues-128-131-132-v1.polis.json",
+      "docs/validation/issue-119/README.md",
+      "docs/validation/issue-119/desktop-dark.png",
+      "docs/validation/issue-119/desktop-light.png",
+      "docs/validation/issue-119/mobile-dark.png",
+      "docs/validation/issue-119/mobile-light.png",
+      "frontend/test/features/shared/presentation/widgets/workspace_shell_test.dart"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/features/shared/presentation/widgets/workspace_shell_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Refresh only the four issue-119 workspace sidebar snapshots from the canonical Ubuntu 24.04.5 x64 / Flutter 3.47.2 render for candidate 34657a6c751d1e2a571264d6060383a99d07c903, and record the exact source run and hashes without changing application behavior.",
+    "requirements": [
+      {
+        "id": "REQ-CG-01",
+        "statement": "Each updated desktop/mobile and light/dark snapshot is byte-identical to its actual image from canonical CI run 40753762985 for candidate 34657a6c751d1e2a571264d6060383a99d07c903."
+      },
+      {
+        "id": "REQ-CG-02",
+        "statement": "The validation README records the canonical run ID, candidate SHA, Ubuntu and Flutter versions, and SHA-256 for each updated PNG."
+      },
+      {
+        "id": "REQ-CG-03",
+        "statement": "No runtime source, golden matcher, or non-golden test behavior changes; the full non-golden Flutter suite remains green."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-CG-01",
+        "statement": "All four issue-119 PNGs match the reviewed actual images from run 40753762985 byte-for-byte; no other snapshot is changed.",
+        "requirements": [
+          "REQ-CG-01"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-CG-02",
+        "statement": "README provenance identifies run 40753762985, candidate SHA 34657a6c751d1e2a571264d6060383a99d07c903, Ubuntu 24.04.5 x64, Flutter 3.47.2, and each PNG SHA-256.",
+        "requirements": [
+          "REQ-CG-02"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-CG-03",
+        "statement": "The project-policy non-golden Flutter tests pass locally, and the canonical Ubuntu visual-golden job passes on the resulting PR head.",
+        "requirements": [
+          "REQ-CG-03"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-CG-01",
+        "statement": "Do not change production UI, golden matcher tolerance, CI failure semantics, or non-golden tests."
+      },
+      {
+        "id": "INV-CG-02",
+        "statement": "Only canonical Ubuntu 24.04 x64 / Flutter 3.47.2 actual images tied to the stated candidate commit may become snapshots."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-CG-01",
+        "statement": "A local macOS/arm64 render or image from another candidate commit is used as a canonical snapshot."
+      },
+      {
+        "id": "FORB-CG-02",
+        "statement": "Any image lacks matching run/hash provenance or any unrelated snapshot is modified."
+      },
+      {
+        "id": "FORB-CG-03",
+        "statement": "The canonical visual test is skipped, weakened, or non-golden tests regress."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-CG-01",
+        "statement": "Clean committed baseline 34657a6c751d1e2a571264d6060383a99d07c903, the existing workspace shell golden test, and canonical CI run 40753762985."
+      },
+      {
+        "id": "IN-CG-02",
+        "statement": "Ubuntu 24.04.5 x64 / Flutter 3.47.2 artifact actuals and expected/diff images for all four issue-119 visual cases."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-CG-01",
+        "statement": "Four reviewed canonical issue-119 screenshots and a README with their CI provenance and SHA-256 hashes."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-CG-01",
+        "statement": "Any PNG hash mismatch, missing source provenance, non-golden test failure, or failed canonical Ubuntu golden job blocks completion."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "34657a6c751d1e2a571264d6060383a99d07c903",
+    "base_tree": "1744b626c9cf12060cc2ea61e5f6a91a60a82c2b",
+    "policy_sha256": "5563facc34ae2a1a07cf7ec7ec2f115cb8d250c49dd6e2bd5c7a3de4c977d450",
+    "specification_sha256": "9aa289020b11da890ec219bda965c81584f7d902f8bc80b31d9db27bb9a53163"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "--exclude-tags",
+      "canonical-golden"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 1200,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "--exclude-tags",
+      "canonical-golden"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 1200,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "green_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "--exclude-tags",
+        "canonical-golden"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 1200,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    }
+  }
+}

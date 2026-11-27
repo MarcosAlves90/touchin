@@ -1,0 +1,148 @@
+{
+  "schema_version": 6,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      "docs/contracts/workspace-toolbar-rounded-v1.polis.json",
+      "frontend/lib/features/shared/presentation/widgets/workspace_toolbar.dart",
+      "frontend/test/features/shared/presentation/workspace_toolbar_test.dart"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/features/shared/presentation/workspace_toolbar_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Round the shared workspace toolbar without changing its interactions, content, colors, sizing or scroll behavior.",
+    "requirements": [
+      {
+        "id": "REQ-ROUND-01",
+        "statement": "Render the shared toolbar with a 12px rounded outline in light and dark themes while preserving behavior."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-ROUND-01",
+        "statement": "Widget tests check radius, themed colors, preserved content, action and scroll behavior in both themes.",
+        "requirements": [
+          "REQ-ROUND-01"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-ROUND-02",
+        "statement": "docs/contracts/workspace-toolbar-rounded-v1.polis.json is byte-for-byte identical to the locked contract.",
+        "requirements": [
+          "REQ-ROUND-01"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-ROUND-01",
+        "statement": "Preserve outline color and width, surface color, padding, callbacks, focus, button constraints and scrolling without clipping."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-ROUND-01",
+        "statement": "Square toolbar corners or clipped toolbar controls."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-ROUND-01",
+        "statement": "Theme, child content, viewport and user interactions."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-ROUND-01",
+        "statement": "Rounded toolbar with intact content and interactions."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-ROUND-01",
+        "statement": "The regression test fails when toolbar radius is not 12."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "231f025ef98705e07bd7712390422b95cf81a0f8",
+    "base_tree": "29148cec4bf7f26bfae00c37e7ff648355e9f3f0",
+    "policy_sha256": "7714a10ab2b65f58941086f500de93fa62fc6acb6fd59d8b39292980364774dd",
+    "specification_sha256": "4506fab0645358e314b679b206d85bcaf1a21fd86d38ecb59fdaac8bc0a07edd"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/features/shared/presentation/workspace_toolbar_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 360,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/features/shared/presentation/workspace_toolbar_test.dart",
+      "test/features/projects/presentation/project_kanban_board_test.dart",
+      "test/features/projects/presentation/project_backlog_view_test.dart",
+      "test/features/projects/presentation/project_kanban_page_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 360,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "test/features/shared/presentation/workspace_toolbar_test.dart"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 360,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "toolbar_radius_12"
+    ]
+  }
+}

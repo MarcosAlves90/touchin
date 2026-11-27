@@ -1,0 +1,428 @@
+from __future__ import annotations
+
+from json import dumps
+
+from app.services.audit import AuditService
+
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session, selectinload
+
+from app.config import get_settings
+from app.crypto import lookup_digest
+from app.db import begin_serialized_write, ensure_utc
+from app.domain.project_read import cipher, employee_or_404
+from app.domain.task_read import serialize_task, serialize_task_member
+from app.errors import DomainError, ErrorKind
+from app.models import EmployeeProject, KanbanColumn, Project, Task, TaskCreationRequest, TaskEmployee
+from app.schemas.task import (
+    TaskDraftPayload,
+    TaskMemberSummary,
+    TaskResponse,
+    TaskType,
+    TaskUpdatePayload,
+)
+
+
+def _locked_project_or_404(db: Session, *, company_id: str, project_id: str) -> Project:
+    query = select(Project).where(Project.company_id == company_id, Project.id == project_id)
+    if db.bind is not None and db.bind.dialect.name != "sqlite":
+        query = query.with_for_update()
+    project = db.scalar(query)
+    if project is None:
+        raise DomainError(ErrorKind.not_found, "Project not found.")
+    return project
+
+
+def _ensure_locked_project_access(db: Session, *, project_id: str, requester_employee_id: str | None) -> None:
+    if requester_employee_id is None:
+        return
+    membership = db.scalar(select(EmployeeProject.project_id).where(
+        EmployeeProject.project_id == project_id,
+        EmployeeProject.employee_id == requester_employee_id,
+    ))
+    if membership is None:
+        raise DomainError(ErrorKind.not_found, "Project not found.")
+
+
+def _locked_task_or_404(
+    db: Session,
+    *,
+    project_id: str,
+    task_id: str,
+) -> Task:
+    query = select(Task).where(Task.project_id == project_id, Task.id == task_id)
+    if db.bind is not None and db.bind.dialect.name != "sqlite":
+        query = query.with_for_update()
+    task = db.scalar(query)
+    if task is None:
+        raise DomainError(ErrorKind.not_found, "Task not found.")
+    return task
+
+
+def _column_or_404(db: Session, *, project_id: str, column_id: str) -> KanbanColumn:
+    column = db.scalar(
+        select(KanbanColumn).where(
+            KanbanColumn.project_id == project_id,
+            KanbanColumn.id == column_id,
+        ),
+    )
+    if column is None:
+        raise DomainError(ErrorKind.not_found, "Kanban column not found.")
+    return column
+
+
+def _initial_column_or_404(db: Session, *, project_id: str) -> KanbanColumn:
+    column = db.scalar(
+        select(KanbanColumn)
+        .where(KanbanColumn.project_id == project_id)
+        .order_by(KanbanColumn.position, KanbanColumn.id),
+    )
+    if column is None:
+        raise DomainError(ErrorKind.conflict, "Project has no Kanban column.")
+    return column
+
+
+def _next_position(db: Session, *, column_id: str) -> int:
+    current = db.scalar(
+        select(func.max(Task.kanban_position)).where(Task.kanban_column_id == column_id),
+    )
+    return 0 if current is None else int(current) + 1
+
+
+def _normalize_column_positions(db: Session, *, column_id: str) -> None:
+    tasks = db.scalars(
+        select(Task)
+        .where(Task.kanban_column_id == column_id)
+        .order_by(Task.kanban_position, Task.created_at, Task.id),
+    ).all()
+    for position, task in enumerate(tasks):
+        task.kanban_position = position
+
+
+def _validate_parent(
+    db: Session,
+    *,
+    company_id: str,
+    project_id: str,
+    parent_task_id: str | None,
+    task_id: str | None = None,
+) -> None:
+    if parent_task_id is None:
+        return
+    if task_id is not None and parent_task_id == task_id:
+        raise DomainError(ErrorKind.bad_request, "Task cannot be its own parent.")
+
+    parent = db.scalar(
+        select(Task)
+        .join(Project, Project.id == Task.project_id)
+        .where(Project.company_id == company_id, Task.id == parent_task_id),
+    )
+    if parent is None:
+        raise DomainError(ErrorKind.not_found, "Parent task not found.")
+    if parent.project_id != project_id:
+        raise DomainError(ErrorKind.bad_request, "Parent task must belong to the same project.")
+
+    if task_id is None:
+        return
+
+    current: Task | None = parent
+    visited: set[str] = set()
+    while current is not None:
+        if current.id == task_id or current.id in visited:
+            raise DomainError(ErrorKind.conflict, "Task hierarchy cycle detected.")
+        visited.add(current.id)
+        if current.parent_task_id is None:
+            break
+        current = db.get(Task, current.parent_task_id)
+
+
+def create_task(
+    db: Session,
+    *,
+    company_id: str,
+    project_id: str,
+    payload: TaskDraftPayload,
+    actor_user_id: str | None = None,
+) -> TaskResponse:
+    begin_serialized_write(db)
+    project = _locked_project_or_404(db, company_id=company_id, project_id=project_id)
+    request_key = payload.creation_key
+    digest = None
+    if request_key is not None:
+        canonical_payload = dumps(
+            payload.model_dump(mode="json", exclude={"creation_key"}),
+            sort_keys=True, separators=(",", ":"),
+        )
+        digest = lookup_digest(canonical_payload, get_settings().encryption_secret or "")
+        prior = db.get(TaskCreationRequest, (project.id, actor_user_id or "", request_key))
+        if prior is not None:
+            if prior.payload_digest != digest:
+                raise DomainError(
+                    ErrorKind.conflict,
+                    "Creation key was already used with different task fields.",
+                    code="task_creation_key_conflict",
+                )
+            snapshot = cipher().decrypt_json(prior.response_ciphertext)
+            return TaskResponse.model_validate(snapshot)
+    _validate_parent(
+        db,
+        company_id=company_id,
+        project_id=project.id,
+        parent_task_id=payload.parent_task_id,
+    )
+    column = (
+        _column_or_404(db, project_id=project.id, column_id=payload.column_id)
+        if payload.column_id is not None
+        else _initial_column_or_404(db, project_id=project.id)
+    )
+    field_cipher = cipher()
+    task = Task(
+        project_id=project.id,
+        parent_task_id=payload.parent_task_id,
+        card_number=project.next_card_number,
+        kanban_column_id=column.id,
+        kanban_position=_next_position(db, column_id=column.id),
+        name_ciphertext=field_cipher.encrypt(payload.name) or "",
+        description_ciphertext=field_cipher.encrypt(payload.description) or "",
+        type=payload.type.value if isinstance(payload.type, TaskType) else payload.type,
+    )
+    project.next_card_number += 1
+    project.kanban_version += 1
+    db.add(task)
+    db.flush()
+    result = serialize_task(task, field_cipher=field_cipher)
+    if request_key is not None:
+        db.add(TaskCreationRequest(
+            project_id=project.id,
+            actor_user_id=actor_user_id or "",
+            request_key=request_key,
+            payload_digest=digest,
+            task_id=task.id,
+            response_ciphertext=field_cipher.encrypt_json(
+                result.model_dump(mode="json", by_alias=True)
+            ),
+        ))
+    AuditService.log_action(
+        db,
+        company_id=company_id,
+        actor_user_id=actor_user_id,
+        project_id=project_id,
+        action="card.created",
+        entity_type="card",
+        entity_id=task.id,
+        metadata={"cardNumber": task.card_number},
+    )
+    db.commit()
+    return result
+
+
+def update_task(
+    db: Session,
+    *,
+    company_id: str,
+    project_id: str,
+    task_id: str,
+    payload: TaskUpdatePayload,
+    actor_user_id: str | None = None,
+) -> TaskResponse:
+    begin_serialized_write(db)
+    project = _locked_project_or_404(db, company_id=company_id, project_id=project_id)
+    task = _locked_task_or_404(db, project_id=project_id, task_id=task_id)
+    if (payload.expected_revision is not None
+            and task.revision != payload.expected_revision):
+        raise DomainError(
+            ErrorKind.conflict,
+            "Task was updated in another session.",
+            code="task_version_conflict",
+        )
+    if payload.expected_version is not None and project.kanban_version != payload.expected_version:
+        raise DomainError(
+            ErrorKind.conflict,
+            f"Kanban version conflict: expected {payload.expected_version}, current {project.kanban_version}.",
+            code="kanban_version_conflict",
+        )
+    if (payload.expected_updated_at is not None
+            and ensure_utc(task.updated_at) != ensure_utc(payload.expected_updated_at)):
+        raise DomainError(
+            ErrorKind.conflict,
+            "Task was updated in another session.",
+            code="task_version_conflict",
+        )
+    _validate_parent(
+        db,
+        company_id=company_id,
+        project_id=project_id,
+        parent_task_id=payload.parent_task_id,
+        task_id=task.id,
+    )
+    field_cipher = cipher()
+    changed_fields: list[str] = []
+    if task.parent_task_id != payload.parent_task_id:
+        changed_fields.append("parentTaskId")
+    if field_cipher.decrypt(task.name_ciphertext) != payload.name:
+        changed_fields.append("name")
+    if field_cipher.decrypt(task.description_ciphertext) != payload.description:
+        changed_fields.append("description")
+    new_type = payload.type.value if isinstance(payload.type, TaskType) else payload.type
+    if task.type != new_type:
+        changed_fields.append("type")
+    task.parent_task_id = payload.parent_task_id
+    task.name_ciphertext = field_cipher.encrypt(payload.name) or ""
+    task.description_ciphertext = field_cipher.encrypt(payload.description) or ""
+    task.type = new_type
+    task.revision += 1
+    project.kanban_version += 1
+    if changed_fields:
+        AuditService.log_action(
+            db,
+            company_id=company_id,
+            actor_user_id=actor_user_id,
+            project_id=project_id,
+            action="card.updated",
+            entity_type="card",
+            entity_id=task.id,
+            metadata={
+                "cardNumber": task.card_number,
+                "changedFields": changed_fields,
+            },
+        )
+    db.commit()
+    db.refresh(task)
+    return serialize_task(task, field_cipher=field_cipher)
+
+
+def delete_task(
+    db: Session,
+    *,
+    company_id: str,
+    project_id: str,
+    task_id: str,
+    actor_user_id: str | None = None,
+) -> None:
+    begin_serialized_write(db)
+    project = _locked_project_or_404(db, company_id=company_id, project_id=project_id)
+    task = _locked_task_or_404(db, project_id=project_id, task_id=task_id)
+    child_exists = db.scalar(
+        select(Task.id).where(Task.parent_task_id == task.id).limit(1),
+    )
+    if child_exists is not None:
+        raise DomainError(ErrorKind.conflict, "Task with children cannot be deleted.")
+    column_id = task.kanban_column_id
+    card_number = task.card_number
+    db.delete(task)
+    db.flush()
+    _normalize_column_positions(db, column_id=column_id)
+    project.kanban_version += 1
+    AuditService.log_action(
+        db,
+        company_id=company_id,
+        actor_user_id=actor_user_id,
+        project_id=project_id,
+        action="card.deleted",
+        entity_type="card",
+        entity_id=task_id,
+        metadata={"cardNumber": card_number},
+    )
+    db.commit()
+
+
+def add_task_member(
+    db: Session,
+    *,
+    company_id: str,
+    project_id: str,
+    task_id: str,
+    employee_id: str,
+    actor_user_id: str | None = None,
+    requester_employee_id: str | None = None,
+) -> tuple[TaskMemberSummary, bool]:
+    begin_serialized_write(db)
+    project = _locked_project_or_404(db, company_id=company_id, project_id=project_id)
+    _ensure_locked_project_access(db, project_id=project.id, requester_employee_id=requester_employee_id)
+    task = _locked_task_or_404(db, project_id=project_id, task_id=task_id)
+    employee = employee_or_404(db, company_id=company_id, employee_id=employee_id)
+    project_link = db.scalar(
+        select(EmployeeProject).where(
+            EmployeeProject.project_id == project.id,
+            EmployeeProject.employee_id == employee.id,
+        ),
+    )
+    if project_link is None:
+        raise DomainError(ErrorKind.conflict, "Employee is not assigned to this project.")
+
+    existing = db.scalar(
+        select(TaskEmployee)
+        .options(selectinload(TaskEmployee.employee))
+        .where(TaskEmployee.task_id == task.id, TaskEmployee.employee_id == employee.id),
+    )
+    field_cipher = cipher()
+    if existing is not None:
+        return serialize_task_member(existing, field_cipher=field_cipher), False
+
+    member_count = db.scalar(
+        select(func.count()).select_from(TaskEmployee).where(TaskEmployee.task_id == task.id),
+    ) or 0
+    if member_count >= project.task_employee_limit:
+        raise DomainError(ErrorKind.conflict, "Task employee capacity reached.")
+
+    link = TaskEmployee(task_id=task.id, employee_id=employee.id)
+    db.add(link)
+    db.flush()
+    project.kanban_version += 1
+    AuditService.log_action(
+        db,
+        company_id=company_id,
+        actor_user_id=actor_user_id,
+        project_id=project_id,
+        action="card.assignee_added",
+        entity_type="card",
+        entity_id=task.id,
+        metadata={
+            "cardNumber": task.card_number,
+            "employeeId": employee.id,
+        },
+    )
+    db.commit()
+    db.refresh(link)
+    link.employee = employee
+    return serialize_task_member(link, field_cipher=field_cipher), True
+
+
+def remove_task_member(
+    db: Session,
+    *,
+    company_id: str,
+    project_id: str,
+    task_id: str,
+    employee_id: str,
+    actor_user_id: str | None = None,
+    requester_employee_id: str | None = None,
+) -> None:
+    begin_serialized_write(db)
+    project = _locked_project_or_404(db, company_id=company_id, project_id=project_id)
+    _ensure_locked_project_access(db, project_id=project.id, requester_employee_id=requester_employee_id)
+    task = _locked_task_or_404(db, project_id=project_id, task_id=task_id)
+    employee_or_404(db, company_id=company_id, employee_id=employee_id)
+    link = db.scalar(
+        select(TaskEmployee).where(
+            TaskEmployee.task_id == task.id,
+            TaskEmployee.employee_id == employee_id,
+        ),
+    )
+    if link is not None:
+        db.delete(link)
+        project.kanban_version += 1
+        AuditService.log_action(
+            db,
+            company_id=company_id,
+            actor_user_id=actor_user_id,
+            project_id=project_id,
+            action="card.assignee_removed",
+            entity_type="card",
+            entity_id=task.id,
+            metadata={
+                "cardNumber": task.card_number,
+                "employeeId": employee_id,
+            },
+        )
+        db.commit()

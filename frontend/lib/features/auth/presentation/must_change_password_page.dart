@@ -1,11 +1,14 @@
-import 'package:bunchin_flutter/core/network/bunchin_api.dart';
-import 'package:bunchin_flutter/features/admin/presentation/admin_employees_page.dart';
-import 'package:bunchin_flutter/features/auth/presentation/auth_submission_mixin.dart';
-import 'package:bunchin_flutter/features/auth/presentation/widgets/auth_shell.dart';
+import 'package:touchin_flutter/core/network/touchin_api.dart';
+import 'package:touchin_flutter/core/navigation/workspace_router.dart';
+import 'package:touchin_flutter/features/auth/presentation/auth_submission_mixin.dart';
+import 'package:touchin_flutter/features/auth/presentation/widgets/auth_shell.dart';
+import 'package:touchin_flutter/features/auth/presentation/logout_navigation.dart';
 import 'package:flutter/material.dart';
 
 class MustChangePasswordPage extends StatefulWidget {
-  const MustChangePasswordPage({super.key});
+  const MustChangePasswordPage({super.key, this.api});
+
+  final TouchInApi? api;
 
   @override
   State<MustChangePasswordPage> createState() => _MustChangePasswordPageState();
@@ -13,7 +16,7 @@ class MustChangePasswordPage extends StatefulWidget {
 
 class _MustChangePasswordPageState extends State<MustChangePasswordPage>
     with AuthSubmissionMixin<MustChangePasswordPage> {
-  final BunchinApi _api = BunchinApi();
+  TouchInApi get _api => widget.api ?? TouchInApi();
   final _formKey = GlobalKey<FormState>();
   final _currentPasswordController = TextEditingController();
   final _newPasswordController = TextEditingController();
@@ -22,6 +25,7 @@ class _MustChangePasswordPageState extends State<MustChangePasswordPage>
   bool _obscureCurrent = true;
   bool _obscureNew = true;
   bool _obscureConfirm = true;
+  bool _hasValidationErrors = false;
 
   @override
   void dispose() {
@@ -32,31 +36,43 @@ class _MustChangePasswordPageState extends State<MustChangePasswordPage>
   }
 
   Future<void> _submit() async {
+    if (isSubmitting) return;
     FocusScope.of(context).unfocus();
 
-    if (!_formKey.currentState!.validate()) {
+    final valid = _formKey.currentState!.validate();
+    setState(() => _hasValidationErrors = !valid);
+    if (!valid) {
       return;
     }
 
+    // A previous error must not follow us to login, even when revalidation
+    // signs out before the password-change response reaches this page.
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..removeCurrentSnackBar();
+    final api = _api;
+    final currentPassword = _currentPasswordController.text;
+    final newPassword = _newPasswordController.text;
+    final router = WorkspaceRouterScope.maybeOf(context);
+
     await submitAuthAction(
       action: () {
-        return _api.changePassword(
-          currentPassword: _currentPasswordController.text,
-          newPassword: _newPasswordController.text,
+        Future<void> request([String? token]) => api.changePassword(
+              currentPassword: currentPassword,
+              newPassword: newPassword,
+              sessionToken: token,
+            );
+        if (router == null) return request();
+        return router.completeRequiredPasswordChange(
+          request: request,
+          clearCredentials: (token) =>
+              api.clearLocalSession(expectedToken: token),
         );
       },
       onSuccess: (_) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Senha redefinida com sucesso.'),
-          ),
-        );
-
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute<void>(
-            builder: (_) => const AdminEmployeesPage(),
-          ),
-        );
+        if (router == null) {
+          logoutFromWorkspace(context, api: api, requiredPasswordChanged: true);
+        }
       },
       genericErrorMessage: 'Não foi possível redefinir sua senha.',
     );
@@ -77,7 +93,7 @@ class _MustChangePasswordPageState extends State<MustChangePasswordPage>
       return 'Confirme a nova senha.';
     }
     if (value != _newPasswordController.text) {
-      return 'As senhas nao conferem.';
+      return 'As senhas não conferem.';
     }
     return null;
   }
@@ -102,11 +118,10 @@ class _MustChangePasswordPageState extends State<MustChangePasswordPage>
         labelText: label,
         hintText: hint,
         prefixIcon: const Icon(Icons.lock_outline_rounded),
-        suffixIcon: IconButton(
+        suffixIcon: AuthPasswordVisibilityButton(
+          fieldName: label.toLowerCase(),
+          isObscured: obscure,
           onPressed: () => onToggleObscure(!obscure),
-          icon: Icon(
-            obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-          ),
         ),
       ),
       validator: validator,
@@ -116,12 +131,14 @@ class _MustChangePasswordPageState extends State<MustChangePasswordPage>
   @override
   Widget build(BuildContext context) {
     return AuthShell(
+      brandStep: '04',
       brandHeadline: 'Redefinição obrigatória de senha.',
+      brandImageUrl: AuthBrandImages.changePassword,
       brandDescription:
           'Você está usando uma senha temporária. Crie uma nova senha para continuar.',
       brandTags: const [
         'E2E Encryption',
-        'Seguranca',
+        'Segurança',
         'Cloud Native',
       ],
       formPanel: _buildFormPanel(context),
@@ -149,11 +166,12 @@ class _MustChangePasswordPageState extends State<MustChangePasswordPage>
               ),
             ),
             const SizedBox(height: 24),
+            if (_hasValidationErrors) const AuthFormValidationMessage(),
             _buildPasswordField(
               controller: _currentPasswordController,
               obscure: _obscureCurrent,
               onToggleObscure: (v) => setState(() => _obscureCurrent = v),
-              label: 'Senha atual (temporaria)',
+              label: 'Senha atual (temporária)',
               hint: 'Digite a senha recebida por e-mail',
               validator: _validatePassword,
             ),
@@ -163,7 +181,7 @@ class _MustChangePasswordPageState extends State<MustChangePasswordPage>
               obscure: _obscureNew,
               onToggleObscure: (v) => setState(() => _obscureNew = v),
               label: 'Nova senha',
-              hint: 'Minimo de 8 caracteres',
+              hint: 'Mínimo de 8 caracteres',
               validator: _validatePassword,
             ),
             const SizedBox(height: 16),
@@ -187,11 +205,7 @@ class _MustChangePasswordPageState extends State<MustChangePasswordPage>
                         _submit();
                       },
                 child: isSubmitting
-                    ? const SizedBox(
-                        height: 18,
-                        width: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
+                    ? const AuthSubmissionIndicator(label: 'Redefinindo senha')
                     : const Text('Redefinir senha'),
               ),
             ),

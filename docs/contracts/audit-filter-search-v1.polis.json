@@ -1,0 +1,171 @@
+{
+  "schema_version": 6,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      "docs/contracts/audit-filter-search-v1.polis.json",
+      "backend/app/domain/audit_read.py",
+      "backend/tests/test_audit.py",
+      "frontend/lib/features/admin/presentation/admin_audit_page.dart",
+      "frontend/lib/features/admin/presentation/admin_audit_page_widgets.dart",
+      "frontend/test/admin_audit_page_test.dart",
+      "frontend/test/admin_audit_export_test.dart"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "backend/tests/test_audit.py",
+      "frontend/test/admin_audit_page_test.dart",
+      "frontend/test/admin_audit_export_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Make audit ID filters match substrings and replace technical action, entity-type, and result text filters with readable Portuguese dropdowns.",
+    "requirements": [
+      {
+        "id": "REQ-AUDIT-FILTER-01",
+        "statement": "Actor user ID, entity ID, and project ID filters match any literal substring of the corresponding identifier before pagination, without bypassing company scope."
+      },
+      {
+        "id": "REQ-AUDIT-FILTER-02",
+        "statement": "Action, entity type, and result filters are selectable from Portuguese dropdown labels while sending the existing technical values to the API."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-AUDIT-FILTER-01",
+        "statement": "Backend regression tests verify partial actor, entity, and project ID matches, including literal wildcard characters, through the audit list endpoint; CSV export continues to reuse the same filters.",
+        "requirements": [
+          "REQ-AUDIT-FILTER-01"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-AUDIT-FILTER-02",
+        "statement": "Widget tests verify action, entity-type, and result are Portuguese dropdowns in the audit filter UI, and applying them forwards their technical values alongside partial ID strings.",
+        "requirements": [
+          "REQ-AUDIT-FILTER-02"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-AUDIT-FILTER-DOC-01",
+        "statement": "docs/contracts/audit-filter-search-v1.polis.json is byte-for-byte identical to the locked contract.",
+        "requirements": [
+          "REQ-AUDIT-FILTER-01",
+          "REQ-AUDIT-FILTER-02"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-AUDIT-FILTER-01",
+        "statement": "Preserve tenant/company isolation, date and exact action/type/result filtering, sorting, pagination, export behavior, and existing accessibility labels and controls."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-AUDIT-FILTER-01",
+        "statement": "Partial IDs are treated as exact values or SQL wildcard syntax; any query exposes another company's events; or dropdown labels expose only technical codes/lose the API values."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-AUDIT-FILTER-01",
+        "statement": "Audit filter text for actor user ID, entity ID, and project ID, plus selected action, entity type, and result options."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-AUDIT-FILTER-01",
+        "statement": "Paginated audit rows and CSV exports matching ID substrings, with localized Portuguese filter choices for action, entity type, and result."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-AUDIT-FILTER-01",
+        "statement": "The focused audit filter widget test fails with audit_filter_dropdowns_pt_br when the fields are not Portuguese dropdowns or selected API values are incorrect."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "84ebba84aaec33b8572879775f7d137f4c467521",
+    "base_tree": "4802ec515cd789c9d4858e17f6c52339a52bf143",
+    "policy_sha256": "7714a10ab2b65f58941086f500de93fa62fc6acb6fd59d8b39292980364774dd",
+    "specification_sha256": "a3a1aa6650d58f15899a0dc08f091496bd3a695f0e5d455ef581868278fea20a"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "--exclude-tags",
+      "canonical-golden",
+      "test/admin_audit_page_test.dart",
+      "--plain-name",
+      "audit filters and known event values are presented in pt-BR while requests keep technical IDs"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 360,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "python",
+      "scripts/polis_tests.py"
+    ],
+    "cwd": ".",
+    "timeout_seconds": 1200,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "--exclude-tags",
+        "canonical-golden",
+        "test/admin_audit_page_test.dart",
+        "--plain-name",
+        "audit filters and known event values are presented in pt-BR while requests keep technical IDs"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 360,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "audit_filter_dropdowns_pt_br"
+    ]
+  }
+}

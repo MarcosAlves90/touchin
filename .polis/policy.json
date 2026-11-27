@@ -1,0 +1,115 @@
+{
+  "schema_version": 3,
+  "validation_level": "standard",
+  "gates": [
+    {
+      "id": "test.complete",
+      "mode": "command",
+      "command": {
+        "argv": [
+          "python",
+          "scripts/polis_tests.py"
+        ],
+        "cwd": ".",
+        "timeout_seconds": 1200,
+        "environment": {
+          "mode": "clean",
+          "pass": [
+            "PATH",
+            "HOME",
+            "TMPDIR",
+            "TMP",
+            "TEMP",
+            "SystemRoot",
+            "COMSPEC",
+            "PATHEXT",
+            "USERPROFILE",
+            "LOCALAPPDATA",
+            "PYTHONUTF8",
+            "PYTHONIOENCODING"
+          ]
+        }
+      }
+    },
+    {
+      "id": "coverage",
+      "mode": "not_applicable",
+      "reason": "disabled by explicit validation configuration at level \"standard\""
+    },
+    {
+      "id": "lint",
+      "mode": "command",
+      "command": {
+        "argv": [
+          "dart",
+          "analyze",
+          "lib",
+          "test"
+        ],
+        "cwd": "frontend",
+        "timeout_seconds": 600,
+        "environment": {
+          "mode": "clean",
+          "pass": ["PATH", "HOME", "TMPDIR", "TMP", "TEMP", "SystemRoot", "COMSPEC", "PATHEXT", "PYTHONUTF8", "PYTHONIOENCODING"]
+        }
+      }
+    },
+    {
+      "id": "typecheck",
+      "mode": "not_applicable",
+      "reason": "custom profile has no explicit command for typecheck"
+    },
+    {
+      "id": "build",
+      "mode": "command",
+      "command": {
+        "argv": ["flutter", "build", "web", "--release"],
+        "cwd": "frontend",
+        "timeout_seconds": 1200,
+        "environment": {
+          "mode": "clean",
+          "pass": ["PATH", "HOME", "TMPDIR", "TMP", "TEMP", "SystemRoot", "COMSPEC", "PATHEXT", "PYTHONUTF8", "PYTHONIOENCODING"]
+        }
+      }
+    },
+    {
+      "id": "smoke",
+      "mode": "command",
+      "depends_on": ["build"],
+      "command": {
+        "argv": ["node", "test/browser/first_paint_smoke.mjs"],
+        "cwd": "frontend",
+        "timeout_seconds": 300,
+        "environment": {
+          "mode": "clean",
+          "pass": ["PATH", "HOME", "TMPDIR", "TMP", "TEMP", "SystemRoot", "COMSPEC", "PATHEXT", "PYTHONUTF8", "PYTHONIOENCODING", "TOUCHIN_CHROME", "TOUCHIN_CHROME_NO_SANDBOX"]
+        }
+      }
+    },
+    {
+      "id": "compatibility",
+      "mode": "not_applicable",
+      "reason": "custom profile has no explicit command for compatibility"
+    },
+    {
+      "id": "dependency",
+      "mode": "not_applicable",
+      "reason": "custom profile has no explicit command for dependency"
+    },
+    {
+      "id": "migration",
+      "mode": "not_applicable",
+      "reason": "custom profile has no explicit command for migration"
+    },
+    {
+      "id": "security",
+      "mode": "not_applicable",
+      "reason": "custom profile has no explicit command for security"
+    },
+    {
+      "id": "platform",
+      "mode": "not_applicable",
+      "reason": "custom profile has no explicit command for platform"
+    }
+  ]
+}

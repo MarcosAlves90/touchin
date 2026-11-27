@@ -1,0 +1,162 @@
+{
+  "schema_version": 6,
+  "kind": "behavior_preserving",
+  "scope": {
+    "allowed_paths": [
+      "frontend/test/admin_employees_page_test.dart",
+      "frontend/pubspec.yaml",
+      "docs/contracts/profile-tab-focus-rendering-v2.polis.json",
+      "frontend/test/fixtures/poppins/Poppins-Regular.ttf",
+      "frontend/test/fixtures/poppins/Poppins-Medium.ttf",
+      "frontend/test/fixtures/poppins/Poppins-SemiBold.ttf",
+      "frontend/test/fixtures/poppins/Poppins-Bold.ttf",
+      "frontend/test/fixtures/poppins/OFL.txt",
+      "frontend/test/fixtures/poppins/README.txt"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/admin_employees_page_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Supersedes profile-tab-focus-rendering-v1: characterize actual rendered keyboard focus border pixels and stable geometry without network, using licensed genuine Poppins fixtures; no production behavior changes.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "Test actual rendered focus border pixels and contrast on selected and unselected profile tabs without network, with genuine licensed Poppins font assets."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "Test tab geometry, semantics, keyboard traversal and activation across light and dark, normal and high contrast, mobile and desktop."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "Archive the locked v2 contract byte-identically; preserve fixture provenance and OFL license."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "Widget tests compare rendered pixels and tab rectangles before and after keyboard focus and activation, exercising selection and semantics across themes and viewports.",
+        "requirements": [
+          "REQ-001",
+          "REQ-002"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "Archived v2 contract is byte-identical to locked contract, and Poppins fixtures include pinned upstream provenance and OFL license.",
+        "requirements": [
+          "REQ-003"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "No global changes or changes to unrelated tabs, content or behavior."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "Focus and selection are visually indistinguishable."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "Theme, viewport, employee and selection actions."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "Accessible profile tab selection."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "Regression fails on incorrect selected indicator."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "fcd23ea4517a14aaaa357abb22d5f138c0bf1141",
+    "base_tree": "2c1b72f52d64c3216a93b408097f3664ee0cca1e",
+    "policy_sha256": "7714a10ab2b65f58941086f500de93fa62fc6acb6fd59d8b39292980364774dd",
+    "specification_sha256": "bcd6f51afacf010df7b17744e8f1ed393c887fb7d8da5ba732927cb88f302a6e"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "--reporter",
+      "expanded",
+      "test/admin_employees_page_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "--reporter",
+      "expanded",
+      "test/admin_employees_page_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "green_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "--reporter",
+        "expanded",
+        "test/admin_contrast_test.dart"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 600,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    }
+  }
+}

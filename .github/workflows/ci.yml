@@ -2,7 +2,18 @@ name: CI
 
 on:
   push:
+    branches:
+      - main
   pull_request:
+  workflow_dispatch:
+
+concurrency:
+  # Coalesce updates to a PR, but let main pushes and manual runs finish.
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
 
 jobs:
   backend-tests:
@@ -28,10 +39,219 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Run backend tests
-        run: pytest
+        run: >-
+          pytest --cov=app --cov-report=term-missing
+          --cov-report=xml:coverage/coverage.xml
+          --cov-report=html:coverage/html
+
+      - name: Upload backend coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: backend/coverage/
+          if-no-files-found: warn
+          retention-days: 7
+
+  postgres-concurrency-tests:
+    name: PostgreSQL concurrency tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: touchin_ci
+          POSTGRES_PASSWORD: touchin_ci_test_password
+          POSTGRES_DB: touchin_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U touchin_ci -d touchin_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    defaults:
+      run:
+        working-directory: backend
+
+    env:
+      PGPASSWORD: touchin_ci_test_password
+      TOUCHIN_TIME_CLOCK_PG_URL: postgresql+psycopg2://touchin_ci:touchin_ci_test_password@127.0.0.1:5432/touchin_time_clock_test_ci
+      TOUCHIN_PR67_PG_URL: postgresql+psycopg2://touchin_ci:touchin_ci_test_password@127.0.0.1:5432/touchin_pr67_adversarial_ci
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install backend dependencies
+        run: pip install -r requirements.txt
+
+      - name: Create disposable concurrency databases
+        run: |
+          psql -h 127.0.0.1 -U touchin_ci -d touchin_ci -v ON_ERROR_STOP=1 \
+            -c 'CREATE DATABASE touchin_time_clock_test_ci'
+          psql -h 127.0.0.1 -U touchin_ci -d touchin_ci -v ON_ERROR_STOP=1 \
+            -c 'CREATE DATABASE touchin_pr67_adversarial_ci'
+
+      - name: Run PostgreSQL Kanban concurrency and adversarial tests
+        run: pytest -q tests/test_postgres_kanban_adversarial.py
+
+      - name: Run PostgreSQL time-clock concurrency tests
+        run: pytest -q tests/test_time_clock_integrity.py -k postgres
+
+      - name: Run PostgreSQL password-reset and login concurrency tests
+        run: pytest -q tests/test_password_reset_concurrency.py -k pg_login
 
   frontend-tests:
     name: Frontend tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python for POLIS
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Confirm Flutter test runtime
+        run: flutter --version
+
+      - name: Install frontend dependencies
+        run: flutter pub get
+
+      - name: Install LCOV report generator
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends --yes lcov
+
+      - name: Verify frontend defaults to production
+        run: flutter test --no-pub test/developer_preview_entry_test.dart
+
+      - name: Run frontend tests
+        id: flutter_suite
+        # Hosted Linux flutter_tester consistently SIGSEGVs after ~280 tests
+        # in one coverage session; isolated tests and WSL suites pass. Run all
+        # files in bounded sessions and merge their LCOV reports afterward.
+        run: python3 ../scripts/run_frontend_coverage.py
+
+      - name: Diagnose native Flutter tester failure on Ubuntu
+        if: failure() && steps.flutter_suite.outcome == 'failure'
+        run: |
+          echo "Kernel: $(uname -a)"
+          echo "Core dump handler: $(cat /proc/sys/kernel/core_pattern)"
+          echo 'Recent native process faults (no core files uploaded):'
+          sudo dmesg --ctime 2>&1 | grep -Ei 'flutter_tester|segfault|SIGSEGV|general protection|out of memory' | tail -n 50 || true
+          echo 'Remaining Flutter tester processes:'
+          ps -eo pid,ppid,stat,comm | grep '[f]lutter_tester' || true
+
+      # Only after a full-suite failure: probe the native engine separately,
+      # without changing the test order, coverage, or outcome of normal runs.
+      - name: Probe isolated Kanban tester without coverage
+        if: failure() && steps.flutter_suite.outcome == 'failure'
+        continue-on-error: true
+        run: >-
+          timeout --signal=TERM --kill-after=30s 3m
+          flutter test --no-pub --concurrency=1 --reporter expanded
+          test/features/projects/presentation/project_kanban_board_test.dart
+
+      - name: Probe isolated Kanban tester with coverage
+        if: failure() && steps.flutter_suite.outcome == 'failure'
+        continue-on-error: true
+        run: >-
+          timeout --signal=TERM --kill-after=30s 3m
+          flutter test --no-pub --coverage
+          --coverage-path="$RUNNER_TEMP/kanban-probe.lcov"
+          --concurrency=1 --reporter expanded
+          test/features/projects/presentation/project_kanban_board_test.dart
+
+      - name: Generate frontend HTML coverage report
+        run: genhtml coverage/lcov.info --output-directory coverage/html --title "TouchIn Flutter coverage" --legend
+
+      - name: Upload frontend coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage
+          path: frontend/coverage/
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Test POLIS CI gate runner
+        working-directory: .
+        run: python3 -B -m unittest discover -s scripts/tests -v
+
+      - name: Set up Go for POLIS CLI
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.0'
+
+      - name: Install POLIS CLI v6.12.0
+        working-directory: .
+        run: go install github.com/MarcosAlves90/polis/v6/cmd/polis@v6.12.0
+
+      - name: Set up Node.js for browser smoke
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Test case-insensitive CSP script extraction
+        working-directory: frontend
+        run: node test/browser/first_paint_html_parser_test.mjs
+
+      - name: Validate POLIS policy and plan
+        working-directory: .
+        run: |
+          "$(go env GOPATH)/bin/polis" doctor --repo .
+          "$(go env GOPATH)/bin/polis" plan --repo .
+
+      - name: Analyze full Flutter source and tests with POLIS
+        working-directory: .
+        run: |
+          "$(go env GOPATH)/bin/polis" gates --repo . --gate lint
+
+      - name: Set up Chrome for browser smoke
+        id: chrome
+        uses: browser-actions/setup-chrome@v2
+
+      - name: Build Flutter Web and run visual smoke with POLIS CLI
+        working-directory: .
+        env:
+          TOUCHIN_CHROME: ${{ steps.chrome.outputs.chrome-path }}
+          # Ubuntu Actions restricts Chrome's user-namespace sandbox; limit the
+          # opt-out to this isolated, headless CI browser smoke process.
+          TOUCHIN_CHROME_NO_SANDBOX: '1'
+        run: |
+          "$(go env GOPATH)/bin/polis" gates --repo . --gate build --gate smoke
+
+      - name: Verify authenticated browser navigation history in Chrome
+        working-directory: frontend
+        env:
+          TOUCHIN_CHROME: ${{ steps.chrome.outputs.chrome-path }}
+          TOUCHIN_CHROME_NO_SANDBOX: '1'
+        run: node test/browser/navigation_history_smoke.mjs
+
+  frontend-golden-ubuntu:
+    name: Frontend visual goldens (Ubuntu, Flutter 3.47.2)
     runs-on: ubuntu-latest
 
     defaults:
@@ -42,6 +262,46 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Set up Flutter 3.47.2 for canonical goldens
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.2'
+          cache: true
+
+      - name: Confirm canonical Flutter runtime
+        run: flutter --version
+
+      - name: Install frontend dependencies
+        run: flutter pub get
+
+      - name: Compare canonical navigation goldens
+        run: flutter test --tags canonical-golden
+
+      - name: Upload canonical golden failure images
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: canonical-navigation-golden-failure-images
+          path: frontend/test/features/shared/presentation/widgets/failures/
+          if-no-files-found: warn
+
+  windows-polis-gates:
+    name: POLIS gates (Windows)
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install backend dependencies
+        if: github.event_name != 'pull_request'
+        run: python -m pip install -r backend/requirements.txt
+
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -49,7 +309,77 @@ jobs:
           cache: true
 
       - name: Install frontend dependencies
+        working-directory: frontend
         run: flutter pub get
 
-      - name: Run frontend tests
-        run: flutter test
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Set up Go for POLIS CLI
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.0'
+
+      - name: Install POLIS CLI v6.12.0
+        run: go install github.com/MarcosAlves90/polis/v6/cmd/polis@v6.12.0
+
+      - name: Set up Chrome for browser smoke
+        if: github.event_name != 'pull_request'
+        id: chrome
+        uses: browser-actions/setup-chrome@v2
+
+      - name: Validate POLIS policy and plan
+        shell: pwsh
+        run: |
+          $polis = Join-Path (go env GOPATH) 'bin/polis.exe'
+          & $polis doctor --repo .
+          & $polis plan --repo .
+
+      # Linux runs the full suites and real browser smoke on every PR.
+      # Keep Windows process/CLI and targeted Flutter coverage before merge.
+      - name: Test POLIS adapter on Windows
+        if: github.event_name == 'pull_request'
+        run: python -B -m unittest discover -s scripts/tests -v
+
+      - name: Analyze Flutter with POLIS on Windows
+        if: github.event_name == 'pull_request'
+        shell: pwsh
+        run: |
+          $polis = Join-Path (go env GOPATH) 'bin/polis.exe'
+          & $polis gates --repo . --gate lint
+
+      - name: Test Flutter navigation on Windows
+        if: github.event_name == 'pull_request'
+        working-directory: frontend
+        run: >-
+          flutter test --no-pub --exclude-tags canonical-golden
+          test/core/navigation
+          test/features/auth/auth_session_navigation_test.dart
+
+      - name: Run enabled POLIS gates on Windows
+        if: github.event_name != 'pull_request'
+        id: polis-gates
+        shell: pwsh
+        env:
+          TOUCHIN_CHROME: ${{ steps.chrome.outputs.chrome-path }}
+        run: |
+          $polis = Join-Path (go env GOPATH) 'bin/polis.exe'
+          & $polis gates --repo . --gate test.complete --gate lint --gate build --gate smoke
+
+      - name: Print Windows POLIS gate command output after failure
+        if: always() && steps.polis-gates.outcome == 'failure'
+        continue-on-error: true
+        shell: pwsh
+        env:
+          TOUCHIN_CHROME: ${{ steps.chrome.outputs.chrome-path }}
+        run: |
+          python scripts/run_polis_gates.py test.complete
+          $testExit = $LASTEXITCODE
+          python scripts/run_polis_gates.py smoke
+          $smokeExit = $LASTEXITCODE
+          if ($testExit -ne 0 -or $smokeExit -ne 0) {
+            Write-Host "Diagnostic gate exits: test.complete=$testExit smoke=$smokeExit"
+            exit 1
+          }

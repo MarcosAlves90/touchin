@@ -27,7 +27,9 @@ class PaginationControls extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final buttonStyle = FilledButton.styleFrom(
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.all(Radius.circular(8)),
+      ),
     );
 
     return LayoutBuilder(

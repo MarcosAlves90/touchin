@@ -1,0 +1,48 @@
+name: Feature request
+description: Propose an improvement or new capability
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: >
+        Do not include credentials, access tokens, personal data, or unredacted logs.
+        Redact sensitive details before submitting any optional evidence.
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Problem or motivation
+      description: What need or problem should this address, and who is affected?
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Expected outcome
+      description: Describe the behavior or result you want.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope, alternatives, or constraints (optional)
+      description: Note relevant boundaries, alternatives considered, or constraints. Use N/A if none.
+    validations:
+      required: false
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance criteria
+      description: List observable conditions that would show the request is complete.
+      placeholder: |
+        - [ ] ...
+        - [ ] ...
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Supporting evidence (optional)
+      description: Add sanitized screenshots or relevant context only if useful. Never include credentials, tokens, personal data, or unredacted logs.
+    validations:
+      required: false

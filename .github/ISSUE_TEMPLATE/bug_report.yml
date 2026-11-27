@@ -1,0 +1,71 @@
+name: Bug report
+description: Report a reproducible problem
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: >
+        Share only information needed to investigate. Never include credentials,
+        access tokens, personal data, or unredacted logs. Redact sensitive details
+        before submitting.
+  - type: input
+    id: summary
+    attributes:
+      label: Summary
+      description: Briefly describe the problem.
+      placeholder: What happened?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Include the sequence that reliably triggers the problem; enter N/A if it cannot be reproduced.
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What did you observe?
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What should have happened?
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment and version
+      description: Add relevant app version, browser, OS, or device details. Use N/A or unknown where needed.
+      placeholder: App/version, browser, OS/device
+    validations:
+      required: false
+  - type: dropdown
+    id: impact
+    attributes:
+      label: Impact
+      description: How much does this affect your work?
+      options:
+        - Blocks work
+        - Major disruption
+        - Minor disruption
+        - Cosmetic or unclear
+    validations:
+      required: false
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Supporting evidence (optional)
+      description: Add a screenshot or relevant, sanitized log excerpt only if it helps explain the problem. Never include credentials, tokens, personal data, or unredacted logs.
+    validations:
+      required: false

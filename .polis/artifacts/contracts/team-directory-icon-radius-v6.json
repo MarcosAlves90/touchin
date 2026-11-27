@@ -1,0 +1,186 @@
+{
+  "schema_version": 6,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      ".polis/artifacts/contracts/team-directory-icon-radius-v6.json",
+      "docs/validation/team-directory-icon-radius/README.md",
+      "docs/validation/team-directory-icon-radius/polis/red-regression.patch",
+      "docs/validation/team-directory-icon-radius/polis/workspace-validation.json",
+      "frontend/lib/features/admin/presentation/admin_employees_page_widgets.dart",
+      "frontend/test/admin_employees_page_test.dart"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/admin_employees_page_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Round the leading employee icon in the wide Team directory so it matches the 8 px radius already used by equivalent icon tiles after PR #137, without changing selection or high-contrast behavior.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "In the non-compact Team directory, the leading employee badge icon container uses an 8 px BorderRadius in both light and dark themes."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "The container keeps its existing size, fill colors, border colors and selected/high-contrast states; only the corner radius changes."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "Compact Team layouts continue to omit the leading employee icon."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "A widget test at 1440 px in light and dark themes locates the container that wraps Icons.badge_rounded and proves its BoxDecoration borderRadius equals BorderRadius.circular(8).",
+        "requirements": [
+          "REQ-001"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "The same test proves the container remains 40 x 40 with a border, and the existing Team page tests, including selection, high-contrast and compact-layout cases, keep passing.",
+        "requirements": [
+          "REQ-002",
+          "REQ-003"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "The change is presentation-only; API calls, permissions, employee data and navigation are unchanged."
+      },
+      {
+        "id": "INV-002",
+        "statement": "Selected and high-contrast colors of the icon container remain those defined by AppTheme.adminColors and the color scheme."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "The wide Team directory renders the leading employee icon with square corners."
+      },
+      {
+        "id": "FORB-002",
+        "statement": "The compact Team layout starts rendering the leading employee icon."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "The Team directory at the locked baseline, where the leading icon BoxDecoration has no borderRadius."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "A one-line radius correction in the employee list tile and a focused regression test, with retained POLIS Red and validation evidence."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "The Red probe fails on the locked baseline because the leading icon container borderRadius is null instead of BorderRadius.circular(8); the target passes the same test."
+      },
+      {
+        "id": "FAIL-002",
+        "statement": "Compilation or setup errors are not accepted as behavioral Red evidence."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "eec9284206ca938cafe9de78af7c82f015061f7d",
+    "base_tree": "d1e08610597ca30a2e20b3a17638fe8817554e55",
+    "policy_sha256": "5563facc34ae2a1a07cf7ec7ec2f115cb8d250c49dd6e2bd5c7a3de4c977d450",
+    "specification_sha256": "52d991f3a9f413d9b5eb6c2e3e2fad2093808ba5399f49e863b929956b90e006"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/admin_employees_page_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP",
+        "SystemRoot",
+        "COMSPEC",
+        "PATHEXT",
+        "USERPROFILE",
+        "LOCALAPPDATA"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/admin_employees_page_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP",
+        "SystemRoot",
+        "COMSPEC",
+        "PATHEXT",
+        "USERPROFILE",
+        "LOCALAPPDATA"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "test/admin_employees_page_test.dart",
+        "--plain-name",
+        "employee directory leading icon radius"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 300,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP",
+          "SystemRoot",
+          "COMSPEC",
+          "PATHEXT",
+          "USERPROFILE",
+          "LOCALAPPDATA"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "employee_list_icon_radius_8"
+    ]
+  }
+}

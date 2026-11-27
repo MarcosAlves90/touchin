@@ -1,0 +1,180 @@
+{
+  "schema_version": 6,
+  "kind": "behavior_preserving",
+  "scope": {
+    "allowed_paths": [
+      "backend/tests/test_time_clock_integrity.py",
+      "docs/contracts/time-clock-postgres-clock-v1.polis.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "backend/tests/test_time_clock_integrity.py"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Make the PostgreSQL parallel-checkin test deterministic by freezing the service clock after the fixture seeds its punches, without changing runtime behavior.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "After the PostgreSQL fixture seeds the database, freeze app.services.time_clock.utcnow to one second after emp-04's latest seeded punch before launching concurrent check-ins."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "The concurrency test continues proving exactly one of two parallel check-ins succeeds and exactly one new check-in is persisted."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "Only the PostgreSQL test harness changes; application code, migrations, schemas, and production behavior remain untouched."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "The test derives a fixed UTC timestamp from the seeded latest emp-04 punch and monkeypatches app.services.time_clock.utcnow before starting worker threads.",
+        "requirements": [
+          "REQ-001"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "With the isolated READ COMMITTED PostgreSQL database configured, test_postgres_parallel_checkins_are_serialized passes and observes results ['conflict', 'ok'] plus exactly one additional check-in.",
+        "requirements": [
+          "REQ-002"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-003",
+        "statement": "No production file changes; all other time-clock integrity tests pass on both the committed baseline and the corrected test tree.",
+        "requirements": [
+          "REQ-003"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "The fixed test timestamp is strictly later than the latest seeded punch and identical for both concurrent workers."
+      },
+      {
+        "id": "INV-002",
+        "statement": "The test never relies on wall-clock time being later than sample data generated for the current day."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "The test reaches the concurrency assertion with both operations rejected because the wall clock precedes the seeded latest punch."
+      },
+      {
+        "id": "FORB-002",
+        "statement": "Production code or data-seeding behavior changes to accommodate the test."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "The isolated PostgreSQL fixture seeds emp-04 punches before yielding its session factory; the parallel test submits two new check-ins after fixture setup."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "A deterministic PostgreSQL check-in concurrency test that tests row-lock serialization rather than host wall-clock ordering."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "The affected PostgreSQL test must return one ok and one conflict and persist exactly one additional check-in; setup, missing-URL, or isolation-guard failures are not passes."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "29dca4f662396498cfe84f957af3c37b42e07bb2",
+    "base_tree": "fcfea0e8d436a2660970a0d9500f9054b01a6db4",
+    "policy_sha256": "7714a10ab2b65f58941086f500de93fa62fc6acb6fd59d8b39292980364774dd",
+    "specification_sha256": "435b137a9c9386ef9019d5e67218730561175c7e3c4df81c3a1ee4f46fc9f75f"
+  },
+  "behavior": {
+    "argv": [
+      "python",
+      "-B",
+      "-m",
+      "pytest",
+      "-q",
+      "tests/test_time_clock_integrity.py",
+      "-k",
+      "not test_postgres_parallel_checkins_are_serialized"
+    ],
+    "cwd": "backend",
+    "timeout_seconds": 900,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP",
+        "TOUCHIN_TIME_CLOCK_PG_URL"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "python",
+      "-B",
+      "-m",
+      "pytest",
+      "-q",
+      "tests/test_time_clock_integrity.py::test_postgres_parallel_checkins_are_serialized"
+    ],
+    "cwd": "backend",
+    "timeout_seconds": 180,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP",
+        "TOUCHIN_TIME_CLOCK_PG_URL"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "green_green",
+    "command": {
+      "argv": [
+        "python",
+        "-B",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_time_clock_integrity.py",
+        "-k",
+        "not test_postgres_parallel_checkins_are_serialized"
+      ],
+      "cwd": "backend",
+      "timeout_seconds": 900,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP",
+          "TOUCHIN_TIME_CLOCK_PG_URL"
+        ]
+      }
+    }
+  }
+}

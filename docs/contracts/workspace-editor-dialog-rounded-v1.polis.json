@@ -1,0 +1,150 @@
+{
+  "schema_version": 4,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      "docs/contracts/workspace-editor-dialog-rounded-v1.polis.json",
+      "frontend/lib/features/shared/presentation/widgets/workspace_editor_dialog.dart",
+      "frontend/test/features/shared/presentation/workspace_editor_dialog_test.dart",
+      "frontend/test/features/projects/presentation/project_tasks_page_test.dart"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/features/shared/presentation/workspace_editor_dialog_test.dart",
+      "frontend/test/features/projects/presentation/project_tasks_page_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Round the shared workspace editor dialog while preserving editor functionality.",
+    "requirements": [
+      {
+        "id": "REQ-ROUND-01",
+        "statement": "Render the shared editor dialog with a 12px rounded clipped shape in light and dark themes while preserving editor behavior."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-ROUND-01",
+        "statement": "Widget tests check radius, clipping, controls, scrolling, input and action in mobile and desktop in both themes.",
+        "requirements": [
+          "REQ-ROUND-01"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-ROUND-02",
+        "statement": "docs/contracts/workspace-editor-dialog-rounded-v1.polis.json is byte-for-byte identical to the locked contract.",
+        "requirements": [
+          "REQ-ROUND-01"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-ROUND-01",
+        "statement": "Preserve colors, form data, scrolling, focus, safe area, closure and accessibility."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-ROUND-01",
+        "statement": "Square dialog corners or inaccessible dialog controls."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-ROUND-01",
+        "statement": "Theme, viewport, form content and user interactions."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-ROUND-01",
+        "statement": "Rounded dialog with intact forms and interactions."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-ROUND-01",
+        "statement": "Regression test fails when dialog radius is not 12."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "153105e78a05b7336812d9f91a816094dc17977f",
+    "base_tree": "6214bcdbbfdba148d22d34bf0d5e9ac5cb889633",
+    "policy_sha256": "7714a10ab2b65f58941086f500de93fa62fc6acb6fd59d8b39292980364774dd",
+    "specification_sha256": "22f270f14d0e5de575b1f253c9daf3e4d439584163161bf5e7c0b4e5b38e2378"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/features/shared/presentation/workspace_editor_dialog_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 360,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/features/shared/presentation/workspace_editor_dialog_test.dart",
+      "test/features/projects/presentation/project_tasks_page_test.dart",
+      "test/features/projects/presentation/project_kanban_page_test.dart",
+      "test/features/projects/presentation/project_backlog_view_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 360,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "test/features/shared/presentation/workspace_editor_dialog_test.dart"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 360,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "dialog_radius_12"
+    ]
+  }
+}

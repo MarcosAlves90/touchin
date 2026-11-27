@@ -1,0 +1,532 @@
+import 'dart:math';
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:touchin_flutter/contracts/auth.dart';
+import 'package:touchin_flutter/features/auth/presentation/auth_session_navigation.dart';
+
+/// Route information is owned by Router, so the browser retains its forward
+/// entry when the user goes back to a previously visited workspace.
+class WorkspaceLocation {
+  const WorkspaceLocation(this.path, [this.entryId]);
+
+  final String path;
+  final String? entryId;
+
+  @override
+  bool operator ==(Object other) =>
+      other is WorkspaceLocation &&
+      other.path == path &&
+      other.entryId == entryId;
+
+  @override
+  int get hashCode => Object.hash(path, entryId);
+}
+
+class WorkspaceRouteParser extends RouteInformationParser<WorkspaceLocation> {
+  @override
+  Future<WorkspaceLocation> parseRouteInformation(
+      RouteInformation routeInformation) async {
+    final uri = routeInformation.uri;
+    final path = uri.path + (uri.hasQuery ? '?${uri.query}' : '');
+    return WorkspaceLocation(
+      path.startsWith('/') && path.isNotEmpty ? path : '/',
+      routeInformation.state is String
+          ? routeInformation.state! as String
+          : null,
+    );
+  }
+
+  @override
+  RouteInformation restoreRouteInformation(WorkspaceLocation configuration) {
+    return RouteInformation(
+      uri: Uri.parse(configuration.path),
+      state: configuration.entryId,
+    );
+  }
+}
+
+class WorkspaceRouter extends RouterDelegate<WorkspaceLocation>
+    with ChangeNotifier, PopNavigatorRouterDelegateMixin<WorkspaceLocation> {
+  WorkspaceRouter({required this.buildRoute, String initialPath = '/'})
+      : _history = <String>[_normalize(initialPath)],
+        _entryIds = <String>[],
+        _entrySessions = <AuthSession?>[null] {
+    _entryIds.add(_newEntryId());
+  }
+
+  final Widget Function(BuildContext, String, AuthSession?) buildRoute;
+
+  @override
+  final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+  final RouteObserver<ModalRoute<dynamic>> routeObserver = RouteObserver<ModalRoute<dynamic>>();
+
+  final List<String> _history;
+  final List<String> _entryIds;
+  final String _entryNamespace = _newEntryNamespace();
+  int _nextEntryId = 1;
+  bool _initialRouteReceived = false;
+  // An already-mounted history page keeps its session bootstrap identity when
+  // a new route becomes active; otherwise navigating triggers redundant auth.
+  final List<AuthSession?> _entrySessions;
+  int _currentIndex = 0;
+  int _sessionGeneration = 0;
+  bool _sessionRevoked = false;
+  bool _requiredPasswordChanged = false;
+  bool get requiredPasswordChanged => _requiredPasswordChanged;
+  Object? _pendingRequiredPasswordChange;
+
+  bool takeRequiredPasswordChangeNotice() {
+    if (_path != '/') return false;
+    final pending = _requiredPasswordChanged;
+    _requiredPasswordChanged = false;
+    return pending;
+  }
+  AuthSession? _verifiedSession;
+  bool _verifyingSession = false;
+  bool _verificationUnavailable = false;
+  bool _passwordResetVerificationPending = false;
+  int get sessionGeneration => _sessionGeneration;
+  bool get sessionRevoked => _sessionRevoked;
+  // Display-only: navigation chrome keeps the last verified user's
+  // destinations while a route revalidates its session. Never authorizes.
+  final ValueNotifier<AuthUserSummary?> _navigationUser =
+      ValueNotifier<AuthUserSummary?>(null);
+  ValueListenable<AuthUserSummary?> get navigationUser => _navigationUser;
+  AuthSession? get verifiedSession => _verifiedSession;
+  bool get verifyingSession => _verifyingSession;
+  bool get verificationUnavailable => _verificationUnavailable;
+  bool get passwordResetVerificationPending =>
+      _passwordResetVerificationPending;
+
+  void restoreVerifiedSession(AuthSession session) {
+    if (_sessionRevoked) return;
+    _verifiedSession = session;
+    _verifyingSession = false;
+    _verificationUnavailable = false;
+    for (var index = 0; index < _entrySessions.length; index++) {
+      _entrySessions[index] = session;
+    }
+    _navigationUser.value = session.user;
+    notifyListeners();
+  }
+
+  void beginRevalidation() {
+    if (_verifiedSession == null || _sessionRevoked) return;
+    _verifyingSession = true;
+    _verificationUnavailable = false;
+    notifyListeners();
+  }
+
+  void failRevalidation() {
+    if (_sessionRevoked) return;
+    _verifyingSession = false;
+    _verificationUnavailable = true;
+    notifyListeners();
+  }
+
+  String get _path => _history[_currentIndex];
+
+  @override
+  WorkspaceLocation get currentConfiguration =>
+      WorkspaceLocation(_path, _entryIds[_currentIndex]);
+
+  @override
+  Future<void> setNewRoutePath(WorkspaceLocation configuration) async {
+    final normalized = _normalize(configuration.path);
+    final id = configuration.entryId;
+    if (!_initialRouteReceived) {
+      _initialRouteReceived = true;
+      if (id != null && _history.length == 1) {
+        // The browser owns this initial entry after a reload. Adopt its ID
+        // instead of inserting the same page again into Navigator's stack.
+        _history[0] = normalized;
+        _entryIds[0] = id;
+        notifyListeners();
+        return;
+      }
+    }
+    if (id != null) {
+      final match = _entryIds.indexOf(id);
+      if (match >= 0) {
+        if (match == _currentIndex) return;
+        _currentIndex = match;
+        notifyListeners();
+        return;
+      }
+    }
+    if (_path == normalized && id == null) return;
+    // Browser history moves between existing entries. Keep the forward branch
+    // until a new navigation is explicitly requested by the user.
+    final previous = _history.lastIndexOf(normalized, _currentIndex - 1);
+    final following = _history.indexOf(normalized, _currentIndex + 1);
+    if (id != null) {
+      _push(normalized, entryId: id);
+    } else if (previous >= 0) {
+      _currentIndex = previous;
+    } else if (following >= 0) {
+      _currentIndex = following;
+    } else {
+      _push(normalized);
+    }
+    notifyListeners();
+  }
+
+  static String _normalize(String route) =>
+      route.startsWith('/') && route.isNotEmpty ? route : '/';
+
+  static String _newEntryNamespace() {
+    final random = Random.secure();
+    return List<String>.generate(
+      16,
+      (_) => random.nextInt(256).toRadixString(16).padLeft(2, '0'),
+    ).join();
+  }
+
+  String _newEntryId() {
+    String id;
+    do {
+      id = 'entry-$_entryNamespace-${_nextEntryId++}';
+    } while (_entryIds.contains(id));
+    return id;
+  }
+
+  void navigate(String route) {
+    final next = _normalize(route);
+    if (_path == next) return;
+    _push(next);
+    notifyListeners();
+  }
+
+  void _push(String path, {String? entryId}) {
+    _history.removeRange(_currentIndex + 1, _history.length);
+    _entryIds.removeRange(_currentIndex + 1, _entryIds.length);
+    _entrySessions.removeRange(_currentIndex + 1, _entrySessions.length);
+    _history.add(path);
+    _entryIds.add(entryId ?? _newEntryId());
+    _entrySessions.add(_verifiedSession);
+    _currentIndex++;
+  }
+
+  void _replaceHistory(String path, [AuthSession? session]) {
+    _history
+      ..clear()
+      ..add(path);
+    _entryIds
+      ..clear()
+      ..add(_newEntryId());
+    _entrySessions
+      ..clear()
+      ..add(session);
+    _currentIndex = 0;
+  }
+
+  void authenticate(AuthSession session) {
+    _pendingRequiredPasswordChange = null;
+    _requiredPasswordChanged = false;
+    _sessionRevoked = false;
+    _sessionGeneration++;
+    _navigationUser.value = session.user;
+    _verifiedSession = session;
+    _verifyingSession = false;
+    _verificationUnavailable = false;
+    _passwordResetVerificationPending = false;
+    final route = buildAuthenticatedWorkspaceRoute(session).settings.name!;
+    _replaceHistory(route, session);
+    notifyListeners();
+  }
+
+  /// Records the user confirmed by a route's session bootstrap. Call it only
+  /// outside the build phase, after the verification completed.
+  void rememberVerifiedSession(AuthSession session) {
+    if (_sessionRevoked) return;
+    _navigationUser.value = session.user;
+  }
+
+  void signedOut({bool requiredPasswordChanged = false}) {
+    _pendingRequiredPasswordChange = null;
+    _signOut(requiredPasswordChanged: requiredPasswordChanged);
+  }
+
+  void _signOut({bool requiredPasswordChanged = false}) {
+    _requiredPasswordChanged = requiredPasswordChanged;
+    _sessionGeneration++;
+    _sessionRevoked = true;
+    _navigationUser.value = null;
+    _verifiedSession = null;
+    _verifyingSession = false;
+    _verificationUnavailable = false;
+    _passwordResetVerificationPending = false;
+    _replaceHistory('/');
+    notifyListeners();
+  }
+
+  /// Revoke the session invalidated by a successful password reset without
+  /// replacing the current reset page, so its success confirmation stays on
+  /// screen. Historical protected pages remain in browser history, but no
+  /// longer carry an authenticated session or render protected content.
+  void passwordResetConfirmed({
+    required int expectedGeneration,
+    required String? expectedToken,
+  }) {
+    if (_sessionGeneration != expectedGeneration) return;
+    final activeToken = _verifiedSession?.accessToken;
+    if (activeToken != null && activeToken != expectedToken) return;
+    _pendingRequiredPasswordChange = null;
+    _sessionGeneration++;
+    _sessionRevoked = true;
+    _navigationUser.value = null;
+    _verifiedSession = null;
+    _verifyingSession = false;
+    _verificationUnavailable = false;
+    _passwordResetVerificationPending = false;
+    for (var index = 0; index < _entrySessions.length; index++) {
+      _entrySessions[index] = null;
+    }
+    notifyListeners();
+  }
+
+  /// Hold an ambiguous concurrent login out of view until /auth/me proves it
+  /// survived the reset. Advancing the generation also invalidates older
+  /// in-flight /auth/me results from ordinary background revalidation.
+  int? beginPasswordResetVerification(AuthSession session) {
+    if (_sessionRevoked ||
+        _verifiedSession?.accessToken != session.accessToken) {
+      return null;
+    }
+    _sessionGeneration++;
+    _passwordResetVerificationPending = true;
+    _verificationUnavailable = false;
+    notifyListeners();
+    return _sessionGeneration;
+  }
+
+  bool isCurrentPasswordResetVerification(int generation, String token) =>
+      _passwordResetVerificationPending &&
+      !_sessionRevoked &&
+      _sessionGeneration == generation &&
+      _verifiedSession?.accessToken == token;
+
+  void acceptPasswordResetVerification(int generation, AuthSession session) {
+    if (!isCurrentPasswordResetVerification(generation, session.accessToken)) {
+      return;
+    }
+    _passwordResetVerificationPending = false;
+    restoreVerifiedSession(session);
+  }
+
+  void failPasswordResetVerification(int generation, String token) {
+    if (!isCurrentPasswordResetVerification(generation, token)) return;
+    _passwordResetVerificationPending = false;
+    failRevalidation();
+  }
+
+  bool revokePasswordResetVerification(int generation, String token) {
+    if (!isCurrentPasswordResetVerification(generation, token)) return false;
+    signedOut();
+    return true;
+  }
+
+  void revokeSession() {
+    if (_sessionRevoked) return;
+    // Revocation still signs out immediately. Keep only the ability to
+    // acknowledge an already submitted password change on the login page.
+    _signOut();
+  }
+
+  Future<void> completeRequiredPasswordChange({
+    required Future<void> Function(String token) request,
+    required Future<void> Function(String token) clearCredentials,
+  }) async {
+    final session = _verifiedSession;
+    if (_sessionRevoked ||
+        session == null ||
+        !session.mustChangePassword ||
+        _pendingRequiredPasswordChange != null) {
+      return;
+    }
+    final operation = Object();
+    final token = session.accessToken;
+    _pendingRequiredPasswordChange = operation;
+    try {
+      await request(token);
+      if (!identical(_pendingRequiredPasswordChange, operation)) return;
+      if (_sessionRevoked) {
+        if (_path != '/') return;
+        // Login is already mounted. Update the notice without replacing the
+        // page or losing anything the employee has started typing.
+        _requiredPasswordChanged = true;
+        notifyListeners();
+      } else {
+        _signOutAfterRequiredPasswordChange();
+      }
+      try {
+        await clearCredentials(token);
+      } catch (_) {
+        // The router has already blocked the revoked session.
+      }
+    } finally {
+      if (identical(_pendingRequiredPasswordChange, operation)) {
+        _pendingRequiredPasswordChange = null;
+      }
+    }
+  }
+
+  void _signOutAfterRequiredPasswordChange() {
+    final context = navigatorKey.currentContext;
+    if (context == null || !context.mounted) {
+      signedOut(requiredPasswordChanged: true);
+    } else {
+      Router.neglect(
+        context,
+        () => signedOut(requiredPasswordChanged: true),
+      );
+    }
+  }
+
+  void _didRemovePage(Page<Object?> page) {
+    // A native Back pop removes the active page. Pages discarded when the
+    // browser changes its history position must not pop a second entry.
+    if (page.key != ValueKey<String>('$_currentIndex:$_path') ||
+        _currentIndex == 0) {
+      return;
+    }
+    _currentIndex--;
+    notifyListeners();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Navigator(
+      key: navigatorKey,
+      observers: [routeObserver],
+      pages: <Page<void>>[
+        for (var index = 0; index <= _currentIndex; index++)
+          if (_history[index] == '/')
+            MaterialPage<void>(
+              key: ValueKey<String>('$index:${_history[index]}'),
+              name: _history[index],
+              child: buildRoute(
+                context,
+                _history[index],
+                _entrySessions[index],
+              ),
+            )
+          else if (index == 0)
+            WorkspaceEntryPage<void>(
+              key: ValueKey<String>('$index:${_history[index]}'),
+              name: _history[index],
+              child: buildRoute(
+                context,
+                _history[index],
+                _entrySessions[index],
+              ),
+            )
+          else
+            WorkspaceNoTransitionPage<void>(
+              key: ValueKey<String>('$index:${_history[index]}'),
+              name: _history[index],
+              child: buildRoute(
+                context,
+                _history[index],
+                _entrySessions[index],
+              ),
+            ),
+      ],
+      onDidRemovePage: _didRemovePage,
+    );
+  }
+
+  @override
+  void dispose() {
+    _pendingRequiredPasswordChange = null;
+    _navigationUser.dispose();
+    super.dispose();
+  }
+}
+
+/// The first authenticated workspace route keeps the normal forward entrance
+/// from login, while returning to that route from another workspace page is
+/// immediate.
+class WorkspaceEntryPage<T> extends Page<T> {
+  const WorkspaceEntryPage({required this.child, super.key, super.name});
+
+  final Widget child;
+
+  @override
+  Route<T> createRoute(BuildContext context) {
+    late final PageRoute<T> route;
+    route = PageRouteBuilder<T>(
+      settings: this,
+      transitionDuration: const Duration(milliseconds: 450),
+      reverseTransitionDuration: Duration.zero,
+      pageBuilder: (_, __, ___) =>
+          (route.settings as WorkspaceEntryPage<T>).child,
+      transitionsBuilder: (context, animation, secondaryAnimation, child) =>
+          Theme.of(context).pageTransitionsTheme.buildTransitions<T>(
+                route,
+                context,
+                animation,
+                secondaryAnimation,
+                child,
+              ),
+    );
+    return route;
+  }
+}
+
+/// A workspace-only page with no route transition.
+///
+/// The first page remains a [MaterialPage] so login → workspace and a cold
+/// start keep their existing presentation. Workspace → workspace changes use
+/// this page instead.
+class WorkspaceNoTransitionPage<T> extends Page<T> {
+  const WorkspaceNoTransitionPage({required this.child, super.key, super.name});
+
+  final Widget child;
+
+  @override
+  Route<T> createRoute(BuildContext context) {
+    late final PageRouteBuilder<T> route;
+    route = PageRouteBuilder<T>(
+      settings: this,
+      transitionDuration: Duration.zero,
+      reverseTransitionDuration: Duration.zero,
+      pageBuilder: (_, __, ___) =>
+          (route.settings as WorkspaceNoTransitionPage<T>).child,
+    );
+    return route;
+  }
+}
+
+/// Keeps standalone widget tests using MaterialApp/Navigator compatible while
+/// the production app uses a Router-owned browser history.
+class WorkspaceRouterScope extends InheritedWidget {
+  const WorkspaceRouterScope({
+    super.key,
+    required this.router,
+    required super.child,
+  });
+
+  final WorkspaceRouter router;
+
+  static WorkspaceRouter? maybeOf(BuildContext context) => context
+      .dependOnInheritedWidgetOfExactType<WorkspaceRouterScope>()
+      ?.router;
+
+  static void replaceWithAuthenticated(
+      BuildContext context, AuthSession session) {
+    final router = maybeOf(context);
+    if (router != null) {
+      Router.neglect(context, () => router.authenticate(session));
+    } else {
+      Navigator.of(context).pushReplacement(
+        buildAuthenticatedWorkspaceRoute(session),
+      );
+    }
+  }
+
+  @override
+  bool updateShouldNotify(WorkspaceRouterScope oldWidget) =>
+      router != oldWidget.router;
+}

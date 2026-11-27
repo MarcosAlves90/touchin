@@ -1,0 +1,154 @@
+{
+  "schema_version": 6,
+  "kind": "behavior_preserving",
+  "scope": {
+    "allowed_paths": [
+      "docs/validation/issue-119/desktop-light.png",
+      "docs/validation/issue-119/desktop-dark.png",
+      "docs/validation/issue-119/mobile-light.png",
+      "docs/validation/issue-119/mobile-dark.png",
+      "docs/validation/issue-119/README.md",
+      "docs/contracts/navigation-canonical-golden-refresh-v1.polis.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "docs/validation/issue-119/desktop-light.png",
+      "docs/validation/issue-119/desktop-dark.png",
+      "docs/validation/issue-119/mobile-light.png",
+      "docs/validation/issue-119/mobile-dark.png"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Refresh four canonical navigation snapshots from reviewed CI outputs without changing application behavior.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "Copy the four intended canonical CI actual images exactly and document their provenance and SHA-256 hashes."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "Preserve application behavior and archive the locked contract byte-identically."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "All four PNGs match CI testImage bytes, and the README identifies the run, candidate, runner, Flutter version and matching hashes.",
+        "requirements": [
+          "REQ-001"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "The full non-canonical Flutter test suite passes on baseline and target; the archived contract is byte-identical to the lock.",
+        "requirements": [
+          "REQ-002"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "No application UI or other snapshots change."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "Platform-specific images are generated locally or unrelated snapshots are changed."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "Reviewed canonical CI testImage outputs for run 41735260737."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "Four matching canonical images, documented provenance, and archived lock."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "A mismatch in image bytes or hashes invalidates the refresh; canonical CI on the final commit remains required."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "37996289bf0742d0d9d34c6471baae6b6e999ef1",
+    "base_tree": "12592d6c43d640840a3e56f224ce1b81d57927c2",
+    "policy_sha256": "7714a10ab2b65f58941086f500de93fa62fc6acb6fd59d8b39292980364774dd",
+    "specification_sha256": "f77aa1ad1ac2e46a71448424adfd05c74b36c7580ca3d2f05dfe524917b68e8d"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "--exclude-tags",
+      "canonical-golden"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 1200,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "--exclude-tags",
+      "canonical-golden"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 1200,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "green_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "--exclude-tags",
+        "canonical-golden"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 1200,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    }
+  }
+}

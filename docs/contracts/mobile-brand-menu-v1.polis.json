@@ -1,0 +1,180 @@
+{
+  "schema_version": 6,
+  "kind": "feature",
+  "scope": {
+    "allowed_paths": [
+      "docs/contracts/mobile-brand-menu-v1.polis.json",
+      "frontend/lib/features/shared/presentation/widgets/workspace_navigation.dart",
+      "frontend/test/features/shared/presentation/widgets/workspace_shell_test.dart"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/features/shared/presentation/widgets/workspace_shell_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Refine the mobile workspace header brand block so the menu trigger is grouped with the TouchIn mark and wordmark, with a rounded yellow background and a contrasting menu icon.",
+    "requirements": [
+      {
+        "id": "REQ-MOBILE-BRAND-01",
+        "statement": "Below the existing 1080 px responsive breakpoint, the hamburger menu button is inside the same yellow brand block as the TouchIn fingerprint mark and wordmark, positioned before the mark."
+      },
+      {
+        "id": "REQ-MOBILE-BRAND-02",
+        "statement": "The mobile brand block has rounded corners and retains the existing accent-yellow background."
+      },
+      {
+        "id": "REQ-MOBILE-BRAND-03",
+        "statement": "The hamburger icon uses the theme's onPrimary foreground for contrast on the yellow block, distinct from the prior onSurface icon color."
+      },
+      {
+        "id": "REQ-MOBILE-BRAND-04",
+        "statement": "Tapping the hamburger continues to invoke the existing drawer-open callback; the desktop layout and drawer behavior remain unchanged."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-MOBILE-BRAND-01",
+        "statement": "At mobile width, the menu button is a descendant of the yellow brand block and precedes the fingerprint mark and TOUCHIN wordmark.",
+        "requirements": [
+          "REQ-MOBILE-BRAND-01"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-MOBILE-BRAND-02",
+        "statement": "The brand block uses AppTheme.accent with a non-zero rounded corner radius, and the menu icon foreground equals ColorScheme.onPrimary.",
+        "requirements": [
+          "REQ-MOBILE-BRAND-02",
+          "REQ-MOBILE-BRAND-03"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-MOBILE-BRAND-03",
+        "statement": "The existing drawer open/close animation test and affected workspace shell tests continue to pass.",
+        "requirements": [
+          "REQ-MOBILE-BRAND-04"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-MOBILE-BRAND-01",
+        "statement": "The shared 1080 px breakpoint, desktop navigation, mobile destination label, and drawer open/close interaction remain unchanged."
+      },
+      {
+        "id": "INV-MOBILE-BRAND-02",
+        "statement": "No new dependencies or backend, authentication, authorization, route, API, or data changes are introduced."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-MOBILE-BRAND-01",
+        "statement": "The hamburger button remains outside the yellow brand block or uses the old surface foreground against the yellow background."
+      },
+      {
+        "id": "FORB-MOBILE-BRAND-02",
+        "statement": "The mobile yellow brand block has square corners or the desktop navigation layout changes."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-MOBILE-BRAND-01",
+        "statement": "A mobile viewport below 1080 px, the current color theme, and activation of the hamburger menu button."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-MOBILE-BRAND-01",
+        "statement": "A rounded accent-yellow mobile brand block containing the contrasting menu button, fingerprint mark, and TouchIn wordmark."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-MOBILE-BRAND-01",
+        "statement": "On the locked baseline, the focused mobile brand test fails because the hamburger button is outside the brand block."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "4deab0e80215ecf65e470900cfcaa2a893f11112",
+    "base_tree": "06577f3ff7ce3e601b3dc432577bad48eb783f81",
+    "policy_sha256": "5563facc34ae2a1a07cf7ec7ec2f115cb8d250c49dd6e2bd5c7a3de4c977d450",
+    "specification_sha256": "a48e65941ff5a6601cc1faea418afe44430d5dfa168cb3ab76575128c29c7999"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/features/shared/presentation/widgets/workspace_shell_test.dart",
+      "--plain-name",
+      "mobile header puts the contrasting menu inside the rounded brand block"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 360,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "--exclude-tags",
+      "canonical-golden",
+      "test/features/shared/presentation/widgets/workspace_shell_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "test/features/shared/presentation/widgets/workspace_shell_test.dart",
+        "--plain-name",
+        "mobile header puts the contrasting menu inside the rounded brand block"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 360,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "mobile_brand_contains_menu"
+    ]
+  }
+}

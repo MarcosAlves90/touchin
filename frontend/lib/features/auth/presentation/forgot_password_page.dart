@@ -1,6 +1,6 @@
-import 'package:bunchin_flutter/core/network/bunchin_api.dart';
-import 'package:bunchin_flutter/features/auth/presentation/auth_submission_mixin.dart';
-import 'package:bunchin_flutter/features/auth/presentation/widgets/auth_shell.dart';
+import 'package:touchin_flutter/core/network/touchin_api.dart';
+import 'package:touchin_flutter/features/auth/presentation/auth_submission_mixin.dart';
+import 'package:touchin_flutter/features/auth/presentation/widgets/auth_shell.dart';
 import 'package:flutter/material.dart';
 
 class ForgotPasswordPage extends StatefulWidget {
@@ -12,11 +12,12 @@ class ForgotPasswordPage extends StatefulWidget {
 
 class _ForgotPasswordPageState extends State<ForgotPasswordPage>
     with AuthSubmissionMixin<ForgotPasswordPage> {
-  final BunchinApi _api = BunchinApi();
+  final TouchInApi _api = TouchInApi();
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
 
   bool _submitted = false;
+  bool _hasValidationErrors = false;
 
   @override
   void dispose() {
@@ -27,13 +28,14 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
   Future<void> _submit() async {
     FocusScope.of(context).unfocus();
 
-    if (!_formKey.currentState!.validate()) {
+    final valid = _formKey.currentState!.validate();
+    setState(() => _hasValidationErrors = !valid);
+    if (!valid) {
       return;
     }
 
     await submitAuthAction<String>(
       action: () => _api.resetPassword(email: _emailController.text.trim()),
-      ignoreFailures: true,
       onSuccess: (_) {
         setState(() {
           _submitted = true;
@@ -49,7 +51,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
   @override
   Widget build(BuildContext context) {
     return AuthShell(
+      brandStep: '03',
       brandHeadline: 'Recupere acesso com rapidez.',
+      brandImageUrl: AuthBrandImages.forgotPassword,
       brandDescription:
           'Envie um link seguro para redefinir sua senha e retomar o controle da operação.',
       brandTags: const [
@@ -81,13 +85,14 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
               _buildSuccessMessage(theme, colorScheme)
             else ...[
               Text(
-                'Informe o e-mail corporativo para receber instrucoes de redefinicao.',
+                'Informe o e-mail corporativo para receber instruções de redefinição.',
                 style: theme.textTheme.bodyLarge?.copyWith(
                   color: colorScheme.onSurfaceVariant,
                   height: 1.45,
                 ),
               ),
               const SizedBox(height: 24),
+              if (_hasValidationErrors) const AuthFormValidationMessage(),
               TextFormField(
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
@@ -104,7 +109,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
                   }
 
                   if (!value.contains('@') || !value.contains('.')) {
-                    return 'Digite um e-mail valido.';
+                    return 'Digite um e-mail válido.';
                   }
 
                   return null;
@@ -118,11 +123,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
                         _submit();
                       },
                 child: isSubmitting
-                    ? const SizedBox(
-                        height: 18,
-                        width: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
+                    ? const AuthSubmissionIndicator(label: 'Enviando link')
                     : const Text('Enviar link'),
               ),
               const SizedBox(height: 12),
@@ -139,37 +140,40 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage>
   }
 
   Widget _buildSuccessMessage(ThemeData theme, ColorScheme colorScheme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(
-          Icons.check_circle_outline_rounded,
-          size: 56,
-          color: colorScheme.primary,
-        ),
-        const SizedBox(height: 20),
-        Text(
-          'E-mail enviado com sucesso.',
-          style: theme.textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.w600,
+    return Semantics(
+      liveRegion: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons.check_circle_outline_rounded,
+            size: 56,
+            color: colorScheme.primary,
           ),
-        ),
-        const SizedBox(height: 12),
-        Text(
-          'Se o e-mail informado estiver cadastrado em nossa base, '
-          'voce recebera as instrucoes de redefinicao de senha em breve.',
-          style: theme.textTheme.bodyLarge?.copyWith(
-            color: colorScheme.onSurfaceVariant,
-            height: 1.5,
+          const SizedBox(height: 20),
+          Text(
+            'Solicitação recebida.',
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
           ),
-        ),
-        const SizedBox(height: 24),
-        OutlinedButton.icon(
-          onPressed: _backToLogin,
-          icon: const Icon(Icons.login_rounded),
-          label: const Text('Voltar para login'),
-        ),
-      ],
+          const SizedBox(height: 12),
+          Text(
+            'Se o e-mail informado estiver cadastrado em nossa base, '
+            'você receberá as instruções de redefinição de senha em breve.',
+            style: theme.textTheme.bodyLarge?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 24),
+          OutlinedButton.icon(
+            onPressed: _backToLogin,
+            icon: const Icon(Icons.login_rounded),
+            label: const Text('Voltar para login'),
+          ),
+        ],
+      ),
     );
   }
 }

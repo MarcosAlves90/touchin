@@ -1,0 +1,2211 @@
+import 'package:touchin_flutter/contracts/employee.dart';
+import 'package:touchin_flutter/contracts/project.dart';
+import 'package:touchin_flutter/contracts/task.dart';
+import 'package:touchin_flutter/core/network/api_client.dart';
+import 'package:touchin_flutter/core/network/touchin_api.dart';
+import 'package:touchin_flutter/features/projects/presentation/project_tasks_controller.dart';
+import 'package:touchin_flutter/features/projects/presentation/widgets/task_editor_dialog.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_editor_dialog.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_skeleton.dart';
+import 'package:touchin_flutter/theme/app_theme.dart';
+import 'package:touchin_flutter/theme/workspace_menu_style.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+const _projectTaskEmployeeLimitConflictMessage =
+    'O limite por tarefa não pode ser menor que a quantidade de funcionários '
+    'já associados a uma tarefa. Remova participantes antes de reduzir o '
+    'limite.';
+
+class ProjectTasksPage extends StatefulWidget {
+  const ProjectTasksPage({super.key, this.api, this.controller});
+
+  final TouchInApi? api;
+  final ProjectTasksController? controller;
+
+  @override
+  State<ProjectTasksPage> createState() => _ProjectTasksPageState();
+}
+
+class _ProjectTasksPageState extends State<ProjectTasksPage> {
+  late final ProjectTasksController _controller;
+  late final bool _ownsController;
+  static const _tasksPerPage = 10;
+  int _taskPage = 0;
+  String? _taskPageProjectId;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = widget.controller ?? ProjectTasksController(api: widget.api);
+    _ownsController = widget.controller == null;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _controller.start();
+    });
+  }
+
+  @override
+  void dispose() {
+    if (_ownsController) {
+      _controller.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        return WorkspaceScaffold(
+          contextualContent: _buildSidebar(),
+          contentBuilder: (context, isWide) => _buildContent(isWide),
+        );
+      },
+    );
+  }
+
+  int? get _taskCount => _controller.isLoadingTasks || _controller.tasksError != null
+      ? null
+      : _controller.tasks.length;
+
+  int? get _accessCount =>
+      _controller.isLoadingProjectMembers || _controller.projectMembersError != null
+          ? null
+          : _controller.projectMembers.length;
+
+  int? get _participantCount =>
+      _controller.isLoadingMembers || _controller.membersError != null
+          ? null
+          : _controller.taskMembers.length;
+
+  String get _taskSummaryName {
+    if (_controller.isLoadingTasks) return 'Carregando…';
+    if (_controller.tasksError != null) return 'Indisponível';
+    return _controller.selectedTask?.name ?? 'Nenhuma';
+  }
+
+  String get _taskListSummary {
+    if (_controller.isLoadingTasks) return 'Carregando tarefas…';
+    if (_controller.tasksError != null) return 'Tarefas indisponíveis.';
+    return 'Selecione uma tarefa para consultar participantes.';
+  }
+
+  String _countLabel(int? count) => count?.toString() ?? '—';
+
+  Widget _buildSidebar() {
+    final project = _controller.selectedProject;
+    final task = _controller.selectedTask;
+    return WorkspaceSidebar(
+      summaryChildren: <Widget>[
+        WorkspaceSummaryStripe(
+          label: 'Projetos',
+          value:
+              _controller.isLoading || _controller.loadError != null
+                  ? '—'
+                  : '${_controller.projects.length}',
+          helper: 'Projetos ativos disponíveis para a empresa atual.',
+        ),
+        WorkspaceSummaryStripe(
+          label: 'Projeto selecionado',
+          value: project?.name ?? 'Nenhum',
+          helper: project == null
+              ? 'Selecione ou crie um projeto para começar.'
+              : '${_countLabel(_taskCount)} tarefa(s) • limite ${project.taskEmployeeLimit} por tarefa',
+        ),
+        WorkspaceSummaryStripe(
+          label: 'Tarefa selecionada',
+          value: _taskSummaryName,
+          helper: task == null || _taskCount == null
+              ? _taskListSummary
+              : '${_countLabel(_participantCount)} participante(s) na tarefa atual.',
+        ),
+      ],
+    );
+  }
+
+  Widget _buildContent(bool isWide) {
+    if (_controller.isLoading) {
+      return _buildPageSkeleton(isWide);
+    }
+
+    if (_controller.loadError != null) {
+      return _PageMessage(
+        title: 'Não foi possível carregar os projetos',
+        message: _controller.loadError!,
+        actionLabel: 'Tentar novamente',
+        onAction: _controller.retry,
+      );
+    }
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(isWide ? 32 : 24, 28, isWide ? 32 : 24, 28),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          _buildWorkspaceHeader(isWide),
+          const SizedBox(height: 16),
+          _buildMetricGrid(),
+          const SizedBox(height: 20),
+          _buildProjectsSection(isWide),
+          if (_controller.selectedProject != null) ...<Widget>[
+            const SizedBox(height: 20),
+            _buildProjectAccessCard(),
+            const SizedBox(height: 20),
+            _buildTaskWorkspace(isWide),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPageSkeleton(bool isWide) {
+    return WorkspaceSkeletonRegion(
+      key: const ValueKey<String>('project-tasks-page-skeleton'),
+      label: 'Carregando projetos e tarefas',
+      child: Padding(
+        padding:
+            EdgeInsets.fromLTRB(isWide ? 32 : 24, 28, isWide ? 32 : 24, 28),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            const WorkspaceSkeleton(width: 280, height: 30),
+            const SizedBox(height: 12),
+            const FractionallySizedBox(
+              widthFactor: 0.62,
+              alignment: Alignment.centerLeft,
+              child: WorkspaceSkeleton(height: 14),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: const <Widget>[
+                Expanded(child: WorkspaceSkeleton(height: 84)),
+                SizedBox(width: 12),
+                Expanded(child: WorkspaceSkeleton(height: 84)),
+                SizedBox(width: 12),
+                Expanded(child: WorkspaceSkeleton(height: 84)),
+              ],
+            ),
+            const SizedBox(height: 20),
+            const WorkspaceSkeletonPanel(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  WorkspaceSkeleton(width: 180, height: 20),
+                  SizedBox(height: 10),
+                  FractionallySizedBox(
+                    widthFactor: 0.55,
+                    alignment: Alignment.centerLeft,
+                    child: WorkspaceSkeleton(height: 12),
+                  ),
+                  SizedBox(height: 20),
+                  WorkspaceSkeletonList(count: 3),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            const WorkspaceSkeletonPanel(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  WorkspaceSkeleton(width: 140, height: 20),
+                  SizedBox(height: 10),
+                  FractionallySizedBox(
+                    widthFactor: 0.5,
+                    alignment: Alignment.centerLeft,
+                    child: WorkspaceSkeleton(height: 12),
+                  ),
+                  SizedBox(height: 20),
+                  WorkspaceSkeletonList(count: 3, leadingSize: 24),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWorkspaceHeader(bool isWide) {
+    return WorkspaceHeader(
+      kicker: 'PROJETOS',
+      title: 'Administrar projetos',
+      description: 'Organize projetos, tarefas e participantes em um só lugar.',
+      maxContentWidth: 620,
+      actions: _buildHeaderActions(isWide),
+      compact: !isWide,
+    );
+  }
+
+  List<Widget> _buildHeaderActions(bool isWide) {
+    if (!_controller.canManageProjects) {
+      return <Widget>[];
+    }
+
+    return <Widget>[
+      SizedBox(
+        width: isWide ? null : double.infinity,
+        child: FilledButton.icon(
+          onPressed: _controller.isMutating ? null : _openCreateProject,
+          icon: const Icon(Icons.create_new_folder_outlined),
+          label: const Text('Novo projeto'),
+        ),
+      ),
+    ];
+  }
+
+  Widget _buildMetricGrid() {
+    final project = _controller.selectedProject;
+    final task = _controller.selectedTask;
+    final colors = Theme.of(context).colorScheme;
+    final participantCount = _participantCount;
+    final occupancy = project == null || task == null || _taskCount == null || participantCount == null
+        ? '—'
+        : '$participantCount/${project.taskEmployeeLimit}';
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = constraints.maxWidth >= 720
+            ? 4
+            : constraints.maxWidth >= 340
+                ? 2
+                : 1;
+        final metricItems = <Widget>[
+          _ProjectMetricItem(
+            icon: Icons.folder_copy_outlined,
+            label: 'Projetos',
+            value: _controller.projects.length.toString(),
+          ),
+          _ProjectMetricItem(
+            icon: Icons.account_tree_outlined,
+            label: 'Tarefas',
+            value: _countLabel(project == null ? null : _taskCount),
+          ),
+          _ProjectMetricItem(
+            icon: Icons.groups_2_outlined,
+            label: 'Acessos',
+            value: _countLabel(project == null ? null : _accessCount),
+          ),
+          _ProjectMetricItem(
+            icon: Icons.group_work_outlined,
+            label: 'Ocupação',
+            value: occupancy,
+          ),
+        ];
+
+        final rows = <Widget>[];
+        for (var start = 0; start < metricItems.length; start += columns) {
+          if (start > 0) {
+            rows.add(
+                Divider(height: 1, thickness: 1, color: colors.outlineVariant));
+          }
+          final cells = <Widget>[];
+          for (var i = start;
+              i < start + columns && i < metricItems.length;
+              i++) {
+            if (i > start) {
+              cells.add(SizedBox(
+                  width: 1,
+                  height: 56,
+                  child: Container(color: colors.outlineVariant)));
+            }
+            cells.add(Expanded(child: metricItems[i]));
+          }
+          rows.add(Row(children: cells));
+        }
+        return Container(
+          key: const ValueKey<String>('project-metrics-strip'),
+          decoration: BoxDecoration(
+            color: colors.surface,
+            border: Border.all(color: colors.outlineVariant),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: rows),
+        );
+      },
+    );
+  }
+
+  Widget _buildProjectsSection(bool isWide) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        _buildProjectsListCard(),
+        const SizedBox(height: 20),
+        _buildSelectedProjectCard(),
+      ],
+    );
+  }
+
+  Widget _buildProjectsListCard() {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return WorkspaceSectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            'Projetos',
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Selecione um projeto para consultar dados, acessos e tarefas.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (_controller.projects.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: colorScheme.surface.withValues(alpha: 0.8),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: colorScheme.outlineVariant),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    'Nenhum projeto disponível.',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Crie um projeto para começar a organizar tarefas e participantes.',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      height: 1.45,
+                    ),
+                  ),
+                  if (_controller.canManageProjects) ...<Widget>[
+                    const SizedBox(height: 14),
+                    OutlinedButton.icon(
+                      onPressed:
+                          _controller.isMutating ? null : _openCreateProject,
+                      icon: const Icon(Icons.create_new_folder_outlined),
+                      label: const Text('Novo projeto'),
+                    ),
+                  ],
+                ],
+              ),
+            )
+          else
+            Column(
+              children: <Widget>[
+                for (final project in _controller.projects) ...<Widget>[
+                  Divider(height: 1, color: colorScheme.outlineVariant),
+                  _ProjectListTile(
+                    project: project,
+                    selected: project.id == _controller.selectedProjectId,
+                    canManage: _controller.canManageProjects,
+                    onTap: () => _controller.selectProject(project.id),
+                    onEdit: () => _openEditProject(project),
+                    onDelete: () => _confirmDeleteProject(project),
+                  ),
+                ],
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSelectedProjectCard() {
+    final project = _controller.selectedProject;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    if (project == null) {
+      return WorkspaceSectionCard(
+        child: Row(
+          children: <Widget>[
+            Icon(
+              Icons.touch_app_rounded,
+              color: colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Selecione um projeto para ver os detalhes.',
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return WorkspaceSectionCard(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isWide = constraints.maxWidth >= 900;
+          final availableWidth = constraints.maxWidth - 36;
+          final overviewItemWidth = isWide
+              ? availableWidth * 0.16
+              : constraints.maxWidth >= 280
+                  ? (constraints.maxWidth - 12) / 2
+                  : constraints.maxWidth;
+          final taskWidth = isWide
+              ? availableWidth * 0.52
+              : constraints.maxWidth < 520
+                  ? constraints.maxWidth
+                  : overviewItemWidth;
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              _ProjectDetailHero(
+                project: project,
+                canEdit: _controller.canManageProjects,
+                isMutating: _controller.isMutating,
+                onEdit: () => _openEditProject(project),
+              ),
+              const SizedBox(height: 16),
+              Divider(height: 1, color: colorScheme.outlineVariant),
+              const SizedBox(height: 16),
+              Text(
+                'Resumo rápido',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: <Widget>[
+                  SizedBox(
+                    width: overviewItemWidth,
+                    child: _ProjectOverviewCard(
+                      icon: Icons.account_tree_outlined,
+                      label: 'Tarefas',
+                      value: _countLabel(_taskCount),
+                    ),
+                  ),
+                  SizedBox(
+                    width: overviewItemWidth,
+                    child: _ProjectOverviewCard(
+                      icon: Icons.groups_2_outlined,
+                      label: 'Acessos',
+                      value: _countLabel(_accessCount),
+                    ),
+                  ),
+                  SizedBox(
+                    width: overviewItemWidth,
+                    child: _ProjectOverviewCard(
+                      icon: Icons.group_work_outlined,
+                      label: 'Limite por tarefa',
+                      value: project.taskEmployeeLimit.toString(),
+                    ),
+                  ),
+                  SizedBox(
+                    width: taskWidth,
+                    child: _ProjectOverviewCard(
+                      icon: Icons.task_alt_outlined,
+                      label: 'Tarefa atual',
+                      value: _taskSummaryName,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildTaskWorkspace(bool isWide) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        _buildTasksCard(),
+        const SizedBox(height: 20),
+        _buildMembershipCard(),
+      ],
+    );
+  }
+
+  Widget _buildProjectAccessCard() {
+    final theme = Theme.of(context);
+    return WorkspaceSectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Theme(
+            data: theme.copyWith(
+              textTheme: theme.textTheme.copyWith(
+                headlineMedium: theme.textTheme.titleLarge,
+                bodyLarge: theme.textTheme.bodyMedium,
+              ),
+            ),
+            child: WorkspaceHeader(
+              title: 'Acesso ao projeto',
+              description:
+                  'Somente os funcionários adicionados aqui podem visualizar o projeto e assumir responsabilidades nas tarefas.',
+              maxContentWidth: 620,
+              actions: <Widget>[
+                if (_controller.canManageProjects)
+                  FilledButton.tonalIcon(
+                    onPressed: _controller.isMutating ||
+                            _controller.isLoadingProjectMembers ||
+                            _controller.projectMembersError != null
+                        ? null
+                        : _openAddProjectMemberDialog,
+                    icon: const Icon(Icons.person_add_alt_1_rounded),
+                    label: const Text('Adicionar ao projeto'),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (_controller.isLoadingProjectMembers)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: WorkspaceSkeletonRegion(
+                label: 'Carregando funcionários do projeto',
+                child: WorkspaceSkeletonList(count: 3),
+              ),
+            )
+          else if (_controller.projectMembersError != null)
+            _InlineError(
+              message: _controller.projectMembersError!,
+              onRetry: _controller.reloadProjectMembers,
+            )
+          else if (_controller.projectMembers.isEmpty)
+            const _EmptyState(
+              icon: Icons.group_off_outlined,
+              title: 'Nenhum funcionário com acesso',
+              description:
+                  'Adicione funcionários ao projeto antes de atribuí-los às tarefas.',
+            )
+          else
+            LayoutBuilder(builder: (context, constraints) {
+              final wide = constraints.maxWidth >= 700;
+              final colors = Theme.of(context).colorScheme;
+              return Column(
+                children: _controller.projectMembers.map((member) {
+                  final isCurrent =
+                      member.employeeId == _controller.currentEmployeeId;
+                  final identifier = isCurrent
+                      ? 'Você • ${member.employeeId}'
+                      : member.employeeId;
+                  final name = Text(member.employeeName,
+                      maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall);
+                  final id = Text(identifier, maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                          color: colors.onSurfaceVariant));
+                  return Column(
+                    children: [
+                      Divider(height: 1, color: colors.outlineVariant),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 18,
+                              backgroundColor: colors.brightness == Brightness.dark
+                                  ? colors.primary : colors.onSurfaceVariant,
+                              foregroundColor: colors.brightness == Brightness.dark
+                                  ? colors.onPrimary : colors.surface,
+                              child: Text(_initials(member.employeeName)),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(child: wide ? Row(children: [
+                              Expanded(child: Tooltip(message: member.employeeName, child: name)),
+                              const SizedBox(width: 16),
+                              Expanded(child: Tooltip(message: identifier, child: id)),
+                            ]) : Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Tooltip(message: member.employeeName, child: name),
+                                Tooltip(message: identifier, child: id),
+                              ],
+                            )),
+                            if (_controller.canManageProjects)
+                              IconButton(
+                              tooltip: 'Remover acesso ao projeto',
+                              onPressed: _controller.isMutating
+                                  ? null
+                                  : () => _confirmRemoveProjectMember(member),
+                              icon: const Icon(Icons.person_remove_outlined),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                }).toList(),
+              );
+            }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTasksCard() {
+    final theme = Theme.of(context);
+    if (_taskPageProjectId != _controller.selectedProjectId) {
+      _taskPageProjectId = _controller.selectedProjectId;
+      _taskPage = 0;
+    }
+    final pageCount = (_controller.tasks.length + _tasksPerPage - 1) ~/ _tasksPerPage;
+    final page = _taskPage.clamp(0, pageCount == 0 ? 0 : pageCount - 1);
+    final visibleTasks = _controller.tasks.skip(page * _tasksPerPage).take(_tasksPerPage);
+    return WorkspaceSectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Theme(
+            data: theme.copyWith(textTheme: theme.textTheme.copyWith(
+              headlineMedium: theme.textTheme.titleLarge,
+              bodyLarge: theme.textTheme.bodyMedium,
+            )),
+            child: WorkspaceHeader(
+              title: 'Tarefas',
+              description:
+                  'As tarefas podem ter tipo e tarefa-pai, formando uma hierarquia dentro do projeto.',
+              maxContentWidth: 520,
+              actions: <Widget>[
+                if (_controller.canManageTasks)
+                  FilledButton.tonalIcon(
+                    onPressed: _controller.isMutating || _controller.isLoadingTasks
+                        ? null
+                        : _openCreateTask,
+                    icon: const Icon(Icons.add_task_rounded),
+                    label: const Text('Nova tarefa'),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          if (_controller.isLoadingTasks)
+            const WorkspaceSkeletonRegion(
+              label: 'Carregando tarefas',
+              child: WorkspaceSkeletonList(count: 3, leadingSize: 24),
+            )
+          else if (_controller.tasksError != null)
+            _InlineError(
+              message: _controller.tasksError!,
+              onRetry: _controller.reloadTasks,
+            )
+          else if (_controller.tasks.isEmpty)
+            const _EmptyState(
+              icon: Icons.task_alt_rounded,
+              title: 'Nenhuma tarefa criada',
+              description: 'Crie a primeira tarefa para estruturar o projeto.',
+            )
+          else
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                LayoutBuilder(builder: (context, constraints) {
+                  if (constraints.maxWidth < 700) return const SizedBox.shrink();
+                  final style = theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant);
+                  return Padding(
+                    padding: const EdgeInsets.fromLTRB(40, 0, 12, 6),
+                    child: Row(children: <Widget>[
+                      Expanded(flex: 5, child: Text('Tarefa', style: style)),
+                      const SizedBox(width: 12),
+                      SizedBox(width: 90, child: Text('Tipo', style: style)),
+                      const SizedBox(width: 12),
+                      Expanded(flex: 5, child: Text('Descrição', style: style)),
+                      if (_controller.canManageTasks) const SizedBox(width: 48),
+                    ]),
+                  );
+                }),
+                for (final task in visibleTasks) ...<Widget>[
+                  Divider(height: 1, color: theme.colorScheme.outlineVariant),
+                  _TaskTile(
+                    task: task,
+                    parentName: _parentTaskName(task),
+                    selected: task.id == _controller.selectedTaskId,
+                    canEdit: _controller.canManageTasks,
+                    onSelected: () => _controller.selectTask(task.id),
+                    onEdit: () => _openEditTask(task),
+                  ),
+                ],
+                if (pageCount > 1)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: <Widget>[
+                      Text('${page + 1} / $pageCount', style: theme.textTheme.bodyMedium),
+                      IconButton(
+                        tooltip: 'Página anterior',
+                        onPressed: page > 0 ? () => setState(() => _taskPage = page - 1) : null,
+                        icon: const Icon(Icons.chevron_left),
+                      ),
+                      IconButton(
+                        tooltip: 'Próxima página',
+                        onPressed: page + 1 < pageCount ? () => setState(() => _taskPage = page + 1) : null,
+                        icon: const Icon(Icons.chevron_right),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMembershipCard() {
+    final task = _controller.selectedTask;
+    if (_taskCount == null) return const SizedBox.shrink();
+    if (task == null) {
+      return _EmptyCard(
+        icon: Icons.group_outlined,
+        title: 'Selecione uma tarefa',
+        description: _taskListSummary,
+      );
+    }
+
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final project = _controller.selectedProject!;
+    final canLeave = _controller.canManageOwnTaskMembership &&
+        !_controller.isLoadingMembers &&
+        _controller.membersError == null &&
+        _controller.currentEmployeeIsMember;
+    final participantCount = _participantCount;
+    final limit = project.taskEmployeeLimit;
+    final capacityUnit = limit == 1 ? 'vaga' : 'vagas';
+    final occupancyDescription = participantCount == null
+        ? 'Ocupação ainda não confirmada.'
+        : '$participantCount de $limit $capacityUnit em uso.';
+    return WorkspaceSectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Theme(
+            data: theme.copyWith(
+              textTheme: theme.textTheme.copyWith(
+                headlineMedium: theme.textTheme.titleLarge,
+                bodyLarge: theme.textTheme.bodyMedium,
+              ),
+            ),
+            child: WorkspaceHeader(
+              title: 'Participantes',
+              description: occupancyDescription,
+              maxContentWidth: 620,
+              actions: <Widget>[
+                if (canLeave)
+                  OutlinedButton.icon(
+                    onPressed: _controller.isMutating
+                        ? null
+                        : () => _runAction(
+                              _controller.leaveSelectedTask,
+                              successMessage: 'Você saiu da tarefa.',
+                            ),
+                    icon: const Icon(Icons.logout_rounded),
+                    label: const Text('Sair da tarefa'),
+                  )
+                else if (_controller.canJoinSelectedTask)
+                  FilledButton.tonalIcon(
+                    onPressed: _controller.isMutating
+                        ? null
+                        : () => _runAction(
+                              _controller.joinSelectedTask,
+                              successMessage: 'Você entrou na tarefa.',
+                            ),
+                    icon: const Icon(Icons.person_add_alt_1_rounded),
+                    label: const Text('Entrar na tarefa'),
+                  ),
+                if (_controller.canManageMembership)
+                  OutlinedButton.icon(
+                    onPressed: _controller.isMutating ||
+                            _controller.isLoadingMembers ||
+                            _controller.membersError != null ||
+                            _controller.isLoadingProjectMembers ||
+                            _controller.projectMembersError != null
+                        ? null
+                        : _openAddMemberDialog,
+                    icon: const Icon(Icons.group_add_outlined),
+                    label: const Text('Adicionar membro'),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Tarefa selecionada',
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: colors.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            task.name,
+            key: const ValueKey<String>('participants-task-name'),
+            style: theme.textTheme.titleSmall,
+            softWrap: true,
+          ),
+          const SizedBox(height: 12),
+          if (!_controller.canManageMembership)
+            const _InfoBanner(
+              message:
+                  'Somente gestores podem adicionar ou remover outras pessoas.',
+            ),
+          if (_controller.isLoadingMembers)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: WorkspaceSkeletonRegion(
+                label: 'Carregando participantes da tarefa',
+                child: WorkspaceSkeletonList(count: 3),
+              ),
+            )
+          else if (_controller.membersError != null)
+            _InlineError(
+              message: _controller.membersError!,
+              onRetry: _controller.reloadMembers,
+            )
+          else if (_controller.taskMembers.isEmpty)
+            const _EmptyState(
+              icon: Icons.person_off_outlined,
+              title: 'Nenhum participante',
+              description: 'Ainda há vagas disponíveis nesta tarefa.',
+            )
+          else
+            Column(
+              key: const ValueKey<String>('task-participant-list'),
+              children: [
+                for (final member in _controller.taskMembers) ...[
+                  Divider(height: 1, color: colors.outlineVariant),
+                  _buildParticipantRow(
+                    member,
+                    showSelfRemoval: !canLeave,
+                  ),
+                ],
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildParticipantRow(
+    TaskMemberSummary member, {
+    required bool showSelfRemoval,
+  }) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final isCurrent = member.employeeId == _controller.currentEmployeeId;
+    final identifier =
+        isCurrent ? 'Você · ${member.employeeId}' : member.employeeId;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          ExcludeSemantics(
+            child: CircleAvatar(
+              radius: 18,
+              backgroundColor: colors.secondaryContainer,
+              foregroundColor: colors.onSecondaryContainer,
+              child: Text(_initials(member.employeeName)),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(member.employeeName, style: theme.textTheme.titleSmall),
+                const SizedBox(height: 2),
+                Text(
+                  identifier,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (_controller.canManageMembership && (!isCurrent || showSelfRemoval))
+            IconButton(
+              tooltip: isCurrent ? 'Sair da tarefa' : 'Remover da tarefa',
+              onPressed: _controller.isMutating
+                  ? null
+                  : () => _runAction(
+                        () => _controller.removeMemberFromSelectedTask(
+                          member.employeeId,
+                        ),
+                        successMessage: isCurrent
+                            ? 'Você saiu da tarefa.'
+                            : 'Membro removido da tarefa.',
+                      ),
+              icon: const Icon(Icons.person_remove_outlined),
+            ),
+        ],
+      ),
+    );
+  }
+
+  String? _parentTaskName(TaskRecord task) {
+    final parentId = task.parentTaskId;
+    if (parentId == null) {
+      return null;
+    }
+    for (final candidate in _controller.tasks) {
+      if (candidate.id == parentId) {
+        return candidate.name;
+      }
+    }
+    return parentId;
+  }
+
+  Future<void> _openCreateProject() async {
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (_) => _ProjectEditorDialog(
+        onSave: (draft) async {
+          await _controller.createProject(draft);
+        },
+      ),
+    );
+    if (saved != true || !mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Projeto criado.')),
+    );
+  }
+
+  Future<void> _openEditProject(ProjectSummary project) async {
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (_) => _ProjectEditorDialog(
+        project: project,
+        onSave: (draft) async {
+          await _controller.updateProject(project, draft);
+        },
+      ),
+    );
+    if (saved != true || !mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Projeto atualizado.')),
+    );
+  }
+
+  Future<void> _confirmDeleteProject(ProjectSummary project) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Excluir projeto'),
+        content: Text(
+          'Deseja excluir “${project.name}”? O projeto deixará de aparecer na gestão.',
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Excluir'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) {
+      return;
+    }
+    await _runAction(
+      () => _controller.deleteProject(project),
+      successMessage: 'Projeto excluído.',
+    );
+  }
+
+  Future<void> _openCreateTask() async {
+    await showDialog<void>(
+      context: context,
+      builder: (_) => ProjectTaskEditorDialog(
+        tasks: _controller.tasks,
+        onSave: (draft) async {
+          await _controller.createTask(draft);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Tarefa criada.')),
+            );
+          }
+        },
+      ),
+    );
+  }
+
+  Future<void> _openEditTask(TaskRecord task) async {
+    await showDialog<void>(
+      context: context,
+      builder: (_) => ProjectTaskEditorDialog(
+        tasks: _controller.tasks,
+        task: task,
+        onSave: (draft) async {
+          await _controller.updateTask(task, draft);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Tarefa atualizada.')),
+            );
+          }
+        },
+      ),
+    );
+  }
+
+  Future<void> _openAddProjectMemberDialog() async {
+    final projectId = _controller.selectedProjectId;
+    final employeeId = await showDialog<String>(
+      context: context,
+      builder: (_) => _AddProjectMemberDialog(
+        loadEmployees: _controller.listEmployeesForProjectAccess,
+        existingEmployeeIds: _controller.projectMembers
+            .map((member) => member.employeeId)
+            .toSet(),
+      ),
+    );
+    if (!mounted || employeeId == null ||
+        projectId != _controller.selectedProjectId) {
+      return;
+    }
+    await _runAction(
+      () => _controller.addMemberToSelectedProject(employeeId),
+      successMessage: 'Funcionário adicionado ao projeto.',
+    );
+  }
+
+  Future<void> _confirmRemoveProjectMember(ProjectMemberSummary member) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Remover acesso ao projeto'),
+        content: Text(
+          'Remover “${member.employeeName}” deste projeto? As responsabilidades dessa pessoa nas tarefas do projeto também serão removidas.',
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Remover'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) {
+      return;
+    }
+    await _runAction(
+      () => _controller.removeMemberFromSelectedProject(member.employeeId),
+      successMessage: 'Acesso ao projeto removido.',
+    );
+  }
+
+  Future<void> _openAddMemberDialog() async {
+    final employeeId = await showDialog<String>(
+      context: context,
+      builder: (_) => _AddTaskMemberDialog(
+        projectMembers: _controller.projectMembers,
+        existingEmployeeIds:
+            _controller.taskMembers.map((member) => member.employeeId).toSet(),
+      ),
+    );
+    if (employeeId == null) {
+      return;
+    }
+    await _runAction(
+      () => _controller.addMemberToSelectedTask(employeeId),
+      successMessage: 'Membro adicionado à tarefa.',
+    );
+  }
+
+  Future<void> _runAction(
+    Future<dynamic> Function() action, {
+    required String successMessage,
+  }) async {
+    try {
+      await action();
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(successMessage)),
+      );
+    } on ApiException catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Não foi possível concluir a operação.')),
+      );
+    }
+  }
+}
+
+class _ProjectMetricItem extends StatelessWidget {
+  const _ProjectMetricItem({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Semantics(
+      container: true,
+      label: '$label: $value',
+      child: ExcludeSemantics(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          child: Row(children: [
+            Icon(icon, size: 18, color: theme.colorScheme.onSurfaceVariant),
+            const SizedBox(width: 8),
+            Expanded(
+                child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(label,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600)),
+                const SizedBox(height: 2),
+                Text(value,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w800)),
+              ],
+            )),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+class _ProjectListTile extends StatelessWidget {
+  const _ProjectListTile({
+    required this.project,
+    required this.selected,
+    required this.canManage,
+    required this.onTap,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  final ProjectSummary project;
+  final bool selected;
+  final bool canManage;
+  final VoidCallback onTap;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Material(
+      color: Colors.transparent,
+      child: Semantics(
+        selected: selected,
+        child: InkWell(
+          onTap: onTap,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            decoration: BoxDecoration(
+              color: selected
+                  ? colorScheme.primary.withValues(alpha: 0.08)
+                  : Colors.transparent,
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: <Widget>[
+                Icon(selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                    size: 20, color: selected ? colorScheme.primary : colorScheme.onSurfaceVariant),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Row(
+                        children: <Widget>[
+                          Expanded(
+                            child: Tooltip(
+                              message: project.name,
+                              child: Text(
+                                project.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ),
+                          if (canManage) ...<Widget>[
+                            const SizedBox(width: 6),
+                            IconButton(
+                              onPressed: onEdit,
+                              icon: const Icon(Icons.edit_outlined, size: 18),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints.tightFor(
+                                width: 40,
+                                height: 48,
+                              ),
+                              visualDensity: VisualDensity.compact,
+                              tooltip: 'Editar projeto',
+                            ),
+                            const SizedBox(width: 4),
+                            IconButton(
+                              onPressed: onDelete,
+                              icon: const Icon(
+                                Icons.delete_outline_rounded,
+                                size: 18,
+                              ),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints.tightFor(
+                                width: 40,
+                                height: 48,
+                              ),
+                              visualDensity: VisualDensity.compact,
+                              tooltip: 'Excluir projeto',
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        'Limite ${project.taskEmployeeLimit} por tarefa • ${project.status == ProjectStatus.active ? 'Ativo' : 'Inativo'}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                          height: 1.2,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ProjectDetailHero extends StatelessWidget {
+  const _ProjectDetailHero({
+    required this.project,
+    required this.canEdit,
+    required this.isMutating,
+    required this.onEdit,
+  });
+
+  final ProjectSummary project;
+  final bool canEdit;
+  final bool isMutating;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final success = theme.extension<AdminSemanticColors>()?.success;
+    final statusColor = project.status == ProjectStatus.active
+        ? success?.foreground ?? const Color(0xFF2F8F46)
+        : colorScheme.onSurfaceVariant;
+    return LayoutBuilder(
+        builder: (context, constraints) {
+          final isCompact = constraints.maxWidth < 620;
+          final identityBlock = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(project.name, style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 6),
+              Text(
+                project.description?.trim().isNotEmpty == true ? project.description! : 'Sem descrição.',
+                style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant, height: 1.45),
+              ),
+              const SizedBox(height: 10),
+              _ProjectPill(
+                label: project.status == ProjectStatus.active ? 'Ativo' : 'Inativo',
+                tone: statusColor,
+                background: project.status == ProjectStatus.active ? success?.container : null,
+                icon: project.status == ProjectStatus.active ? Icons.check_circle_outline_rounded : Icons.pause_circle_outline_rounded,
+              ),
+            ],
+          );
+
+          if (!canEdit) {
+            return identityBlock;
+          }
+
+          final editButton = OutlinedButton.icon(
+            onPressed: isMutating ? null : onEdit,
+            icon: const Icon(Icons.edit_outlined),
+            label: const Text('Editar'),
+          );
+
+          if (isCompact) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                identityBlock,
+                const SizedBox(height: 12),
+                SizedBox(width: double.infinity, child: editButton),
+              ],
+            );
+          }
+
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Expanded(child: identityBlock),
+              const SizedBox(width: 12),
+              SizedBox(width: 128, child: editButton),
+            ],
+          );
+        },
+    );
+  }
+}
+
+class _ProjectPill extends StatelessWidget {
+  const _ProjectPill({
+    required this.label,
+    required this.tone,
+    required this.icon,
+    this.background,
+  });
+
+  final String label;
+  final Color tone;
+  final Color? background;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: background ?? tone.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: tone.withValues(alpha: 0.22)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(icon, size: 14, color: tone),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: tone,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProjectOverviewCard extends StatelessWidget {
+  const _ProjectOverviewCard({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Icon(icon, size: 18, color: colorScheme.onSurfaceVariant),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  label,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TaskTile extends StatelessWidget {
+  const _TaskTile({
+    required this.task,
+    required this.parentName,
+    required this.selected,
+    required this.canEdit,
+    required this.onSelected,
+    required this.onEdit,
+  });
+
+  final TaskRecord task;
+  final String? parentName;
+  final bool selected;
+  final bool canEdit;
+  final VoidCallback onSelected;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Material(
+      color: selected
+          ? colorScheme.primaryContainer.withValues(alpha: 0.18)
+          : Colors.transparent,
+      child: Semantics(
+        selected: selected,
+        child: InkWell(
+          onTap: onSelected,
+          child: LayoutBuilder(builder: (context, constraints) {
+            final wide = constraints.maxWidth >= 700;
+            final theme = Theme.of(context);
+            final description = Tooltip(
+              message: task.description,
+              child: Text(
+                task.description,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+              ),
+            );
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: <Widget>[
+                  Icon(_taskTypeIcon(task.type), size: 18,
+                      color: selected ? colorScheme.primary : colorScheme.onSurfaceVariant),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    flex: 5,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        Tooltip(
+                          message: task.name,
+                          child: Text(task.name, maxLines: 1, overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
+                        ),
+                        if (parentName != null)
+                          Tooltip(
+                            message: 'Subtarefa de: $parentName',
+                            child: Text('Subtarefa de: $parentName', maxLines: 1, overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.labelMedium?.copyWith(color: colorScheme.onSurfaceVariant)),
+                          ),
+                        if (!wide) ...<Widget>[
+                          Text(_taskTypeLabel(task.type), style: theme.textTheme.labelMedium?.copyWith(color: colorScheme.onSurfaceVariant)),
+                          description,
+                        ],
+                      ],
+                    ),
+                  ),
+                  if (wide) ...<Widget>[
+                    const SizedBox(width: 12),
+                    SizedBox(width: 90, child: Text(_taskTypeLabel(task.type), style: theme.textTheme.bodyMedium)),
+                    const SizedBox(width: 12),
+                    Expanded(flex: 5, child: description),
+                  ],
+                  if (canEdit)
+                    IconButton(
+                      tooltip: 'Editar tarefa',
+                      onPressed: onEdit,
+                      icon: const Icon(Icons.edit_outlined),
+                    ),
+                ],
+              ),
+            );
+          }),
+        ),
+      ),
+    );
+  }
+}
+
+class _ProjectEditorDialog extends StatefulWidget {
+  const _ProjectEditorDialog({required this.onSave, this.project});
+
+  final ProjectSummary? project;
+  final Future<void> Function(ProjectDraft draft) onSave;
+
+  @override
+  State<_ProjectEditorDialog> createState() => _ProjectEditorDialogState();
+}
+
+class _ProjectEditorDialogState extends State<_ProjectEditorDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _nameController;
+  late final TextEditingController _descriptionController;
+  late final TextEditingController _limitController;
+  late ProjectStatus _status;
+  bool _isSaving = false;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    final project = widget.project;
+    _nameController = TextEditingController(text: project?.name ?? '');
+    _descriptionController =
+        TextEditingController(text: project?.description ?? '');
+    _limitController = TextEditingController(
+      text: '${project?.taskEmployeeLimit ?? 1}',
+    );
+    _status = project?.status ?? ProjectStatus.active;
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _descriptionController.dispose();
+    _limitController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: !_isSaving,
+      child: WorkspaceEditorDialog(
+        title: widget.project == null ? 'Novo projeto' : 'Editar projeto',
+        subtitle: widget.project == null
+            ? 'Defina os dados e a capacidade das tarefas.'
+            : 'Atualize os dados e a capacidade das tarefas.',
+        icon: Icons.folder_open_rounded,
+        primaryLabel: widget.project == null ? 'Criar projeto' : 'Salvar',
+        busyLabel: 'Salvando projeto…',
+        isBusy: _isSaving,
+        errorMessage: _errorMessage,
+        onPrimary: _save,
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              TextFormField(
+                controller: _nameController,
+                autofocus: true,
+                enabled: !_isSaving,
+                maxLength: projectNameMaxLength,
+                maxLengthEnforcement: MaxLengthEnforcement.enforced,
+                decoration: const InputDecoration(labelText: 'Nome'),
+                validator: (value) => _requiredTextWithinLimit(
+                  value,
+                  maxLength: projectNameMaxLength,
+                ),
+              ),
+              const SizedBox(height: 14),
+              TextFormField(
+                controller: _descriptionController,
+                enabled: !_isSaving,
+                minLines: 3,
+                maxLines: 5,
+                maxLength: projectDescriptionMaxLength,
+                maxLengthEnforcement: MaxLengthEnforcement.enforced,
+                decoration: const InputDecoration(labelText: 'Descrição'),
+              ),
+              const SizedBox(height: 14),
+              TextFormField(
+                controller: _limitController,
+                enabled: !_isSaving,
+                keyboardType: TextInputType.number,
+                inputFormatters: <TextInputFormatter>[
+                  FilteringTextInputFormatter.digitsOnly,
+                ],
+                decoration: InputDecoration(
+                  labelText: 'Máximo de funcionários por tarefa',
+                  helperText: widget.project == null
+                      ? 'Define a capacidade máxima de participantes em cada tarefa.'
+                      : 'Ao reduzir, o limite não pode ficar abaixo da quantidade de funcionários já associada a nenhuma tarefa existente.',
+                  helperMaxLines: 3,
+                ),
+                validator: (value) {
+                  final parsed = int.tryParse(value?.trim() ?? '');
+                  if (parsed == null || parsed < 1) {
+                    return 'Informe um número maior ou igual a 1.';
+                  }
+                  if (parsed > 2147483647) {
+                    return 'Informe um número menor ou igual a 2147483647.';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 14),
+              DropdownButtonFormField<ProjectStatus>(
+                initialValue: _status,
+                dropdownColor:
+                    WorkspaceMenuStyle.surface(Theme.of(context).colorScheme),
+                borderRadius: WorkspaceMenuStyle.borderRadius,
+                decoration: const InputDecoration(labelText: 'Status'),
+                items: const <DropdownMenuItem<ProjectStatus>>[
+                  DropdownMenuItem(
+                    value: ProjectStatus.active,
+                    child: Text('Ativo'),
+                  ),
+                  DropdownMenuItem(
+                    value: ProjectStatus.inactive,
+                    child: Text('Inativo'),
+                  ),
+                ],
+                onChanged: _isSaving
+                    ? null
+                    : (value) {
+                        if (value != null) {
+                          setState(() => _status = value);
+                        }
+                      },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _save() async {
+    if (_isSaving || !_formKey.currentState!.validate()) {
+      return;
+    }
+    final draft = ProjectDraft(
+      name: _nameController.text,
+      description: _descriptionController.text,
+      taskEmployeeLimit: int.parse(_limitController.text.trim()),
+      status: _status,
+    );
+    setState(() {
+      _isSaving = true;
+      _errorMessage = null;
+    });
+
+    try {
+      await widget.onSave(draft);
+      if (!mounted) {
+        return;
+      }
+      setState(() => _isSaving = false);
+      Navigator.of(context).pop(true);
+    } on ApiException catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isSaving = false;
+        _errorMessage = _projectSaveErrorMessage(error);
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isSaving = false;
+        _errorMessage = 'Não foi possível concluir a operação.';
+      });
+    }
+  }
+
+  String _projectSaveErrorMessage(ApiException error) {
+    if (error.statusCode == 409 &&
+        error.message == _projectTaskEmployeeLimitConflictMessage) {
+      return _projectTaskEmployeeLimitConflictMessage;
+    }
+    return switch (error.statusCode) {
+      401 => 'Sua sessão expirou. Entre novamente para salvar o projeto.',
+      403 => 'Você não tem permissão para salvar este projeto.',
+      404 => 'Este projeto não está mais disponível.',
+      409 =>
+        'O projeto mudou desde que foi aberto. Recarregue e tente novamente.',
+      422 => 'Revise os dados informados e tente novamente.',
+      final statusCode? when statusCode >= 500 =>
+        'Serviço temporariamente indisponível. Tente novamente.',
+      _ => 'Não foi possível concluir a operação.',
+    };
+  }
+}
+
+class _AddProjectMemberDialog extends StatefulWidget {
+  const _AddProjectMemberDialog({
+    required this.loadEmployees,
+    required this.existingEmployeeIds,
+  });
+
+  final Future<List<EmployeeProfile>> Function() loadEmployees;
+  final Set<String> existingEmployeeIds;
+
+  @override
+  State<_AddProjectMemberDialog> createState() =>
+      _AddProjectMemberDialogState();
+}
+
+class _AddProjectMemberDialogState extends State<_AddProjectMemberDialog> {
+  final _formKey = GlobalKey<FormState>();
+  String? _selectedEmployeeId;
+  late Future<List<EmployeeProfile>> _employees;
+
+  @override
+  void initState() {
+    super.initState();
+    _employees = widget.loadEmployees();
+  }
+
+  Widget _statusDialog(Widget content, {bool canRetry = false}) => AlertDialog(
+        title: const Text('Adicionar ao projeto'),
+        content: content,
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancelar'),
+          ),
+          if (canRetry)
+            TextButton(
+              onPressed: () {
+                final request = widget.loadEmployees();
+                setState(() {
+                  _employees = request;
+                });
+              },
+              child: const Text('Tentar novamente'),
+            ),
+        ],
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<EmployeeProfile>>(
+      future: _employees,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return _statusDialog(const Text('Carregando funcionários…'));
+        }
+        if (snapshot.hasError) {
+          return _statusDialog(
+            const Text('Não foi possível carregar os funcionários.'),
+            canRetry: true,
+          );
+        }
+        return _picker(context, snapshot.requireData);
+      },
+    );
+  }
+
+  Widget _picker(BuildContext context, List<EmployeeProfile> employees) {
+    final availableEmployees = employees
+        .where(
+          (employee) => !widget.existingEmployeeIds.contains(employee.id),
+        )
+        .toList();
+
+    return AlertDialog(
+      title: const Text('Adicionar ao projeto'),
+      content: SizedBox(
+        width: 460,
+        child: Form(
+          key: _formKey,
+          child: availableEmployees.isEmpty
+              ? const Text(
+                  'Todos os funcionários disponíveis já possuem acesso a este projeto.',
+                )
+              : DropdownButtonFormField<String>(
+                  initialValue: _selectedEmployeeId,
+                  dropdownColor:
+                      WorkspaceMenuStyle.surface(Theme.of(context).colorScheme),
+                  borderRadius: WorkspaceMenuStyle.borderRadius,
+                  decoration: const InputDecoration(labelText: 'Funcionário'),
+                  items: availableEmployees
+                      .map(
+                        (employee) => DropdownMenuItem<String>(
+                          value: employee.id,
+                          child: Text(employee.name),
+                        ),
+                      )
+                      .toList(),
+                  validator: (value) => value == null || value.isEmpty
+                      ? 'Selecione um funcionário.'
+                      : null,
+                  onChanged: (value) => setState(
+                    () => _selectedEmployeeId = value,
+                  ),
+                ),
+        ),
+      ),
+      actions: <Widget>[
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: availableEmployees.isEmpty
+              ? null
+              : () {
+                  if (!_formKey.currentState!.validate()) {
+                    return;
+                  }
+                  Navigator.of(context).pop(_selectedEmployeeId);
+                },
+          child: const Text('Adicionar'),
+        ),
+      ],
+    );
+  }
+}
+
+class _AddTaskMemberDialog extends StatefulWidget {
+  const _AddTaskMemberDialog({
+    required this.projectMembers,
+    required this.existingEmployeeIds,
+  });
+
+  final List<ProjectMemberSummary> projectMembers;
+  final Set<String> existingEmployeeIds;
+
+  @override
+  State<_AddTaskMemberDialog> createState() => _AddTaskMemberDialogState();
+}
+
+class _AddTaskMemberDialogState extends State<_AddTaskMemberDialog> {
+  final _formKey = GlobalKey<FormState>();
+  String? _selectedEmployeeId;
+
+  @override
+  Widget build(BuildContext context) {
+    final availableMembers = widget.projectMembers
+        .where(
+          (member) => !widget.existingEmployeeIds.contains(member.employeeId),
+        )
+        .toList();
+
+    return AlertDialog(
+      title: const Text('Adicionar responsável'),
+      content: SizedBox(
+        width: 460,
+        child: Form(
+          key: _formKey,
+          child: availableMembers.isEmpty
+              ? const Text(
+                  'Não há membros do projeto disponíveis para esta tarefa.',
+                )
+              : DropdownButtonFormField<String>(
+                  initialValue: _selectedEmployeeId,
+                  dropdownColor:
+                      WorkspaceMenuStyle.surface(Theme.of(context).colorScheme),
+                  borderRadius: WorkspaceMenuStyle.borderRadius,
+                  decoration: const InputDecoration(
+                    labelText: 'Membro do projeto',
+                    helperText:
+                        'Somente pessoas com acesso ao projeto podem assumir tarefas.',
+                  ),
+                  items: availableMembers
+                      .map(
+                        (member) => DropdownMenuItem<String>(
+                          value: member.employeeId,
+                          child: Text(member.employeeName),
+                        ),
+                      )
+                      .toList(),
+                  validator: (value) => value == null || value.isEmpty
+                      ? 'Selecione um membro do projeto.'
+                      : null,
+                  onChanged: (value) => setState(
+                    () => _selectedEmployeeId = value,
+                  ),
+                ),
+        ),
+      ),
+      actions: <Widget>[
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: availableMembers.isEmpty
+              ? null
+              : () {
+                  if (!_formKey.currentState!.validate()) {
+                    return;
+                  }
+                  Navigator.of(context).pop(_selectedEmployeeId);
+                },
+          child: const Text('Adicionar'),
+        ),
+      ],
+    );
+  }
+}
+
+class _PageMessage extends StatelessWidget {
+  const _PageMessage({
+    required this.title,
+    required this.message,
+    required this.actionLabel,
+    required this.onAction,
+  });
+
+  final String title;
+  final String message;
+  final String actionLabel;
+  final Future<void> Function() onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(32),
+      child: WorkspaceSectionCard(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            const Icon(Icons.error_outline_rounded, size: 42),
+            const SizedBox(height: 14),
+            Text(title, style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 8),
+            Text(message, textAlign: TextAlign.center),
+            const SizedBox(height: 18),
+            FilledButton(
+              onPressed: () => onAction(),
+              child: Text(actionLabel),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyCard extends StatelessWidget {
+  const _EmptyCard({
+    required this.icon,
+    required this.title,
+    required this.description,
+  });
+
+  final IconData icon;
+  final String title;
+  final String description;
+
+  @override
+  Widget build(BuildContext context) {
+    return WorkspaceSectionCard(
+      child: _EmptyState(icon: icon, title: title, description: description),
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState({
+    required this.icon,
+    required this.title,
+    required this.description,
+  });
+
+  final IconData icon;
+  final String title;
+  final String description;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 20),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Icon(icon, size: 38, color: colorScheme.onSurfaceVariant),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              style: Theme.of(context)
+                  .textTheme
+                  .titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              description,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InlineError extends StatelessWidget {
+  const _InlineError({required this.message, required this.onRetry});
+
+  final String message;
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: <Widget>[
+        const Icon(Icons.error_outline_rounded),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Semantics(
+            liveRegion: true,
+            child: Text(message),
+          ),
+        ),
+        TextButton(onPressed: onRetry, child: const Text('Tentar novamente')),
+      ],
+    );
+  }
+}
+
+class _InfoBanner extends StatelessWidget {
+  const _InfoBanner({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: colorScheme.secondaryContainer.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Row(
+        children: <Widget>[
+          const Icon(Icons.info_outline_rounded),
+          const SizedBox(width: 10),
+          Expanded(child: Text(message)),
+        ],
+      ),
+    );
+  }
+}
+
+String? _requiredText(String? value) {
+  if (value == null || value.trim().isEmpty) {
+    return 'Campo obrigatório.';
+  }
+  return null;
+}
+
+String? _requiredTextWithinLimit(
+  String? value, {
+  required int maxLength,
+}) {
+  final requiredError = _requiredText(value);
+  if (requiredError != null) {
+    return requiredError;
+  }
+  if (value!.trim().length > maxLength) {
+    return 'Máximo de $maxLength caracteres.';
+  }
+  return null;
+}
+
+String _taskTypeLabel(TaskType type) {
+  return switch (type) {
+    TaskType.bug => 'Bug',
+    TaskType.improvement => 'Melhoria',
+    TaskType.feature => 'Feature',
+  };
+}
+
+IconData _taskTypeIcon(TaskType type) {
+  return switch (type) {
+    TaskType.bug => Icons.bug_report_outlined,
+    TaskType.improvement => Icons.auto_fix_high_outlined,
+    TaskType.feature => Icons.new_releases_outlined,
+  };
+}
+
+String _initials(String name) {
+  final parts = name
+      .trim()
+      .split(RegExp(r'\s+'))
+      .where((part) => part.isNotEmpty)
+      .toList();
+  if (parts.isEmpty) {
+    return '?';
+  }
+  if (parts.length == 1) {
+    return parts.first.substring(0, 1).toUpperCase();
+  }
+  return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
+}

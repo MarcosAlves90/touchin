@@ -1,21 +1,57 @@
 import 'dart:async';
 
-import 'package:bunchin_flutter/contracts/auth.dart';
-import 'package:bunchin_flutter/contracts/employee.dart';
-import 'package:bunchin_flutter/contracts/location.dart';
-import 'package:bunchin_flutter/contracts/punch.dart';
-import 'package:bunchin_flutter/contracts/time_clock.dart';
-import 'package:bunchin_flutter/core/config/app_config.dart';
-import 'package:bunchin_flutter/core/network/api_client.dart';
-import 'package:bunchin_flutter/core/network/bunchin_api.dart';
-import 'package:bunchin_flutter/core/storage/token_storage.dart';
+import 'package:touchin_flutter/contracts/auth.dart';
+import 'package:touchin_flutter/contracts/employee.dart';
+import 'package:touchin_flutter/contracts/location.dart';
+import 'package:touchin_flutter/contracts/punch.dart';
+import 'package:touchin_flutter/contracts/time_clock.dart';
+import 'package:touchin_flutter/core/network/api_client.dart';
+import 'package:touchin_flutter/core/network/touchin_api.dart';
+import 'package:touchin_flutter/core/storage/token_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+
+const _validCredentialFixture = 'fixture-auth-value';
+const _invalidCredentialFixture = 'invalid-auth-value';
 
 void main() {
-  final baseUrl = AppConfig.apiBaseUrl;
+  test('public reset confirmation posts without authentication', () async {
+    final client = _FakeApiClient(postResponses: {
+      '/auth/reset-password/confirm': null,
+    });
+    final api =
+        TouchInApi(client: client, tokenStorage: _InMemoryTokenStorage());
+    await api.confirmPasswordReset(
+        token: 'fixture-token', newPassword: 'fixture-password');
+    expect(client.lastPath, '/auth/reset-password/confirm');
+    expect(client.lastWithAuth, isFalse);
+    expect(client.lastBody,
+        {'token': 'fixture-token', 'newPassword': 'fixture-password'});
+  });
 
+  test('HTTP 409 retains structured version code independent of message',
+      () async {
+    final apiClient = ApiClient(
+      client: _FakeHttpClient(responses: {
+        'GET http://localhost:8071/api/v1/versioned': http.Response(
+          '{"detail":"Mensagem modificada pelo servidor.",'
+          '"code":"kanban_version_conflict"}',
+          409,
+          headers: {'content-type': 'application/json'},
+        ),
+      }),
+    );
+    await expectLater(
+      apiClient.get('/versioned'),
+      throwsA(isA<ApiException>()
+          .having((e) => e.statusCode, 'status', 409)
+          .having((e) => e.code, 'code', 'kanban_version_conflict')
+          .having((e) => e.message, 'message',
+              'O quadro mudou em outra sessão. Recarregue antes de mover cards.')),
+    );
+  });
   test('login posts credentials contract and stores session token', () async {
     final client = _FakeApiClient(
       postResponses: {
@@ -23,12 +59,12 @@ void main() {
       },
     );
     final tokenStorage = _InMemoryTokenStorage();
-    final api = BunchinApi(client: client, tokenStorage: tokenStorage);
+    final api = TouchInApi(client: client, tokenStorage: tokenStorage);
 
     final session = await api.login(
       credentials: const LoginCredentials(
-        email: 'marina.costa@bunchin.com',
-        password: 'Bunchin@123',
+        email: 'marina.costa@touchin.com',
+        password: _validCredentialFixture,
         keepConnected: true,
       ),
     );
@@ -36,11 +72,11 @@ void main() {
     expect(session.accessToken, 'token-123');
     expect(session.user.isAdmin, isTrue);
     expect(tokenStorage.savedToken, 'token-123');
-    expect(tokenStorage.savedSession?.user.email, 'marina.costa@bunchin.com');
+    expect(tokenStorage.savedSession?.user.email, 'marina.costa@touchin.com');
     expect(client.lastPath, '/auth/login');
     expect(client.lastBody, <String, dynamic>{
-      'email': 'marina.costa@bunchin.com',
-      'password': 'Bunchin@123',
+      'email': 'marina.costa@touchin.com',
+      'password': _validCredentialFixture,
       'keepConnected': true,
     });
   });
@@ -49,7 +85,7 @@ void main() {
     final apiClient = ApiClient(
       client: _FakeHttpClient(
         responses: {
-          'POST $baseUrl/auth/login': http.Response(
+          'POST http://localhost:8071/api/v1/auth/login': http.Response(
             '{"detail":"Invalid email or password."}',
             401,
             headers: {'content-type': 'application/json'},
@@ -57,7 +93,7 @@ void main() {
         },
       ),
     );
-    final api = BunchinApi(
+    final api = TouchInApi(
       client: apiClient,
       tokenStorage: _InMemoryTokenStorage(),
     );
@@ -65,8 +101,8 @@ void main() {
     await expectLater(
       api.login(
         credentials: const LoginCredentials(
-          email: 'marina.costa@bunchin.com',
-          password: 'wrong-password',
+          email: 'marina.costa@touchin.com',
+          password: _invalidCredentialFixture,
           keepConnected: true,
         ),
       ),
@@ -81,12 +117,14 @@ void main() {
   });
 
   test('auth context expired token is translated to pt-BR', () async {
+    TouchInApi.invalidateAuthContext();
+    addTearDown(TouchInApi.invalidateAuthContext);
     final tokenStorage = _InMemoryTokenStorage()..savedToken = 'token-123';
     final apiClient = ApiClient(
       tokenStorage: tokenStorage,
       client: _FakeHttpClient(
         responses: {
-          'GET $baseUrl/auth/me': http.Response(
+          'GET http://localhost:8071/api/v1/auth/me': http.Response(
             '{"detail":"Invalid or expired access token."}',
             401,
             headers: {'content-type': 'application/json'},
@@ -94,7 +132,7 @@ void main() {
         },
       ),
     );
-    final api = BunchinApi(client: apiClient, tokenStorage: tokenStorage);
+    final api = TouchInApi(client: apiClient, tokenStorage: tokenStorage);
 
     await expectLater(
       api.getAuthContext(),
@@ -108,6 +146,26 @@ void main() {
     );
   });
 
+  test('create punch request serializes project and mandatory work log', () {
+    final request = CreatePunchRequest(
+      type: PunchType.checkOut,
+      projectId: ' project-1 ',
+      workLog: const WorkLogPayload(
+        description: ' atividade concluída ',
+        taskIds: <String>['task-1', 'task-2'],
+      ),
+    );
+
+    expect(request.toApiJson(), <String, dynamic>{
+      'type': 'checkOut',
+      'projectId': 'project-1',
+      'workLog': <String, dynamic>{
+        'description': 'atividade concluída',
+        'taskIds': <String>['task-1', 'task-2'],
+      },
+    });
+  });
+
   test('registerCompany posts payload contract and parses full session',
       () async {
     final client = _FakeApiClient(
@@ -116,33 +174,91 @@ void main() {
       },
     );
     final tokenStorage = _InMemoryTokenStorage();
-    final api = BunchinApi(client: client, tokenStorage: tokenStorage);
+    final api = TouchInApi(client: client, tokenStorage: tokenStorage);
 
     final session = await api.registerCompany(
       draft: const CompanyRegistrationDraft(
-        companyName: 'Bunchin Tecnologia LTDA',
-        tradeName: 'Bunchin',
+        companyName: 'TouchIn Tecnologia LTDA',
+        tradeName: 'TouchIn',
         cnpj: '12.345.678/0001-90',
-        email: 'contato@bunchin.com',
+        email: 'contato@touchin.com',
         phone: '(11) 99999-0000',
-        password: 'Bunchin@123',
+        password: _validCredentialFixture,
         acceptTerms: true,
       ),
     );
 
-    expect(session.company.tradeName, 'Bunchin');
-    expect(session.user.email, 'marina.costa@bunchin.com');
-    expect(tokenStorage.savedSession?.company.tradeName, 'Bunchin');
+    expect(session.company.tradeName, 'TouchIn');
+    expect(session.user.email, 'marina.costa@touchin.com');
+    expect(tokenStorage.savedSession?.company.tradeName, 'TouchIn');
     expect(client.lastPath, '/auth/register-company');
     expect(client.lastBody, <String, dynamic>{
-      'companyName': 'Bunchin Tecnologia LTDA',
-      'tradeName': 'Bunchin',
+      'companyName': 'TouchIn Tecnologia LTDA',
+      'tradeName': 'TouchIn',
       'cnpj': '12.345.678/0001-90',
-      'email': 'contato@bunchin.com',
+      'email': 'contato@touchin.com',
       'phone': '(11) 99999-0000',
-      'password': 'Bunchin@123',
+      'password': _validCredentialFixture,
       'acceptTerms': true,
     });
+  });
+
+  test('forced password change is bound to its submitted session', () async {
+    final response = Completer<http.Response>();
+    final captured = Completer<http.Request>();
+    final tokenStorage = _InMemoryTokenStorage();
+    final client = ApiClient(
+      client: MockClient((request) {
+        captured.complete(request);
+        return response.future;
+      }),
+      tokenStorage: tokenStorage,
+    );
+    final api = TouchInApi(client: client, tokenStorage: tokenStorage);
+    final pending = api.changePassword(
+      currentPassword: _validCredentialFixture,
+      newPassword: 'new-password-fixture',
+      sessionToken: 'temporary-token',
+    );
+    final request = await captured.future;
+    expect(request.url.path, endsWith('/auth/change-password'));
+    expect(request.headers['Authorization'], 'Bearer temporary-token');
+
+    final newerSession = AuthSession.fromJson({
+      ..._authSessionResponse(),
+      'accessToken': 'newer-token',
+      'mustChangePassword': true,
+    });
+    await tokenStorage.saveAuthSession(newerSession);
+    response.complete(http.Response('', 204));
+    await pending;
+    expect(tokenStorage.savedSession, same(newerSession));
+    expect(tokenStorage.savedSession?.mustChangePassword, isTrue);
+  });
+
+  test('failed forced password change preserves the stored session flag',
+      () async {
+    final client = _FakeApiClient(
+      postErrors: {
+        '/auth/change-password': ApiException('Senha atual inválida.'),
+      },
+    );
+    final tokenStorage = _InMemoryTokenStorage()
+      ..savedSession = AuthSession.fromJson(<String, dynamic>{
+        ..._authSessionResponse(),
+        'mustChangePassword': true,
+      });
+    final api = TouchInApi(client: client, tokenStorage: tokenStorage);
+
+    await expectLater(
+      api.changePassword(
+        currentPassword: _invalidCredentialFixture,
+        newPassword: 'new-password-fixture',
+      ),
+      throwsA(isA<ApiException>()),
+    );
+
+    expect(tokenStorage.savedSession?.mustChangePassword, isTrue);
   });
 
   test('logout calls backend endpoint and clears local token', () async {
@@ -152,7 +268,7 @@ void main() {
       },
     );
     final tokenStorage = _InMemoryTokenStorage()..savedToken = 'token-123';
-    final api = BunchinApi(client: client, tokenStorage: tokenStorage);
+    final api = TouchInApi(client: client, tokenStorage: tokenStorage);
 
     await api.logout();
 
@@ -170,7 +286,7 @@ void main() {
       },
     );
     final tokenStorage = _InMemoryTokenStorage()..savedToken = 'token-123';
-    final api = BunchinApi(client: client, tokenStorage: tokenStorage);
+    final api = TouchInApi(client: client, tokenStorage: tokenStorage);
 
     await expectLater(
       api.logout(),
@@ -193,11 +309,11 @@ void main() {
       },
     );
     final api =
-        BunchinApi(client: client, tokenStorage: _InMemoryTokenStorage());
+        TouchInApi(client: client, tokenStorage: _InMemoryTokenStorage());
 
     final context = await api.getAuthContext();
 
-    expect(context.company.tradeName, 'Bunchin');
+    expect(context.company.tradeName, 'TouchIn');
     expect(context.company.cnpjMasked, '12.***.***/****-90');
     expect(context.user.isAdmin, isTrue);
     expect(client.lastPath, '/auth/me');
@@ -214,7 +330,7 @@ void main() {
             'name': 'Marina Costa',
             'role': 'Gerente de Operacoes',
             'department': 'Operacoes',
-            'email': 'marina.costa@bunchin.com',
+            'email': 'marina.costa@touchin.com',
             'phone': '(11) 99123-1001',
             'unit': 'Matriz Paulista',
             'expectedShiftStart': '09:00',
@@ -233,7 +349,7 @@ void main() {
       },
     );
     final api =
-        BunchinApi(client: client, tokenStorage: _InMemoryTokenStorage());
+        TouchInApi(client: client, tokenStorage: _InMemoryTokenStorage());
 
     final employees = await api.listEmployees();
 
@@ -250,7 +366,7 @@ void main() {
       'name': 'Renata Souza',
       'role': 'Analista Financeira',
       'department': 'Financeiro',
-      'email': 'renata.souza@bunchin.com',
+      'email': 'renata.souza@touchin.com',
       'phone': '(11) 94444-6060',
       'unit': 'Backoffice Centro',
       'expectedShiftStart': '08:00',
@@ -278,12 +394,12 @@ void main() {
       },
     );
     final api =
-        BunchinApi(client: client, tokenStorage: _InMemoryTokenStorage());
+        TouchInApi(client: client, tokenStorage: _InMemoryTokenStorage());
     final draft = const EmployeeDraft(
       name: 'Renata Souza',
       role: 'Analista Financeira',
       department: 'Financeiro',
-      email: 'renata.souza@bunchin.com',
+      email: 'renata.souza@touchin.com',
       phone: '(11) 94444-6060',
       unit: 'Backoffice Centro',
       expectedShiftStart: TimeOfDay(hour: 8, minute: 0),
@@ -314,7 +430,7 @@ void main() {
       'name': 'Renata Souza',
       'role': 'Analista Financeira Senior',
       'department': 'Financeiro',
-      'email': 'renata.souza@bunchin.com',
+      'email': 'renata.souza@touchin.com',
       'phone': '(11) 94444-6060',
       'unit': 'Backoffice Centro',
       'expectedShiftStart': '08:00',
@@ -335,7 +451,7 @@ void main() {
       },
     );
     final api =
-        BunchinApi(client: client, tokenStorage: _InMemoryTokenStorage());
+        TouchInApi(client: client, tokenStorage: _InMemoryTokenStorage());
 
     await api.deleteEmployee('emp-99');
 
@@ -416,7 +532,7 @@ void main() {
       },
     );
     final api =
-        BunchinApi(client: client, tokenStorage: _InMemoryTokenStorage());
+        TouchInApi(client: client, tokenStorage: _InMemoryTokenStorage());
 
     final state = await api.getMyTimeClockState();
     final punch = await api.createPunch(
@@ -466,13 +582,13 @@ void main() {
       },
     );
     final api =
-        BunchinApi(client: client, tokenStorage: _InMemoryTokenStorage());
+        TouchInApi(client: client, tokenStorage: _InMemoryTokenStorage());
 
     expect(
       () => api.login(
         credentials: const LoginCredentials(
-          email: 'marina.costa@bunchin.com',
-          password: 'Bunchin@123',
+          email: 'marina.costa@touchin.com',
+          password: _validCredentialFixture,
           keepConnected: true,
         ),
       ),
@@ -494,15 +610,15 @@ Map<String, dynamic> _authSessionResponse() {
     'expiresAt': '2026-04-26T18:00:00Z',
     'company': {
       'id': 'cmp-01',
-      'legalName': 'Bunchin Tecnologia LTDA',
-      'tradeName': 'Bunchin',
+      'legalName': 'TouchIn Tecnologia LTDA',
+      'tradeName': 'TouchIn',
       'cnpjMasked': '12.***.***/****-90',
-      'emailMasked': 'co*****@bunchin.com',
+      'emailMasked': 'co*****@touchin.com',
       'phoneMasked': '11*****0000',
     },
     'user': {
       'id': 'usr-01',
-      'email': 'marina.costa@bunchin.com',
+      'email': 'marina.costa@touchin.com',
       'role': 'admin',
       'employeeId': null,
     },
@@ -513,15 +629,15 @@ Map<String, dynamic> _authContextResponse() {
   return <String, dynamic>{
     'company': {
       'id': 'cmp-01',
-      'legalName': 'Bunchin Tecnologia LTDA',
-      'tradeName': 'Bunchin',
+      'legalName': 'TouchIn Tecnologia LTDA',
+      'tradeName': 'TouchIn',
       'cnpjMasked': '12.***.***/****-90',
-      'emailMasked': 'co*****@bunchin.com',
+      'emailMasked': 'co*****@touchin.com',
       'phoneMasked': '11*****0000',
     },
     'user': {
       'id': 'usr-01',
-      'email': 'marina.costa@bunchin.com',
+      'email': 'marina.costa@touchin.com',
       'role': 'admin',
       'employeeId': null,
     },

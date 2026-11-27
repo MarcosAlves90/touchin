@@ -1,10 +1,16 @@
 from __future__ import annotations
 
+import json
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.config import get_settings
 from app.crypto import FieldCipher
+from app.db import ensure_utc
+from app.domain.work_log_tasks import read_task_snapshots
 from app.errors import DomainError, ErrorKind
 from app.models import Employee, EmployeeProject, Project
 from app.schemas.project import ProjectMemberSummary, ProjectResponse, ProjectStatus
@@ -15,10 +21,19 @@ def cipher() -> FieldCipher:
     return FieldCipher(settings.encryption_secret or "")
 
 
-def project_or_404(db: Session, *, company_id: str, project_id: str) -> Project:
-    project = db.scalar(
-        select(Project).where(Project.company_id == company_id, Project.id == project_id),
-    )
+def project_or_404(
+    db: Session,
+    *,
+    company_id: str,
+    project_id: str,
+    employee_id: str | None = None,
+) -> Project:
+    query = select(Project).where(Project.company_id == company_id, Project.id == project_id)
+    if employee_id is not None:
+        query = query.join(EmployeeProject, EmployeeProject.project_id == Project.id).where(
+            EmployeeProject.employee_id == employee_id,
+        )
+    project = db.scalar(query)
     if project is None:
         raise DomainError(ErrorKind.not_found, "Project not found.")
     return project
@@ -38,6 +53,7 @@ def serialize_project(project: Project, *, cipher: FieldCipher) -> ProjectRespon
         id=project.id,
         name=cipher.decrypt(project.name_ciphertext) or "",
         description=cipher.decrypt(project.description_ciphertext),
+        task_employee_limit=project.task_employee_limit,
         status=project.status,
         created_at=project.created_at,
         updated_at=project.updated_at,
@@ -64,24 +80,51 @@ def list_projects(
     *,
     company_id: str,
     status_filter: ProjectStatus | None = None,
+    employee_id: str | None = None,
 ) -> list[ProjectResponse]:
     field_cipher = cipher()
     query = select(Project).where(Project.company_id == company_id)
+    if employee_id is not None:
+        query = query.join(EmployeeProject, EmployeeProject.project_id == Project.id).where(
+            EmployeeProject.employee_id == employee_id,
+        )
     if status_filter is not None:
         query = query.where(Project.status == status_value(status_filter))
     projects = db.scalars(query.order_by(Project.created_at.desc(), Project.id.desc())).all()
     return [serialize_project(project, cipher=field_cipher) for project in projects]
 
 
-def get_project(db: Session, *, company_id: str, project_id: str) -> ProjectResponse:
+def get_project(
+    db: Session,
+    *,
+    company_id: str,
+    project_id: str,
+    employee_id: str | None = None,
+) -> ProjectResponse:
     field_cipher = cipher()
-    project = project_or_404(db, company_id=company_id, project_id=project_id)
+    project = project_or_404(
+        db,
+        company_id=company_id,
+        project_id=project_id,
+        employee_id=employee_id,
+    )
     return serialize_project(project, cipher=field_cipher)
 
 
-def list_project_members(db: Session, *, company_id: str, project_id: str) -> list[ProjectMemberSummary]:
+def list_project_members(
+    db: Session,
+    *,
+    company_id: str,
+    project_id: str,
+    employee_id: str | None = None,
+) -> list[ProjectMemberSummary]:
     field_cipher = cipher()
-    project_or_404(db, company_id=company_id, project_id=project_id)
+    project_or_404(
+        db,
+        company_id=company_id,
+        project_id=project_id,
+        employee_id=employee_id,
+    )
     links = db.scalars(
         select(EmployeeProject)
         .join(Employee, Employee.id == EmployeeProject.employee_id)
@@ -108,3 +151,129 @@ def list_employee_projects(db: Session, *, company_id: str, employee_id: str) ->
         .order_by(Project.created_at.desc(), Project.id.desc()),
     ).all()
     return [serialize_project(project, cipher=field_cipher) for project in projects]
+
+
+def generate_monthly_work_logs_report(
+    db: Session,
+    *,
+    company_id: str,
+    project_id: str,
+    year: int,
+    month: int,
+    timezone_name: str,
+    employee_id: str | None = None,
+):
+    from app.models import AuditEvent, WorkLog
+    from app.schemas.project import MonthlyWorkLogReport, MonthlyWorkLogRecord
+    field_cipher = cipher()
+    # Project ownership remains mandatory even when the actor's historical
+    # membership has expired. Do not relax other project read endpoints.
+    project_or_404(
+        db,
+        company_id=company_id,
+        project_id=project_id,
+    )
+    if employee_id is not None:
+        # The caller is a current employee of this company (or an unassigned
+        # principal with an empty identifier, which must not gain access).
+        employee_or_404(db, company_id=company_id, employee_id=employee_id)
+        member = db.scalar(select(EmployeeProject.employee_id).where(
+            EmployeeProject.employee_id == employee_id,
+            EmployeeProject.project_id == project_id,
+        ).limit(1))
+        if member is None:
+            # An arbitrary WorkLog (e.g. an imported/malformed legacy row)
+            # cannot establish former membership. Require the actual audited
+            # revocation for this exact tenant, project and employee.
+            revocations = db.scalars(select(AuditEvent.metadata_payload).where(
+                AuditEvent.company_id == company_id,
+                AuditEvent.project_id == project_id,
+                AuditEvent.action == "project.member_removed",
+                AuditEvent.result == "success",
+            )).yield_per(200)
+            was_member = False
+            for metadata_payload in revocations:
+                try:
+                    metadata = json.loads(metadata_payload or "{}")
+                except (TypeError, ValueError):
+                    continue
+                if isinstance(metadata, dict) and metadata.get("employeeId") == employee_id:
+                    was_member = True
+                    break
+            historical = db.scalar(select(WorkLog.id).where(
+                WorkLog.company_id == company_id,
+                WorkLog.project_id == project_id,
+                (WorkLog.employee_id == employee_id) |
+                (WorkLog.employee_id_snapshot == employee_id),
+            ).limit(1)) if was_member else None
+            if historical is None:
+                raise DomainError(ErrorKind.not_found, "Project not found.")
+    
+    if not 1 <= month <= 12 or not 1 <= year < 9999:
+        return MonthlyWorkLogReport(project_id=project_id, year=year, month=month, records=[])
+
+    try:
+        company_zone = ZoneInfo(timezone_name)
+    except ZoneInfoNotFoundError as exc:
+        raise DomainError(ErrorKind.bad_request, "Company timezone is invalid.") from exc
+
+    month_start_local = datetime(year, month, 1, tzinfo=company_zone)
+    if month == 12:
+        next_month_start_local = datetime(year + 1, 1, 1, tzinfo=company_zone)
+    else:
+        next_month_start_local = datetime(year, month + 1, 1, tzinfo=company_zone)
+    month_start = month_start_local.astimezone(timezone.utc)
+    next_month_start = next_month_start_local.astimezone(timezone.utc)
+
+    query = select(WorkLog).where(
+        WorkLog.project_id == project_id,
+        WorkLog.company_id == company_id,
+        WorkLog.start_time >= month_start,
+        WorkLog.start_time < next_month_start,
+    )
+    
+    if employee_id is not None:
+        query = query.where(
+            (WorkLog.employee_id == employee_id) |
+            (WorkLog.employee_id_snapshot == employee_id)
+        )
+        
+    records = []
+    logs_result = db.scalars(
+        query.order_by(WorkLog.start_time),
+    ).yield_per(200)
+
+    for log in logs_result:
+        snapshots = read_task_snapshots(log.task_snapshots_ciphertext, cipher=field_cipher)
+        tasks = (
+            [task.name for task in snapshots]
+            if snapshots is not None
+            else [field_cipher.decrypt(t.name_ciphertext) or "" for t in log.tasks]
+        )
+
+        local_start_time = ensure_utc(log.start_time).astimezone(company_zone)
+        local_end_time = ensure_utc(log.end_time).astimezone(company_zone)
+        
+        # calculate hours and mins
+        duration_hours = log.duration_seconds // 3600
+        duration_minutes = (log.duration_seconds % 3600) // 60
+        
+        records.append(
+            MonthlyWorkLogRecord(
+                date=local_start_time.date().isoformat(),
+                start_time=local_start_time.strftime("%H:%M"),
+                end_time=local_end_time.strftime("%H:%M"),
+                start_at=local_start_time.isoformat(timespec="seconds"),
+                end_at=local_end_time.isoformat(timespec="seconds"),
+                duration=f"{duration_hours}h {duration_minutes:02d}min",
+                tasks=tasks,
+                description=field_cipher.decrypt(log.description_ciphertext) or ""
+            )
+        )
+        
+    return MonthlyWorkLogReport(
+        project_id=project_id,
+        year=year,
+        month=month,
+        records=records
+    )

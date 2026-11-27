@@ -1,0 +1,242 @@
+{
+  "schema_version": 6,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      "frontend/lib/features/shared/presentation/widgets/workspace_shell.dart",
+      "frontend/test/features/shared/presentation/widgets/workspace_shell_test.dart",
+      "frontend/test/widget_test.dart",
+      "docs/contracts/browser-navigation-history-issue-65-v1.polis.json",
+      "frontend/lib/features/admin/presentation/admin_audit_page.dart",
+      "frontend/lib/features/auth/presentation/auth_session_navigation.dart"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/features/shared/presentation/widgets/workspace_shell_test.dart",
+      "frontend/test/widget_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Correct Flutter Web browser history across TouchIn workspace screens, so Back restores the screen the user actually visited and navigation retains deep links and authentication boundaries.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "Workspace drawer navigation between main screens must preserve previous screen entries in the browser and Flutter route histories; using Back after A -\u003e B returns to A, and Forward can return to B when the browser supports it."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "Repeated selection of the already-active named workspace screen must not accumulate duplicate history entries; closing the drawer must not accidentally pop the screen."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "Main named routes (/time-clock, /admin/employees, /admin/audit, /projects, /kanban, /settings) must continue to render their intended screens through the existing startup session guard and direct deep links."
+      },
+      {
+        "id": "REQ-004",
+        "statement": "The unauthenticated, expired/revoked session, required password change, error/retry and logout flows must retain their existing guards; Back must not expose protected workspace content after logout."
+      },
+      {
+        "id": "REQ-005",
+        "statement": "Retain the exact locked POLIS contract in docs/contracts/browser-navigation-history-issue-65-v1.polis.json, within its own allowed change scope."
+      },
+      {
+        "id": "REQ-006",
+        "statement": "The main audit workspace route must mount and render under AppTheme without unbounded button width layout failures; preserve the existing design and filtering actions."
+      },
+      {
+        "id": "REQ-007",
+        "statement": "An authenticated transition from login or registration must install a named, canonical workspace route in browser history; returning to that screen by browser Back must restore the matching browser URL as well as its content."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "Regression navigates through distinct named workspace entries A -\u003e B -\u003e C, then invokes browser-style system Back twice and observes B then A, including correct route-update notifications.",
+        "requirements": [
+          "REQ-001",
+          "REQ-003"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "Regression repeats a navigation item for the current named route, then invokes Back and verifies the previous screen rather than a duplicate.",
+        "requirements": [
+          "REQ-002"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-003",
+        "statement": "Existing bootstrap/deep-link and logout widget tests plus the Flutter suite and web build continue to pass, including session error/retry behavior.",
+        "requirements": [
+          "REQ-003",
+          "REQ-004"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-004",
+        "statement": "The locked contract is archived byte-for-byte in docs/contracts, and POLIS policy/contract checks pass for the implemented scope.",
+        "requirements": [
+          "REQ-005"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-005",
+        "statement": "A logged-in deep-link widget mounts /admin/audit with the production theme without layout exceptions, as do the five other main routes.",
+        "requirements": [
+          "REQ-003",
+          "REQ-006"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-006",
+        "statement": "A test simulates authenticated login replacement, verifies that browser route information publishes the canonical named destination and ensures browser Back after navigation restores its URL.",
+        "requirements": [
+          "REQ-001",
+          "REQ-007"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "Role-dependent default workspace and authentication flows retain their current security semantics."
+      },
+      {
+        "id": "INV-002",
+        "statement": "The route names, screen widgets, theming and all API interfaces remain unchanged."
+      },
+      {
+        "id": "INV-003",
+        "statement": "Navigation uses Flutter Navigator and the existing drawer architecture, without injecting JavaScript browser-history entries or adding dependencies."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "Switching between different workspace menu destinations discards the preceding workspace screen from history."
+      },
+      {
+        "id": "FORB-002",
+        "statement": "Repeatedly selecting an already-open named screen creates phantom history entries."
+      },
+      {
+        "id": "FORB-003",
+        "statement": "Using Back after logout reveals protected content or bypasses required password changes."
+      },
+      {
+        "id": "FORB-004",
+        "statement": "The audit page produces an infinite-width layout exception on its primary toolbar when accessed via a named route."
+      },
+      {
+        "id": "FORB-005",
+        "statement": "Browser Back displays the previous workspace content while leaving the URL of the subsequent page due to an unnamed login destination."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "User selects primary workspace drawer destinations and uses browser Back/Forward or Flutter's system Back."
+      },
+      {
+        "id": "IN-002",
+        "statement": "An authenticated, unauthenticated, revoked, or mandatory-password-change session at a supported direct URL."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "Consistent route stack and browser navigation history for named workspace destinations."
+      },
+      {
+        "id": "OUT-002",
+        "statement": "Regression tests and the archived immutable POLIS contract in the repository."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "On the locked baseline, a widget regression must fail when browser-style Back cannot return from the selected workspace destination to its predecessor. It will print the marker workspace_back_history_missing upon failure."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "fd1304414346a125ab556ca44c4f6b64f928b4d7",
+    "base_tree": "a3e26c548fde76f85b887943d88ee9f7fe2115fd",
+    "policy_sha256": "76f07e3704cbf9fc47beadcbcf6d4493c1650abe3d11033115b6b16d82b14b3c",
+    "specification_sha256": "e263edf0cd1614d177af79dcc51de87f0f4cf9dc66a79fbe702578939863662c"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/features/shared/presentation/widgets/workspace_shell_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 300,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/features/shared/presentation/widgets/workspace_shell_test.dart",
+      "test/widget_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 360,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "python3",
+        "-c",
+        "import subprocess,sys; p=subprocess.run(['flutter','test','test/features/shared/presentation/widgets/workspace_shell_test.dart','--plain-name','browser Back restores the previous workspace screen'],cwd='frontend'); print('workspace_back_history_missing' if p.returncode else 'workspace_back_history_present'); sys.exit(p.returncode)"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 360,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "workspace_back_history_missing"
+    ]
+  }
+}

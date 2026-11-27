@@ -9,10 +9,12 @@ class ErrorKind(str, Enum):
     forbidden = "forbidden"
     not_found = "not_found"
     conflict = "conflict"
+    too_many_requests = "too_many_requests"
 
 
 class DomainError(Exception):
-    def __init__(self, kind: ErrorKind, detail: str) -> None:
+    def __init__(self, kind: ErrorKind, detail: str, *, code: str | None = None) -> None:
         super().__init__(detail)
         self.kind = kind
         self.detail = detail
+        self.code = code

@@ -16,6 +16,7 @@ ERROR_STATUS_CODES = {
     ErrorKind.forbidden: 403,
     ErrorKind.not_found: 404,
     ErrorKind.conflict: 409,
+    ErrorKind.too_many_requests: 429,
 }
 
 def create_app() -> FastAPI:
@@ -33,13 +34,14 @@ def create_app() -> FastAPI:
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
+        expose_headers=["Content-Disposition", "X-Audit-Export-Rows"],
     )
 
     @app.exception_handler(DomainError)
     async def domain_error_handler(request: Request, exc: DomainError):
         return JSONResponse(
             status_code=ERROR_STATUS_CODES[exc.kind],
-            content={"detail": exc.detail},
+            content={"detail": exc.detail, **({"code": exc.code} if exc.code else {})},
         )
 
     @app.middleware("http")

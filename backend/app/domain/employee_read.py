@@ -5,7 +5,7 @@ import json
 import re
 
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.config import get_settings
 from app.crypto import FieldCipher
@@ -85,7 +85,9 @@ def parse_expected_shift(value: str) -> tuple[time, time]:
 
 def employee_or_404(db: Session, *, company_id: str, employee_id: str) -> Employee:
     employee = db.scalar(
-        select(Employee).where(Employee.company_id == company_id, Employee.id == employee_id),
+        select(Employee)
+        .options(selectinload(Employee.account))
+        .where(Employee.company_id == company_id, Employee.id == employee_id),
     )
     if employee is None:
         raise DomainError(ErrorKind.not_found, "Employee not found.")
@@ -103,6 +105,8 @@ def serialize_employee(
     expected_shift_start, expected_shift_end = parse_expected_shift(expected_shift_value)
     return EmployeeProfileResponse(
         id=employee.id,
+        has_account=employee.account is not None,
+        access_role=employee.account.role if employee.account is not None else None,
         name=cipher.decrypt(employee.name_ciphertext) or "",
         role=cipher.decrypt(employee.role_ciphertext) or "",
         department=cipher.decrypt(employee.department_ciphertext) or "",
@@ -127,6 +131,7 @@ def list_employees(db: Session, *, company_id: str, timezone_name: str) -> list[
     field_cipher = cipher()
     employees = db.scalars(
         select(Employee)
+        .options(selectinload(Employee.account))
         .where(Employee.company_id == company_id)
         .order_by(Employee.created_at.desc(), Employee.id.desc()),
     ).all()

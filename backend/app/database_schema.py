@@ -1,10 +1,332 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
+from uuid import uuid4
+
 from sqlalchemy import inspect, text
 
+from app.config import get_settings
+from app.crypto import FieldCipher
 
-def upgrade_database_schema(bind) -> None:
-    inspector = inspect(bind)
+
+def _upgrade_projects(bind, inspector) -> None:
+    if "projects" not in inspector.get_table_names():
+        return
+
+    project_columns = {column["name"] for column in inspector.get_columns("projects")}
+    statements: list[str] = []
+    if "task_employee_limit" not in project_columns:
+        statements.append(
+            "ALTER TABLE projects ADD COLUMN task_employee_limit INTEGER NOT NULL DEFAULT 1"
+        )
+    if "next_card_number" not in project_columns:
+        statements.append(
+            "ALTER TABLE projects ADD COLUMN next_card_number INTEGER NOT NULL DEFAULT 1"
+        )
+    if "kanban_version" not in project_columns:
+        statements.append(
+            "ALTER TABLE projects ADD COLUMN kanban_version INTEGER NOT NULL DEFAULT 0"
+        )
+    if not statements:
+        return
+
+    with bind.begin() as connection:
+        for statement in statements:
+            connection.execute(text(statement))
+
+
+def _ensure_task_creation_requests_table(bind, inspector) -> None:
+    if "projects" not in inspector.get_table_names():
+        return
+    timestamp_type = "TIMESTAMP" if bind.dialect.name == "postgresql" else "DATETIME"
+    with bind.begin() as connection:
+        connection.execute(text(
+            "CREATE TABLE IF NOT EXISTS task_creation_requests ("
+            "project_id VARCHAR(64) NOT NULL, "
+            "actor_user_id VARCHAR(64) NOT NULL, "
+            "request_key VARCHAR(64) NOT NULL, "
+            "payload_digest VARCHAR(64) NOT NULL, "
+            "task_id VARCHAR(64) NOT NULL, "
+            "response_ciphertext TEXT NOT NULL, "
+            f"created_at {timestamp_type} NOT NULL, "
+            "PRIMARY KEY (project_id, actor_user_id, request_key), "
+            "FOREIGN KEY(project_id) REFERENCES projects(id)"
+            ")"
+        ))
+
+
+def _ensure_kanban_columns_table(bind, inspector) -> None:
+    if "projects" not in inspector.get_table_names():
+        return
+    if "kanban_columns" not in inspector.get_table_names():
+        timestamp_type = "TIMESTAMP" if bind.dialect.name == "postgresql" else "DATETIME"
+        with bind.begin() as connection:
+            connection.execute(
+                text(
+                    "CREATE TABLE kanban_columns ("
+                    "id VARCHAR(64) PRIMARY KEY, "
+                    "project_id VARCHAR(64) NOT NULL, "
+                    "name_ciphertext TEXT NOT NULL, "
+                    "position INTEGER NOT NULL, "
+                    f"created_at {timestamp_type} NOT NULL, "
+                    f"updated_at {timestamp_type} NOT NULL, "
+                    "FOREIGN KEY(project_id) REFERENCES projects(id)"
+                    ")"
+                ),
+            )
+    with bind.begin() as connection:
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_kanban_columns_project_id "
+                "ON kanban_columns (project_id)"
+            ),
+        )
+
+
+def _add_task_kanban_columns(bind, inspector) -> None:
+    task_columns = {column["name"] for column in inspector.get_columns("tasks")}
+    with bind.begin() as connection:
+        if "revision" not in task_columns:
+            connection.execute(
+                text("ALTER TABLE tasks ADD COLUMN revision INTEGER NOT NULL DEFAULT 0")
+            )
+        if "card_number" not in task_columns:
+            connection.execute(text("ALTER TABLE tasks ADD COLUMN card_number INTEGER"))
+        if "kanban_column_id" not in task_columns:
+            kanban_column_sql = "ALTER TABLE tasks ADD COLUMN kanban_column_id VARCHAR(64)"
+            if bind.dialect.name == "sqlite":
+                kanban_column_sql += " REFERENCES kanban_columns(id)"
+            connection.execute(text(kanban_column_sql))
+        if "kanban_position" not in task_columns:
+            connection.execute(text("ALTER TABLE tasks ADD COLUMN kanban_position INTEGER"))
+
+
+def _get_or_create_initial_kanban_column(
+    connection,
+    *,
+    project_id: str,
+    field_cipher: FieldCipher,
+    now: datetime,
+) -> str:
+    column_id = connection.execute(
+        text(
+            "SELECT id FROM kanban_columns "
+            "WHERE project_id = :project_id ORDER BY position, id LIMIT 1"
+        ),
+        {"project_id": project_id},
+    ).scalar_one_or_none()
+    if column_id is not None:
+        return column_id
+
+    column_id = str(uuid4())
+    connection.execute(
+        text(
+            "INSERT INTO kanban_columns "
+            "(id, project_id, name_ciphertext, position, created_at, updated_at) "
+            "VALUES (:id, :project_id, :name, 0, :created_at, :updated_at)"
+        ),
+        {
+            "id": column_id,
+            "project_id": project_id,
+            "name": field_cipher.encrypt("A fazer") or "",
+            "created_at": now,
+            "updated_at": now,
+        },
+    )
+    return column_id
+
+
+def _load_project_tasks_for_kanban(connection, project_id: str):
+    return connection.execute(
+        text(
+            "SELECT id, card_number, kanban_column_id, kanban_position "
+            "FROM tasks WHERE project_id = :project_id "
+            "ORDER BY created_at, id"
+        ),
+        {"project_id": project_id},
+    ).mappings().all()
+
+
+def _next_positions_by_column(rows, default_column_id: str) -> dict[str, int]:
+    next_position_by_column: dict[str, int] = {}
+    for row in rows:
+        column_id = row["kanban_column_id"] or default_column_id
+        position = row["kanban_position"]
+        if position is None:
+            continue
+        next_position_by_column[column_id] = max(
+            next_position_by_column.get(column_id, 0),
+            int(position) + 1,
+        )
+    return next_position_by_column
+
+
+def _backfill_project_tasks(
+    connection,
+    *,
+    project_id: str,
+    default_column_id: str,
+) -> None:
+    rows = _load_project_tasks_for_kanban(connection, project_id)
+    used_numbers = {
+        int(row["card_number"])
+        for row in rows
+        if row["card_number"] is not None
+    }
+    next_number = max(used_numbers, default=0) + 1
+    next_position_by_column = _next_positions_by_column(rows, default_column_id)
+
+    for row in rows:
+        card_number = row["card_number"]
+        if card_number is None:
+            while next_number in used_numbers:
+                next_number += 1
+            card_number = next_number
+            used_numbers.add(next_number)
+            next_number += 1
+
+        task_column_id = row["kanban_column_id"] or default_column_id
+        task_position = row["kanban_position"]
+        if task_position is None:
+            task_position = next_position_by_column.get(task_column_id, 0)
+            next_position_by_column[task_column_id] = int(task_position) + 1
+
+        connection.execute(
+            text(
+                "UPDATE tasks SET card_number = :card_number, "
+                "kanban_column_id = :column_id, kanban_position = :position "
+                "WHERE id = :task_id"
+            ),
+            {
+                "card_number": card_number,
+                "column_id": task_column_id,
+                "position": task_position,
+                "task_id": row["id"],
+            },
+        )
+
+    current_next_number = connection.execute(
+        text("SELECT next_card_number FROM projects WHERE id = :project_id"),
+        {"project_id": project_id},
+    ).scalar_one()
+    connection.execute(
+        text(
+            "UPDATE projects SET next_card_number = :next_card_number "
+            "WHERE id = :project_id"
+        ),
+        {
+            "next_card_number": max(
+                int(current_next_number),
+                max(used_numbers, default=0) + 1,
+            ),
+            "project_id": project_id,
+        },
+    )
+
+
+def _backfill_tasks_for_kanban(bind) -> None:
+    field_cipher = FieldCipher(get_settings().encryption_secret or "")
+    now = datetime.now(timezone.utc)
+    with bind.begin() as connection:
+        project_ids = [
+            row[0]
+            for row in connection.execute(text("SELECT id FROM projects ORDER BY id")).all()
+        ]
+        for project_id in project_ids:
+            default_column_id = _get_or_create_initial_kanban_column(
+                connection,
+                project_id=project_id,
+                field_cipher=field_cipher,
+                now=now,
+            )
+            _backfill_project_tasks(
+                connection,
+                project_id=project_id,
+                default_column_id=default_column_id,
+            )
+
+
+def _ensure_task_kanban_indexes_and_sqlite_constraints(bind) -> None:
+    with bind.begin() as connection:
+        connection.execute(
+            text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_task_card_number_per_project "
+                "ON tasks (project_id, card_number)"
+            ),
+        )
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_tasks_kanban_column_id "
+                "ON tasks (kanban_column_id)"
+            ),
+        )
+        if bind.dialect.name != "sqlite":
+            return
+
+        connection.execute(
+            text(
+                "CREATE TRIGGER IF NOT EXISTS trg_tasks_kanban_required_insert "
+                "BEFORE INSERT ON tasks "
+                "WHEN NEW.card_number IS NULL "
+                "OR NEW.kanban_column_id IS NULL "
+                "OR NEW.kanban_position IS NULL "
+                "BEGIN "
+                "SELECT RAISE(ABORT, 'Kanban task fields are required'); "
+                "END"
+            ),
+        )
+        connection.execute(
+            text(
+                "CREATE TRIGGER IF NOT EXISTS trg_tasks_kanban_required_update "
+                "BEFORE UPDATE OF card_number, kanban_column_id, kanban_position ON tasks "
+                "WHEN NEW.card_number IS NULL "
+                "OR NEW.kanban_column_id IS NULL "
+                "OR NEW.kanban_position IS NULL "
+                "BEGIN "
+                "SELECT RAISE(ABORT, 'Kanban task fields are required'); "
+                "END"
+            ),
+        )
+
+
+def _enforce_postgresql_task_kanban_constraints(bind) -> None:
+    if bind.dialect.name != "postgresql":
+        return
+
+    refreshed = inspect(bind)
+    task_columns = {column["name"]: column for column in refreshed.get_columns("tasks")}
+    with bind.begin() as connection:
+        for column_name in ("card_number", "kanban_column_id", "kanban_position"):
+            if task_columns[column_name]["nullable"]:
+                connection.execute(
+                    text(f"ALTER TABLE tasks ALTER COLUMN {column_name} SET NOT NULL"),
+                )
+
+        foreign_key_names = {
+            foreign_key.get("name")
+            for foreign_key in refreshed.get_foreign_keys("tasks")
+        }
+        if "fk_tasks_kanban_column_id" not in foreign_key_names:
+            connection.execute(
+                text(
+                    "ALTER TABLE tasks ADD CONSTRAINT fk_tasks_kanban_column_id "
+                    "FOREIGN KEY(kanban_column_id) REFERENCES kanban_columns(id)"
+                ),
+            )
+
+
+def _upgrade_tasks_for_kanban(bind, inspector) -> None:
+    table_names = inspector.get_table_names()
+    if "tasks" not in table_names or "projects" not in table_names:
+        return
+
+    _add_task_kanban_columns(bind, inspector)
+    _backfill_tasks_for_kanban(bind)
+    _ensure_task_kanban_indexes_and_sqlite_constraints(bind)
+    _enforce_postgresql_task_kanban_constraints(bind)
+
+
+def _upgrade_punches(bind, inspector) -> None:
     if "punches" not in inspector.get_table_names():
         return
 
@@ -29,3 +351,287 @@ def upgrade_database_schema(bind) -> None:
                         "FOREIGN KEY(project_id) REFERENCES projects(id)",
                     ),
                 )
+
+
+def _ensure_work_log_indexes(bind) -> None:
+    with bind.begin() as connection:
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_work_logs_company_project_start_time "
+                "ON work_logs (company_id, project_id, start_time)"
+            ),
+        )
+
+
+def _ensure_punch_transition_index(bind, inspector) -> None:
+    if "punches" not in inspector.get_table_names():
+        return
+    with bind.begin() as connection:
+        connection.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_punches_employee_timestamp_id "
+            "ON punches (employee_id, timestamp, id)"
+        ))
+
+
+def _upgrade_work_log_retention(bind, inspector) -> None:
+    """Keep immutable work-log evidence when its live source is removed.
+
+    SQLite cannot ALTER a foreign key or drop NOT NULL in place. Rebuild only
+    the log table in one transaction with FK checks before committing; the
+    work_log_tasks association remains attached to the preserved log IDs.
+    """
+    if "work_logs" not in inspector.get_table_names():
+        return
+    columns = {column["name"]: column for column in inspector.get_columns("work_logs")}
+    foreign_keys = inspector.get_foreign_keys("work_logs")
+    sources = ("employee_id", "punch_id")
+    if bind.dialect.name == "sqlite":
+        # SQLAlchemy SQLite reflection may omit ON DELETE from column-level
+        # REFERENCES constraints; the SQLite catalog is authoritative here.
+        with bind.connect() as connection:
+            sqlite_actions = {
+                row[3]: row[6].upper()
+                for row in connection.exec_driver_sql("PRAGMA foreign_key_list('work_logs')")
+            }
+        broken = any(
+            columns[name]["nullable"] is False or sqlite_actions.get(name) != "SET NULL"
+            for name in sources
+        )
+    else:
+        broken = any(columns[name]["nullable"] is False or not any(
+            name in fk["constrained_columns"] and
+            (fk.get("options") or {}).get("ondelete", "").upper() == "SET NULL"
+            for fk in foreign_keys
+        ) for name in sources)
+    if not broken and "employee_id_snapshot" in columns:
+        return
+
+    if bind.dialect.name == "postgresql":
+        preparer = bind.dialect.identifier_preparer
+        with bind.begin() as connection:
+            if "employee_id_snapshot" not in columns:
+                connection.execute(text(
+                    "ALTER TABLE work_logs ADD COLUMN employee_id_snapshot VARCHAR(64)"
+                ))
+            connection.execute(text(
+                "UPDATE work_logs SET employee_id_snapshot = employee_id "
+                "WHERE employee_id_snapshot IS NULL AND employee_id IS NOT NULL"
+            ))
+            connection.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_work_logs_employee_id_snapshot "
+                "ON work_logs (employee_id_snapshot)"
+            ))
+            for name in sources:
+                existing = next(
+                    (fk for fk in foreign_keys if name in fk["constrained_columns"]), None,
+                )
+                action = (existing.get("options") or {}).get("ondelete", "").upper() if existing else ""
+                if columns[name]["nullable"] and action == "SET NULL":
+                    continue
+                connection.execute(text(f"ALTER TABLE work_logs ALTER COLUMN {name} DROP NOT NULL"))
+                if existing is not None and existing.get("name"):
+                    connection.execute(text(
+                        "ALTER TABLE work_logs DROP CONSTRAINT " +
+                        preparer.quote(existing["name"])
+                    ))
+                connection.execute(text(
+                    f"ALTER TABLE work_logs ADD CONSTRAINT fk_work_logs_{name}_retention "
+                    f"FOREIGN KEY ({name}) REFERENCES "
+                    f"{'employees' if name == 'employee_id' else 'punches'}(id) ON DELETE SET NULL"
+                ))
+        return
+
+    if bind.dialect.name != "sqlite":
+        raise RuntimeError("WorkLog retention migration requires PostgreSQL or SQLite")
+
+    dbapi = bind.raw_connection()
+    cursor = dbapi.cursor()
+    try:
+        initial_fk = cursor.execute("PRAGMA foreign_keys").fetchone()[0]
+        cursor.execute("PRAGMA foreign_keys=OFF")
+        if cursor.execute("PRAGMA foreign_keys").fetchone()[0] != 0:
+            raise RuntimeError("Could not suspend SQLite foreign keys for atomic migration")
+        try:
+            cursor.execute("BEGIN IMMEDIATE")
+            cursor.execute("""
+                CREATE TABLE work_logs_retention_new (
+                    id VARCHAR(64) NOT NULL PRIMARY KEY,
+                    company_id VARCHAR(64) NOT NULL REFERENCES companies(id),
+                    employee_id VARCHAR(64) REFERENCES employees(id) ON DELETE SET NULL,
+                    employee_id_snapshot VARCHAR(64),
+                    project_id VARCHAR(64) REFERENCES projects(id),
+                    punch_id VARCHAR(64) REFERENCES punches(id) ON DELETE SET NULL,
+                    start_time DATETIME NOT NULL,
+                    end_time DATETIME NOT NULL,
+                    duration_seconds INTEGER NOT NULL,
+                    description_ciphertext TEXT NOT NULL,
+                    task_snapshots_ciphertext TEXT NOT NULL,
+                    created_at DATETIME NOT NULL
+                )
+            """)
+            names = ("id", "company_id", "employee_id", "project_id", "punch_id",
+                     "start_time", "end_time", "duration_seconds", "description_ciphertext",
+                     "task_snapshots_ciphertext", "created_at")
+            columns_sql = ", ".join(names)
+            snapshot_source = (
+                "COALESCE(employee_id_snapshot, employee_id)"
+                if "employee_id_snapshot" in columns else "employee_id"
+            )
+            cursor.execute(
+                f"INSERT INTO work_logs_retention_new ({columns_sql}, employee_id_snapshot) "
+                f"SELECT {columns_sql}, {snapshot_source} FROM work_logs"
+            )
+            cursor.execute("DROP TABLE work_logs")
+            cursor.execute("ALTER TABLE work_logs_retention_new RENAME TO work_logs")
+            for name in ("company_id", "employee_id", "employee_id_snapshot", "project_id", "punch_id"):
+                cursor.execute(f"CREATE INDEX ix_work_logs_{name} ON work_logs ({name})")
+            cursor.execute("""
+                CREATE INDEX ix_work_logs_company_project_start_time
+                ON work_logs (company_id, project_id, start_time)
+            """)
+            if cursor.execute("PRAGMA foreign_key_check").fetchall():
+                raise RuntimeError("WorkLog retention migration violates foreign keys")
+            dbapi.commit()
+        except Exception:
+            dbapi.rollback()
+            raise
+    finally:
+        try:
+            if initial_fk:
+                cursor.execute("PRAGMA foreign_keys=ON")
+                if cursor.execute("PRAGMA foreign_keys").fetchone()[0] != 1:
+                    raise RuntimeError("Could not restore SQLite foreign keys")
+        finally:
+            cursor.close()
+            dbapi.close()
+
+
+def _upgrade_audit_events(bind, inspector) -> None:
+    if "audit_events" not in inspector.get_table_names():
+        return
+    if bind.dialect.name == "postgresql":
+        for fk in inspector.get_foreign_keys("audit_events"):
+            if "actor_user_id" in fk.get("constrained_columns", []):
+                fk_name = fk.get("name")
+                if fk_name:
+                    with bind.begin() as connection:
+                        quoted_name = bind.dialect.identifier_preparer.quote(fk_name)
+                        connection.execute(
+                            text(f"ALTER TABLE audit_events DROP CONSTRAINT {quoted_name}")
+                        )
+    elif bind.dialect.name == "sqlite":
+        foreign_keys = inspector.get_foreign_keys("audit_events")
+        actor_has_fk = any(
+            "actor_user_id" in fk.get("constrained_columns", [])
+            for fk in foreign_keys
+        )
+        project_fk = next(
+            (fk for fk in foreign_keys if "project_id" in fk.get("constrained_columns", [])),
+            None,
+        )
+        project_delete = (
+            (project_fk.get("options") or {}).get("ondelete", "").upper()
+            if project_fk else None
+        )
+        if actor_has_fk or project_delete != "SET NULL":
+            # SQLite ignores PRAGMA foreign_keys=OFF once a transaction has
+            # begun. Set it on the DBAPI connection before BEGIN IMMEDIATE.
+            dbapi = bind.raw_connection()
+            cursor = dbapi.cursor()
+            initial_fk = cursor.execute("PRAGMA foreign_keys").fetchone()[0]
+            try:
+                cursor.execute("PRAGMA foreign_keys=OFF")
+                if cursor.execute("PRAGMA foreign_keys").fetchone()[0] != 0:
+                    raise RuntimeError("Cannot disable SQLite foreign keys for audit migration")
+                try:
+                    cursor.execute("BEGIN IMMEDIATE")
+                    cursor.execute("""
+                        CREATE TABLE audit_events_new (
+                            id VARCHAR(64) NOT NULL PRIMARY KEY,
+                            timestamp DATETIME,
+                            company_id VARCHAR(64) NOT NULL,
+                            actor_user_id VARCHAR(64),
+                            project_id VARCHAR(64),
+                            action VARCHAR(128) NOT NULL,
+                            entity_type VARCHAR(64) NOT NULL,
+                            entity_id VARCHAR(64) NOT NULL,
+                            result VARCHAR(32) NOT NULL,
+                            metadata_payload TEXT,
+                            correlation_id VARCHAR(64),
+                            FOREIGN KEY(company_id) REFERENCES companies(id) ON DELETE CASCADE,
+                            FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE SET NULL
+                        )
+                    """)
+                    cursor.execute("""
+                        INSERT INTO audit_events_new
+                        (id, timestamp, company_id, actor_user_id, project_id,
+                         action, entity_type, entity_id, result,
+                         metadata_payload, correlation_id)
+                        SELECT id, timestamp, company_id, actor_user_id, project_id,
+                               action, entity_type, entity_id, result,
+                               metadata_payload, correlation_id
+                        FROM audit_events
+                    """)
+                    cursor.execute("DROP TABLE audit_events")
+                    cursor.execute("ALTER TABLE audit_events_new RENAME TO audit_events")
+                    if cursor.execute("PRAGMA foreign_key_check(audit_events)").fetchall():
+                        raise RuntimeError("Audit history violates foreign key constraints")
+                    dbapi.commit()
+                except Exception:
+                    dbapi.rollback()
+                    raise
+            finally:
+                try:
+                    if initial_fk:
+                        cursor.execute("PRAGMA foreign_keys=ON")
+                        if cursor.execute("PRAGMA foreign_keys").fetchone()[0] != 1:
+                            raise RuntimeError("Cannot restore SQLite foreign key enforcement")
+                finally:
+                    cursor.close()
+                    dbapi.close()
+
+    if bind.dialect.name in {"postgresql", "sqlite"}:
+        # Rebuilding audit_events removes its indexes. Also repair already
+        # upgraded installations where the actor FK is no longer present.
+        with bind.begin() as connection:
+            for column in (
+                "timestamp", "company_id", "actor_user_id", "project_id",
+                "action", "entity_id", "correlation_id",
+            ):
+                connection.execute(text(
+                    f"CREATE INDEX IF NOT EXISTS ix_audit_events_{column} "
+                    f"ON audit_events ({column})"
+                ))
+
+
+def upgrade_database_schema(bind) -> None:
+    inspector = inspect(bind)
+    _upgrade_projects(bind, inspector)
+    inspector = inspect(bind)
+    _ensure_task_creation_requests_table(bind, inspector)
+    inspector = inspect(bind)
+    _ensure_kanban_columns_table(bind, inspector)
+    inspector = inspect(bind)
+    _upgrade_tasks_for_kanban(bind, inspector)
+    inspector = inspect(bind)
+    _upgrade_punches(bind, inspector)
+    inspector = inspect(bind)
+    _ensure_punch_transition_index(bind, inspector)
+    if "work_logs" in inspector.get_table_names():
+        _upgrade_work_log_retention(bind, inspector)
+        _ensure_work_log_indexes(bind)
+    inspector = inspect(bind)
+    _upgrade_audit_events(bind, inspector)
+    # Existing deployments use schema upgrades; CREATE ALL only handles new DBs.
+    table_names = set(inspect(bind).get_table_names())
+    if "companies" in table_names:
+        from app.models import CompanyAISettings, TaskRecommendationQuota
+
+        CompanyAISettings.__table__.create(bind, checkfirst=True)
+        TaskRecommendationQuota.__table__.create(bind, checkfirst=True)
+    if "user_accounts" in table_names:
+        from app.models import LoginAttemptThrottle, PasswordResetThrottle, PasswordResetToken
+
+        PasswordResetToken.__table__.create(bind, checkfirst=True)
+        PasswordResetThrottle.__table__.create(bind, checkfirst=True)
+        LoginAttemptThrottle.__table__.create(bind, checkfirst=True)

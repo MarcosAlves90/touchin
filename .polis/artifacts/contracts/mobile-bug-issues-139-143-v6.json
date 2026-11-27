@@ -1,0 +1,247 @@
+{
+  "schema_version": 6,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      ".polis/artifacts/contracts/mobile-bug-issues-139-143-v6.json",
+      "docs/validation/mobile-bug-issues-139-143/README.md",
+      "docs/validation/mobile-bug-issues-139-143/polis/red-regression.patch",
+      "docs/validation/mobile-bug-issues-139-143/polis/workspace-validation.json",
+      "frontend/lib/features/projects/presentation/project_kanban_page.dart",
+      "frontend/lib/features/admin/presentation/admin_audit_page.dart",
+      "frontend/lib/features/admin/presentation/admin_audit_page_widgets.dart",
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart",
+      "frontend/test/admin_audit_page_test.dart"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart",
+      "frontend/test/admin_audit_page_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Resolve mobile UI issues #139-143 in Kanban/Backlog and Audit Trail without changing synchronization, filtering, pagination, event data, or desktop behavior.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "The Kanban/Backlog loading state never shows the obsolete Sincronizando badge; real save, error and retry feedback remains available."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "Backlog displays only its own functional text-search field; Kanban retains its existing top-level task search and other views are unchanged."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "Mobile Kanban sections and cards have consistent visible vertical separation without overlap or excessive gaps."
+      },
+      {
+        "id": "REQ-004",
+        "statement": "On mobile Audit Trail, events use a naturally readable, sufficiently tall page-scrolling area; filters, CSV export, applied-filter summary, event details and load-more remain reachable, with pagination behavior intact."
+      },
+      {
+        "id": "REQ-005",
+        "statement": "On mobile, audit loading skeleton card containers match loaded event card width and horizontal alignment without changing internal placeholder padding."
+      },
+      {
+        "id": "REQ-006",
+        "statement": "Desktop layout, themes, task search/filter behavior, synchronization behavior and audit data/pagination semantics remain unchanged."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "Regression tests prove the loading badge is absent during initial and board loading while loading skeletons and non-loading feedback continue to render.",
+        "requirements": [
+          "REQ-001"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "Backlog tests find exactly one visible task text-search input in the filters area and verify query filtering, clearing, and board/backlog switching.",
+        "requirements": [
+          "REQ-002"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-003",
+        "statement": "Responsive widget tests at narrow widths verify visible gaps between project controls, search, board toolbar, and columns with no overflow; desktop spacing remains unchanged.",
+        "requirements": [
+          "REQ-003",
+          "REQ-006"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-004",
+        "statement": "Mobile Audit Trail tests verify natural page scrolling through full event cards to the load-more action, and keep filters/export/details reachable without a cramped nested viewport; pagination and desktop tests pass.",
+        "requirements": [
+          "REQ-004",
+          "REQ-006"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-005",
+        "statement": "Mobile geometry tests compare audit loading skeleton outer bounds to loaded event-card bounds and ensure no horizontal overflow.",
+        "requirements": [
+          "REQ-005"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-006",
+        "statement": "Focused regression tests fail on the locked baseline for the reported behavior, then pass after the smallest fixes; all existing and POLIS gates pass.",
+        "requirements": [
+          "REQ-001",
+          "REQ-002",
+          "REQ-003",
+          "REQ-004",
+          "REQ-005",
+          "REQ-006"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "Task synchronization and mutation operations are not disabled or altered."
+      },
+      {
+        "id": "INV-002",
+        "statement": "Audit filters, event details, export, loading/error states and server pagination remain intact."
+      },
+      {
+        "id": "INV-003",
+        "statement": "Desktop and unrelated application views do not change."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "Sincronizando badge rendered during Kanban or Backlog loading."
+      },
+      {
+        "id": "FORB-002",
+        "statement": "Duplicate top-level and Backlog task search fields rendered together."
+      },
+      {
+        "id": "FORB-003",
+        "statement": "Mobile Kanban sections touch, overlap, or introduce excessive whitespace."
+      },
+      {
+        "id": "FORB-004",
+        "statement": "Mobile audit cards are clipped in a short nested viewport or skeletons are narrower than loaded cards."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "Kanban/Backlog states at mobile and desktop breakpoints, including loading and search interactions."
+      },
+      {
+        "id": "IN-002",
+        "statement": "Audit Trail loading and loaded events, filters and pagination at mobile and desktop breakpoints."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "Minimal UI corrections and focused widget regressions for issues #139-143."
+      },
+      {
+        "id": "OUT-002",
+        "statement": "Retained POLIS contract, Red proof, validation report and concise reproduction notes."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "The baseline regression fails on the specified visual/behavior assertions; setup, compilation, or missing-dependency errors are not accepted as behavioral Red."
+      },
+      {
+        "id": "FAIL-002",
+        "statement": "Any pagination, filtering, synchronization, desktop, or existing test regression blocks acceptance."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "2c4e6967717fa7fd45e912f20b63446179121eb3",
+    "base_tree": "29391a00e2537fb4f2b81fbbe91dc8f1c97b5e4e",
+    "policy_sha256": "5563facc34ae2a1a07cf7ec7ec2f115cb8d250c49dd6e2bd5c7a3de4c977d450",
+    "specification_sha256": "0785ac7d9c03d1832319760a16b04f9bec343a25f1ca6805539bd7aef25ca4fa"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/features/projects/presentation/project_kanban_page_test.dart",
+      "test/admin_audit_page_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 900,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/features/projects/presentation/project_kanban_page_test.dart",
+      "test/admin_audit_page_test.dart",
+      "test/admin_audit_export_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 900,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "test/features/projects/presentation/project_kanban_page_test.dart",
+        "test/admin_audit_page_test.dart"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 900,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "Some tests failed."
+    ]
+  }
+}

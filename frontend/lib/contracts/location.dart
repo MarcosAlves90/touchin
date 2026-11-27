@@ -1,4 +1,4 @@
-import 'package:bunchin_flutter/contracts/contract_parsing.dart';
+import 'package:touchin_flutter/contracts/contract_parsing.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:geolocator/geolocator.dart';
 

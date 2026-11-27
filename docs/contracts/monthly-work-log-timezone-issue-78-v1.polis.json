@@ -1,0 +1,184 @@
+{
+  "schema_version": 6,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      "backend/app/api/routes/projects.py",
+      "backend/app/domain/project_read.py",
+      "backend/app/schemas/project.py",
+      "backend/tests/test_work_logs.py",
+      "docs/performance/pg_semantics_check.py",
+      "docs/performance/pg_index_benchmark.py",
+      "docs/contracts/monthly-work-log-timezone-issue-78-v1.polis.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "backend/tests/test_work_logs.py"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Generate monthly work-log reports using the company's civil timezone while keeping database filtering UTC-based and JSON dates standardized.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "The report query uses a half-open UTC interval derived from the requested month boundaries at midnight in the company's IANA timezone."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "The report uses the company timezone to render each log's local calendar date and ISO-8601 timestamps with the local UTC offset."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "Invalid company timezone values and invalid encrypted JSON snapshots follow explicit, narrow error/fallback handling; unrelated exceptions are not swallowed."
+      },
+      {
+        "id": "REQ-004",
+        "statement": "The monthly report keeps its existing response keys and filters by company, project, and optional employee; timezone-aware fields are additive."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "For America/Sao_Paulo, records before Jan 1 00:00 local are excluded from January and records at the start are included; the next month boundary is exclusive.",
+        "requirements": [
+          "REQ-001"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "JSON date values use YYYY-MM-DD and additive startAt/endAt values are ISO-8601 local timestamps with UTC offsets; legacy response keys remain present.",
+        "requirements": [
+          "REQ-002",
+          "REQ-004"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-003",
+        "statement": "Invalid timezones return a predictable bad-request domain error; malformed task snapshot JSON uses the task-name fallback while decryption errors propagate.",
+        "requirements": [
+          "REQ-003"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-004",
+        "statement": "The route forwards context.company.timezone and the existing company/project/employee scoping tests continue to pass.",
+        "requirements": [
+          "REQ-001",
+          "REQ-004"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "Stored WorkLog timestamps and encryption format do not change."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "The implementation silently uses the host or database session timezone for company calendar boundaries."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "Requested year/month, Company.timezone, and persisted WorkLog timestamps."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "A monthly report containing locally rendered date/timestamp fields and unchanged scoping."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "Unknown IANA timezone produces a bounded client-facing bad-request error; only invalid JSON syntax in a decrypted legacy snapshot invokes the task fallback."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "14c33dd4e70f2283cdc528f7b8bfd156a0a02427",
+    "base_tree": "ede6f6768c44ad71a6eabaf53e222bc0c7404428",
+    "policy_sha256": "14cc707c5ec1808040456d7e177738126dc3a1c5fb3c3e5cbf8f3992d6e63a51",
+    "specification_sha256": "d243bf99e721af8c09ebdd0b58d53b3ba46ae4579a35f19c0da94ae1b2733bda"
+  },
+  "behavior": {
+    "argv": [
+      "python3",
+      "scripts/polis_tests.py"
+    ],
+    "cwd": ".",
+    "timeout_seconds": 1200,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "python3",
+      "-m",
+      "pytest",
+      "-q",
+      "tests/test_work_logs.py"
+    ],
+    "cwd": "backend",
+    "timeout_seconds": 300,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_work_logs.py",
+        "-k",
+        "monthly_report_uses_company_timezone_and_serializes_iso_offsets"
+      ],
+      "cwd": "backend",
+      "timeout_seconds": 120,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "timezone_name"
+    ]
+  }
+}

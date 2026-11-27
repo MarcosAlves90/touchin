@@ -1,0 +1,169 @@
+{
+  "schema_version": 6,
+  "kind": "feature",
+  "scope": {
+    "allowed_paths": [
+      "docs/contracts/kanban-desktop-sync-strip-v1.polis.json",
+      "frontend/lib/features/projects/presentation/project_kanban_page.dart",
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Remove the empty Kanban sync-status strip from desktop while keeping it on mobile layouts.",
+    "requirements": [
+      {
+        "id": "REQ-KANBAN-DESKTOP-STRIP-01",
+        "statement": "At the shared desktop breakpoint (width \u003e= 1080 px), do not render the 54 px Kanban sync-status top bar, allowing the project overview to start immediately below the workspace shell."
+      },
+      {
+        "id": "REQ-KANBAN-DESKTOP-STRIP-02",
+        "statement": "Below 1080 px, retain the Kanban sync-status top bar and its existing status behavior for mobile layouts."
+      },
+      {
+        "id": "REQ-KANBAN-DESKTOP-STRIP-03",
+        "statement": "Keep Kanban project selection, board controls, workspace navigation, and route behavior unchanged."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-KANBAN-DESKTOP-STRIP-01",
+        "statement": "At 1440 px, neither the kanban-topbar nor its Sincronizado status is present, while the project overview and board remain visible.",
+        "requirements": [
+          "REQ-KANBAN-DESKTOP-STRIP-01"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-KANBAN-DESKTOP-STRIP-02",
+        "statement": "At 1079 px and below, the sync-status top bar remains visible.",
+        "requirements": [
+          "REQ-KANBAN-DESKTOP-STRIP-02"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-KANBAN-DESKTOP-STRIP-03",
+        "statement": "The full affected Kanban page widget test suite passes.",
+        "requirements": [
+          "REQ-KANBAN-DESKTOP-STRIP-03"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-KANBAN-DESKTOP-STRIP-01",
+        "statement": "The existing 1080 px workspace responsive breakpoint and all desktop Kanban project, view, metric, refresh, and board controls remain unchanged."
+      },
+      {
+        "id": "INV-KANBAN-DESKTOP-STRIP-02",
+        "statement": "No dependencies, backend behavior, API, authentication, authorization, route, or persisted data changes are introduced."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-KANBAN-DESKTOP-STRIP-01",
+        "statement": "The sync-only 54 px top bar remains visible on desktop or the mobile sync status is removed."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-KANBAN-DESKTOP-STRIP-01",
+        "statement": "The available viewport width compared with the shared 1080 px workspace breakpoint."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-KANBAN-DESKTOP-STRIP-01",
+        "statement": "A desktop Kanban page without the empty sync strip, retaining the strip on mobile."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-KANBAN-DESKTOP-STRIP-01",
+        "statement": "On the locked baseline, the desktop Kanban test fails because the top bar is still rendered."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "c9d6b1544a5e849aabd3e52981dea5fbe1b99886",
+    "base_tree": "f319769a1fb0aebaa0e63a6cebbcbbfeae2b0124",
+    "policy_sha256": "5563facc34ae2a1a07cf7ec7ec2f115cb8d250c49dd6e2bd5c7a3de4c977d450",
+    "specification_sha256": "948cf0d4bd326556feaa461c8feb8c6e6419f3b39ec8319af439aa8c4578a428"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/features/projects/presentation/project_kanban_page_test.dart",
+      "--plain-name",
+      "builds Kanban without redundant page titles and keeps board bounded"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 360,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/features/projects/presentation/project_kanban_page_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "test/features/projects/presentation/project_kanban_page_test.dart",
+        "--plain-name",
+        "builds Kanban without redundant page titles and keeps board bounded"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 360,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "desktop_kanban_topbar_hidden"
+    ]
+  }
+}

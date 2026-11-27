@@ -1,0 +1,246 @@
+{
+  "schema_version": 4,
+  "kind": "feature",
+  "scope": {
+    "allowed_paths": [
+      "frontend/lib/features/projects/presentation/project_kanban_page.dart",
+      "frontend/lib/features/projects/presentation/project_tasks_page.dart",
+      "frontend/lib/features/projects/presentation/widgets/project_kanban_board.dart",
+      "frontend/lib/features/projects/presentation/widgets/task_editor_dialog.dart",
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart",
+      "frontend/test/features/projects/presentation/project_tasks_page_test.dart",
+      "docs/contracts/project-kanban-ui-density-polish-v1.polis.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart",
+      "frontend/test/features/projects/presentation/project_tasks_page_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Polish the now-functional Kanban page for lower visual weight and clearer hierarchy: remove redundant project context from the task editor, replace oversized project statistic cards with a compact shared metrics strip, and reduce board chrome duplication while preserving the working responsive layout, drag behavior, persistence, and dependency surface.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "Task creation and editing must no longer render a redundant current-project context block inside the shared task editor."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "The project overview must keep project selection, refresh, column/card/team counts, and responsive behavior while replacing the three oversized statistic tiles with one compact metrics strip."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "The Kanban board header must reduce technical and duplicated chrome by hiding the internal board version from users and retaining only meaningful sync/navigation/create-column controls."
+      },
+      {
+        "id": "REQ-004",
+        "statement": "Lane headers must avoid duplicate card-creation affordances; the persistent 'Adicionar card' footer remains the discoverable primary create-card action."
+      },
+      {
+        "id": "REQ-005",
+        "statement": "The top navigation, board spacing, guidance copy, status controls, and empty-state density must be tightened without changing the established square TouchIn visual language."
+      },
+      {
+        "id": "REQ-006",
+        "statement": "No backend, API, controller, persistence, raw-pointer drag mechanism, dependency, global theme, or shared WorkspaceEditorDialog contract may change."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "ProjectTaskEditorDialog no longer requires ProjectSummary, contains no _ProjectContext widget, and the project-management task-editor test asserts that 'Projeto atual' is absent.",
+        "requirements": [
+          "REQ-001"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "The project overview renders one kanban-project-metrics strip exactly 48 logical pixels high and desktop coverage bounds kanban-project-overview below 80 logical pixels while preserving the selector and refresh control.",
+        "requirements": [
+          "REQ-002"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-003",
+        "statement": "The visible board header keeps 'Sincronizado'/'Salvando' but no longer renders a vN technical version chip.",
+        "requirements": [
+          "REQ-003"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-004",
+        "statement": "Lane headers no longer render a second add-task icon; 'Adicionar card' remains available in each manageable lane footer.",
+        "requirements": [
+          "REQ-004"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-005",
+        "statement": "The accent top bar is reduced to 54 logical pixels, board header spacing/control sizing is tightened, and responsive page/card bounds from the prior increment remain protected.",
+        "requirements": [
+          "REQ-005"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-006",
+        "statement": "pubspec, AppTheme, WorkspaceEditorDialog, ProjectKanbanController, backend, contracts, network APIs, and raw-pointer drag functions remain unchanged.",
+        "requirements": [
+          "REQ-006"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "Card move/drop resolution, stable IDs, server-authoritative mutation flow, conflict handling, and scroll-controller ownership remain unchanged."
+      },
+      {
+        "id": "INV-002",
+        "statement": "Task field limits, type selection, parent-task selection, TaskDraft output, and the shared square editor shell remain unchanged."
+      },
+      {
+        "id": "INV-003",
+        "statement": "The board status indicator remains inside the board section and the navbar does not reintroduce a duplicate sync-status block."
+      },
+      {
+        "id": "INV-004",
+        "statement": "320x568, 390x844, tablet, and desktop layouts remain finite without external dependencies or intrinsic-size workarounds."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "A package dependency, renderer workaround, alternate drag framework, or global theme override is introduced for cosmetic polish."
+      },
+      {
+        "id": "FORB-002",
+        "statement": "Removing project context from the task modal removes task validation, type, parent relation, or edit semantics."
+      },
+      {
+        "id": "FORB-003",
+        "statement": "Statistics remain three large standalone cards that dominate the project strip."
+      },
+      {
+        "id": "FORB-004",
+        "statement": "Card creation becomes undiscoverable after removing the duplicate lane-header add icon."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "Current feature/tasks-kanban commit 594c85011fab7472b7f41ff93281a74d88fcbefa with tree 4e96fd6b4b14cf4908ca92178cc55fbc90729f0f."
+      },
+      {
+        "id": "IN-002",
+        "statement": "User screenshot shows the current functional Kanban with a visually heavy project statistic row, redundant project context in task editing, and duplicated board/lane controls."
+      },
+      {
+        "id": "IN-003",
+        "statement": "The prior increments established a reusable WorkspaceEditorDialog, compact 144px cards, responsive board constraints, and a functional raw-pointer Kanban implementation that must remain protected."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "A slimmer project context toolbar with one compact metrics strip."
+      },
+      {
+        "id": "OUT-002",
+        "statement": "A task editor focused only on task data, without redundant project context."
+      },
+      {
+        "id": "OUT-003",
+        "statement": "A lighter board/lane action hierarchy with less technical and duplicate chrome."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "With only the focused regression test changes installed on the baseline, the regression command exits 1 and prints kanban_ui_density_polish_missing."
+      },
+      {
+        "id": "FAIL-002",
+        "statement": "Any Flutter compile, overflow, or layout failure after application is authoritative and must be corrected without changing protected Kanban/domain behavior."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "594c85011fab7472b7f41ff93281a74d88fcbefa",
+    "base_tree": "4e96fd6b4b14cf4908ca92178cc55fbc90729f0f",
+    "policy_sha256": "cb60d7751236c799472a2e7166df0637c20f183f26a61900706bbdb69232ab34",
+    "specification_sha256": "a2be0b438002ca39bb71ac08b0e22cf4e172e999ae215c739a7fa0fe2047617d"
+  },
+  "behavior": {
+    "argv": [
+      "python3",
+      "-c",
+      "from pathlib import Path; import sys; page=Path('frontend/lib/features/projects/presentation/project_kanban_page.dart').read_text(); task=Path('frontend/lib/features/projects/presentation/widgets/task_editor_dialog.dart').read_text(); board=Path('frontend/lib/features/projects/presentation/widgets/project_kanban_board.dart').read_text(); kt=Path('frontend/test/features/projects/presentation/project_kanban_page_test.dart').read_text(); pt=Path('frontend/test/features/projects/presentation/project_tasks_page_test.dart').read_text(); red=(\"ValueKey\u003cString\u003e('kanban-project-metrics')\" in kt and \"expect(find.text('Projeto atual'), findsNothing)\" in pt and \"expect(find.text('v1'), findsNothing)\" in kt); impl=(\"class _KanbanMetricsStrip extends StatelessWidget\" in page and \"key: const ValueKey\u003cString\u003e('kanban-project-metrics')\" in page and \"height: 48\" in page and \"lessThan(80)\" in kt and \"required this.project\" not in task and \"class _ProjectContext\" not in task and \"label: 'v$version'\" not in board and \"tooltip: 'Adicionar card em\" not in board and \"height: 54\" in page); print('density_tests_not_installed' if not red else ('kanban_ui_density_polish_ready' if impl else 'kanban_ui_density_polish_missing')); sys.exit(0 if (not red or impl) else 1)"
+    ],
+    "cwd": ".",
+    "timeout_seconds": 30,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "python3",
+      "-c",
+      "from pathlib import Path; import sys; page=Path('frontend/lib/features/projects/presentation/project_kanban_page.dart').read_text(); task=Path('frontend/lib/features/projects/presentation/widgets/task_editor_dialog.dart').read_text(); board=Path('frontend/lib/features/projects/presentation/widgets/project_kanban_board.dart').read_text(); kt=Path('frontend/test/features/projects/presentation/project_kanban_page_test.dart').read_text(); pt=Path('frontend/test/features/projects/presentation/project_tasks_page_test.dart').read_text(); red=(\"ValueKey\u003cString\u003e('kanban-project-metrics')\" in kt and \"expect(find.text('Projeto atual'), findsNothing)\" in pt and \"expect(find.text('v1'), findsNothing)\" in kt); impl=(\"class _KanbanMetricsStrip extends StatelessWidget\" in page and \"key: const ValueKey\u003cString\u003e('kanban-project-metrics')\" in page and \"height: 48\" in page and \"lessThan(80)\" in kt and \"required this.project\" not in task and \"class _ProjectContext\" not in task and \"label: 'v$version'\" not in board and \"tooltip: 'Adicionar card em\" not in board and \"height: 54\" in page); print('density_tests_not_installed' if not red else ('kanban_ui_density_polish_ready' if impl else 'kanban_ui_density_polish_missing')); sys.exit(0 if (not red or impl) else 1)"
+    ],
+    "cwd": ".",
+    "timeout_seconds": 30,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "python3",
+        "-c",
+        "from pathlib import Path; import sys; page=Path('frontend/lib/features/projects/presentation/project_kanban_page.dart').read_text(); task=Path('frontend/lib/features/projects/presentation/widgets/task_editor_dialog.dart').read_text(); board=Path('frontend/lib/features/projects/presentation/widgets/project_kanban_board.dart').read_text(); kt=Path('frontend/test/features/projects/presentation/project_kanban_page_test.dart').read_text(); pt=Path('frontend/test/features/projects/presentation/project_tasks_page_test.dart').read_text(); red=(\"ValueKey\u003cString\u003e('kanban-project-metrics')\" in kt and \"expect(find.text('Projeto atual'), findsNothing)\" in pt and \"expect(find.text('v1'), findsNothing)\" in kt); impl=(\"class _KanbanMetricsStrip extends StatelessWidget\" in page and \"key: const ValueKey\u003cString\u003e('kanban-project-metrics')\" in page and \"height: 48\" in page and \"lessThan(80)\" in kt and \"required this.project\" not in task and \"class _ProjectContext\" not in task and \"label: 'v$version'\" not in board and \"tooltip: 'Adicionar card em\" not in board and \"height: 54\" in page); print('density_tests_not_installed' if not red else ('kanban_ui_density_polish_ready' if impl else 'kanban_ui_density_polish_missing')); sys.exit(0 if (not red or impl) else 1)"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 30,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "kanban_ui_density_polish_missing"
+    ]
+  }
+}

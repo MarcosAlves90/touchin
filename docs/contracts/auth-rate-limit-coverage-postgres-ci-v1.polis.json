@@ -1,0 +1,264 @@
+{
+  "schema_version": 6,
+  "kind": "feature",
+  "scope": {
+    "allowed_paths": [
+      ".github/workflows/ci.yml",
+      "backend/app/api/routes/auth.py",
+      "backend/app/database_schema.py",
+      "backend/app/errors.py",
+      "backend/app/main.py",
+      "backend/app/models.py",
+      "backend/app/services/auth.py",
+      "backend/requirements.txt",
+      "backend/tests/test_auth_rate_limit.py",
+      "docs/contracts/auth-rate-limit-coverage-postgres-ci-v1.polis.json",
+      "scripts/polis_tests.py"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "backend/tests/test_auth_rate_limit.py"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Protect login against brute-force attempts by normalized account and request source, publish backend and Flutter file-level coverage reports in CI, and run PostgreSQL concurrency suites continuously against disposable isolated databases.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "Login enforces a limit of five failed authentication attempts per normalized account per fixed UTC hour and a limit of one hundred login requests per source IP per fixed UTC hour. The source is Request.client.host; untrusted X-Forwarded-For values do not bypass the source limit. Account buckets are cleared after successful authentication, and unknown accounts are counted identically to known accounts."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "When either login limit is exceeded, the API returns HTTP 429 with one generic response that does not reveal whether the account exists. Persisted throttle keys are keyed digests and never contain cleartext email addresses or source IPs."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "CI produces backend coverage XML and HTML reports with per-file missing-line details, and Flutter LCOV coverage, then uploads the reports as build artifacts. Coverage is informational and does not introduce an unrequested minimum threshold."
+      },
+      {
+        "id": "REQ-004",
+        "statement": "CI runs the existing PostgreSQL concurrency suites in a dedicated job against an ephemeral PostgreSQL service, using separate disposable databases whose names satisfy the test suites' isolation guards; missing PostgreSQL configuration must not turn these tests into skips."
+      },
+      {
+        "id": "REQ-005",
+        "statement": "Existing successful authentication behavior and the rest of the backend/frontend test suites remain intact; backend/.env remains ignored and mode 600."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "Repeated invalid logins for one account are blocked after the configured threshold even when X-Forwarded-For changes between requests; the account is not permanently locked and a successful login clears that account's failed-attempt bucket.",
+        "requirements": [
+          "REQ-001"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "Requests from one source IP are limited across different valid-format account identifiers, while spoofed X-Forwarded-For values do not reset the source bucket; rate-limit responses are identical for known and unknown accounts and stored bucket keys do not contain raw identifiers.",
+        "requirements": [
+          "REQ-001",
+          "REQ-002"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-003",
+        "statement": "The backend CI job emits per-file pytest-cov output and uploads XML/HTML coverage; the frontend CI job runs Flutter tests with coverage and uploads frontend/coverage/lcov.info.",
+        "requirements": [
+          "REQ-003"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-004",
+        "statement": "The dedicated PostgreSQL CI job starts its own healthy PostgreSQL service, creates separate databases with the required test prefixes, and passes the kanban, time-clock, and password-reset/login concurrency tests without missing-URL skips.",
+        "requirements": [
+          "REQ-004"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-005",
+        "statement": "Focused login tests, the full backend and Flutter suites, Flutter analysis, POLIS test/lint/build/smoke gates, git diff checks, and the CI checks on the pushed commit pass.",
+        "requirements": [
+          "REQ-001",
+          "REQ-002",
+          "REQ-003",
+          "REQ-004",
+          "REQ-005"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "Login limit buckets store only HMAC digests, not email addresses or IP addresses in cleartext."
+      },
+      {
+        "id": "INV-002",
+        "statement": "The login endpoint continues returning the same status and response body for invalid credentials regardless of account existence; the rate-limit response is uniform for both account and source limits."
+      },
+      {
+        "id": "INV-003",
+        "statement": "PostgreSQL concurrency tests only mutate disposable databases with the explicit expected name prefixes and READ COMMITTED isolation."
+      },
+      {
+        "id": "INV-004",
+        "statement": "Coverage reports do not set or imply a minimum percentage gate."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "A caller can evade the login source limit by changing an untrusted forwarded-IP header."
+      },
+      {
+        "id": "FORB-002",
+        "statement": "Login throttle storage exposes raw account identifiers or source IPs, or account throttling reveals registered accounts."
+      },
+      {
+        "id": "FORB-003",
+        "statement": "PostgreSQL concurrency tests are skipped in CI, share a production database, or mutate a database outside their explicit isolation guards."
+      },
+      {
+        "id": "FORB-004",
+        "statement": "Coverage reports are missing from CI artifacts or a coverage percentage threshold blocks the change without an explicit request."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "A login email and password plus the ASGI request client host, with optional untrusted forwarded headers."
+      },
+      {
+        "id": "IN-002",
+        "statement": "Backend and Flutter test suites executed by GitHub Actions."
+      },
+      {
+        "id": "IN-003",
+        "statement": "Existing PostgreSQL adversarial, time-clock integrity, and password-reset/login concurrency tests that require isolated READ COMMITTED databases."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "Uniform HTTP 429 login throttling backed by digest-only account and source buckets."
+      },
+      {
+        "id": "OUT-002",
+        "statement": "Downloadable backend XML/HTML and frontend LCOV coverage artifacts."
+      },
+      {
+        "id": "OUT-003",
+        "statement": "A dedicated PostgreSQL CI job that continuously exercises the existing concurrency suites against ephemeral databases."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "On the locked baseline, the focused account-rate-limit regression must fail because every invalid login is still accepted for verification and no HTTP 429 is returned; environment/setup errors are not valid Red."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "fcebb011e446a60acbb58c7d94e9e1bcec1b9998",
+    "base_tree": "82ea1bd19de09f33ceeff24c275bd9f95e82320d",
+    "policy_sha256": "7714a10ab2b65f58941086f500de93fa62fc6acb6fd59d8b39292980364774dd",
+    "specification_sha256": "bafae009d1592465c78276650df83269298faa09a59938ea363e64e3e03c4b0e"
+  },
+  "behavior": {
+    "argv": [
+      "python",
+      "scripts/polis_tests.py"
+    ],
+    "cwd": ".",
+    "timeout_seconds": 1200,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP",
+        "SystemRoot",
+        "COMSPEC",
+        "PATHEXT",
+        "USERPROFILE",
+        "LOCALAPPDATA",
+        "PYTHONUTF8",
+        "PYTHONIOENCODING"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "python",
+      "-B",
+      "-m",
+      "pytest",
+      "-q",
+      "tests/test_auth_rate_limit.py"
+    ],
+    "cwd": "backend",
+    "timeout_seconds": 180,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP",
+        "SystemRoot",
+        "COMSPEC",
+        "PATHEXT",
+        "USERPROFILE",
+        "LOCALAPPDATA",
+        "PYTHONUTF8",
+        "PYTHONIOENCODING"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "python",
+        "-B",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_auth_rate_limit.py"
+      ],
+      "cwd": "backend",
+      "timeout_seconds": 180,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP",
+          "SystemRoot",
+          "COMSPEC",
+          "PATHEXT",
+          "USERPROFILE",
+          "LOCALAPPDATA",
+          "PYTHONUTF8",
+          "PYTHONIOENCODING"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "FAILED tests/test_auth_rate_limit.py::test_account_limit_blocks_repeated_failures_across_origins"
+    ]
+  }
+}

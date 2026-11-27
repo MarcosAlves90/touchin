@@ -7,18 +7,18 @@ import pytest
 from fastapi.testclient import TestClient
 
 
-os.environ["BUNCHIN_DATABASE_URL"] = "sqlite://"
-os.environ["BUNCHIN_TOKEN_SECRET"] = "tests-token-secret"
-os.environ["BUNCHIN_ENCRYPTION_SECRET"] = "tests-encryption-secret"
-os.environ["BUNCHIN_SEED_ADMIN_PASSWORD"] = "tests-seed-admin-password"
-os.environ["BUNCHIN_SEED_ON_STARTUP"] = "true"
+os.environ["TOUCHIN_DATABASE_URL"] = "sqlite://"
+os.environ["TOUCHIN_TOKEN_SECRET"] = "tests-token-secret"
+os.environ["TOUCHIN_ENCRYPTION_SECRET"] = "tests-encryption-secret"
+os.environ["TOUCHIN_SEED_ADMIN_PASSWORD"] = "tests-seed-admin-password"
+os.environ["TOUCHIN_SEED_ON_STARTUP"] = "true"
 
 from app.db import Base, SessionLocal, engine  # noqa: E402
 from app.main import create_app  # noqa: E402
 from app.seed import seed_database  # noqa: E402
 
 
-@pytest.fixture()
+@pytest.fixture
 def client() -> Generator[TestClient, None, None]:
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)

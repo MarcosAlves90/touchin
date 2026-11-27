@@ -1,0 +1,173 @@
+{
+  "schema_version": 6,
+  "kind": "behavior_preserving",
+  "scope": {
+    "allowed_paths": [
+      "backend/tests/test_auth_rate_limit.py",
+      "docs/contracts/auth-rate-limit-test-fixture-cleanup-v1.polis.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "backend/tests/test_auth_rate_limit.py"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Replace credential-like placeholder text in login-rate-limit tests with an unmistakably synthetic invalid value, preserving test behavior and eliminating the secret-scanner false positive.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "Use a non-secret deterministic invalid login value that satisfies the LoginRequest minimum length in all negative-auth test cases."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "Keep the existing account/source throttling, response, and persistence assertions unchanged."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "No production code or runtime credentials are changed."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "The tests use a deterministic synthetic value with at least eight characters and no credential-like literal.",
+        "requirements": [
+          "REQ-001"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "The focused login rate-limit test suite passes with the same expected response codes and assertions.",
+        "requirements": [
+          "REQ-002"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-003",
+        "statement": "Only the test file and this POLIS contract change; production files remain untouched.",
+        "requirements": [
+          "REQ-003"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "The placeholder is never a real credential and is rejected by the seeded test account."
+      },
+      {
+        "id": "INV-002",
+        "statement": "Rate-limit semantics and configured thresholds are unchanged."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "A real credential, token, or secret is introduced into test source."
+      },
+      {
+        "id": "FORB-002",
+        "statement": "Production logic or authentication response behavior changes."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "The backend login rate-limit tests submit invalid passwords through the existing test client and SQLite fixture."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "A credential-free test placeholder with unchanged rate-limit test behavior."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "Any response other than the existing 401/429 expectations or any unexpected test failure is a failure."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "b407a8e6450c0f2c8c3406e9ddce486bb19b8a16",
+    "base_tree": "cd38580a589e8b6c4b89a08095980d8091d28a45",
+    "policy_sha256": "7714a10ab2b65f58941086f500de93fa62fc6acb6fd59d8b39292980364774dd",
+    "specification_sha256": "bdc2ec2ad1fc2e27acb4588363a68047e4bf5043dd6ac30a9dafd38ad06a96e4"
+  },
+  "behavior": {
+    "argv": [
+      "python",
+      "-B",
+      "-m",
+      "pytest",
+      "-q",
+      "tests/test_auth_rate_limit.py"
+    ],
+    "cwd": "backend",
+    "timeout_seconds": 180,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "python",
+      "-B",
+      "-m",
+      "pytest",
+      "-q",
+      "tests/test_auth_rate_limit.py"
+    ],
+    "cwd": "backend",
+    "timeout_seconds": 180,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "green_green",
+    "command": {
+      "argv": [
+        "python",
+        "-B",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_auth_rate_limit.py"
+      ],
+      "cwd": "backend",
+      "timeout_seconds": 180,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    }
+  }
+}

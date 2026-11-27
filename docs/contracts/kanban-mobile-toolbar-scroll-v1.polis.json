@@ -1,0 +1,158 @@
+{
+  "schema_version": 6,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      "docs/contracts/kanban-mobile-toolbar-scroll-v1.polis.json",
+      "frontend/lib/features/projects/presentation/widgets/project_kanban_board.dart",
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Keep the Kanban board heading and actions in one horizontal row on mobile, allowing the combined row to scroll when space is insufficient.",
+    "requirements": [
+      {
+        "id": "REQ-KANBAN-MOBILE-TOOLBAR-01",
+        "statement": "At compact widths, the Quadro heading, column navigation controls, and create-column action remain in one horizontal row; when their combined width exceeds the viewport, the row scrolls horizontally instead of wrapping or stacking."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-KANBAN-MOBILE-ROW-01",
+        "statement": "Widget tests at 320px and 360px verify that the heading and all visible toolbar actions are descendants of the same horizontal scroll view, are aligned on one row, and produce no layout exception.",
+        "requirements": [
+          "REQ-KANBAN-MOBILE-TOOLBAR-01"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-KANBAN-MOBILE-DESKTOP-01",
+        "statement": "Existing desktop toolbar behavior and action permissions remain unchanged, and the board/page test suites pass.",
+        "requirements": [
+          "REQ-KANBAN-MOBILE-TOOLBAR-01"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-KANBAN-TOOLBAR-DOC-01",
+        "statement": "docs/contracts/kanban-mobile-toolbar-scroll-v1.polis.json is byte-for-byte identical to the locked contract.",
+        "requirements": [
+          "REQ-KANBAN-MOBILE-TOOLBAR-01"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-KANBAN-MOBILE-TOOLBAR-01",
+        "statement": "Preserve navigation callbacks, create-column permissions and busy-state disabling, accessible tooltips, and 48-by-48 minimum tap targets."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-KANBAN-MOBILE-TOOLBAR-01",
+        "statement": "On a compact viewport the heading is above or below the actions, or the combined content wraps or is clipped without horizontal scrolling."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-KANBAN-MOBILE-TOOLBAR-01",
+        "statement": "Viewport width, column count, user permissions, and Kanban busy state."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-KANBAN-MOBILE-TOOLBAR-01",
+        "statement": "A single-row mobile Kanban toolbar with horizontal scrolling when needed."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-KANBAN-MOBILE-TOOLBAR-01",
+        "statement": "The focused widget test fails with kanban_mobile_toolbar_single_row if the heading and toolbar actions do not share the same scrollable horizontal row."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "109141f11fa78e166cb3cab00e47e59626876b17",
+    "base_tree": "7c70a9a106c073db6aae71dc0b95b638d83dde8f",
+    "policy_sha256": "7714a10ab2b65f58941086f500de93fa62fc6acb6fd59d8b39292980364774dd",
+    "specification_sha256": "7c164bc5eb48f0f265c82cdd654f7aa2975c989ace907fb081ba40cdbc6e0f0d"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/features/projects/presentation/project_kanban_page_test.dart",
+      "--plain-name",
+      "mobile Kanban toolbar keeps heading and actions in one scrollable row"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 360,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/features/projects/presentation/project_kanban_page_test.dart",
+      "test/features/projects/presentation/project_kanban_board_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "test/features/projects/presentation/project_kanban_page_test.dart",
+        "--plain-name",
+        "mobile Kanban toolbar keeps heading and actions in one scrollable row"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 360,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "kanban_mobile_toolbar_single_row"
+    ]
+  }
+}

@@ -1,0 +1,159 @@
+{
+  "schema_version": 6,
+  "kind": "feature",
+  "scope": {
+    "allowed_paths": [
+      "frontend/lib/features/admin/presentation/admin_employees_page.dart",
+      "frontend/lib/features/admin/presentation/admin_employees_page_widgets.dart",
+      "frontend/test/admin_employees_page_test.dart",
+      "docs/contracts/team-rebuild-v1.polis.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/admin_employees_page_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Rebuild the team administration page composition in the reference workspace language while preserving functional behavior and theme.",
+    "requirements": [
+      {
+        "id": "REQ-01",
+        "statement": "Recompose desktop employee directory header and search as one responsive toolbar, and the selected profile overview and tabs as wide responsive groups."
+      },
+      {
+        "id": "REQ-02",
+        "statement": "Preserve employee data, loading and error states, search, filters, selection, pagination, profile tabs, employee and punch actions, accessibility and light and dark themes."
+      },
+      {
+        "id": "REQ-03",
+        "statement": "Persist the exact locked contract in docs/contracts/team-rebuild-v1.polis.json."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-01",
+        "statement": "A desktop widget regression checks search shares the directory heading row and profile overview and tabs use available horizontal width, without exceptions.",
+        "requirements": [
+          "REQ-01",
+          "REQ-02"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-02",
+        "statement": "Existing team widget tests and configured project gates pass; the persisted contract equals the lock byte-for-byte.",
+        "requirements": [
+          "REQ-02",
+          "REQ-03"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-01",
+        "statement": "Do not alter API calls, employee data, authorization, navigation, or theme persistence."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-01",
+        "statement": "Controls or content disappear, overflow, or become inaccessible in supported responsive layouts."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-01",
+        "statement": "Existing team page, widget tests, and user-provided visual reference."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-01",
+        "statement": "Responsive team page composition and regression evidence."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-01",
+        "statement": "The team_toolbar_composition regression fails on the baseline geometry and passes on the rebuilt page."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "d2dec9d71c7899e822095e70cae2410ec74f9493",
+    "base_tree": "a73e71ee1ec93faf88bc9298b279ae7c8407a5bd",
+    "policy_sha256": "7714a10ab2b65f58941086f500de93fa62fc6acb6fd59d8b39292980364774dd",
+    "specification_sha256": "22fdc350660858e909eb249e17c09e224af5624f45ac1db1ca4b799bf013e931"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/admin_employees_page_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 300,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/admin_employees_page_test.dart",
+      "test/admin_contrast_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "test/admin_employees_page_test.dart",
+        "--plain-name",
+        "team toolbar composition"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 300,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "team_toolbar_composition"
+    ]
+  }
+}

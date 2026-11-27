@@ -1,0 +1,238 @@
+{
+  "schema_version": 4,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      "backend/app/schemas/project.py",
+      "backend/tests/test_project_task_management_regressions.py",
+      "frontend/lib/features/projects/presentation/project_tasks_controller.dart",
+      "frontend/test/features/projects/presentation/project_tasks_controller_test.dart",
+      "docs/contracts/project-task-management-bugfixes-v2.polis.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "backend/tests/test_project_task_management_regressions.py",
+      "frontend/test/features/projects/presentation/project_tasks_controller_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Fix project/task management defects so archived projects stay out of active management views, stale asynchronous frontend responses cannot overwrite the current selection, and project task employee limits are rejected before exceeding the PostgreSQL INTEGER storage range. The delivery regression proof must remain portable across LF and CRLF working-tree materialization.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "The project-management controller must request only active projects for the management list."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "Project members, tasks, and task members loaded asynchronously must be applied only when the response still belongs to the current selection and latest request."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "Project taskEmployeeLimit must be constrained to the signed PostgreSQL INTEGER range and invalid larger values must fail validation before persistence."
+      },
+      {
+        "id": "REQ-004",
+        "statement": "The POLIS locked Change Contract for this change must be stored under docs/contracts/project-task-management-bugfixes-v2.polis.json in the repository."
+      },
+      {
+        "id": "REQ-005",
+        "statement": "Regression validation of the versioned Change Contract must be semantic and must not depend on LF versus CRLF byte representation in the consumer working tree."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "A project made inactive by delete is not requested again as part of the active project-management list on controller startup.",
+        "requirements": [
+          "REQ-001"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "When project or task selections change while requests are in flight, later completion of stale requests cannot replace data or loading/error state for the current selection.",
+        "requirements": [
+          "REQ-002"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-003",
+        "statement": "taskEmployeeLimit equal to 2147483648 is rejected by schema validation and the HTTP API returns 422 instead of reaching persistence.",
+        "requirements": [
+          "REQ-003"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-004",
+        "statement": "The locked schema-v4 Change Contract produced by POLIS is present and semantically parseable at docs/contracts/project-task-management-bugfixes-v2.polis.json in the target tree.",
+        "requirements": [
+          "REQ-004"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-005",
+        "statement": "Contract regression validation succeeds for semantically identical JSON text using CRLF line endings and does not compare working-tree byte hashes.",
+        "requirements": [
+          "REQ-005"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "Existing project soft-delete semantics remain unchanged: DELETE marks a project inactive rather than physically deleting it."
+      },
+      {
+        "id": "INV-002",
+        "statement": "Existing authorization and task/project membership rules remain unchanged."
+      },
+      {
+        "id": "INV-003",
+        "statement": "Existing clients that omit taskEmployeeLimit continue to receive the current default behavior."
+      },
+      {
+        "id": "INV-004",
+        "statement": "No stale request may mutate visible state for a different current project or task selection."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "An inactive project appears in the controller's active management list after reload."
+      },
+      {
+        "id": "FORB-002",
+        "statement": "taskMembers, projectMembers, tasks, or their loading/error flags reflect an obsolete request after the relevant selection changed or a newer request completed."
+      },
+      {
+        "id": "FORB-003",
+        "statement": "A taskEmployeeLimit above 2147483647 is accepted by ProjectDraftPayload."
+      },
+      {
+        "id": "FORB-004",
+        "statement": "A consumer fails regression validation solely because the versioned JSON contract is materialized with CRLF instead of LF."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "Project-management startup and project/task selection changes."
+      },
+      {
+        "id": "IN-002",
+        "statement": "Project create/update payload field taskEmployeeLimit."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "The controller exposes data that belongs only to the current project/task selection and active project set."
+      },
+      {
+        "id": "OUT-002",
+        "statement": "Out-of-range taskEmployeeLimit inputs produce validation failure before database persistence."
+      },
+      {
+        "id": "OUT-003",
+        "statement": "A versioned locked POLIS contract is included in the repository target tree and its regression validation is EOL-independent."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "Stale frontend request failures are discarded instead of surfacing as errors for the current selection."
+      },
+      {
+        "id": "FAIL-002",
+        "statement": "Out-of-range taskEmployeeLimit values are rejected as request validation errors rather than internal database errors."
+      },
+      {
+        "id": "FAIL-003",
+        "statement": "Equivalent LF and CRLF representations of the versioned JSON contract must not cause a regression-gate failure."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "573e1b4f6867a586da7d2d3bf3733e6bff5d287a",
+    "base_tree": "953f1cf1a7cef78210fbffb57b74cda470957919",
+    "policy_sha256": "c42c2741e674b1f9f2aa95f2a0db952835a7d83088c8e2b9682a33ab35a00432",
+    "specification_sha256": "df41c9373865f1c13138308694278eea6e8836dbceaf3c838b1581549197e23e"
+  },
+  "behavior": {
+    "argv": [
+      "python",
+      "-m",
+      "pytest",
+      "tests/test_project_task_management_regressions.py",
+      "-q"
+    ],
+    "cwd": "backend",
+    "timeout_seconds": 180,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "python",
+      "-m",
+      "pytest",
+      "tests",
+      "-q"
+    ],
+    "cwd": "backend",
+    "timeout_seconds": 1200,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "python",
+        "-m",
+        "pytest",
+        "tests/test_project_task_management_regressions.py",
+        "-q"
+      ],
+      "cwd": "backend",
+      "timeout_seconds": 180,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "test_project_task_management_controller_requests_only_active_projects"
+    ]
+  }
+}

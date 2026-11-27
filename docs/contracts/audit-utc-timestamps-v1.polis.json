@@ -1,0 +1,210 @@
+{
+  "schema_version": 6,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      "backend/app/domain/audit_read.py",
+      "backend/tests/test_audit_timestamps.py",
+      "frontend/test/contracts/audit_timestamp_test.dart",
+      "docs/contracts/audit-utc-timestamps-v1.polis.json",
+      "docs/validation/audit-utc-timestamps/README.md",
+      "docs/validation/audit-utc-timestamps/polis/red-regression.patch",
+      "docs/validation/audit-utc-timestamps/polis/workspace-validation.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "backend/tests/test_audit_timestamps.py",
+      "frontend/test/contracts/audit_timestamp_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Serialize every audit event timestamp returned by GET /api/v1/audit-events as an explicit UTC instant with offset, as the time clock API already does, so the audit screen's local date/time column shows the event's real local time on every database backend.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "Each timestamp in the audit event list response is an ISO-8601 instant with an explicit UTC offset, including when the database driver returns a naive datetime (SQLite); stored values are interpreted as UTC, which is how the application writes them."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "The audit CSV export keeps its timestamp_utc column as UTC instants ending in Z, consistent with the list response for the same event."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "The frontend parses an audit timestamp with UTC offset into the same instant and renders the Data/hora (local) column in the device's local time and the UTC detail as the original UTC instant."
+      },
+      {
+        "id": "REQ-004",
+        "statement": "Audit filtering, ordering, pagination, authorization, response keys and stored audit data are unchanged."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "After an audited action, every timestamp returned by GET /api/v1/audit-events parses as an offset-aware datetime with zero UTC offset that lies within the action's UTC time window.",
+        "requirements": [
+          "REQ-001"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "The CSV export timestamp_utc value of an event ends in Z and denotes the same instant, to the second, as the list response timestamp of that event.",
+        "requirements": [
+          "REQ-001",
+          "REQ-002"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-003",
+        "statement": "A frontend contract test parses an audit event whose timestamp ends in Z into the same instant, formats the local date/time from that instant converted to local time, and formats the UTC detail as the original instant.",
+        "requirements": [
+          "REQ-003"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-004",
+        "statement": "The full backend and frontend suites, Flutter analysis, POLIS project gates (test.complete, lint, build, smoke), git diff check and complete diff review pass.",
+        "requirements": [
+          "REQ-001",
+          "REQ-002",
+          "REQ-003",
+          "REQ-004"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "Audit events are still stored in UTC; no schema, migration or stored value changes."
+      },
+      {
+        "id": "INV-002",
+        "statement": "Response keys, filters, ordering, pagination, export limits and authorization of the audit API are unchanged."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "The audit list API returns a timestamp without UTC offset."
+      },
+      {
+        "id": "FORB-002",
+        "statement": "The audit screen's local date/time column shows the UTC wall-clock time as if it were local time."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "AuditEvent rows whose timestamp the database driver returns either naive (SQLite) or offset-aware (PostgreSQL)."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "Audit list JSON timestamps with explicit UTC offset, matching CSV timestamp_utc values."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "If any audit list timestamp lacks a UTC offset or names a different instant than the CSV export, the backend regression exits nonzero naming the failing test in tests/test_audit_timestamps.py."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "be5963ccb9cdefbf26f6b69eccb29ede7200a818",
+    "base_tree": "5089940699766c60ebcc5092a901f044e341eb02",
+    "policy_sha256": "5563facc34ae2a1a07cf7ec7ec2f115cb8d250c49dd6e2bd5c7a3de4c977d450",
+    "specification_sha256": "79ad618004ff5de32be462e61457cd40812cb8125200be8c68d8f4e311493626"
+  },
+  "behavior": {
+    "argv": [
+      "python",
+      "scripts/polis_tests.py"
+    ],
+    "cwd": ".",
+    "timeout_seconds": 1200,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP",
+        "SystemRoot",
+        "COMSPEC",
+        "PATHEXT",
+        "USERPROFILE",
+        "LOCALAPPDATA",
+        "PYTHONUTF8",
+        "PYTHONIOENCODING"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "python",
+      "-c",
+      "import shutil, subprocess, sys\nflutter = shutil.which('flutter.bat') or shutil.which('flutter') or 'flutter'\nbackend = subprocess.run([sys.executable, '-B', '-m', 'pytest', '-q', 'tests/test_audit_timestamps.py'], cwd='backend').returncode\nfrontend = subprocess.run([flutter, 'test', 'test/contracts/audit_timestamp_test.dart'], cwd='frontend').returncode\nsys.exit(1 if backend or frontend else 0)\n"
+    ],
+    "cwd": ".",
+    "timeout_seconds": 900,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP",
+        "SystemRoot",
+        "COMSPEC",
+        "PATHEXT",
+        "USERPROFILE",
+        "LOCALAPPDATA",
+        "PYTHONUTF8",
+        "PYTHONIOENCODING"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "python",
+        "-c",
+        "import shutil, subprocess, sys\nflutter = shutil.which('flutter.bat') or shutil.which('flutter') or 'flutter'\nbackend = subprocess.run([sys.executable, '-B', '-m', 'pytest', '-q', 'tests/test_audit_timestamps.py'], cwd='backend').returncode\nfrontend = subprocess.run([flutter, 'test', 'test/contracts/audit_timestamp_test.dart'], cwd='frontend').returncode\nsys.exit(1 if backend or frontend else 0)\n"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 900,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP",
+          "SystemRoot",
+          "COMSPEC",
+          "PATHEXT",
+          "USERPROFILE",
+          "LOCALAPPDATA",
+          "PYTHONUTF8",
+          "PYTHONIOENCODING"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "FAILED tests/test_audit_timestamps.py::test_audit_event_list_timestamps_carry_utc_offset"
+    ]
+  }
+}

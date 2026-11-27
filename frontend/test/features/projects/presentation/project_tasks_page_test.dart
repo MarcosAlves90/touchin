@@ -1,0 +1,1473 @@
+import 'dart:async';
+
+import 'package:touchin_flutter/contracts/auth.dart';
+import 'package:touchin_flutter/contracts/employee.dart';
+import 'package:touchin_flutter/contracts/project.dart';
+import 'package:touchin_flutter/contracts/task.dart';
+import 'package:touchin_flutter/core/network/api_client.dart';
+import 'package:touchin_flutter/core/network/touchin_api.dart';
+import 'package:touchin_flutter/features/projects/presentation/project_tasks_controller.dart';
+import 'package:touchin_flutter/features/projects/presentation/project_tasks_page.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_editor_dialog.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
+import 'package:touchin_flutter/theme/app_theme.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  testWidgets('project directory shows compact aligned rows', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1600, 1800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(MaterialApp(home: ProjectTasksPage(api: _MultipleProjectsApi())));
+    await tester.pumpAndSettle();
+    final section = find.ancestor(of: find.text('Selecione um projeto para consultar dados, acessos e tarefas.'), matching: find.byType(WorkspaceSectionCard)).first;
+    final first = find.descendant(of: section, matching: find.text('Projeto principal'));
+    final second = find.descendant(of: section, matching: find.text('Projeto secundário'));
+    expect(tester.getTopLeft(second).dy, greaterThan(tester.getTopLeft(first).dy), reason: 'project_directory_row_layout');
+    expect(tester.getTopLeft(second).dx, closeTo(tester.getTopLeft(first).dx, 1));
+    expect(find.descendant(of: section, matching: find.byTooltip('Editar projeto')), findsNWidgets(2));
+  });
+  testWidgets('project overview leads with the project name', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1600, 1800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(MaterialApp(home: ProjectTasksPage(api: _ProjectSaveApi())));
+    await tester.pumpAndSettle();
+    final section = find.ancestor(of: find.text('Resumo rápido'), matching: find.byType(WorkspaceSectionCard)).first;
+    Finder field(String text) => find.descendant(of: section, matching: find.text(text));
+    expect(tester.getTopLeft(field('Projeto principal')).dy,
+        lessThan(tester.getTopLeft(field('Ativo')).dy), reason: 'overview_name_leads');
+    expect(field('Limite 2/tarefa'), findsNothing);
+    expect(field('Limite por tarefa'), findsOneWidget);
+    expect(field('Editar'), findsOneWidget);
+  });
+  testWidgets('task table truncates long text on desktop and mobile', (tester) async {
+    for (final width in <double>[1600, 390, 320]) {
+      await tester.binding.setSurfaceSize(Size(width, 1800));
+      await tester.pumpWidget(MaterialApp(home: ProjectTasksPage(api: _LongTasksApi())));
+      await tester.pumpAndSettle();
+      final section = find.ancestor(
+        of: find.text('As tarefas podem ter tipo e tarefa-pai, formando uma hierarquia dentro do projeto.'),
+        matching: find.byType(WorkspaceSectionCard),
+      ).first;
+      for (final value in <String>[_longTaskName, _longTaskDescription, 'Subtarefa de: $_longTaskName']) {
+        final text = tester.widget<Text>(find.descendant(of: section, matching: find.text(value)).first);
+        expect(text.maxLines, 1, reason: 'task_text_single_line');
+        expect(text.overflow, TextOverflow.ellipsis);
+        expect(find.byTooltip(value), findsWidgets);
+      }
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    }
+    await tester.binding.setSurfaceSize(null);
+  });
+  testWidgets('task table uses compact desktop rows', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1600, 1800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(MaterialApp(home: ProjectTasksPage(api: _MultipleTasksApi())));
+    await tester.pumpAndSettle();
+    final section = find.ancestor(
+      of: find.text('As tarefas podem ter tipo e tarefa-pai, formando uma hierarquia dentro do projeto.'),
+      matching: find.byType(WorkspaceSectionCard),
+    ).first;
+    final title = find.descendant(of: section, matching: find.text('Implementar tela'));
+    final description = find.descendant(of: section, matching: find.text('Descrição da tarefa'));
+    expect(tester.getCenter(description).dy, closeTo(tester.getCenter(title).dy, 8),
+        reason: 'task_compact_description_alignment');
+    expect(tester.getTopLeft(description).dx, greaterThan(tester.getTopRight(title).dx));
+    expect(find.text('Subtarefa de: Implementar tela'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+  testWidgets('task table paginates and preserves actions', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 2400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(MaterialApp(home: ProjectTasksPage(api: _ManyTasksApi())));
+    await tester.pumpAndSettle();
+    expect(find.text('Tarefa 11'), findsNothing, reason: 'tasks_paginated_first_page');
+    expect(find.text('Tarefa 10'), findsOneWidget);
+    await tester.ensureVisible(find.byTooltip('Próxima página'));
+    await tester.tap(find.byTooltip('Próxima página'));
+    await tester.pumpAndSettle();
+    expect(find.text('Tarefa 10'), findsNothing);
+    expect(find.text('Tarefa 11'), findsOneWidget);
+    expect(find.byTooltip('Editar tarefa'), findsNWidgets(2));
+    await tester.tap(find.text('Tarefa 11'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<Text>(find.byKey(
+      const ValueKey<String>('participants-task-name'),
+    )).data, 'Tarefa 11');
+    await tester.ensureVisible(find.byTooltip('Página anterior'));
+    await tester.tap(find.byTooltip('Página anterior'));
+    await tester.pumpAndSettle();
+    expect(find.text('Tarefa 10'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+  testWidgets('task directory adapts and preserves selection', (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    for (final width in [1600.0, 390.0, 320.0]) {
+      await tester.binding.setSurfaceSize(Size(width, 2200));
+      await tester.pumpWidget(MaterialApp(home: ProjectTasksPage(api: _MultipleTasksApi())));
+      await tester.pumpAndSettle();
+      final section = find.ancestor(
+        of: find.text('As tarefas podem ter tipo e tarefa-pai, formando uma hierarquia dentro do projeto.'),
+        matching: find.byType(WorkspaceSectionCard),
+      ).first;
+      final first = find.descendant(of: section, matching: find.text('Implementar tela'));
+      final second = find.descendant(of: section, matching: find.text('Testar integração'));
+      expect(first, findsOneWidget);
+      expect(second, findsOneWidget);
+      expect(tester.getTopLeft(second).dy, greaterThan(tester.getTopLeft(first).dy));
+      expect(tester.getTopLeft(second).dx, closeTo(tester.getTopLeft(first).dx, 2));
+      expect(find.text('Subtarefa de: Implementar tela'), findsOneWidget);
+      expect(find.byTooltip('Editar tarefa'), findsNWidgets(2));
+      await tester.ensureVisible(second);
+      await tester.tap(second);
+      await tester.pumpAndSettle();
+      expect(tester.widget<Text>(find.byKey(
+        const ValueKey<String>('participants-task-name'),
+      )).data, 'Testar integração');
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    }
+  });
+  testWidgets('project metrics use a compact summary', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1600, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(MaterialApp(home: ProjectTasksPage(api: _ProjectSaveApi())));
+    await tester.pumpAndSettle();
+    expect(find.text('Projetos disponíveis para a empresa atual.'), findsNothing);
+    expect(find.text('Participantes e limite da tarefa selecionada.'), findsNothing);
+    final strip = find.byKey(const ValueKey<String>('project-metrics-strip'));
+    expect(tester.getSize(strip).height, lessThan(85));
+    for (final label in ['Projetos', 'Tarefas', 'Acessos', 'Ocupação']) {
+      expect(find.descendant(of: strip, matching: find.text(label)), findsOneWidget);
+    }
+    for (final width in [768.0, 390.0, 320.0]) {
+      await tester.binding.setSurfaceSize(Size(width, 1000));
+      await tester.pumpAndSettle();
+      for (final label in ['Projetos', 'Tarefas', 'Acessos', 'Ocupação']) {
+        final text = find.descendant(of: strip, matching: find.text(label));
+        expect(tester.getRect(strip).contains(tester.getRect(text).center), isTrue);
+      }
+      expect(tester.takeException(), isNull);
+    }
+  });
+  testWidgets('project directory adapts to available width', (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    for (final width in [1920.0, 1440.0, 768.0, 390.0, 320.0]) {
+      await tester.binding.setSurfaceSize(Size(width, 1800));
+      await tester.pumpWidget(MaterialApp(home: ProjectTasksPage(api: _MultipleProjectsApi())));
+      await tester.pumpAndSettle();
+      Finder projectTile(String name) => find.byWidgetPredicate((widget) {
+            if (widget is! InkWell) return false;
+            final tile = find.byWidget(widget);
+            return find.descendant(of: tile, matching: find.text(name)).evaluate().isNotEmpty &&
+                find.descendant(of: tile, matching: find.byTooltip('Editar projeto')).evaluate().isNotEmpty;
+          });
+      final firstTile = projectTile('Projeto principal').first;
+      final secondTile = projectTile('Projeto secundário').first;
+      final first = find.descendant(of: firstTile, matching: find.text('Projeto principal')).first;
+      final second = find.descendant(of: secondTile, matching: find.text('Projeto secundário')).first;
+      expect(tester.getTopLeft(second).dy, greaterThan(tester.getTopLeft(first).dy));
+      expect(tester.getTopLeft(second).dx, closeTo(tester.getTopLeft(first).dx, 2));
+
+      expect(find.descendant(of: secondTile, matching: find.byTooltip('Editar projeto')), findsOneWidget);
+      expect(find.descendant(of: secondTile, matching: find.byTooltip('Excluir projeto')), findsOneWidget);
+      await tester.ensureVisible(second);
+      await tester.tap(second);
+      await tester.pumpAndSettle();
+      expect(find.text('Projeto secundário'), findsWidgets);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    }
+  });
+  testWidgets('project cards align with different name lengths', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 1800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(MaterialApp(home: ProjectTasksPage(api: _MixedHeightProjectsApi())));
+    await tester.pumpAndSettle();
+    Finder card(String name) => find.byWidgetPredicate((widget) {
+          if (widget is! InkWell) return false;
+          final tile = find.byWidget(widget);
+          return find.descendant(of: tile, matching: find.text(name)).evaluate().isNotEmpty &&
+              find.descendant(of: tile, matching: find.byTooltip('Editar projeto')).evaluate().isNotEmpty;
+        }).first;
+    final short = card('Projeto principal');
+    final long = card(_MixedHeightProjectsApi.longName);
+    expect(tester.getTopLeft(long).dy, greaterThan(tester.getTopLeft(short).dy));
+    expect(tester.getSize(short).height, closeTo(tester.getSize(long).height, 1),
+        reason: 'project_card_equal_height');
+    expect(tester.takeException(), isNull);
+  });
+  testWidgets('access section matches project section typography', (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    for (final width in [1600.0, 390.0, 320.0]) {
+      await tester.binding.setSurfaceSize(Size(width, 1800));
+      await tester.pumpWidget(MaterialApp(
+        theme: AppTheme.offlineTheme(Brightness.dark),
+        home: ProjectTasksPage(api: _FakeProjectTasksApi(role: 'manager', employeeId: 'emp-02')),
+      ));
+      await tester.pumpAndSettle();
+      final projects = find.ancestor(
+        of: find.text('Selecione um projeto para consultar dados, acessos e tarefas.'),
+        matching: find.byType(WorkspaceSectionCard),
+      ).first;
+      Text textIn(Finder section, String value) => tester.widget<Text>(
+        find.descendant(of: section, matching: find.text(value)),
+      );
+      final projectTitle = textIn(projects, 'Projetos');
+      final accessTitle = tester.widget<Text>(find.text('Acesso ao projeto'));
+      expect(accessTitle.style?.fontSize, projectTitle.style?.fontSize,
+          reason: 'project_access_heading_size');
+      expect(accessTitle.style?.fontWeight, projectTitle.style?.fontWeight);
+      final projectDescription = textIn(projects, 'Selecione um projeto para consultar dados, acessos e tarefas.');
+      final accessDescription = tester.widget<Text>(find.text(
+        'Somente os funcionários adicionados aqui podem visualizar o projeto e assumir responsabilidades nas tarefas.',
+      ));
+      expect(accessDescription.style?.fontSize, projectDescription.style?.fontSize);
+      expect(accessDescription.style?.fontWeight, projectDescription.style?.fontWeight);
+      expect(find.text('Adicionar ao projeto'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    }
+  });
+
+  testWidgets('participants match neighboring typography and fit narrow layouts',
+      (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    for (final (width, scale) in [(1440.0, 1.0), (768.0, 1.0), (390.0, 1.0), (320.0, 1.5)]) {
+      await tester.binding.setSurfaceSize(Size(width, 2300));
+      final theme = AppTheme.darkTheme;
+      await tester.pumpWidget(MaterialApp(
+        theme: scale > 1 ? AppTheme.highContrastTheme(theme) : theme,
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(scale)),
+          child: child!,
+        ),
+        home: ProjectTasksPage(api: _ParticipantLayoutApi()),
+      ));
+      await tester.pumpAndSettle();
+
+      final title = find.text('Participantes');
+      final card = find.ancestor(of: title, matching: find.byType(WorkspaceSectionCard)).first;
+      final taskName = find.byKey(const ValueKey<String>('participants-task-name'));
+      final access = find.text('Acesso ao projeto');
+      final occupancy = find.text('2 de 2 vagas em uso.');
+      final leave = find.text('Sair da tarefa');
+      final add = find.text('Adicionar membro');
+      final remove = find.byTooltip('Remover da tarefa');
+      final cardBounds = tester.getRect(card);
+      expect(tester.widget<Text>(title).style, tester.widget<Text>(access).style);
+      final accessHeader = tester.widget<WorkspaceHeader>(find.byWidgetPredicate((widget) => widget is WorkspaceHeader && widget.title == 'Acesso ao projeto'));
+      expect(tester.widget<Text>(occupancy).style, tester.widget<Text>(find.text(accessHeader.description)).style);
+      expect(tester.widget<Text>(taskName).data, _longTaskName);
+      expect(tester.getTopLeft(taskName).dy, greaterThan(tester.getBottomLeft(title).dy));
+      expect(find.textContaining('emp-02'), findsWidgets);
+      expect(find.byTooltip('Sair da tarefa'), findsNothing);
+      for (final target in [taskName, leave, add, remove]) {
+        expect(target, findsOneWidget);
+        final rect = tester.getRect(target);
+        expect(rect.left, greaterThanOrEqualTo(cardBounds.left));
+        expect(rect.right, lessThanOrEqualTo(cardBounds.right));
+      }
+      expect(tester.takeException(), isNull, reason: 'width=$width scale=$scale');
+      await tester.pumpWidget(const SizedBox.shrink());
+    }
+  });
+
+  testWidgets('project member avatars contrast with their card', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1600, 1800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    double contrast(Color a, Color b) {
+      final x = a.computeLuminance();
+      final y = b.computeLuminance();
+      return ((x > y ? x : y) + 0.05) / ((x < y ? x : y) + 0.05);
+    }
+
+    for (final brightness in [Brightness.light, Brightness.dark]) {
+      final theme = AppTheme.offlineTheme(brightness);
+      await tester.pumpWidget(MaterialApp(
+        theme: theme,
+        home: ProjectTasksPage(
+          api: _FakeProjectTasksApi(role: 'manager', employeeId: 'emp-02'),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      final section = find.ancestor(
+        of: find.text('Acesso ao projeto'),
+        matching: find.byType(WorkspaceSectionCard),
+      ).first;
+      final cardMaterial = tester.widget<Material>(
+        find.descendant(of: section, matching: find.byType(Material)).first,
+      );
+      final background = Color.alphaBlend(cardMaterial.color!, theme.scaffoldBackgroundColor);
+      final avatars = tester.widgetList<CircleAvatar>(
+        find.descendant(of: section, matching: find.byType(CircleAvatar)),
+      );
+      expect(avatars.length, 2);
+      for (final avatar in avatars) {
+        expect(contrast(avatar.backgroundColor!, background), greaterThanOrEqualTo(3),
+            reason: 'project_avatar_background_contrast ($brightness)');
+        expect(contrast(avatar.foregroundColor!, avatar.backgroundColor!),
+            greaterThanOrEqualTo(4.5), reason: 'project_avatar_initials_contrast ($brightness)');
+      }
+      await tester.pumpWidget(const SizedBox());
+    }
+  });
+
+  testWidgets('project members adapt to available space', (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    for (final width in [1600.0, 390.0, 320.0]) {
+      await tester.binding.setSurfaceSize(Size(width, 1800));
+      await tester.pumpWidget(MaterialApp(
+        home: ProjectTasksPage(
+          api: _FakeProjectTasksApi(role: 'manager', employeeId: 'emp-02'),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      final section = find.ancestor(
+        of: find.text('Acesso ao projeto'),
+        matching: find.byType(WorkspaceSectionCard),
+      ).first;
+      Finder member(String name) =>
+          find.descendant(of: section, matching: find.text(name));
+      final first = member('Caio Martins');
+      final second = member('Ana Lima');
+      expect(first, findsOneWidget);
+      expect(second, findsOneWidget);
+      expect(member('Você • emp-02'), findsOneWidget);
+      expect(member('emp-05'), findsOneWidget);
+      final remove = find.descendant(
+          of: section, matching: find.byTooltip('Remover acesso ao projeto'));
+      expect(remove, findsNWidgets(2));
+      expect(tester.getTopLeft(second).dy, greaterThan(tester.getTopLeft(first).dy),
+          reason: 'project_access_rows');
+      expect(tester.getTopLeft(second).dx, closeTo(tester.getTopLeft(first).dx, 2));
+      await tester.ensureVisible(remove.first);
+      await tester.tap(remove.first);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Remover “Caio Martins” deste projeto?'), findsOneWidget);
+      await tester.tap(find.text('Cancelar'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    }
+  });
+
+  testWidgets('selected project header uses horizontal space', (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    for (final width in [1600.0, 390.0, 320.0]) {
+      await tester.binding.setSurfaceSize(Size(width, 1800));
+      await tester.pumpWidget(MaterialApp(
+        home: ProjectTasksPage(
+          api: _FakeProjectTasksApi(role: 'manager', employeeId: 'emp-02'),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      final section = find.ancestor(
+        of: find.text('Resumo rápido'),
+        matching: find.byType(WorkspaceSectionCard),
+      ).first;
+      Finder field(String label) =>
+          find.descendant(of: section, matching: find.text(label));
+      expect(field('Ativo'), findsOneWidget);
+      expect(field('Limite por tarefa'), findsOneWidget);
+      expect(field('Projeto principal'), findsOneWidget);
+      expect(field('Descrição do projeto'), findsOneWidget);
+      expect(field('Editar'), findsOneWidget);
+      if (width == 1600) {
+        expect(tester.getTopLeft(field('Ativo')).dy,
+            greaterThan(tester.getTopLeft(field('Projeto principal')).dy),
+            reason: 'project_header_state_alignment');
+      }
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    }
+  });
+
+  testWidgets('project summary uses available width', (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    for (final width in [1600.0, 390.0, 320.0]) {
+      await tester.binding.setSurfaceSize(Size(width, 1800));
+      await tester.pumpWidget(MaterialApp(home: ProjectTasksPage(api: _ProjectSaveApi())));
+      await tester.pumpAndSettle();
+      final section = find.ancestor(
+        of: find.text('Resumo rápido'), matching: find.byType(WorkspaceSectionCard)).first;
+      Finder field(String label) => find.descendant(of: section, matching: find.text(label));
+      final tasks = field('Tarefas');
+      final access = field('Acessos');
+      final limit = field('Limite por tarefa');
+      final current = field('Tarefa atual');
+      if (width == 1600) {
+        for (final item in [access, limit, current]) {
+          expect(tester.getTopLeft(item).dy, closeTo(tester.getTopLeft(tasks).dy, 2),
+              reason: 'project_summary_wide_alignment');
+        }
+      } else {
+        expect(tester.getTopLeft(current).dy, greaterThan(tester.getTopLeft(tasks).dy));
+      }
+      expect(field('Implementar tela'), findsOneWidget);
+      expect(find.descendant(of: section, matching: find.text('Editar')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    }
+  });
+  testWidgets('project directory and details use full width sections', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1600, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(MaterialApp(home: ProjectTasksPage(api: _ProjectSaveApi())));
+    await tester.pumpAndSettle();
+    final directory = find.ancestor(
+      of: find.text('Selecione um projeto para consultar dados, acessos e tarefas.'),
+      matching: find.byType(WorkspaceSectionCard),
+    ).first;
+    final details = find.ancestor(
+      of: find.text('Resumo rápido'),
+      matching: find.byType(WorkspaceSectionCard),
+    ).first;
+    final a = tester.getRect(directory);
+    final b = tester.getRect(details);
+    expect(b.top, greaterThanOrEqualTo(a.bottom), reason: 'project_sections_layout');
+    expect(b.width, closeTo(a.width, 1), reason: 'project_sections_layout');
+    expect(tester.takeException(), isNull);
+  });
+  testWidgets('loads the employee directory only in the add dialog and retries',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final api = _DirectoryProjectApi();
+    await tester.pumpWidget(MaterialApp(home: ProjectTasksPage(api: api)));
+    await tester.pumpAndSettle();
+    expect(api.requests, isEmpty);
+
+    final open = find.text('Adicionar ao projeto');
+    await tester.ensureVisible(open);
+    await tester.tap(open);
+    await tester.pumpAndSettle();
+    expect(api.requests, hasLength(1));
+    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(find.textContaining('Carregando funcion'), findsOneWidget);
+
+    api.requests.first.completeError(StateError('offline'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Tentar novamente'));
+    await tester.pumpAndSettle();
+    expect(api.requests, hasLength(2));
+
+    api.requests.last.complete([]);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('possuem acesso'), findsOneWidget);
+    await tester.tap(find.text('Cancelar'));
+    await tester.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('summaries do not claim zero while independent reads are unknown',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 1250));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final api = _PendingSummaryApi();
+    final controller = ProjectTasksController(api: api);
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(MaterialApp(
+      home: ProjectTasksPage(controller: controller),
+    ));
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('Carregando\u2026'), findsWidgets);
+    expect(find.textContaining('0 tarefa(s)'), findsNothing);
+    expect(find.text('0'), findsNothing);
+    expect(find.text('Nenhuma'), findsNothing);
+
+    api.tasksGate.completeError(StateError('tasks offline'));
+    api.accessGate.completeError(StateError('access offline'));
+    await tester.pumpAndSettle();
+    expect(find.text('Indispon\u00edvel'), findsWidgets);
+    expect(find.textContaining('0 tarefa(s)'), findsNothing);
+    expect(find.text('0'), findsNothing);
+
+    final refreshingTasks = controller.reloadTasks();
+    await api.completeTasks();
+    await tester.pump();
+    const countPending = 'Ocupa\u00e7\u00e3o ainda n\u00e3o confirmada.';
+    expect(find.text(countPending), findsOneWidget);
+    expect(find.text('0/2'), findsNothing);
+    expect(find.textContaining('0 participante(s)'), findsNothing);
+    expect(find.text('0'), findsNothing);
+
+    api.participantsGate.completeError(StateError('participants offline'));
+    await tester.pumpAndSettle();
+    await refreshingTasks;
+    expect(find.text(countPending), findsOneWidget);
+    expect(find.text('0/2'), findsNothing);
+    expect(find.textContaining('0 participante(s)'), findsNothing);
+
+    final refreshingAccess = controller.reloadProjectMembers();
+    final refreshingParticipants = controller.reloadMembers();
+    await api.completeRosters();
+    await tester.pumpAndSettle();
+    await Future.wait([refreshingAccess, refreshingParticipants]);
+    expect(find.text(countPending), findsNothing);
+    expect(find.text('2 de 2 vagas em uso.'), findsOneWidget);
+    expect(find.text('2 participante(s) na tarefa atual.'), findsOneWidget);
+    expect(find.textContaining('1 tarefa(s)'), findsOneWidget);
+    expect(find.text('2/2'), findsOneWidget);
+    expect(find.text('Ana Lima'), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('page loading keeps workspace shell and renders skeletons', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final api = _DelayedProjectsTasksApi();
+
+    await tester.pumpWidget(MaterialApp(home: ProjectTasksPage(api: api)));
+    await tester.pump();
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey<String>('project-tasks-page-skeleton')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('workspace-desktop-destinations')),
+      findsOneWidget,
+    );
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+
+    api.projectsGate.complete();
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey<String>('project-tasks-page-skeleton')),
+      findsNothing,
+    );
+    expect(find.text('Tarefas'), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'project creation uses standard dialog and blocks pending actions',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1400, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final api = _ProjectSaveApi();
+    await tester.pumpWidget(MaterialApp(home: ProjectTasksPage(api: api)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Novo projeto'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.byType(WorkspaceEditorDialog), findsOneWidget);
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Nome'),
+      'Projeto novo',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Descrição'),
+      'Descrição do projeto novo',
+    );
+    await tester.tap(find.text('Criar projeto').last);
+    await tester.pump();
+
+    expect(api.createAttempts, 1);
+    expect(find.text('Salvando projeto…'), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(find.text('Cancelar'), findsOneWidget);
+    expect(
+        tester
+            .widget<TextButton>(find.widgetWithText(TextButton, 'Cancelar'))
+            .onPressed,
+        isNull);
+    await tester.tap(find.byTooltip('Fechar'));
+    await tester.tapAt(const Offset(5, 5));
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+    expect(find.byType(WorkspaceEditorDialog), findsOneWidget);
+    expect(api.createAttempts, 1);
+
+    api.createGate.complete(_savedProject(name: 'Projeto novo'));
+    await tester.pumpAndSettle();
+    expect(find.byType(WorkspaceEditorDialog), findsNothing);
+    expect(find.text('Projeto criado.'), findsOneWidget);
+    expect(find.text('Projeto novo'), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('project edit keeps entered values after API error and retries',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1400, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final api = _ProjectSaveApi();
+    await tester.pumpWidget(MaterialApp(home: ProjectTasksPage(api: api)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Editar projeto'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Nome'),
+      'Projeto editado',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Descrição'),
+      'Descrição preservada após erro',
+    );
+    await tester.tap(find.text('Salvar').last);
+    await tester.pump();
+
+    expect(api.updateAttempts, 1);
+    expect(find.text('Salvando projeto…'), findsOneWidget);
+    api.updateGates[0].completeError(
+      ApiException(
+        'SQL constraint details with private row contents',
+        statusCode: 409,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(WorkspaceEditorDialog), findsOneWidget);
+    expect(find.text('Projeto editado'), findsOneWidget);
+    expect(find.text('Descrição preservada após erro'), findsOneWidget);
+    expect(
+      find.text(
+          'O projeto mudou desde que foi aberto. Recarregue e tente novamente.'),
+      findsOneWidget,
+    );
+    expect(
+      find.text('SQL constraint details with private row contents'),
+      findsNothing,
+    );
+    expect(find.text('Projeto atualizado.'), findsNothing);
+
+    await tester.tap(find.text('Salvar').last);
+    await tester.pump();
+    expect(api.updateAttempts, 2);
+    api.updateGates[1].complete(_savedProject(name: 'Projeto editado'));
+    await tester.pumpAndSettle();
+    expect(find.byType(WorkspaceEditorDialog), findsNothing);
+    expect(find.text('Projeto atualizado.'), findsOneWidget);
+    expect(find.text('Projeto editado'), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('project edit preserves capacity guidance for a 409',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1400, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final api = _ProjectSaveApi();
+    await tester.pumpWidget(MaterialApp(home: ProjectTasksPage(api: api)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Editar projeto'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Nome'),
+      'Projeto com limite reduzido',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Descrição'),
+      'Rascunho deve permanecer',
+    );
+    await tester.tap(find.text('Salvar').last);
+    await tester.pump();
+
+    api.updateGates.single.completeError(
+      ApiException(
+        'O limite por tarefa não pode ser menor que a quantidade de '
+        'funcionários já associados a uma tarefa. Remova participantes antes '
+        'de reduzir o limite.',
+        statusCode: 409,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(WorkspaceEditorDialog), findsOneWidget);
+    expect(find.text('Projeto com limite reduzido'), findsOneWidget);
+    expect(find.text('Rascunho deve permanecer'), findsOneWidget);
+    expect(
+      find.textContaining('Remova participantes antes de reduzir o limite.'),
+      findsOneWidget,
+    );
+    expect(
+      find.text(
+          'O projeto mudou desde que foi aberto. Recarregue e tente novamente.'),
+      findsNothing,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Tasks create retains draft on 403/500 and succeeds on retry',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1400, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final api = _DelayedCreateProjectTasksApi();
+    await tester.pumpWidget(MaterialApp(home: ProjectTasksPage(api: api)));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Nova tarefa'));
+    await tester.tap(find.text('Nova tarefa'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+        find.widgetWithText(TextFormField, 'Nome'), 'Tarefa recuperável');
+    await tester.enterText(find.widgetWithText(TextFormField, 'Descrição'),
+        'Descrição preservada para retry');
+
+    for (final status in <int>[403, 500]) {
+      await tester.tap(find.text('Criar tarefa').last);
+      await tester.pump();
+      final attempts = api.drafts.length;
+      expect(attempts, status == 403 ? 1 : 2);
+
+      await tester.tap(find.text('Criar tarefa').last);
+      await tester.tap(find.text('Cancelar').last);
+      await tester.pump();
+      expect(api.drafts.length, attempts);
+      expect(find.text('Tarefa recuperável'), findsOneWidget);
+
+      api.gates.last.completeError(
+        ApiException('Criação rejeitada $status', statusCode: status),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Tarefa recuperável'), findsOneWidget);
+      expect(find.text('Descrição preservada para retry'), findsOneWidget);
+      expect(find.text('Criação rejeitada $status'), findsOneWidget);
+      expect(find.text('Tarefa criada.'), findsNothing);
+    }
+
+    await tester.tap(find.text('Criar tarefa').last);
+    await tester.pump();
+    expect(api.drafts.length, 3);
+    expect(api.drafts.every((draft) => draft.name == 'Tarefa recuperável'),
+        isTrue);
+    expect(api.drafts.first.creationKey, isNotNull);
+    expect(
+        api.drafts.every(
+            (draft) => draft.creationKey == api.drafts.first.creationKey),
+        isTrue);
+    api.gates.last.complete();
+    await tester.pumpAndSettle();
+    expect(find.text('Criar tarefa'), findsNothing);
+    expect(find.text('Tarefa recuperável'), findsWidgets);
+    expect(find.text('Tarefa criada.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Tasks pending save blocks dismissal and preserves draft on 409',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1400, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final api = _DelayedProjectTasksApi();
+    await tester.pumpWidget(MaterialApp(home: ProjectTasksPage(api: api)));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byTooltip('Editar tarefa'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Editar tarefa'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextFormField, 'Nome'),
+        'Edição Tasks ainda pendente');
+    await tester.tap(find.text('Salvar').last);
+    await tester.pump();
+    expect(api.attempts, 1);
+    await tester.tap(find.text('Cancelar').last);
+    await tester.pump();
+    expect(find.text('Edição Tasks ainda pendente'), findsOneWidget);
+    api.pending.completeError(ApiException('Conflito Tasks',
+        statusCode: 409, code: 'task_version_conflict'));
+    await tester.pumpAndSettle();
+    expect(find.text('Edição Tasks ainda pendente'), findsOneWidget);
+    expect(
+        find.byKey(const ValueKey('task-editor-copy-draft')), findsOneWidget);
+    expect(find.text('Tarefa atualizada.'), findsNothing);
+  });
+  testWidgets('Tasks edit conflict keeps original draft available for copying',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1400, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final api = _ConflictProjectTasksApi();
+    await tester.pumpWidget(MaterialApp(home: ProjectTasksPage(api: api)));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byTooltip('Editar tarefa'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Editar tarefa'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextFormField, 'Nome'),
+        'Rascunho Tasks preservado');
+    await tester.enterText(find.widgetWithText(TextFormField, 'Descrição'),
+        'Descrição que não deve desaparecer');
+    await tester.tap(find.text('Salvar').last);
+    await tester.pumpAndSettle();
+    expect(api.attempts, 1);
+    expect(find.text('Rascunho Tasks preservado'), findsOneWidget);
+    expect(find.text('Descrição que não deve desaparecer'), findsOneWidget);
+    expect(
+        find.byKey(const ValueKey('task-editor-copy-draft')), findsOneWidget);
+    expect(find.text('Tarefa atualizada.'), findsNothing);
+  });
+  testWidgets('manager sees project and task management actions',
+      (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ProjectTasksPage(
+          api: _FakeProjectTasksApi(role: 'manager', employeeId: 'emp-02'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Administrar projetos'), findsOneWidget);
+    expect(find.byType(WorkspaceHeader), findsAtLeastNWidgets(1));
+    expect(find.byKey(const ValueKey<String>('project-metrics-strip')), findsOneWidget);
+    expect(find.text('Projetos'), findsWidgets);
+    expect(find.text('Tarefas'), findsWidgets);
+    expect(find.text('Acessos'), findsWidgets);
+    expect(find.text('Ocupação'), findsOneWidget);
+    expect(find.text('Projeto principal'), findsWidgets);
+    expect(find.text('Implementar tela'), findsWidgets);
+    expect(find.text('Novo projeto'), findsOneWidget);
+    expect(find.text('Nova tarefa'), findsOneWidget);
+    expect(find.text('Acesso ao projeto'), findsOneWidget);
+    expect(find.text('Adicionar ao projeto'), findsOneWidget);
+    expect(find.text('Entrar na tarefa'), findsOneWidget);
+    expect(find.text('Adicionar membro'), findsOneWidget);
+    expect(find.text('Kanban'), findsNothing);
+    expect(find.text('#1'), findsNothing);
+    expect(find.text('Coluna'), findsNothing);
+  });
+
+  testWidgets('selected project list icon keeps accent contrast in dark theme',
+      (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.lightTheme,
+        darkTheme: AppTheme.darkTheme,
+        themeMode: ThemeMode.dark,
+        home: ProjectTasksPage(
+          api: _FakeProjectTasksApi(role: 'employee', employeeId: 'emp-04'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final projectIcon = find.byIcon(Icons.radio_button_checked);
+
+    expect(projectIcon, findsOneWidget);
+    expect(
+      tester.widget<Icon>(projectIcon).color,
+      AppTheme.accent,
+    );
+  });
+
+  testWidgets('employee can access tasks without project editing actions',
+      (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ProjectTasksPage(
+          api: _FakeProjectTasksApi(role: 'employee', employeeId: 'emp-04'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Projeto principal'), findsWidgets);
+    expect(find.text('Implementar tela'), findsWidgets);
+    expect(find.text('Novo projeto'), findsNothing);
+    expect(find.text('Nova tarefa'), findsNothing);
+    expect(find.text('Adicionar ao projeto'), findsNothing);
+    expect(find.text('Entrar na tarefa'), findsOneWidget);
+    expect(find.text('Adicionar membro'), findsNothing);
+    expect(find.byTooltip('Remover da tarefa'), findsNothing);
+    expect(find.text('Kanban'), findsNothing);
+    expect(find.text('#1'), findsNothing);
+    expect(find.text('Coluna'), findsNothing);
+    expect(find.text('Responsáveis'), findsNothing);
+  });
+
+  testWidgets('project creation accepts a missing optional description',
+      (tester) async {
+    final api = _ProjectDescriptionApi();
+    await tester.pumpWidget(
+      MaterialApp(home: ProjectTasksPage(api: api)),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Novo projeto'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+        find.widgetWithText(TextFormField, 'Nome'), 'Projeto sem descrição');
+    final submit = find.text('Criar projeto');
+    await tester.ensureVisible(submit);
+    await tester.tap(submit);
+    await tester.pumpAndSettle();
+
+    expect(api.createdDraft?.name, 'Projeto sem descrição');
+    expect(api.createdDraft?.description, '');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('project and task editors mirror backend text limits',
+      (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ProjectTasksPage(
+          api: _FakeProjectTasksApi(role: 'manager', employeeId: 'emp-02'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Novo projeto'));
+    await tester.pumpAndSettle();
+
+    final projectNameField = tester.widget<TextField>(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is TextField && widget.decoration?.labelText == 'Nome',
+      ),
+    );
+    final projectDescriptionField = tester.widget<TextField>(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is TextField && widget.decoration?.labelText == 'Descrição',
+      ),
+    );
+    expect(projectNameField.maxLength, projectNameMaxLength);
+    expect(projectDescriptionField.maxLength, projectDescriptionMaxLength);
+    expect(
+      find.textContaining('Ao reduzir, o limite não pode ficar abaixo'),
+      findsNothing,
+    );
+
+    await tester.tap(find.text('Cancelar'));
+    await tester.pumpAndSettle();
+
+    final newTaskButton = find.text('Nova tarefa');
+    await tester.ensureVisible(newTaskButton);
+    await tester.tap(newTaskButton);
+    await tester.pumpAndSettle();
+
+    final taskNameField = tester.widget<TextField>(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is TextField && widget.decoration?.labelText == 'Nome',
+      ),
+    );
+    final taskDescriptionField = tester.widget<TextField>(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is TextField && widget.decoration?.labelText == 'Descrição',
+      ),
+    );
+    expect(taskNameField.maxLength, taskNameMaxLength);
+    expect(taskDescriptionField.maxLength, taskDescriptionMaxLength);
+  });
+
+  testWidgets('editing project explains the occupied-task limit constraint',
+      (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ProjectTasksPage(
+          api: _FakeProjectTasksApi(role: 'manager', employeeId: 'emp-02'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.byTooltip('Editar projeto'));
+    await tester.tap(find.byTooltip('Editar projeto'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.textContaining(
+        'Ao reduzir, o limite não pode ficar abaixo da quantidade de funcionários',
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('full task does not offer join action', (tester) async {
+    final api = _FakeProjectTasksApi(
+      role: 'employee',
+      employeeId: 'emp-04',
+      taskInitiallyFull: true,
+    );
+    await tester.pumpWidget(MaterialApp(home: ProjectTasksPage(api: api)));
+    await tester.pumpAndSettle();
+
+    expect(find.text('2 de 2 vagas em uso.'), findsOneWidget);
+    expect(find.text('Entrar na tarefa'), findsNothing);
+    expect(find.text('Sair da tarefa'), findsNothing);
+    expect(api.joinCalls, 0);
+  });
+
+  testWidgets('joining a task refreshes membership state', (tester) async {
+    final api = _FakeProjectTasksApi(role: 'employee', employeeId: 'emp-04');
+    await tester.pumpWidget(MaterialApp(home: ProjectTasksPage(api: api)));
+    await tester.pumpAndSettle();
+
+    final joinButton = find.text('Entrar na tarefa');
+    await tester.ensureVisible(joinButton);
+    await tester.tap(joinButton);
+    await tester.pumpAndSettle();
+
+    expect(api.joinCalls, 1);
+    expect(find.text('Sair da tarefa'), findsOneWidget);
+    expect(find.text('1 de 2 vagas em uso.'), findsOneWidget);
+  });
+  testWidgets('task editor reuses workspace dialog and standard inputs',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.lightTheme,
+        darkTheme: AppTheme.darkTheme,
+        themeMode: ThemeMode.dark,
+        home: ProjectTasksPage(
+          api: _FakeProjectTasksApi(role: 'manager', employeeId: 'emp-02'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final newTask = find.text('Nova tarefa');
+    await tester.ensureVisible(newTask);
+    await tester.tap(newTask);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.byType(WorkspaceEditorDialog), findsOneWidget);
+    final dialogFinder = find.byType(Dialog);
+    expect(dialogFinder, findsOneWidget);
+    final dialog = tester.widget<Dialog>(dialogFinder);
+    final shape = dialog.shape as RoundedRectangleBorder;
+    expect(shape.borderRadius, BorderRadius.circular(12));
+    expect(find.text('Detalhes da tarefa'), findsOneWidget);
+    expect(find.text('Projeto atual'), findsNothing);
+    final taskNameField = tester.widget<InputDecorator>(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is InputDecorator && widget.decoration.labelText == 'Nome',
+      ),
+    );
+    final taskDescriptionField = tester.widget<InputDecorator>(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is InputDecorator &&
+            widget.decoration.labelText == 'Descrição',
+      ),
+    );
+    expect(taskNameField.decoration.prefixIcon, isNull);
+    expect(taskDescriptionField.decoration.prefixIcon, isNull);
+    expect(tester.getRect(dialogFinder).width, lessThanOrEqualTo(390));
+    expect(tester.takeException(), isNull);
+  });
+}
+
+class _FakeProjectTasksApi extends TouchInApi {
+  _FakeProjectTasksApi({
+    required this.role,
+    required this.employeeId,
+    this.taskInitiallyFull = false,
+  });
+
+  final String role;
+  final String? employeeId;
+  final bool taskInitiallyFull;
+  int joinCalls = 0;
+  bool joined = false;
+
+  @override
+  Future<AuthContext> getAuthContext() async {
+    return AuthContext(
+      company: const AuthCompanySummary(
+        id: 'company-01',
+        legalName: 'TouchIn Tecnologia LTDA',
+        tradeName: 'TouchIn',
+        cnpjMasked: '12.***.***/****-90',
+        emailMasked: 'co*****@touchin.com',
+        phoneMasked: '11*****0000',
+      ),
+      user: AuthUserSummary(
+        id: 'user-01',
+        email: 'usuario@touchin.com',
+        role: role,
+        employeeId: employeeId,
+      ),
+    );
+  }
+
+  @override
+  Future<List<ProjectSummary>> listProjects({ProjectStatus? status}) async {
+    return <ProjectSummary>[
+      ProjectSummary(
+        id: 'project-01',
+        name: 'Projeto principal',
+        description: 'Descrição do projeto',
+        taskEmployeeLimit: 2,
+        status: ProjectStatus.active,
+        createdAt: DateTime(2026, 9, 9),
+        updatedAt: DateTime(2026, 9, 9),
+      ),
+    ];
+  }
+
+  @override
+  Future<List<ProjectMemberSummary>> listProjectMembers(
+      String projectId) async {
+    if (employeeId == null) {
+      return <ProjectMemberSummary>[];
+    }
+    return <ProjectMemberSummary>[
+      ProjectMemberSummary(
+        employeeId: employeeId!,
+        projectId: projectId,
+        employeeName: role == 'manager' ? 'Caio Martins' : 'João Lima',
+        createdAt: DateTime(2026, 9, 9),
+      ),
+      ProjectMemberSummary(
+        employeeId: 'emp-05',
+        projectId: projectId,
+        employeeName: 'Ana Lima',
+        createdAt: DateTime(2026, 9, 9),
+      ),
+    ];
+  }
+
+  @override
+  Future<List<TaskRecord>> listTasks(String projectId) async {
+    return <TaskRecord>[
+      TaskRecord(
+        id: 'task-01',
+        projectId: projectId,
+        parentTaskId: null,
+        name: 'Implementar tela',
+        description: 'Descrição da tarefa',
+        type: TaskType.feature,
+        createdAt: DateTime(2026, 9, 9),
+        updatedAt: DateTime(2026, 9, 9),
+      ),
+    ];
+  }
+
+  @override
+  Future<List<TaskMemberSummary>> listTaskMembers(
+    String projectId,
+    String taskId,
+  ) async {
+    if (taskInitiallyFull) {
+      return <TaskMemberSummary>[
+        TaskMemberSummary(
+          employeeId: 'emp-05',
+          taskId: taskId,
+          employeeName: 'Ana Lima',
+          createdAt: DateTime(2026, 9, 9),
+        ),
+        TaskMemberSummary(
+          employeeId: 'emp-06',
+          taskId: taskId,
+          employeeName: 'Bruno Costa',
+          createdAt: DateTime(2026, 9, 9),
+        ),
+      ];
+    }
+    if (!joined || employeeId == null) {
+      return <TaskMemberSummary>[];
+    }
+    return <TaskMemberSummary>[
+      TaskMemberSummary(
+        employeeId: employeeId!,
+        taskId: taskId,
+        employeeName: 'João Lima',
+        createdAt: DateTime(2026, 9, 9),
+      ),
+    ];
+  }
+
+  @override
+  Future<List<EmployeeProfile>> listEmployees() async => <EmployeeProfile>[];
+
+  @override
+  Future<TaskMemberSummary> joinTask(String projectId, String taskId) async {
+    joinCalls += 1;
+    joined = true;
+    return TaskMemberSummary(
+      employeeId: employeeId!,
+      taskId: taskId,
+      employeeName: 'João Lima',
+      createdAt: DateTime(2026, 9, 9),
+    );
+  }
+}
+
+const _longTaskName = 'Uma tarefa com nome muito longo para exibir na tabela e também em telas pequenas';
+const _longTaskDescription = 'Uma descrição muito longa que deve permanecer visível sem aumentar a altura da linha da tabela e manter o conteúdo completo disponível';
+
+class _LongTasksApi extends _FakeProjectTasksApi {
+  _LongTasksApi() : super(role: 'manager', employeeId: 'emp-02');
+
+  @override
+  Future<List<TaskRecord>> listTasks(String projectId) async => [
+    TaskRecord(id: 'task-long', projectId: projectId, parentTaskId: null,
+      name: _longTaskName, description: _longTaskDescription, type: TaskType.feature,
+      createdAt: DateTime(2026, 9, 9), updatedAt: DateTime(2026, 9, 9)),
+    TaskRecord(id: 'task-child', projectId: projectId, parentTaskId: 'task-long',
+      name: 'Subtarefa', description: 'Descrição curta', type: TaskType.bug,
+      createdAt: DateTime(2026, 9, 9), updatedAt: DateTime(2026, 9, 9)),
+  ];
+}
+
+class _ParticipantLayoutApi extends _LongTasksApi {
+  @override
+  Future<List<TaskMemberSummary>> listTaskMembers(String projectId, String taskId) async => [
+    TaskMemberSummary(
+      employeeId: 'emp-02',
+      taskId: taskId,
+      employeeName: 'Caio Martins',
+      createdAt: DateTime(2026, 9, 9),
+    ),
+    TaskMemberSummary(
+      employeeId: 'emp-05',
+      taskId: taskId,
+      employeeName: 'Ana Carolina de Castro Ramos Monteiro',
+      createdAt: DateTime(2026, 9, 9),
+    ),
+  ];
+}
+
+class _ManyTasksApi extends _FakeProjectTasksApi {
+  _ManyTasksApi() : super(role: 'manager', employeeId: 'emp-02');
+  @override
+  Future<List<TaskRecord>> listTasks(String projectId) async => [
+    for (var i = 1; i <= 12; i++)
+      TaskRecord(id: 'task-$i', projectId: projectId, parentTaskId: null,
+        name: 'Tarefa $i', description: 'Descrição $i', type: TaskType.feature,
+        createdAt: DateTime(2026, 9, 9), updatedAt: DateTime(2026, 9, 9)),
+  ];
+}
+
+class _MultipleTasksApi extends _FakeProjectTasksApi {
+  _MultipleTasksApi() : super(role: 'manager', employeeId: 'emp-02');
+
+  @override
+  Future<List<TaskRecord>> listTasks(String projectId) async => [
+        ...(await super.listTasks(projectId)),
+        TaskRecord(
+          id: 'task-02', projectId: projectId, parentTaskId: 'task-01',
+          name: 'Testar integração', description: 'Verificar o resultado',
+          type: TaskType.bug, createdAt: DateTime(2026, 9, 9),
+          updatedAt: DateTime(2026, 9, 9),
+        ),
+      ];
+}
+
+class _PendingSummaryApi extends _FakeProjectTasksApi {
+  _PendingSummaryApi()
+      : super(role: 'manager', employeeId: 'emp-02', taskInitiallyFull: true);
+
+  Completer<List<TaskRecord>> tasksGate = Completer<List<TaskRecord>>();
+  Completer<List<ProjectMemberSummary>> accessGate =
+      Completer<List<ProjectMemberSummary>>();
+  Completer<List<TaskMemberSummary>> participantsGate =
+      Completer<List<TaskMemberSummary>>();
+
+  @override
+  Future<List<TaskRecord>> listTasks(String projectId) {
+    if (tasksGate.isCompleted) tasksGate = Completer<List<TaskRecord>>();
+    return tasksGate.future;
+  }
+
+  @override
+  Future<List<ProjectMemberSummary>> listProjectMembers(String projectId) {
+    if (accessGate.isCompleted) accessGate = Completer<List<ProjectMemberSummary>>();
+    return accessGate.future;
+  }
+
+  @override
+  Future<List<TaskMemberSummary>> listTaskMembers(String projectId, String taskId) {
+    if (participantsGate.isCompleted) {
+      participantsGate = Completer<List<TaskMemberSummary>>();
+    }
+    return participantsGate.future;
+  }
+
+  Future<void> completeTasks() async {
+    tasksGate.complete(await super.listTasks('project-01'));
+  }
+
+  Future<void> completeRosters() async {
+    accessGate.complete(await super.listProjectMembers('project-01'));
+    participantsGate.complete(await super.listTaskMembers('project-01', 'task-01'));
+  }
+}
+
+class _DirectoryProjectApi extends _FakeProjectTasksApi {
+  _DirectoryProjectApi() : super(role: 'manager', employeeId: 'emp-03');
+
+  final requests = <Completer<List<EmployeeProfile>>>[];
+
+  @override
+  Future<List<EmployeeProfile>> listEmployees() {
+    final gate = Completer<List<EmployeeProfile>>();
+    requests.add(gate);
+    return gate.future;
+  }
+}
+
+class _DelayedProjectsTasksApi extends _FakeProjectTasksApi {
+  _DelayedProjectsTasksApi() : super(role: 'manager', employeeId: 'emp-02');
+
+  final Completer<void> projectsGate = Completer<void>();
+
+  @override
+  Future<List<ProjectSummary>> listProjects({ProjectStatus? status}) async {
+    await projectsGate.future;
+    return super.listProjects(status: status);
+  }
+}
+
+class _ProjectDescriptionApi extends _FakeProjectTasksApi {
+  _ProjectDescriptionApi() : super(role: 'manager', employeeId: 'emp-02');
+
+  ProjectDraft? createdDraft;
+
+  @override
+  Future<ProjectSummary> createProject(ProjectDraft draft) async {
+    createdDraft = draft;
+    return ProjectSummary(
+      id: 'project-created',
+      name: draft.name,
+      description: draft.description,
+      taskEmployeeLimit: draft.taskEmployeeLimit,
+      status: draft.status,
+      createdAt: DateTime(2026, 10, 24),
+      updatedAt: DateTime(2026, 10, 24),
+    );
+  }
+}
+
+class _DelayedCreateProjectTasksApi extends _FakeProjectTasksApi {
+  _DelayedCreateProjectTasksApi()
+      : super(role: 'manager', employeeId: 'emp-02');
+
+  final List<TaskDraft> drafts = <TaskDraft>[];
+  final List<Completer<void>> gates = <Completer<void>>[];
+
+  @override
+  Future<TaskRecord> createTask(String projectId, TaskDraft draft) async {
+    drafts.add(draft);
+    final gate = Completer<void>();
+    gates.add(gate);
+    await gate.future;
+    return TaskRecord(
+      id: 'task-created',
+      projectId: projectId,
+      parentTaskId: draft.parentTaskId,
+      name: draft.name,
+      description: draft.description,
+      type: draft.type,
+      createdAt: DateTime(2026, 10, 18),
+      updatedAt: DateTime(2026, 10, 18),
+    );
+  }
+}
+
+class _ConflictProjectTasksApi extends _FakeProjectTasksApi {
+  _ConflictProjectTasksApi() : super(role: 'manager', employeeId: 'emp-02');
+
+  int attempts = 0;
+
+  @override
+  Future<TaskRecord> updateTask(
+      String projectId, String taskId, TaskDraft draft,
+      {DateTime? expectedUpdatedAt, int? expectedRevision}) async {
+    attempts++;
+    throw ApiException(
+      'Este card foi alterado em outra sessão.',
+      statusCode: 409,
+      code: 'task_version_conflict',
+    );
+  }
+}
+
+class _DelayedProjectTasksApi extends _FakeProjectTasksApi {
+  _DelayedProjectTasksApi() : super(role: 'manager', employeeId: 'emp-02');
+
+  final pending = Completer<TaskRecord>();
+  int attempts = 0;
+
+  @override
+  Future<TaskRecord> updateTask(
+      String projectId, String taskId, TaskDraft draft,
+      {DateTime? expectedUpdatedAt, int? expectedRevision}) {
+    attempts++;
+    return pending.future;
+  }
+}
+
+class _MixedHeightProjectsApi extends _FakeProjectTasksApi {
+  _MixedHeightProjectsApi() : super(role: 'manager', employeeId: 'emp-02');
+  static const longName = 'Portal Aurora — experiência acessível para equipes distribuídas em várias regiões';
+
+  @override
+  Future<List<ProjectSummary>> listProjects({ProjectStatus? status}) async => [
+        ...(await super.listProjects(status: status)),
+        ProjectSummary(
+          id: 'project-02', name: longName, description: 'Outro projeto',
+          taskEmployeeLimit: 5, status: ProjectStatus.active,
+          createdAt: DateTime(2026, 9, 9), updatedAt: DateTime(2026, 9, 9),
+        ),
+      ];
+}
+
+class _MultipleProjectsApi extends _FakeProjectTasksApi {
+  _MultipleProjectsApi() : super(role: 'manager', employeeId: 'emp-02');
+
+  @override
+  Future<List<ProjectSummary>> listProjects({ProjectStatus? status}) async => [
+        ...(await super.listProjects(status: status)),
+        ProjectSummary(
+          id: 'project-02', name: 'Projeto secundário', description: 'Outro projeto',
+          taskEmployeeLimit: 5, status: ProjectStatus.active,
+          createdAt: DateTime(2026, 9, 9), updatedAt: DateTime(2026, 9, 9),
+        ),
+      ];
+}
+
+class _ProjectSaveApi extends _FakeProjectTasksApi {
+  _ProjectSaveApi() : super(role: 'manager', employeeId: 'emp-02');
+
+  final createGate = Completer<ProjectSummary>();
+  final List<Completer<ProjectSummary>> updateGates =
+      <Completer<ProjectSummary>>[];
+  int createAttempts = 0;
+  int updateAttempts = 0;
+
+  @override
+  Future<ProjectSummary> createProject(ProjectDraft draft) {
+    createAttempts++;
+    return createGate.future;
+  }
+
+  @override
+  Future<ProjectSummary> updateProject(String projectId, ProjectDraft draft) {
+    updateAttempts++;
+    final gate = Completer<ProjectSummary>();
+    updateGates.add(gate);
+    return gate.future;
+  }
+}
+
+ProjectSummary _savedProject({
+  required String name,
+  String id = 'project-01',
+}) {
+  return ProjectSummary(
+    id: id,
+    name: name,
+    description: 'Descrição salva',
+    taskEmployeeLimit: 2,
+    status: ProjectStatus.active,
+    createdAt: DateTime(2026, 9, 9),
+    updatedAt: DateTime(2026, 10, 25),
+  );
+}

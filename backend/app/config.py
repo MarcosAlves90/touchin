@@ -9,6 +9,8 @@ except Exception:
 import os
 from functools import lru_cache
 
+AUDIT_EXPORT_HARD_MAX_BYTES = 1024 * 1024
+
 
 def _parse_bool(value: str | None, *, default: bool) -> bool:
     if value is None:
@@ -24,34 +26,45 @@ def _parse_csv(value: str | None, *, default: list[str]) -> list[str]:
 
 class Settings:
     def __init__(self) -> None:
-        self.app_name = os.getenv("BUNCHIN_APP_NAME", "Bunchin Backend")
-        self.environment = os.getenv("BUNCHIN_ENV", "development")
+        self.app_name = os.getenv("TOUCHIN_APP_NAME", "TouchIn Backend")
+        self.environment = os.getenv("TOUCHIN_ENV", "development")
         self.database_url = os.getenv(
-            "BUNCHIN_DATABASE_URL",
-            "sqlite:///./bunchin.db",
+            "TOUCHIN_DATABASE_URL",
+            "sqlite:///./touchin.db",
         )
-        self.timezone = os.getenv("BUNCHIN_TIMEZONE", "America/Sao_Paulo")
-        self.token_secret = os.getenv("BUNCHIN_TOKEN_SECRET")
-        self.encryption_secret = os.getenv("BUNCHIN_ENCRYPTION_SECRET")
-        self.token_ttl_hours = int(os.getenv("BUNCHIN_TOKEN_TTL_HOURS", "12"))
+        self.timezone = os.getenv("TOUCHIN_TIMEZONE", "America/Sao_Paulo")
+        configured_audit_export_max_bytes = int(
+            os.getenv("TOUCHIN_AUDIT_EXPORT_MAX_BYTES", str(1024 * 1024))
+        )
+        if configured_audit_export_max_bytes < 1:
+            raise ValueError("TOUCHIN_AUDIT_EXPORT_MAX_BYTES must be positive")
+        # Lower operational limits are supported, but deployment config can
+        # never expand the approved 1 MiB browser-buffering ceiling.
+        self.audit_export_max_bytes = min(
+            configured_audit_export_max_bytes,
+            AUDIT_EXPORT_HARD_MAX_BYTES,
+        )
+        self.token_secret = os.getenv("TOUCHIN_TOKEN_SECRET")
+        self.encryption_secret = os.getenv("TOUCHIN_ENCRYPTION_SECRET")
+        self.token_ttl_hours = int(os.getenv("TOUCHIN_TOKEN_TTL_HOURS", "12"))
         self.remember_me_ttl_days = int(
-            os.getenv("BUNCHIN_REMEMBER_ME_TTL_DAYS", "30"),
+            os.getenv("TOUCHIN_REMEMBER_ME_TTL_DAYS", "30"),
         )
         self.enforce_https = _parse_bool(
-            os.getenv("BUNCHIN_ENFORCE_HTTPS"),
+            os.getenv("TOUCHIN_ENFORCE_HTTPS"),
             default=False,
         )
         seed_on_startup_default = self.environment in {"development", "test"}
         self.seed_on_startup = _parse_bool(
-            os.getenv("BUNCHIN_SEED_ON_STARTUP"),
+            os.getenv("TOUCHIN_SEED_ON_STARTUP"),
             default=seed_on_startup_default,
         )
         self.bootstrap_database_on_startup = _parse_bool(
-            os.getenv("BUNCHIN_BOOTSTRAP_DATABASE_ON_STARTUP"),
+            os.getenv("TOUCHIN_BOOTSTRAP_DATABASE_ON_STARTUP"),
             default=seed_on_startup_default,
         )
         self.allowed_origins = _parse_csv(
-            os.getenv("BUNCHIN_ALLOWED_ORIGINS"),
+            os.getenv("TOUCHIN_ALLOWED_ORIGINS"),
             default=[
                 "http://localhost",
                 "http://localhost:3000",
@@ -59,25 +72,52 @@ class Settings:
                 "http://localhost:8080",
             ],
         )
-        self.seed_admin_password = os.getenv("BUNCHIN_SEED_ADMIN_PASSWORD")
-        self.brevo_api_key = os.getenv("BUNCHIN_BREVO_API_KEY")
-        self.brevo_sender_email = os.getenv("BUNCHIN_BREVO_SENDER_EMAIL")
+        self.seed_admin_password = os.getenv("TOUCHIN_SEED_ADMIN_PASSWORD")
+        self.brevo_api_key = os.getenv("TOUCHIN_BREVO_API_KEY")
+        self.brevo_sender_email = os.getenv("TOUCHIN_BREVO_SENDER_EMAIL")
         self.brevo_sender_name = os.getenv(
-            "BUNCHIN_BREVO_SENDER_NAME",
+            "TOUCHIN_BREVO_SENDER_NAME",
             self.app_name,
         )
         self.brevo_welcome_enabled = _parse_bool(
-            os.getenv("BUNCHIN_BREVO_WELCOME_ENABLED"),
+            os.getenv("TOUCHIN_BREVO_WELCOME_ENABLED"),
             default=True,
         )
+        self.password_reset_url = os.getenv(
+            "TOUCHIN_PASSWORD_RESET_URL",
+            "http://localhost:8080/#/reset-password" if self.environment != "production" else "",
+        ).strip()
+        if self.password_reset_url:
+            from urllib.parse import urlsplit, urlunsplit
+
+            parsed = urlsplit(self.password_reset_url)
+            if (
+                parsed.scheme not in {"https", "http"}
+                or not parsed.netloc
+                or parsed.query
+                or parsed.fragment not in {"", "/reset-password"}
+                or (
+                    parsed.scheme == "http"
+                    and parsed.hostname not in {"localhost", "127.0.0.1"}
+                )
+            ):
+                raise RuntimeError("TOUCHIN_PASSWORD_RESET_URL must be HTTPS (HTTP only for localhost), with no query and optional #/reset-password fragment.")
+            # Flutter Web reads the route from the URL fragment. A bare origin,
+            # trailing slash, or empty fragment must still open the reset page.
+            self.password_reset_url = urlunsplit(
+                (parsed.scheme, parsed.netloc, parsed.path or "/", "", "/reset-password")
+            )
+
+        required_secrets = {
+            "TOUCHIN_TOKEN_SECRET": self.token_secret,
+            "TOUCHIN_ENCRYPTION_SECRET": self.encryption_secret,
+        }
+        if self.seed_on_startup:
+            required_secrets["TOUCHIN_SEED_ADMIN_PASSWORD"] = self.seed_admin_password
 
         missing = [
             name
-            for name, value in {
-                "BUNCHIN_TOKEN_SECRET": self.token_secret,
-                "BUNCHIN_ENCRYPTION_SECRET": self.encryption_secret,
-                "BUNCHIN_SEED_ADMIN_PASSWORD": self.seed_admin_password,
-            }.items()
+            for name, value in required_secrets.items()
             if not value
         ]
         if missing:

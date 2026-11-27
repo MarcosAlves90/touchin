@@ -1,0 +1,157 @@
+{
+  "schema_version": 6,
+  "kind": "feature",
+  "scope": {
+    "allowed_paths": [
+      "frontend/lib/features/time_tracking/presentation/time_clock_page.dart",
+      "frontend/test/features/time_tracking/presentation/time_clock_page_test.dart",
+      "docs/contracts/time-clock-rebuild-v1.polis.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/features/time_tracking/presentation/time_clock_page_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Rebuild the time clock composition in the reference workspace language without changing workflows or theme.",
+    "requirements": [
+      {
+        "id": "REQ-01",
+        "statement": "Recompose the time clock hero and daily history into a clear responsive clock, location, actions and contextual history hierarchy."
+      },
+      {
+        "id": "REQ-02",
+        "statement": "Preserve employee data, clock, all punch and location actions, errors, loading, timeline pagination, accessibility and light and dark themes."
+      },
+      {
+        "id": "REQ-03",
+        "statement": "Persist the exact locked contract in docs/contracts/time-clock-rebuild-v1.polis.json."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-01",
+        "statement": "Widget regression checks desktop daily history contains operational location context, and the clock and location sit side by side with actions following them, without exceptions.",
+        "requirements": [
+          "REQ-01",
+          "REQ-02"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-02",
+        "statement": "Affected widget tests and configured project gates pass; the persisted contract equals the lock byte-for-byte.",
+        "requirements": [
+          "REQ-02",
+          "REQ-03"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-01",
+        "statement": "Do not alter API calls, punch transitions, location permissions, records, or theme persistence."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-01",
+        "statement": "Controls or content disappear, overflow, or become inaccessible in supported responsive layouts."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-01",
+        "statement": "Existing time clock page, widget tests, and user-provided visual reference."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-01",
+        "statement": "Responsive time clock composition and regression evidence."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-01",
+        "statement": "The time_clock_history_composition regression fails on the baseline geometry and passes on the rebuilt page."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "714ddec8049000f806c0bd9566f9459bade546c5",
+    "base_tree": "4e6ee0eb32bd427252477b722b630055326c3a9c",
+    "policy_sha256": "7714a10ab2b65f58941086f500de93fa62fc6acb6fd59d8b39292980364774dd",
+    "specification_sha256": "f5c3b57409f9f04d2e46f67dab7a21e256b11eaae75964a3db51679c3b8c1920"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/features/time_tracking/presentation/time_clock_page_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 300,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/features/time_tracking/presentation"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "test/features/time_tracking/presentation/time_clock_page_test.dart",
+        "--plain-name",
+        "time clock history composition"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 300,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "time_clock_history_composition"
+    ]
+  }
+}

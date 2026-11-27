@@ -1,0 +1,370 @@
+{
+  "schema_version": 4,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      "docs/contracts/project-kanban-board-subtree-isolation-v1.polis.json",
+      "docs/contracts/project-kanban-column-surface-probe-v1.polis.json",
+      "docs/contracts/project-kanban-drawer-navigation-ab-v1.polis.json",
+      "docs/contracts/project-kanban-firefox-single-surface-v1.polis.json",
+      "docs/contracts/project-kanban-geometry-diagnostics-v1.polis.json",
+      "docs/contracts/project-kanban-inner-layout-probe-v1.polis.json",
+      "docs/contracts/project-kanban-page-v1.polis.json",
+      "docs/contracts/project-kanban-rendering-isolation-v1.polis.json",
+      "docs/contracts/project-kanban-single-column-scroll-bypass-v1.polis.json",
+      "docs/contracts/project-kanban-static-renderer-v1.polis.json",
+      "docs/contracts/project-kanban-virtualized-board-v1.polis.json",
+      "docs/contracts/project-tasks-kanban-isolation-v1.polis.json",
+      "docs/contracts/project-tasks-layout-overlap-fix-v1.polis.json",
+      "docs/contracts/project-tasks-layout-overlap-fix-v2.polis.json",
+      "docs/contracts/project-kanban-rebuild-v1.polis.json",
+      "frontend/lib/features/projects/presentation/project_kanban_page.dart",
+      "frontend/lib/features/projects/presentation/project_tasks_controller.dart",
+      "frontend/lib/features/projects/presentation/kanban_controller.dart",
+      "frontend/lib/features/projects/presentation/widgets/kanban_board.dart",
+      "frontend/lib/features/projects/presentation/widgets/project_kanban_board.dart",
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart",
+      "frontend/test/features/projects/presentation/project_tasks_controller_test.dart",
+      "frontend/test/features/projects/presentation/project_tasks_page_test.dart",
+      "frontend/test/features/projects/presentation/kanban_controller_test.dart",
+      "frontend/test/features/projects/presentation/project_kanban_board_test.dart",
+      "frontend/test/web_renderer_policy_test.dart",
+      "frontend/web/flutter_bootstrap.js"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart",
+      "frontend/test/features/projects/presentation/project_tasks_controller_test.dart",
+      "frontend/test/features/projects/presentation/project_tasks_page_test.dart",
+      "frontend/test/features/projects/presentation/kanban_controller_test.dart",
+      "frontend/test/features/projects/presentation/project_kanban_board_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Replace the accumulated Kanban frontend experiments with one clean, SDK-only architecture. Remove the previous Kanban UI/rendering/diagnostic work, retain only objectively validated backend/domain contracts, separate Kanban state from generic task management, render with slivers, express drag as raw-pointer intent using stable identities, and synchronize persistent state only from version-checked server responses. No external dependency may be added.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "Delete the legacy KanbanBoardView implementation, browser-renderer workarounds, and all diagnostic/fix contracts created after the original tasks-kanban-v1 contract; the rebuilt feature must have one active UI implementation and no competing legacy mechanism."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "Keep the validated backend, API, persistence, authorization, immutable per-project card identity, column/card ordering contracts, optimistic concurrency expectedVersion semantics, and HTTP 409 conflict behavior unchanged."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "Move Kanban presentation state out of ProjectTasksController into a dedicated ProjectKanbanController so one state owner controls project selection, board snapshots, permissions, mutation serialization, stale-response rejection, and synchronization."
+      },
+      {
+        "id": "REQ-004",
+        "statement": "Load project members, task records, and the board as one project-scoped snapshot and reject stale asynchronous responses using a selection epoch before committing UI state."
+      },
+      {
+        "id": "REQ-005",
+        "statement": "Serialize Kanban mutations. Persistent board state must remain server-authoritative: a drag/reorder expresses an intent using stable task/column IDs and expectedVersion, then replaces local state only with the accepted server response; 409 reloads the latest authoritative board."
+      },
+      {
+        "id": "REQ-006",
+        "statement": "Rebuild rendering with Flutter SDK primitives only: horizontal and vertical CustomScrollView/SliverFixedExtentList surfaces, owned ScrollControllers, fixed card extents, and raw pointer Listener events for drag intent. Do not use Draggable, DragTarget, LongPressDraggable, ReorderableListView, or the previous ListView-based board mechanism."
+      },
+      {
+        "id": "REQ-007",
+        "statement": "Compute drop targets from stable column identity and measured lane coordinates with RenderBox.globalToLocal, while keeping drag preview/target state ephemeral inside the board widget and outside persistent application state."
+      },
+      {
+        "id": "REQ-008",
+        "statement": "Rebuild ProjectKanbanPage so the top bar and board are in one bounded body render tree using SafeArea and slivers; do not use the previous Scaffold.appBar composition for the Kanban page."
+      },
+      {
+        "id": "REQ-009",
+        "statement": "Restore Flutter Web default bootstrap behavior by deleting the custom flutter_bootstrap.js and its renderer-policy test. No browser-specific rendering workaround is part of the rebuilt Kanban."
+      },
+      {
+        "id": "REQ-010",
+        "statement": "Do not add any external dependency. frontend/pubspec.yaml and its dependency set must remain unchanged; researched third-party boards are architecture references only."
+      },
+      {
+        "id": "REQ-011",
+        "statement": "Preserve user-visible Kanban capabilities: project selection, column create/rename/delete/reorder, card create/edit/delete/move, assignee management, permission gating, immutable card numbers, and conflict notices."
+      },
+      {
+        "id": "REQ-012",
+        "statement": "Add focused regression coverage for authoritative state synchronization, stale request rejection, stable identity ordering, 409 reload, native sliver rendering, raw-pointer drag intent, page geometry, interactivity, and narrow viewport bounds."
+      },
+      {
+        "id": "REQ-013",
+        "statement": "The implementation rationale is grounded in researched patterns: Flutter CustomScrollView/sliver APIs for lazy one-axis scrolling, Listener for raw pointer events, ScrollController lifecycle guidance, ChangeNotifier state encapsulation, default Flutter web bootstrap, and AppFlowy Board separation of board/group/card data and controller callbacks."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "Legacy kanban_board.dart, custom web bootstrap, renderer workaround test, and the listed diagnostic POLIS contracts are absent; tasks-kanban-v1.polis.json remains.",
+        "requirements": [
+          "REQ-001",
+          "REQ-002",
+          "REQ-009"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "ProjectTasksController contains no Kanban board state or Kanban mutation methods, while ProjectKanbanController exists as the sole Kanban presentation-state owner.",
+        "requirements": [
+          "REQ-003"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-003",
+        "statement": "ProjectKanbanController uses a selection epoch, project-snapshot loading, serialized mutation tail, stable IDs, expectedVersion, and explicit 409 authoritative reload.",
+        "requirements": [
+          "REQ-004",
+          "REQ-005"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-004",
+        "statement": "ProjectKanbanBoard is built with CustomScrollView and SliverFixedExtentList, owns its ScrollControllers, uses Listener/raw pointer events and coordinate-based target resolution, and contains none of the forbidden legacy drag/list primitives.",
+        "requirements": [
+          "REQ-006",
+          "REQ-007"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-005",
+        "statement": "ProjectKanbanPage uses an in-body top bar, SafeArea, CustomScrollView and SliverFillRemaining, mounts ProjectKanbanBoard, and does not configure Scaffold.appBar.",
+        "requirements": [
+          "REQ-008"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-006",
+        "statement": "No boardview, appflowy_board, kanban_board, or other new Kanban dependency is added to frontend/pubspec.yaml.",
+        "requirements": [
+          "REQ-010"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-007",
+        "statement": "Column/card CRUD, movement, assignee actions and existing domain/API contracts remain wired through the rebuilt controller/page.",
+        "requirements": [
+          "REQ-002",
+          "REQ-011"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-008",
+        "statement": "New controller, board, and page tests encode stale-response, server-authoritative move, 409 reload, stable column identity, raw-pointer drag, geometry, interaction and narrow viewport behavior.",
+        "requirements": [
+          "REQ-012"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-009",
+        "statement": "The contract records the primary technical references used for the rebuild and treats them as design evidence rather than runtime proof.",
+        "requirements": [
+          "REQ-013"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "Backend source, database schema, authorization, API routes/services, Kanban contracts, and backend tests remain unchanged from baseline c6b9012a8f29e8b54ee2b2343b83c564224cc99d."
+      },
+      {
+        "id": "INV-002",
+        "statement": "Task remains the canonical card entity; cardNumber identity and server ordering/version semantics defined by tasks-kanban-v1 remain authoritative."
+      },
+      {
+        "id": "INV-003",
+        "statement": "No optimistic local persistence illusion is introduced: only ephemeral pointer/target feedback changes before server acceptance."
+      },
+      {
+        "id": "INV-004",
+        "statement": "Project/task management outside the Kanban page keeps its existing behavior; only Kanban ownership is removed from ProjectTasksController."
+      },
+      {
+        "id": "INV-005",
+        "statement": "No claim that the browser defect is fixed is valid until the rebuilt artifact is run in the real browser environment."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "Old and new Kanban board implementations coexist."
+      },
+      {
+        "id": "FORB-002",
+        "statement": "A browser-specific CanvasKit/CPU/surface workaround is retained or added."
+      },
+      {
+        "id": "FORB-003",
+        "statement": "Draggable, DragTarget, LongPressDraggable, ReorderableListView, or the former ListView-based Kanban board is reintroduced."
+      },
+      {
+        "id": "FORB-004",
+        "statement": "ProjectTasksController remains a second Kanban state owner."
+      },
+      {
+        "id": "FORB-005",
+        "statement": "A third-party Kanban/drag-and-drop package is added."
+      },
+      {
+        "id": "FORB-006",
+        "statement": "A drag mutates the persistent visual board optimistically before the server accepts the expectedVersion write."
+      },
+      {
+        "id": "FORB-007",
+        "statement": "Backend/domain/API behavior is changed to compensate for a frontend rendering problem."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "Exact remote baseline: feature/tasks-kanban commit c6b9012a8f29e8b54ee2b2343b83c564224cc99d, tree e76ccd2d29461cdf00f6464ad65fb137115c51b5."
+      },
+      {
+        "id": "IN-002",
+        "statement": "Observed defect: Chrome and Firefox both show the project/metrics area while the board body is not visibly usable, after multiple mutually different board/rendering experiments."
+      },
+      {
+        "id": "IN-003",
+        "statement": "CI evidence before rebuild: direct widget geometry/input tests passed; later navigation tests timed out under real asynchronous page loading, so those experiments did not establish a browser rendering root cause."
+      },
+      {
+        "id": "IN-004",
+        "statement": "Flutter sliver reference: https://api.flutter.dev/flutter/widgets/CustomScrollView/slivers.html and https://api.flutter.dev/flutter/widgets/SliverFixedExtentList-class.html."
+      },
+      {
+        "id": "IN-005",
+        "statement": "Flutter pointer and scrolling references: https://api.flutter.dev/flutter/widgets/Listener-class.html and https://api.flutter.dev/flutter/widgets/ScrollController-class.html."
+      },
+      {
+        "id": "IN-006",
+        "statement": "Flutter state reference: https://docs.flutter.dev/data-and-backend/state-mgmt/simple; Flutter Web bootstrap reference: https://docs.flutter.dev/platform-integration/web/initialization."
+      },
+      {
+        "id": "IN-007",
+        "statement": "AppFlowy Kanban architecture reference: https://github.com/AppFlowy-IO/AppFlowy-Docs/blob/main/essential-documentation/contribute-to-appflowy/architecture/frontend/database-view/kanban-board.md and source reference https://github.com/AppFlowy-IO/appflowy-board. These are references only; no dependency is imported."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "A single rebuilt Kanban frontend composed of ProjectKanbanController, ProjectKanbanPage and ProjectKanbanBoard."
+      },
+      {
+        "id": "OUT-002",
+        "statement": "A deterministic SDK-only drag intent mechanism with stable IDs, sliver-based rendering, and server-authoritative synchronization."
+      },
+      {
+        "id": "OUT-003",
+        "statement": "Removal of historical Kanban diagnostic/rendering workarounds and restoration of default Flutter Web bootstrap behavior."
+      },
+      {
+        "id": "OUT-004",
+        "statement": "Focused tests and a versioned rebuild contract documenting the new architecture, evidence and boundaries."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "A stale project response is ignored rather than overwriting current project state."
+      },
+      {
+        "id": "FAIL-002",
+        "statement": "A 409 on card/column ordering preserves the conflict notice and reloads the latest server board instead of retaining speculative local order."
+      },
+      {
+        "id": "FAIL-003",
+        "statement": "A failed non-conflict mutation propagates as an operation error; it does not silently invent a successful local board state."
+      },
+      {
+        "id": "FAIL-004",
+        "statement": "If the rebuilt browser UI still reproduces the defect, this artifact does not authorize another renderer workaround; runtime paint/layout evidence must be collected against the new single implementation."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "c6b9012a8f29e8b54ee2b2343b83c564224cc99d",
+    "base_tree": "e76ccd2d29461cdf00f6464ad65fb137115c51b5",
+    "policy_sha256": "cb60d7751236c799472a2e7166df0637c20f183f26a61900706bbdb69232ab34",
+    "specification_sha256": "167652ade91cab954aadcf567666dad236b3c44d8387bdc30713b3329a9669b1"
+  },
+  "behavior": {
+    "argv": [
+      "python3",
+      "-c",
+      "from pathlib import Path\nimport sys\n\nroot = Path('.')\ncontroller = root / 'frontend/lib/features/projects/presentation/kanban_controller.dart'\nboard = root / 'frontend/lib/features/projects/presentation/widgets/project_kanban_board.dart'\npage = root / 'frontend/lib/features/projects/presentation/project_kanban_page.dart'\ntasks_controller = root / 'frontend/lib/features/projects/presentation/project_tasks_controller.dart'\npubspec = root / 'frontend/pubspec.yaml'\npage_test = root / 'frontend/test/features/projects/presentation/project_kanban_page_test.dart'\ncontroller_test = root / 'frontend/test/features/projects/presentation/kanban_controller_test.dart'\nboard_test = root / 'frontend/test/features/projects/presentation/project_kanban_board_test.dart'\nlegacy_board = root / 'frontend/lib/features/projects/presentation/widgets/kanban_board.dart'\nbootstrap = root / 'frontend/web/flutter_bootstrap.js'\nrenderer_test = root / 'frontend/test/web_renderer_policy_test.dart'\noriginal_contract = root / 'docs/contracts/tasks-kanban-v1.polis.json'\nnew_contract = root / 'docs/contracts/project-kanban-rebuild-v1.polis.json'\nold_contracts = [\n    'project-kanban-board-subtree-isolation-v1.polis.json',\n    'project-kanban-column-surface-probe-v1.polis.json',\n    'project-kanban-drawer-navigation-ab-v1.polis.json',\n    'project-kanban-firefox-single-surface-v1.polis.json',\n    'project-kanban-geometry-diagnostics-v1.polis.json',\n    'project-kanban-inner-layout-probe-v1.polis.json',\n    'project-kanban-page-v1.polis.json',\n    'project-kanban-rendering-isolation-v1.polis.json',\n    'project-kanban-single-column-scroll-bypass-v1.polis.json',\n    'project-kanban-static-renderer-v1.polis.json',\n    'project-kanban-virtualized-board-v1.polis.json',\n    'project-tasks-kanban-isolation-v1.polis.json',\n    'project-tasks-layout-overlap-fix-v1.polis.json',\n    'project-tasks-layout-overlap-fix-v2.polis.json',\n]\n\nerrors = []\ndef require(condition, message):\n    if not condition:\n        errors.append(message)\n\ndef read(path):\n    return path.read_text() if path.exists() else ''\n\nrequire(controller.exists(), 'dedicated Kanban controller missing')\nrequire(board.exists(), 'new Kanban board missing')\nrequire(page.exists(), 'Kanban page missing')\nrequire(page_test.exists() and controller_test.exists() and board_test.exists(), 'rebuild tests missing')\nrequire(not legacy_board.exists(), 'legacy KanbanBoardView file still present')\nrequire(not bootstrap.exists(), 'custom web bootstrap workaround still present')\nrequire(not renderer_test.exists(), 'browser renderer workaround test still present')\nrequire(original_contract.exists(), 'original domain Kanban contract was removed')\nrequire(new_contract.exists(), 'rebuild Change Contract missing')\nfor name in old_contracts:\n    require(not (root / 'docs/contracts' / name).exists(), f'legacy diagnostic contract still present: {name}')\n\ncs = read(controller)\nbs = read(board)\nps = read(page)\nts = read(tasks_controller)\npubs = read(pubspec)\npts = read(page_test)\ncts = read(controller_test)\nbts = read(board_test)\n\nfor token in [\n    'class ProjectKanbanController extends ChangeNotifier',\n    '_selectionEpoch',\n    '_mutationTail',\n    'Future.wait\u003cdynamic\u003e',\n    'expectedVersion: currentBoard.kanbanVersion',\n    'statusCode != 409',\n    'List\u003cProjectSummary\u003e.unmodifiable',\n]:\n    require(token in cs, f'controller architecture token missing: {token}')\n\nfor token in [\n    'class ProjectKanbanBoard extends StatefulWidget',\n    'CustomScrollView(',\n    'SliverFixedExtentList(',\n    'Listener(',\n    'GlobalKey',\n    'globalToLocal',\n    'ScrollController',\n    'onMoveCard(current.card.id, target.columnId, target.index)',\n]:\n    require(token in bs, f'board architecture token missing: {token}')\n\nfor forbidden in [\n    'Draggable\u003cKanbanCard\u003e',\n    'DragTarget\u003cKanbanCard\u003e',\n    'LongPressDraggable',\n    'ReorderableListView',\n    'ListView(',\n]:\n    require(forbidden not in bs, f'legacy board primitive returned: {forbidden}')\n\nfor token in [\n    'ProjectKanbanController',\n    'ProjectKanbanBoard',\n    '_KanbanTopBar',\n    'SafeArea(',\n    'CustomScrollView(',\n    'SliverFillRemaining(',\n]:\n    require(token in ps, f'page rebuild token missing: {token}')\nrequire('appBar:' not in ps, 'Kanban page still uses Scaffold.appBar composition')\n\nfor forbidden in [\n    'KanbanBoard? kanbanBoard',\n    'isLoadingKanban',\n    'kanbanError',\n    'moveKanbanCard(',\n    'reorderKanbanColumns(',\n    'createKanbanColumn(',\n    'canManageKanbanStructure',\n]:\n    require(forbidden not in ts, f'generic task controller still owns Kanban state: {forbidden}')\n\nfor dep in ['boardview:', 'appflowy_board:', 'kanban_board:']:\n    require(dep not in pubs, f'external Kanban dependency added: {dep}')\n\nfor token in [\n    'server-authoritative until accepted response arrives',\n    'discards stale board snapshots',\n    '409 conflict reloads latest authoritative board',\n    'stable column identity',\n]:\n    require(token in cts, f'controller regression coverage missing: {token}')\nfor token in [\n    'native slivers and no legacy drag/reorder primitives',\n    'raw pointer drag emits a stable card-to-column intent',\n    'column reorder action reports the column identity',\n]:\n    require(token in bts, f'board regression coverage missing: {token}')\nfor token in [\n    'in-body header and bounded board',\n    'manager actions remain interactive after reconstruction',\n    'narrow viewport',\n]:\n    require(token in pts, f'page regression coverage missing: {token}')\n\nif errors:\n    print('kanban_rebuild_missing')\n    for error in errors:\n        print(f'- {error}')\n    sys.exit(1)\nprint('kanban_rebuild_ok')\n"
+    ],
+    "cwd": ".",
+    "timeout_seconds": 45,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "python3",
+      "-c",
+      "from pathlib import Path\nimport sys\n\nroot = Path('.')\ncontroller = root / 'frontend/lib/features/projects/presentation/kanban_controller.dart'\nboard = root / 'frontend/lib/features/projects/presentation/widgets/project_kanban_board.dart'\npage = root / 'frontend/lib/features/projects/presentation/project_kanban_page.dart'\ntasks_controller = root / 'frontend/lib/features/projects/presentation/project_tasks_controller.dart'\npubspec = root / 'frontend/pubspec.yaml'\npage_test = root / 'frontend/test/features/projects/presentation/project_kanban_page_test.dart'\ncontroller_test = root / 'frontend/test/features/projects/presentation/kanban_controller_test.dart'\nboard_test = root / 'frontend/test/features/projects/presentation/project_kanban_board_test.dart'\nlegacy_board = root / 'frontend/lib/features/projects/presentation/widgets/kanban_board.dart'\nbootstrap = root / 'frontend/web/flutter_bootstrap.js'\nrenderer_test = root / 'frontend/test/web_renderer_policy_test.dart'\noriginal_contract = root / 'docs/contracts/tasks-kanban-v1.polis.json'\nnew_contract = root / 'docs/contracts/project-kanban-rebuild-v1.polis.json'\nold_contracts = [\n    'project-kanban-board-subtree-isolation-v1.polis.json',\n    'project-kanban-column-surface-probe-v1.polis.json',\n    'project-kanban-drawer-navigation-ab-v1.polis.json',\n    'project-kanban-firefox-single-surface-v1.polis.json',\n    'project-kanban-geometry-diagnostics-v1.polis.json',\n    'project-kanban-inner-layout-probe-v1.polis.json',\n    'project-kanban-page-v1.polis.json',\n    'project-kanban-rendering-isolation-v1.polis.json',\n    'project-kanban-single-column-scroll-bypass-v1.polis.json',\n    'project-kanban-static-renderer-v1.polis.json',\n    'project-kanban-virtualized-board-v1.polis.json',\n    'project-tasks-kanban-isolation-v1.polis.json',\n    'project-tasks-layout-overlap-fix-v1.polis.json',\n    'project-tasks-layout-overlap-fix-v2.polis.json',\n]\n\nerrors = []\ndef require(condition, message):\n    if not condition:\n        errors.append(message)\n\ndef read(path):\n    return path.read_text() if path.exists() else ''\n\nrequire(controller.exists(), 'dedicated Kanban controller missing')\nrequire(board.exists(), 'new Kanban board missing')\nrequire(page.exists(), 'Kanban page missing')\nrequire(page_test.exists() and controller_test.exists() and board_test.exists(), 'rebuild tests missing')\nrequire(not legacy_board.exists(), 'legacy KanbanBoardView file still present')\nrequire(not bootstrap.exists(), 'custom web bootstrap workaround still present')\nrequire(not renderer_test.exists(), 'browser renderer workaround test still present')\nrequire(original_contract.exists(), 'original domain Kanban contract was removed')\nrequire(new_contract.exists(), 'rebuild Change Contract missing')\nfor name in old_contracts:\n    require(not (root / 'docs/contracts' / name).exists(), f'legacy diagnostic contract still present: {name}')\n\ncs = read(controller)\nbs = read(board)\nps = read(page)\nts = read(tasks_controller)\npubs = read(pubspec)\npts = read(page_test)\ncts = read(controller_test)\nbts = read(board_test)\n\nfor token in [\n    'class ProjectKanbanController extends ChangeNotifier',\n    '_selectionEpoch',\n    '_mutationTail',\n    'Future.wait\u003cdynamic\u003e',\n    'expectedVersion: currentBoard.kanbanVersion',\n    'statusCode != 409',\n    'List\u003cProjectSummary\u003e.unmodifiable',\n]:\n    require(token in cs, f'controller architecture token missing: {token}')\n\nfor token in [\n    'class ProjectKanbanBoard extends StatefulWidget',\n    'CustomScrollView(',\n    'SliverFixedExtentList(',\n    'Listener(',\n    'GlobalKey',\n    'globalToLocal',\n    'ScrollController',\n    'onMoveCard(current.card.id, target.columnId, target.index)',\n]:\n    require(token in bs, f'board architecture token missing: {token}')\n\nfor forbidden in [\n    'Draggable\u003cKanbanCard\u003e',\n    'DragTarget\u003cKanbanCard\u003e',\n    'LongPressDraggable',\n    'ReorderableListView',\n    'ListView(',\n]:\n    require(forbidden not in bs, f'legacy board primitive returned: {forbidden}')\n\nfor token in [\n    'ProjectKanbanController',\n    'ProjectKanbanBoard',\n    '_KanbanTopBar',\n    'SafeArea(',\n    'CustomScrollView(',\n    'SliverFillRemaining(',\n]:\n    require(token in ps, f'page rebuild token missing: {token}')\nrequire('appBar:' not in ps, 'Kanban page still uses Scaffold.appBar composition')\n\nfor forbidden in [\n    'KanbanBoard? kanbanBoard',\n    'isLoadingKanban',\n    'kanbanError',\n    'moveKanbanCard(',\n    'reorderKanbanColumns(',\n    'createKanbanColumn(',\n    'canManageKanbanStructure',\n]:\n    require(forbidden not in ts, f'generic task controller still owns Kanban state: {forbidden}')\n\nfor dep in ['boardview:', 'appflowy_board:', 'kanban_board:']:\n    require(dep not in pubs, f'external Kanban dependency added: {dep}')\n\nfor token in [\n    'server-authoritative until accepted response arrives',\n    'discards stale board snapshots',\n    '409 conflict reloads latest authoritative board',\n    'stable column identity',\n]:\n    require(token in cts, f'controller regression coverage missing: {token}')\nfor token in [\n    'native slivers and no legacy drag/reorder primitives',\n    'raw pointer drag emits a stable card-to-column intent',\n    'column reorder action reports the column identity',\n]:\n    require(token in bts, f'board regression coverage missing: {token}')\nfor token in [\n    'in-body header and bounded board',\n    'manager actions remain interactive after reconstruction',\n    'narrow viewport',\n]:\n    require(token in pts, f'page regression coverage missing: {token}')\n\nif errors:\n    print('kanban_rebuild_missing')\n    for error in errors:\n        print(f'- {error}')\n    sys.exit(1)\nprint('kanban_rebuild_ok')\n"
+    ],
+    "cwd": ".",
+    "timeout_seconds": 45,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "python3",
+        "-c",
+        "from pathlib import Path\nimport sys\n\nroot = Path('.')\ncontroller = root / 'frontend/lib/features/projects/presentation/kanban_controller.dart'\nboard = root / 'frontend/lib/features/projects/presentation/widgets/project_kanban_board.dart'\npage = root / 'frontend/lib/features/projects/presentation/project_kanban_page.dart'\ntasks_controller = root / 'frontend/lib/features/projects/presentation/project_tasks_controller.dart'\npubspec = root / 'frontend/pubspec.yaml'\npage_test = root / 'frontend/test/features/projects/presentation/project_kanban_page_test.dart'\ncontroller_test = root / 'frontend/test/features/projects/presentation/kanban_controller_test.dart'\nboard_test = root / 'frontend/test/features/projects/presentation/project_kanban_board_test.dart'\nlegacy_board = root / 'frontend/lib/features/projects/presentation/widgets/kanban_board.dart'\nbootstrap = root / 'frontend/web/flutter_bootstrap.js'\nrenderer_test = root / 'frontend/test/web_renderer_policy_test.dart'\noriginal_contract = root / 'docs/contracts/tasks-kanban-v1.polis.json'\nnew_contract = root / 'docs/contracts/project-kanban-rebuild-v1.polis.json'\nold_contracts = [\n    'project-kanban-board-subtree-isolation-v1.polis.json',\n    'project-kanban-column-surface-probe-v1.polis.json',\n    'project-kanban-drawer-navigation-ab-v1.polis.json',\n    'project-kanban-firefox-single-surface-v1.polis.json',\n    'project-kanban-geometry-diagnostics-v1.polis.json',\n    'project-kanban-inner-layout-probe-v1.polis.json',\n    'project-kanban-page-v1.polis.json',\n    'project-kanban-rendering-isolation-v1.polis.json',\n    'project-kanban-single-column-scroll-bypass-v1.polis.json',\n    'project-kanban-static-renderer-v1.polis.json',\n    'project-kanban-virtualized-board-v1.polis.json',\n    'project-tasks-kanban-isolation-v1.polis.json',\n    'project-tasks-layout-overlap-fix-v1.polis.json',\n    'project-tasks-layout-overlap-fix-v2.polis.json',\n]\n\nerrors = []\ndef require(condition, message):\n    if not condition:\n        errors.append(message)\n\ndef read(path):\n    return path.read_text() if path.exists() else ''\n\nrequire(controller.exists(), 'dedicated Kanban controller missing')\nrequire(board.exists(), 'new Kanban board missing')\nrequire(page.exists(), 'Kanban page missing')\nrequire(page_test.exists() and controller_test.exists() and board_test.exists(), 'rebuild tests missing')\nrequire(not legacy_board.exists(), 'legacy KanbanBoardView file still present')\nrequire(not bootstrap.exists(), 'custom web bootstrap workaround still present')\nrequire(not renderer_test.exists(), 'browser renderer workaround test still present')\nrequire(original_contract.exists(), 'original domain Kanban contract was removed')\nrequire(new_contract.exists(), 'rebuild Change Contract missing')\nfor name in old_contracts:\n    require(not (root / 'docs/contracts' / name).exists(), f'legacy diagnostic contract still present: {name}')\n\ncs = read(controller)\nbs = read(board)\nps = read(page)\nts = read(tasks_controller)\npubs = read(pubspec)\npts = read(page_test)\ncts = read(controller_test)\nbts = read(board_test)\n\nfor token in [\n    'class ProjectKanbanController extends ChangeNotifier',\n    '_selectionEpoch',\n    '_mutationTail',\n    'Future.wait\u003cdynamic\u003e',\n    'expectedVersion: currentBoard.kanbanVersion',\n    'statusCode != 409',\n    'List\u003cProjectSummary\u003e.unmodifiable',\n]:\n    require(token in cs, f'controller architecture token missing: {token}')\n\nfor token in [\n    'class ProjectKanbanBoard extends StatefulWidget',\n    'CustomScrollView(',\n    'SliverFixedExtentList(',\n    'Listener(',\n    'GlobalKey',\n    'globalToLocal',\n    'ScrollController',\n    'onMoveCard(current.card.id, target.columnId, target.index)',\n]:\n    require(token in bs, f'board architecture token missing: {token}')\n\nfor forbidden in [\n    'Draggable\u003cKanbanCard\u003e',\n    'DragTarget\u003cKanbanCard\u003e',\n    'LongPressDraggable',\n    'ReorderableListView',\n    'ListView(',\n]:\n    require(forbidden not in bs, f'legacy board primitive returned: {forbidden}')\n\nfor token in [\n    'ProjectKanbanController',\n    'ProjectKanbanBoard',\n    '_KanbanTopBar',\n    'SafeArea(',\n    'CustomScrollView(',\n    'SliverFillRemaining(',\n]:\n    require(token in ps, f'page rebuild token missing: {token}')\nrequire('appBar:' not in ps, 'Kanban page still uses Scaffold.appBar composition')\n\nfor forbidden in [\n    'KanbanBoard? kanbanBoard',\n    'isLoadingKanban',\n    'kanbanError',\n    'moveKanbanCard(',\n    'reorderKanbanColumns(',\n    'createKanbanColumn(',\n    'canManageKanbanStructure',\n]:\n    require(forbidden not in ts, f'generic task controller still owns Kanban state: {forbidden}')\n\nfor dep in ['boardview:', 'appflowy_board:', 'kanban_board:']:\n    require(dep not in pubs, f'external Kanban dependency added: {dep}')\n\nfor token in [\n    'server-authoritative until accepted response arrives',\n    'discards stale board snapshots',\n    '409 conflict reloads latest authoritative board',\n    'stable column identity',\n]:\n    require(token in cts, f'controller regression coverage missing: {token}')\nfor token in [\n    'native slivers and no legacy drag/reorder primitives',\n    'raw pointer drag emits a stable card-to-column intent',\n    'column reorder action reports the column identity',\n]:\n    require(token in bts, f'board regression coverage missing: {token}')\nfor token in [\n    'in-body header and bounded board',\n    'manager actions remain interactive after reconstruction',\n    'narrow viewport',\n]:\n    require(token in pts, f'page regression coverage missing: {token}')\n\nif errors:\n    print('kanban_rebuild_missing')\n    for error in errors:\n        print(f'- {error}')\n    sys.exit(1)\nprint('kanban_rebuild_ok')\n"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 45,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "kanban_rebuild_missing"
+    ]
+  }
+}

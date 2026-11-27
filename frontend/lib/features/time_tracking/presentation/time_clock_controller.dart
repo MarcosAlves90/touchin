@@ -1,23 +1,26 @@
 import 'dart:async';
 
-import 'package:bunchin_flutter/contracts/punch.dart';
-import 'package:bunchin_flutter/contracts/time_clock.dart';
-import 'package:bunchin_flutter/core/network/api_client.dart';
-import 'package:bunchin_flutter/core/network/bunchin_api.dart';
-import 'package:bunchin_flutter/features/time_tracking/application/punch_location_service.dart';
+import 'package:touchin_flutter/contracts/punch.dart';
+import 'package:touchin_flutter/contracts/project.dart';
+import 'package:touchin_flutter/contracts/task.dart';
+import 'package:touchin_flutter/contracts/task_recommendations.dart';
+import 'package:touchin_flutter/contracts/time_clock.dart';
+import 'package:touchin_flutter/core/network/api_client.dart';
+import 'package:touchin_flutter/core/network/touchin_api.dart';
+import 'package:touchin_flutter/features/time_tracking/application/punch_location_service.dart';
 import 'package:flutter/foundation.dart';
 
 class TimeClockController extends ChangeNotifier {
   TimeClockController({
-    BunchinApi? api,
+    TouchInApi? api,
     PunchLocationService? punchLocationService,
     Duration punchLocationTimeout = const Duration(seconds: 6),
-  })  : _api = api ?? BunchinApi(),
+  })  : _api = api ?? TouchInApi(),
         _punchLocationService =
             punchLocationService ?? const PunchLocationService(),
         _punchLocationTimeout = punchLocationTimeout;
 
-  final BunchinApi _api;
+  final TouchInApi _api;
   final PunchLocationService _punchLocationService;
   final Duration _punchLocationTimeout;
 
@@ -29,6 +32,8 @@ class TimeClockController extends ChangeNotifier {
   bool isLoadingState = true;
   String? loadError;
   String employeeName = 'Funcionario';
+  String? employeeId;
+  bool requiresLocationOnPunch = true;
   String employeeUnit = '-';
   int todayWorkedMinutes = 0;
   int todayBreakMinutes = 0;
@@ -40,11 +45,23 @@ class TimeClockController extends ChangeNotifier {
   int recordsTotalPages = 1;
   bool recordsHasPrevious = false;
   bool recordsHasNext = false;
+  List<ProjectSummary> workLogProjects = const <ProjectSummary>[];
+  List<TaskRecord> workLogTasks = const <TaskRecord>[];
+  List<TaskRecommendation> workLogRecommendations =
+      const <TaskRecommendation>[];
+  String workLogRecommendationStatus = 'idle';
+  String? selectedWorkLogProjectId;
+  bool isLoadingWorkLogProjects = false;
+  bool isLoadingWorkLogTasks = false;
+  String? workLogLoadError;
 
   bool get hasTimelinePagination => recordsTotalPages > 1;
 
   Timer? _clockTimer;
   bool _isDisposed = false;
+  int _workLogTaskRequestVersion = 0;
+  int _workLogRecommendationRequestVersion = 0;
+  int _stateRequestVersion = 0;
 
   Future<void> start() async {
     now = DateTime.now();
@@ -57,8 +74,10 @@ class TimeClockController extends ChangeNotifier {
       notifyListeners();
     });
 
-    unawaited(prepareLocationAccess());
     await loadTimeClockState(page: recordsPage, limit: recordsPageSize);
+    if (requiresLocationOnPunch) {
+      unawaited(prepareLocationAccess());
+    }
   }
 
   @override
@@ -76,6 +95,7 @@ class TimeClockController extends ChangeNotifier {
     if (_isDisposed) {
       return;
     }
+    final requestVersion = ++_stateRequestVersion;
 
     if (showLoading) {
       isLoadingState = true;
@@ -85,10 +105,12 @@ class TimeClockController extends ChangeNotifier {
 
     try {
       final state = await _api.getMyTimeClockState(page: page, limit: limit);
-      if (_isDisposed) {
+      if (_isDisposed || requestVersion != _stateRequestVersion) {
         return;
       }
 
+      employeeId = state.employee.id;
+      requiresLocationOnPunch = state.employee.requiresLocationOnPunch;
       employeeName = state.employee.name;
       employeeUnit = state.employee.unit;
       status = state.currentStatus;
@@ -106,14 +128,14 @@ class TimeClockController extends ChangeNotifier {
       isLoadingState = false;
       notifyListeners();
     } on ApiException catch (error) {
-      if (_isDisposed) {
+      if (_isDisposed || requestVersion != _stateRequestVersion) {
         return;
       }
       isLoadingState = false;
       loadError = error.message;
       notifyListeners();
     } catch (_) {
-      if (_isDisposed) {
+      if (_isDisposed || requestVersion != _stateRequestVersion) {
         return;
       }
       isLoadingState = false;
@@ -160,7 +182,170 @@ class TimeClockController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<String?> handlePunch(PunchType type) async {
+  Future<String?> loadWorkLogProjects() async {
+    if (_isDisposed) {
+      return null;
+    }
+
+    isLoadingWorkLogProjects = true;
+    workLogLoadError = null;
+    selectedWorkLogProjectId = null;
+    workLogTasks = const <TaskRecord>[];
+    isLoadingWorkLogTasks = false;
+    _workLogTaskRequestVersion += 1;
+    notifyListeners();
+
+    try {
+      // Management listProjects includes unrelated projects for managers.
+      if (employeeId == null) {
+        await loadTimeClockState(
+            page: 1, limit: recordsPageSize, showLoading: false);
+      }
+      final currentEmployeeId = employeeId;
+      if (currentEmployeeId == null) {
+        throw StateError('O funcionário atual ainda não foi carregado.');
+      }
+      final assigned = await _api.listEmployeeProjects(currentEmployeeId);
+      workLogProjects = List<ProjectSummary>.unmodifiable(
+        assigned.where((project) => project.status == ProjectStatus.active),
+      );
+      if (_isDisposed) {
+        return null;
+      }
+      return null;
+    } on ApiException catch (error) {
+      workLogProjects = const <ProjectSummary>[];
+      workLogLoadError = error.message;
+      return error.message;
+    } catch (_) {
+      const message =
+          'Não foi possível carregar os projetos para o registro de atividades.';
+      workLogProjects = const <ProjectSummary>[];
+      workLogLoadError = message;
+      return message;
+    } finally {
+      if (!_isDisposed) {
+        isLoadingWorkLogProjects = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<String?> loadWorkLogTasks(String projectId) async {
+    if (_isDisposed) {
+      return null;
+    }
+
+    final requestVersion = ++_workLogTaskRequestVersion;
+    _workLogRecommendationRequestVersion += 1;
+    workLogRecommendations = const <TaskRecommendation>[];
+    workLogRecommendationStatus = 'idle';
+    selectedWorkLogProjectId = projectId;
+    workLogTasks = const <TaskRecord>[];
+    isLoadingWorkLogTasks = true;
+    workLogLoadError = null;
+    notifyListeners();
+
+    try {
+      final tasks = await _api.listTasks(projectId);
+      if (_isDisposed ||
+          requestVersion != _workLogTaskRequestVersion ||
+          selectedWorkLogProjectId != projectId) {
+        return null;
+      }
+      workLogTasks = List<TaskRecord>.unmodifiable(tasks);
+      return null;
+    } on ApiException catch (error) {
+      if (requestVersion == _workLogTaskRequestVersion) {
+        workLogTasks = const <TaskRecord>[];
+        workLogLoadError = error.message;
+      }
+      return error.message;
+    } catch (_) {
+      const message = 'Não foi possível carregar as tarefas do projeto.';
+      if (requestVersion == _workLogTaskRequestVersion) {
+        workLogTasks = const <TaskRecord>[];
+        workLogLoadError = message;
+      }
+      return message;
+    } finally {
+      if (!_isDisposed && requestVersion == _workLogTaskRequestVersion) {
+        isLoadingWorkLogTasks = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<void> loadWorkLogRecommendations({
+    required String projectId,
+    required String description,
+  }) async {
+    if (_isDisposed) return;
+    final query = description.trim();
+    final requestVersion = ++_workLogRecommendationRequestVersion;
+    workLogRecommendations = const <TaskRecommendation>[];
+    workLogRecommendationStatus = query.isEmpty ? 'idle' : 'loading';
+    notifyListeners();
+    if (query.isEmpty) return;
+
+    try {
+      final result = await _api.recommendTasks(
+        projectId: projectId,
+        description: query,
+      );
+      if (_isDisposed ||
+          requestVersion != _workLogRecommendationRequestVersion ||
+          selectedWorkLogProjectId != projectId) {
+        return;
+      }
+      workLogRecommendations = result.items;
+      workLogRecommendationStatus = result.status;
+    } catch (_) {
+      if (requestVersion == _workLogRecommendationRequestVersion) {
+        workLogRecommendations = const <TaskRecommendation>[];
+        workLogRecommendationStatus = 'unavailable';
+      }
+    } finally {
+      if (!_isDisposed &&
+          requestVersion == _workLogRecommendationRequestVersion) {
+        notifyListeners();
+      }
+    }
+  }
+
+  void cancelWorkLogRecommendations() {
+    if (_isDisposed) return;
+    _workLogRecommendationRequestVersion += 1;
+  }
+
+  void clearWorkLogRecommendations() {
+    if (_isDisposed) return;
+    _workLogRecommendationRequestVersion += 1;
+    workLogRecommendations = const <TaskRecommendation>[];
+    workLogRecommendationStatus = 'idle';
+    notifyListeners();
+  }
+
+  void clearWorkLogProjectSelection() {
+    if (_isDisposed) {
+      return;
+    }
+    _workLogTaskRequestVersion += 1;
+    _workLogRecommendationRequestVersion += 1;
+    selectedWorkLogProjectId = null;
+    workLogTasks = const <TaskRecord>[];
+    workLogRecommendations = const <TaskRecommendation>[];
+    workLogRecommendationStatus = 'idle';
+    isLoadingWorkLogTasks = false;
+    workLogLoadError = null;
+    notifyListeners();
+  }
+
+  Future<String?> handlePunch(
+    PunchType type, {
+    String? projectId,
+    WorkLogPayload? workLog,
+  }) async {
     if (_isDisposed) {
       return null;
     }
@@ -173,42 +358,56 @@ class TimeClockController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final locationResult =
-          await _punchLocationService.captureForPunch().timeout(
-                _punchLocationTimeout,
-                onTimeout: () => const PunchLocationResult.error(
-                  message:
-                      'Não foi possível validar a localização a tempo. Tente novamente.',
-                ),
-              );
+      // Optional capture is exclusively user-initiated via prepareLocationAccess.
+      // A punch must never start a permission prompt or wait for GPS in this mode.
+      var punchLocation = locationState.snapshot;
+      if (requiresLocationOnPunch) {
+        final locationResult =
+            await _punchLocationService.captureForPunch().timeout(
+                  _punchLocationTimeout,
+                  onTimeout: () => const PunchLocationResult.error(
+                    message:
+                        'Não foi possível validar a localização a tempo. Tente novamente.',
+                  ),
+                );
 
-      if (_isDisposed) {
-        return null;
-      }
+        if (_isDisposed) {
+          return null;
+        }
 
-      locationState = locationResult;
-      notifyListeners();
+        locationState = locationResult;
+        notifyListeners();
 
-      final punchLocation = locationResult.snapshot;
-      if (punchLocation == null) {
-        return locationResult.message;
+        punchLocation = locationResult.snapshot;
+        if (punchLocation == null) {
+          return locationResult.message;
+        }
       }
 
       final punch = await _api.createPunch(
         request: CreatePunchRequest(
           type: type,
+          projectId: projectId,
           location: punchLocation,
+          workLog: workLog,
         ),
       );
       unawaited(
         loadTimeClockState(
-          page: recordsPage,
+          page: 1,
           limit: recordsPageSize,
           showLoading: false,
         ),
       );
       return '${punch.title} registrado com sucesso.';
     } on ApiException catch (error) {
+      if (error.statusCode == 409 && !_isDisposed) {
+        unawaited(loadTimeClockState(
+          page: 1,
+          limit: recordsPageSize,
+          showLoading: false,
+        ));
+      }
       return error.message;
     } catch (_) {
       return 'Não foi possível registrar o ponto.';

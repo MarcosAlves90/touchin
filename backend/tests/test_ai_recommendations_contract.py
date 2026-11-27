@@ -1,0 +1,18 @@
+from fastapi.testclient import TestClient
+
+from tests.test_api import login_headers
+
+
+def test_ai_settings_are_disabled_by_default_and_never_expose_a_key(
+    client: TestClient,
+) -> None:
+    response = client.get(
+        "/api/v1/admin/ai-settings",
+        headers=login_headers(client),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["enabled"] is False
+    assert payload["apiKeyConfigured"] is False
+    assert "apiKey" not in payload

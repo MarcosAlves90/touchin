@@ -1,14 +1,23 @@
 import 'dart:async';
 
-import 'package:bunchin_flutter/core/theme/theme_mode_controller.dart';
-import 'package:bunchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
-import 'package:bunchin_flutter/theme/app_theme.dart';
+import 'package:touchin_flutter/core/network/touchin_api.dart';
+import 'package:touchin_flutter/core/theme/theme_mode_controller.dart';
+import 'package:touchin_flutter/features/settings/presentation/ai_settings_page.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
+import 'package:touchin_flutter/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 
 class ThemeSettingsPage extends StatelessWidget {
-  const ThemeSettingsPage({super.key, this.controller});
+  const ThemeSettingsPage({
+    super.key,
+    this.controller,
+    this.canManageAISettings = false,
+    this.aiSettingsApi,
+  });
 
   final ThemeModeController? controller;
+  final bool canManageAISettings;
+  final TouchInApi? aiSettingsApi;
 
   ThemeModeController get _controller =>
       controller ?? ThemeModeController.instance;
@@ -16,7 +25,7 @@ class ThemeSettingsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return WorkspaceScaffold(
-      sidebar: _buildSummaryPanel(context),
+      contextualContent: _buildSummaryPanel(context),
       contentBuilder: (context, isWide) => _buildWorkspace(context, isWide),
     );
   }
@@ -26,8 +35,6 @@ class ThemeSettingsPage extends StatelessWidget {
       animation: _controller,
       builder: (context, _) {
         return WorkspaceSidebar(
-          title: 'Aparência e tema.',
-          description: 'Escolha entre tema claro, escuro ou seguir o sistema.',
           summaryChildren: <Widget>[
             WorkspaceSummaryStripe(
               label: 'Tema atual',
@@ -40,10 +47,6 @@ class ThemeSettingsPage extends StatelessWidget {
               helper: 'Ajuste aplicado em toda a interface.',
             ),
           ],
-          highlightChips: <Widget>[
-            const WorkspaceHighlightChip(label: 'Configuração global'),
-            const WorkspaceHighlightChip(label: 'Persistida no dispositivo'),
-          ],
         );
       },
     );
@@ -54,7 +57,7 @@ class ThemeSettingsPage extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final padding = EdgeInsets.fromLTRB(
       isWide ? 32 : 24,
-      isWide ? 32 : 24,
+      28,
       isWide ? 32 : 24,
       isWide ? 40 : 32,
     );
@@ -72,19 +75,23 @@ class ThemeSettingsPage extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               WorkspaceHeader(
+                kicker: 'PREFERÊNCIAS',
                 title: 'Configurações',
                 description:
-                    'Ajuste preferências globais da interface e mantenha a experiência do jeito que preferir.',
+                    'Ajuste a aparência da interface e as preferências disponíveis para sua conta.',
               ),
               const SizedBox(height: 24),
               WorkspaceSectionCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Tema da interface',
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
+                    Semantics(
+                      header: true,
+                      child: Text(
+                        'Tema da interface',
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -96,42 +103,84 @@ class ThemeSettingsPage extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 20),
-                    RadioListTile<ThemeMode>(
-                      contentPadding: EdgeInsets.zero,
-                      value: ThemeMode.light,
+                    if (_controller.hasPersistenceError) ...[
+                      Semantics(
+                        liveRegion: true,
+                        child: Text(
+                          'Não foi possível carregar ou salvar a preferência de tema. '
+                          'Selecione o tema novamente para tentar salvar.',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: colorScheme.error,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    RadioGroup<ThemeMode>(
                       groupValue: currentMode,
                       onChanged: (value) {
                         if (value != null) {
                           unawaited(_controller.setThemeMode(value));
                         }
                       },
-                      title: const Text('Tema claro'),
-                      subtitle: const Text('Força a interface clara.'),
-                    ),
-                    RadioListTile<ThemeMode>(
-                      contentPadding: EdgeInsets.zero,
-                      value: ThemeMode.dark,
-                      groupValue: currentMode,
-                      onChanged: (value) {
-                        if (value != null) {
-                          unawaited(_controller.setThemeMode(value));
-                        }
-                      },
-                      title: const Text('Tema escuro'),
-                      subtitle: const Text('Força a interface escura.'),
-                    ),
-                    RadioListTile<ThemeMode>(
-                      contentPadding: EdgeInsets.zero,
-                      value: ThemeMode.system,
-                      groupValue: currentMode,
-                      onChanged: (value) {
-                        if (value != null) {
-                          unawaited(_controller.setThemeMode(value));
-                        }
-                      },
-                      title: const Text('Seguir sistema'),
-                      subtitle: const Text(
-                        'Segue a preferência do dispositivo.',
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final options = <Widget>[
+                            RadioListTile<ThemeMode>(
+                              contentPadding: EdgeInsets.zero,
+                              value: ThemeMode.light,
+                              title: Text('Tema claro'),
+                              subtitle: Text('Força a interface clara.'),
+                            ),
+                            RadioListTile<ThemeMode>(
+                              contentPadding: EdgeInsets.zero,
+                              value: ThemeMode.dark,
+                              title: Text('Tema escuro'),
+                              subtitle: Text('Força a interface escura.'),
+                            ),
+                            RadioListTile<ThemeMode>(
+                              contentPadding: EdgeInsets.zero,
+                              value: ThemeMode.system,
+                              title: Text('Seguir sistema'),
+                              subtitle:
+                                  Text('Segue a preferência do dispositivo.'),
+                            ),
+                          ];
+                          if (constraints.maxWidth < 720 ||
+                              MediaQuery.textScalerOf(context).scale(1) > 1.3) {
+                            return Column(children: options);
+                          }
+                          return Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: options
+                                .map((option) => Expanded(
+                                      child: Padding(
+                                        padding:
+                                            const EdgeInsets.only(right: 8),
+                                        child: DecoratedBox(
+                                          decoration: BoxDecoration(
+                                            color: colorScheme
+                                                .surfaceContainerHighest
+                                                .withValues(alpha: 0.35),
+                                            border: Border.all(
+                                                color:
+                                                    colorScheme.outlineVariant),
+                                            borderRadius:
+                                                BorderRadius.circular(10),
+                                          ),
+                                          child: Material(
+                                            color: Colors.transparent,
+                                            child: Padding(
+                                              padding: const EdgeInsets.all(8),
+                                              child: option,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ))
+                                .toList(),
+                          );
+                        },
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -145,6 +194,7 @@ class ThemeSettingsPage extends StatelessWidget {
                                 alpha: 0.72,
                               ),
                         border: Border.all(color: colorScheme.outlineVariant),
+                        borderRadius: BorderRadius.circular(10),
                       ),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -156,7 +206,7 @@ class ThemeSettingsPage extends StatelessWidget {
                                     ? Icons.nightlight_round_rounded
                                     : Icons.brightness_auto_rounded,
                             color: isLightMode
-                                ? AppTheme.accent
+                                ? colorScheme.primary
                                 : colorScheme.onSurfaceVariant,
                           ),
                           const SizedBox(width: 12),
@@ -179,6 +229,10 @@ class ThemeSettingsPage extends StatelessWidget {
                   ],
                 ),
               ),
+              if (canManageAISettings) ...[
+                const SizedBox(height: 24),
+                AdminAISettingsSection(api: aiSettingsApi),
+              ],
             ],
           );
         },

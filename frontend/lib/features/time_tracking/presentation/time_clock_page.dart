@@ -1,18 +1,24 @@
 import 'dart:async';
 
-import 'package:bunchin_flutter/contracts/location.dart';
-import 'package:bunchin_flutter/contracts/punch.dart';
-import 'package:bunchin_flutter/contracts/time_clock.dart';
-import 'package:bunchin_flutter/features/shared/presentation/widgets/pagination_controls.dart';
-import 'package:bunchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
-import 'package:bunchin_flutter/features/time_tracking/presentation/time_clock_controller.dart';
-import 'package:bunchin_flutter/theme/app_theme.dart';
+import 'package:touchin_flutter/contracts/punch.dart';
+import 'package:touchin_flutter/core/network/touchin_api.dart';
+import 'package:touchin_flutter/features/time_tracking/application/punch_location_service.dart';
+
+import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/punch_work_context.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_skeleton.dart';
+import 'package:touchin_flutter/features/time_tracking/presentation/time_clock_controller.dart';
+import 'package:touchin_flutter/features/time_tracking/presentation/work_log_dialog.dart';
+import 'package:touchin_flutter/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 
 class TimeClockPage extends StatefulWidget {
-  const TimeClockPage({super.key, this.controller});
+  const TimeClockPage(
+      {super.key, this.controller, this.api, this.punchLocationService});
 
   final TimeClockController? controller;
+  final TouchInApi? api;
+  final PunchLocationService? punchLocationService;
 
   @override
   State<TimeClockPage> createState() => _TimeClockPageState();
@@ -50,7 +56,9 @@ class _TimeClockPageState extends State<TimeClockPage> {
   @override
   void initState() {
     super.initState();
-    _controller = widget.controller ?? TimeClockController();
+    _controller = widget.controller ??
+        TimeClockController(
+            api: widget.api, punchLocationService: widget.punchLocationService);
     _ownsController = widget.controller == null;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _controller.start();
@@ -88,7 +96,39 @@ class _TimeClockPageState extends State<TimeClockPage> {
   Future<void> _prepareLocationAccess() => _controller.prepareLocationAccess();
 
   Future<void> _handlePunch(PunchType type) async {
-    final message = await _controller.handlePunch(type);
+    if (_controller.isLoadingWorkLogProjects) {
+      return;
+    }
+
+    WorkLogSubmission? workLogSubmission;
+    if (_status == ShiftStatus.working &&
+        (type == PunchType.breakStart || type == PunchType.checkOut)) {
+      final loadError = await _controller.loadWorkLogProjects();
+      if (!mounted) {
+        return;
+      }
+      if (loadError != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(loadError)),
+        );
+        return;
+      }
+
+      workLogSubmission = await showDialog<WorkLogSubmission>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => WorkLogDialog(controller: _controller),
+      );
+      if (!mounted || workLogSubmission == null) {
+        return;
+      }
+    }
+
+    final message = await _controller.handlePunch(
+      type,
+      projectId: workLogSubmission?.projectId,
+      workLog: workLogSubmission?.workLog,
+    );
     if (!mounted || message == null) {
       return;
     }
@@ -151,21 +191,28 @@ class _TimeClockPageState extends State<TimeClockPage> {
     return switch (_status) {
       ShiftStatus.checkedOut =>
         'Nenhuma jornada ativa. O próximo registro deve ser a entrada.',
-      ShiftStatus.working => 'Jornada em andamento com dispositivo validado.',
+      ShiftStatus.working => 'Jornada em andamento.',
       ShiftStatus.onBreak =>
         'Pausa aberta. O próximo registro recomendado é o retorno.',
     };
   }
 
   Color _statusColor() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return switch (_status) {
-      ShiftStatus.checkedOut => const Color(0xFF6B6254),
-      ShiftStatus.working => const Color(0xFF2F8F46),
-      ShiftStatus.onBreak => const Color(0xFF8C5D00),
+      ShiftStatus.checkedOut => Theme.of(context).colorScheme.onSurfaceVariant,
+      ShiftStatus.working =>
+        isDark ? const Color(0xFF7ED898) : const Color(0xFF1D6A36),
+      ShiftStatus.onBreak =>
+        isDark ? const Color(0xFFFFC95B) : const Color(0xFF805600),
     };
   }
 
   String _locationStatusLabel() {
+    if (!_controller.requiresLocationOnPunch &&
+        _locationState.status == PunchLocationStatus.checking) {
+      return 'Localização opcional';
+    }
     return switch (_locationState.status) {
       PunchLocationStatus.checking => 'Validando localização',
       PunchLocationStatus.ready => _lastRegisteredLocation == null
@@ -180,6 +227,10 @@ class _TimeClockPageState extends State<TimeClockPage> {
   }
 
   String _locationActionLabel() {
+    if (!_controller.requiresLocationOnPunch &&
+        _locationState.status == PunchLocationStatus.checking) {
+      return 'Ativar localização';
+    }
     return switch (_locationState.status) {
       PunchLocationStatus.checking => 'Atualizando',
       PunchLocationStatus.ready => 'Atualizar permissão',
@@ -192,14 +243,20 @@ class _TimeClockPageState extends State<TimeClockPage> {
   }
 
   Color _locationStatusColor() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return switch (_locationState.status) {
-      PunchLocationStatus.checking => const Color(0xFF6B6254),
-      PunchLocationStatus.ready => const Color(0xFF2F8F46),
-      PunchLocationStatus.serviceDisabled => const Color(0xFF8C5D00),
-      PunchLocationStatus.permissionDenied => const Color(0xFF8C5D00),
-      PunchLocationStatus.permissionDeniedForever => const Color(0xFF8B1E1E),
-      PunchLocationStatus.unsupported => const Color(0xFF6B6254),
-      PunchLocationStatus.error => const Color(0xFF8B1E1E),
+      PunchLocationStatus.checking =>
+        Theme.of(context).colorScheme.onSurfaceVariant,
+      PunchLocationStatus.ready =>
+        isDark ? const Color(0xFF7ED898) : const Color(0xFF1D6A36),
+      PunchLocationStatus.serviceDisabled ||
+      PunchLocationStatus.permissionDenied =>
+        isDark ? const Color(0xFFFFC95B) : const Color(0xFF805600),
+      PunchLocationStatus.permissionDeniedForever ||
+      PunchLocationStatus.error =>
+        isDark ? const Color(0xFFFFB4AB) : const Color(0xFFA62525),
+      PunchLocationStatus.unsupported =>
+        Theme.of(context).colorScheme.onSurfaceVariant,
     };
   }
 
@@ -215,25 +272,13 @@ class _TimeClockPageState extends State<TimeClockPage> {
     };
   }
 
-  String _locationChipLabel() {
-    return switch (_locationState.status) {
-      PunchLocationStatus.ready => 'Geolocalização pronta',
-      PunchLocationStatus.checking => 'Validando permissão',
-      PunchLocationStatus.serviceDisabled => 'Ative a localização',
-      PunchLocationStatus.permissionDenied => 'Permissão pendente',
-      PunchLocationStatus.permissionDeniedForever => 'Permissão bloqueada',
-      PunchLocationStatus.unsupported => 'Geolocalização indisponível',
-      PunchLocationStatus.error => 'Falha de localização',
-    };
-  }
-
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, _) {
         return WorkspaceScaffold(
-          sidebar: _buildSummaryPanel(),
+          contextualContent: _buildSummaryPanel(),
           contentBuilder: (context, isWide) => _buildWorkspace(isWide: isWide),
         );
       },
@@ -245,9 +290,6 @@ class _TimeClockPageState extends State<TimeClockPage> {
     final hasError = _hasLoadError;
 
     return WorkspaceSidebar(
-      title: 'Ponto digital em tempo real.',
-      description:
-          'Uma tela operacional para registrar entrada, pausa e saída com localização vinculada a cada batida.',
       summaryChildren: <Widget>[
         WorkspaceSummaryStripe(
           label: 'Status',
@@ -293,17 +335,6 @@ class _TimeClockPageState extends State<TimeClockPage> {
                       : 'Último evento recebido',
         ),
       ],
-      highlightChips: <Widget>[
-        WorkspaceHighlightChip(
-          label: isLoading
-              ? 'Sincronizando estado'
-              : hasError
-                  ? 'Dados indisponíveis'
-                  : _locationChipLabel(),
-        ),
-        const WorkspaceHighlightChip(label: 'Dispositivo confiável'),
-        const WorkspaceHighlightChip(label: 'Jornada auditável'),
-      ],
     );
   }
 
@@ -313,20 +344,20 @@ class _TimeClockPageState extends State<TimeClockPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          WorkspaceHeader(
+          const WorkspaceHeader(
+            kicker: 'CONTROLE DE PONTO',
+            kickerKey: ValueKey<String>('time-clock-page-kicker'),
             title: 'Bater ponto',
-            description:
-                'Registre sua jornada com um fluxo direto, auditável e com coordenadas anexadas para validação operacional.',
-            maxContentWidth: 520,
+            description: 'Registre sua jornada e acompanhe os eventos do dia.',
+            maxContentWidth: 640,
+            compact: true,
           ),
           const SizedBox(height: 28),
           _buildHeroCard(isWide),
           const SizedBox(height: 20),
-          _buildMetricGrid(isWide),
+          _buildMetricGrid(),
           const SizedBox(height: 20),
-          _buildTimelineCard(),
-          const SizedBox(height: 20),
-          _buildContextCard(isWide),
+          _buildTimelineCard(isWide),
         ],
       ),
     );
@@ -338,196 +369,265 @@ class _TimeClockPageState extends State<TimeClockPage> {
 
     if (_isLoadingState) {
       return WorkspaceSectionCard(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 58,
-                  height: 58,
-                  decoration: BoxDecoration(
-                    color: AppTheme.accent.withValues(alpha: 0.10),
-                    border: Border.all(
-                      color: AppTheme.accent.withValues(alpha: 0.20),
-                    ),
-                  ),
-                  child: const Center(
-                    child: SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 18),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const _LoadingBar(width: 120, height: 24),
-                      const SizedBox(height: 16),
-                      const _LoadingBar(width: 180, height: 56),
-                      const SizedBox(height: 10),
-                      const _LoadingBar(width: 160, height: 18),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            const _LoadingBar(width: double.infinity, height: 18),
-            const SizedBox(height: 10),
-            const _LoadingBar(width: 280, height: 18),
-            const SizedBox(height: 20),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: colorScheme.surface.withValues(alpha: 0.8),
-                border: Border.all(color: colorScheme.outlineVariant),
-              ),
-              child: Row(
+        child: WorkspaceSkeletonRegion(
+          key: const ValueKey<String>('time-clock-state-skeleton'),
+          label: 'Carregando estado do ponto',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        colorScheme.onSurfaceVariant,
+                  Container(
+                    width: 58,
+                    height: 58,
+                    decoration: BoxDecoration(
+                      color: AppTheme.accent.withValues(alpha: 0.10),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: AppTheme.accent.withValues(alpha: 0.20),
+                      ),
+                    ),
+                    child: const Center(
+                      child: WorkspaceSkeleton(
+                        width: 20,
+                        height: 20,
+                        tone: WorkspaceSkeletonTone.strong,
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 18),
                   Expanded(
-                    child: Text(
-                      'Carregando estado do ponto...',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        height: 1.45,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const WorkspaceSkeleton(width: 120, height: 24),
+                        const SizedBox(height: 16),
+                        const WorkspaceSkeleton(width: 180, height: 56),
+                        const SizedBox(height: 10),
+                        const WorkspaceSkeleton(width: 160, height: 18),
+                      ],
                     ),
                   ),
                 ],
               ),
-            ),
-            const SizedBox(height: 24),
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: [
-                SizedBox(
-                  width: isWide ? 240 : double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: null,
-                    icon: const Icon(Icons.login_rounded),
-                    label: const Text('Carregando...'),
+              const SizedBox(height: 14),
+              const WorkspaceSkeleton(height: 18),
+              const SizedBox(height: 10),
+              const WorkspaceSkeleton(width: 280, height: 18),
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: colorScheme.surface.withValues(alpha: 0.8),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: colorScheme.outlineVariant),
+                ),
+                child: Text(
+                  'Carregando estado do ponto...',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    height: 1.45,
                   ),
                 ),
-                SizedBox(
-                  width: isWide ? 220 : double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: null,
-                    icon: const Icon(Icons.logout_rounded),
-                    label: const Text('Carregando...'),
+              ),
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  SizedBox(
+                    width: isWide ? 240 : double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: null,
+                      icon: const Icon(Icons.login_rounded),
+                      label: const Text('Carregando...'),
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ],
+                  SizedBox(
+                    width: isWide ? 220 : double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: null,
+                      icon: const Icon(Icons.logout_rounded),
+                      label: const Text('Carregando...'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       );
     }
 
     return WorkspaceSectionCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isSplit = constraints.maxWidth >= 760;
+          final details = _buildHeroDetails();
+          final location = _buildLocationBanner();
+          final actions = Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 58,
-                height: 58,
-                decoration: BoxDecoration(
-                  color: AppTheme.accent.withValues(alpha: 0.16),
-                  border: Border.all(
-                    color: AppTheme.accent.withValues(alpha: 0.28),
-                  ),
+              Text(
+                _statusLabel(),
+                key: const ValueKey<String>('time-clock-shift-status'),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: _statusColor(),
+                  fontWeight: FontWeight.w600,
                 ),
-                child: const Icon(Icons.fingerprint_rounded),
               ),
-              const SizedBox(width: 18),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    WorkspaceStatusBadge(
-                      label: _statusLabel(),
-                      tone: _statusColor(),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      _formatClock(_now),
-                      style: theme.textTheme.displayMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        height: 0.96,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      _formatDate(_now),
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
+              const SizedBox(height: 8),
+              Wrap(
+                key: const ValueKey<String>('time-clock-hero-actions'),
+                spacing: 10,
+                runSpacing: 8,
+                children: [
+                  SizedBox(
+                    width: isSplit
+                        ? ((constraints.maxWidth - 43) / 4).clamp(0, 200)
+                        : constraints.maxWidth >= 560
+                            ? 200
+                            : constraints.maxWidth,
+                    child: _buildPrimaryActionButton(),
+                  ),
+                  SizedBox(
+                    width: isSplit
+                        ? ((constraints.maxWidth - 43) / 4).clamp(0, 180)
+                        : constraints.maxWidth >= 560
+                            ? 180
+                            : constraints.maxWidth,
+                    child: _buildSecondaryActionButton(),
+                  ),
+                ],
               ),
             ],
-          ),
-          const SizedBox(height: 24),
-          Text(
-            _statusDescription(),
-            style: theme.textTheme.bodyLarge?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-              height: 1.5,
+          );
+          return Flex(
+            key: const ValueKey<String>('time-clock-hero-layout'),
+            direction: isSplit ? Axis.horizontal : Axis.vertical,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: isSplit
+                ? [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          details,
+                          const SizedBox(height: 12),
+                          actions
+                        ],
+                      ),
+                    ),
+                    Container(
+                      width: 1,
+                      height: 96,
+                      margin: const EdgeInsets.symmetric(horizontal: 16),
+                      color: colorScheme.outlineVariant,
+                    ),
+                    Expanded(child: location),
+                  ]
+                : [
+                    details,
+                    const SizedBox(height: 10),
+                    location,
+                    const SizedBox(height: 12),
+                    actions,
+                  ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildHeroDetails() {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final clockText = _formatClock(_now);
+    final clockStyle = theme.textTheme.displayMedium?.copyWith(
+          fontWeight: FontWeight.w700,
+          height: 0.96,
+        ) ??
+        const TextStyle(fontWeight: FontWeight.w700, height: 0.96);
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Container(
+          width: 58,
+          height: 58,
+          decoration: BoxDecoration(
+            color: AppTheme.accent.withValues(alpha: 0.16),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: AppTheme.accent.withValues(alpha: 0.28),
             ),
           ),
-          const SizedBox(height: 20),
-          _buildLocationBanner(),
-          const SizedBox(height: 24),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
+          child: const Icon(Icons.fingerprint_rounded),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(
-                width: isWide ? 240 : double.infinity,
-                child: _buildPrimaryActionButton(),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  const baseFontSize = 44.0;
+                  final painter = TextPainter(
+                    text: TextSpan(
+                      text: clockText,
+                      style: clockStyle.copyWith(fontSize: baseFontSize),
+                    ),
+                    textDirection: Directionality.of(context),
+                    textScaler: MediaQuery.textScalerOf(context),
+                    maxLines: 1,
+                  )..layout();
+                  final fittedFontSize = painter.width <= constraints.maxWidth
+                      ? baseFontSize
+                      : baseFontSize * constraints.maxWidth / painter.width;
+                  final fontSize =
+                      fittedFontSize.clamp(20.0, baseFontSize).toDouble() *
+                          0.98;
+                  return Text(
+                    clockText,
+                    maxLines: 1,
+                    softWrap: false,
+                    style: clockStyle.copyWith(fontSize: fontSize),
+                  );
+                },
               ),
-              SizedBox(
-                width: isWide ? 220 : double.infinity,
-                child: _buildSecondaryActionButton(),
+              const SizedBox(height: 2),
+              Text(
+                _formatDate(_now),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
               ),
             ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
   Widget _buildLocationBanner() {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final color = _locationStatusColor();
-    final lastLocation = _lastRegisteredLocation;
+    final isReady = _locationState.status == PunchLocationStatus.ready;
+    final isOptionalChecking = !_controller.requiresLocationOnPunch &&
+        _locationState.status == PunchLocationStatus.checking;
+    final message = isOptionalChecking
+        ? 'Ative para incluir coordenadas nas batidas.'
+        : _locationState.message;
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: color.withValues(alpha: 0.26)),
       ),
       child: Column(
@@ -535,42 +635,43 @@ class _TimeClockPageState extends State<TimeClockPage> {
         children: [
           Row(
             children: [
-              Icon(_locationStatusIcon(), color: color),
-              const SizedBox(width: 12),
+              Icon(_locationStatusIcon(), color: color, size: 20),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   _locationStatusLabel(),
+                  key: const ValueKey<String>(
+                    'time-clock-location-status-heading',
+                  ),
                   style: theme.textTheme.titleMedium?.copyWith(
                     color: color,
                     fontWeight: FontWeight.w700,
+                    height: 1.1,
                   ),
                 ),
               ),
-              if (_isSubmittingPunch)
-                SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(color),
-                  ),
-                ),
             ],
           ),
-          const SizedBox(height: 10),
-          Text(
-            _locationState.message,
-            style: theme.textTheme.bodyMedium?.copyWith(height: 1.45),
-          ),
-          if (lastLocation != null) ...[
-            const SizedBox(height: 10),
-            Text(
-              'Última coordenada auditada: ${_formatCoordinate(lastLocation.latitude)}, ${_formatCoordinate(lastLocation.longitude)} | precisão ${_formatAccuracy(lastLocation.accuracyMeters)}',
-              style: theme.textTheme.bodyMedium?.copyWith(height: 1.45),
+          if (_isSubmittingPunch) ...[
+            const SizedBox(height: 6),
+            Semantics(
+              liveRegion: true,
+              label: 'Registrando ponto',
+              child: Text(
+                'Registrando ponto…',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
             ),
           ],
-          if (_locationState.status != PunchLocationStatus.ready) ...[
-            const SizedBox(height: 14),
+          if (!isReady) ...[
+            const SizedBox(height: 8),
+            Text(
+              message,
+              style: theme.textTheme.bodySmall?.copyWith(height: 1.35),
+            ),
+            const SizedBox(height: 10),
             OutlinedButton.icon(
               onPressed: _isSubmittingPunch
                   ? null
@@ -587,9 +688,12 @@ class _TimeClockPageState extends State<TimeClockPage> {
   }
 
   Widget _buildPrimaryActionButton() {
+    final isPunchActionBlocked =
+        _isSubmittingPunch || _controller.isLoadingWorkLogProjects;
+
     if (_status == ShiftStatus.checkedOut) {
       return ElevatedButton.icon(
-        onPressed: _isSubmittingPunch
+        onPressed: isPunchActionBlocked
             ? null
             : () {
                 unawaited(_handlePunch(PunchType.checkIn));
@@ -601,7 +705,7 @@ class _TimeClockPageState extends State<TimeClockPage> {
 
     if (_status == ShiftStatus.working) {
       return ElevatedButton.icon(
-        onPressed: _isSubmittingPunch
+        onPressed: isPunchActionBlocked
             ? null
             : () {
                 unawaited(_handlePunch(PunchType.breakStart));
@@ -612,7 +716,7 @@ class _TimeClockPageState extends State<TimeClockPage> {
     }
 
     return ElevatedButton.icon(
-      onPressed: _isSubmittingPunch
+      onPressed: isPunchActionBlocked
           ? null
           : () {
               unawaited(_handlePunch(PunchType.breakEnd));
@@ -623,7 +727,7 @@ class _TimeClockPageState extends State<TimeClockPage> {
   }
 
   Widget _buildSecondaryActionButton() {
-    if (_status == ShiftStatus.checkedOut) {
+    if (_status == ShiftStatus.checkedOut || _status == ShiftStatus.onBreak) {
       return OutlinedButton.icon(
         onPressed: null,
         icon: const Icon(Icons.logout_rounded),
@@ -632,7 +736,7 @@ class _TimeClockPageState extends State<TimeClockPage> {
     }
 
     return OutlinedButton.icon(
-      onPressed: _isSubmittingPunch
+      onPressed: _isSubmittingPunch || _controller.isLoadingWorkLogProjects
           ? null
           : () {
               unawaited(_handlePunch(PunchType.checkOut));
@@ -642,112 +746,178 @@ class _TimeClockPageState extends State<TimeClockPage> {
     );
   }
 
-  Widget _buildMetricGrid(bool isWide) {
-    if (_isLoadingState) {
-      return LayoutBuilder(
-        builder: (context, constraints) {
-          final width =
-              isWide ? (constraints.maxWidth - 12) / 2 : constraints.maxWidth;
-
-          return Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: [
-              SizedBox(
-                width: width,
-                child: WorkspaceMetricCard(
-                  label: 'Horas hoje',
-                  value: '--h --m',
-                  helper: 'Carregando jornada do dia',
-                ),
-              ),
-              SizedBox(
-                width: width,
-                child: WorkspaceMetricCard(
-                  label: 'Pausa acumulada',
-                  value: '--h --m',
-                  helper: 'Carregando intervalo do dia',
-                ),
-              ),
-              SizedBox(
-                width: width,
-                child: WorkspaceMetricCard(
-                  label: 'Primeira entrada',
-                  value: '--:--',
-                  helper: 'Aguardando resposta da API',
-                ),
-              ),
-              SizedBox(
-                width: width,
-                child: WorkspaceMetricCard(
-                  label: 'Último evento',
-                  value: '--:--',
-                  helper: 'Aguardando resposta da API',
-                ),
-              ),
-            ],
-          );
-        },
-      );
-    }
+  Widget _buildMetricGrid() {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isLoading = _isLoadingState;
+    final metrics = <_TimeClockMetric>[
+      _TimeClockMetric(
+        icon: Icons.access_time_rounded,
+        label: 'Horas hoje',
+        value: isLoading
+            ? '--h --m'
+            : _formatDuration(Duration(minutes: _todayWorkedMinutes)),
+      ),
+      _TimeClockMetric(
+        icon: Icons.coffee_outlined,
+        label: 'Pausa acumulada',
+        value: isLoading
+            ? '--h --m'
+            : _formatDuration(Duration(minutes: _todayBreakMinutes)),
+      ),
+      _TimeClockMetric(
+        icon: Icons.login_rounded,
+        label: 'Primeira entrada',
+        value: isLoading || _firstCheckInAt == null
+            ? '--:--'
+            : _formatTime(_firstCheckInAt!),
+      ),
+      _TimeClockMetric(
+        icon: Icons.history_rounded,
+        label: 'Último evento',
+        value: isLoading || _lastPunchAt == null
+            ? '--:--'
+            : _formatTime(_lastPunchAt!),
+      ),
+    ];
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final width =
-            isWide ? (constraints.maxWidth - 12) / 2 : constraints.maxWidth;
+        final columns = constraints.maxWidth >= 720
+            ? 4
+            : constraints.maxWidth >= 340
+                ? 2
+                : 1;
+        final rows = <Widget>[];
 
-        return Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: [
-            SizedBox(
-              width: width,
-              child: WorkspaceMetricCard(
-                label: 'Horas hoje',
-                value: _formatDuration(
-                  Duration(minutes: _todayWorkedMinutes),
+        for (var start = 0; start < metrics.length; start += columns) {
+          if (start > 0) {
+            rows.add(Divider(
+              height: 1,
+              thickness: 1,
+              color: colorScheme.outlineVariant,
+            ));
+          }
+          final end = start + columns > metrics.length
+              ? metrics.length
+              : start + columns;
+          final row = <Widget>[];
+          for (var index = start; index < end; index++) {
+            if (index > start) {
+              row.add(SizedBox(
+                width: 1,
+                height: 56,
+                child: Container(color: colorScheme.outlineVariant),
+              ));
+            }
+            row.add(
+              Expanded(
+                child: _TimeClockMetricTile(
+                  metric: metrics[index],
+                  loading: isLoading,
                 ),
-                helper: 'Tempo acumulado em jornada ativa',
               ),
-            ),
-            SizedBox(
-              width: width,
-              child: WorkspaceMetricCard(
-                label: 'Pausa acumulada',
-                value: _formatDuration(
-                  Duration(minutes: _todayBreakMinutes),
-                ),
-                helper: 'Tempo total em intervalo no dia',
-              ),
-            ),
-            SizedBox(
-              width: width,
-              child: WorkspaceMetricCard(
-                label: 'Primeira entrada',
-                value: _firstCheckInAt == null
-                    ? '--:--'
-                    : _formatTime(_firstCheckInAt!),
-                helper: 'Primeiro registro válido de hoje',
-              ),
-            ),
-            SizedBox(
-              width: width,
-              child: WorkspaceMetricCard(
-                label: 'Útimo evento',
-                value:
-                    _lastPunchAt == null ? '--:--' : _formatTime(_lastPunchAt!),
-                helper: _lastPunchAt == null
-                    ? 'Sem eventos registrados'
-                    : 'Último ponto enviado hoje',
-              ),
-            ),
-          ],
+            );
+          }
+          rows.add(Row(children: row));
+        }
+
+        return Container(
+          key: const ValueKey<String>('time-clock-metrics-strip'),
+          decoration: BoxDecoration(
+            color: colorScheme.surface,
+            border: Border.all(color: colorScheme.outlineVariant),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: rows,
+          ),
         );
       },
     );
   }
 
-  Widget _buildTimelineCard() {
+  Widget _buildTimelineHeader() {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final title = Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: AppTheme.accent.withValues(alpha: 0.14),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            Icons.bar_chart_rounded,
+            size: 18,
+            color: colorScheme.primary,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            'Jornada do dia',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ],
+    );
+    final date = Container(
+      key: const ValueKey<String>('time-clock-timeline-date'),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.calendar_today_rounded,
+            size: 14,
+            color: colorScheme.primary,
+          ),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              '${_now.day} de ${_months[_now.month - 1]}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) => constraints.maxWidth >= 420
+          ? Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(child: title),
+                const SizedBox(width: 8),
+                date,
+              ],
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [title, const SizedBox(height: 6), date],
+            ),
+    );
+  }
+
+  Widget _buildTimelineCard(bool isWide) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final hasPagination = _controller.hasTimelinePagination;
@@ -758,49 +928,29 @@ class _TimeClockPageState extends State<TimeClockPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            _buildTimelineHeader(),
+            const SizedBox(height: 12),
             Text(
-              'Jornada do dia',
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Histórico cronológico das batidas com contexto suficiente para auditoria operacional.',
-              style: theme.textTheme.bodyMedium?.copyWith(
+              'Carregando histórico do dia...',
+              style: theme.textTheme.bodySmall?.copyWith(
                 color: colorScheme.onSurfaceVariant,
               ),
             ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Carregando histórico do dia...',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-              ],
+            const SizedBox(height: 12),
+            const WorkspaceSkeletonRegion(
+              key: ValueKey<String>('time-clock-history-skeleton'),
+              label: 'Carregando histórico do dia',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  _LoadingTimelineItem(),
+                  SizedBox(height: 8),
+                  _LoadingTimelineItem(),
+                ],
+              ),
             ),
-            const SizedBox(height: 20),
-            const _LoadingTimelineItem(),
             const SizedBox(height: 12),
-            const _LoadingTimelineItem(),
-            const SizedBox(height: 12),
-            const _LoadingTimelineItem(),
+            _buildContextCard(isWide),
           ],
         ),
       );
@@ -811,32 +961,22 @@ class _TimeClockPageState extends State<TimeClockPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Jornada do dia',
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Não foi possível carregar o histórico agora.',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 16),
+            _buildTimelineHeader(),
+            const SizedBox(height: 12),
             Text(
               _loadError!,
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w700,
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 10),
             OutlinedButton.icon(
               onPressed: _loadTimeClockState,
               icon: const Icon(Icons.refresh_rounded),
               label: const Text('Recarregar'),
             ),
+            const SizedBox(height: 12),
+            _buildContextCard(isWide),
           ],
         ),
       );
@@ -846,25 +986,36 @@ class _TimeClockPageState extends State<TimeClockPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Jornada do dia',
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Histórico cronológico das batidas com contexto suficiente para auditoria operacional.',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 20),
+          _buildTimelineHeader(),
+          const SizedBox(height: 12),
           if (_records.isEmpty)
-            Text(
-              'Nenhum registro realizado hoje.',
-              style: theme.textTheme.bodyLarge?.copyWith(
-                color: colorScheme.onSurfaceVariant,
+            Container(
+              key: const ValueKey<String>('time-clock-empty-state'),
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: colorScheme.surface.withValues(alpha: 0.5),
+                border: Border.all(color: colorScheme.outlineVariant),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.event_available_outlined,
+                      size: 24,
+                      color: colorScheme.primary,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Nenhum registro realizado hoje.',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             )
           else
@@ -873,142 +1024,170 @@ class _TimeClockPageState extends State<TimeClockPage> {
                 for (var index = 0; index < visibleRecords.length; index++) ...[
                   _TimelineTile(record: visibleRecords[index]),
                   if (index < visibleRecords.length - 1)
-                    Divider(color: colorScheme.outlineVariant, height: 20),
+                    Divider(color: colorScheme.outlineVariant, height: 1),
                 ],
                 if (hasPagination) ...[
-                  const SizedBox(height: 20),
-                  PaginationControls(
-                    page: _controller.recordsPage,
-                    totalPages: _controller.recordsTotalPages,
-                    hasPrevious: _controller.recordsHasPrevious,
-                    hasNext: _controller.recordsHasNext,
-                    onPrevious: _controller.loadPreviousTimelinePage,
-                    onNext: _controller.loadNextTimelinePage,
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Página ${_controller.recordsPage} de ${_controller.recordsTotalPages}',
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Anterior',
+                        onPressed: _controller.recordsHasPrevious
+                            ? _controller.loadPreviousTimelinePage
+                            : null,
+                        icon: const Icon(Icons.chevron_left_rounded),
+                      ),
+                      IconButton(
+                        tooltip: 'Próxima',
+                        onPressed: _controller.recordsHasNext
+                            ? _controller.loadNextTimelinePage
+                            : null,
+                        icon: const Icon(Icons.chevron_right_rounded),
+                      ),
+                    ],
                   ),
                 ],
               ],
             ),
+          const SizedBox(height: 8),
+          _buildContextCard(isWide),
         ],
       ),
     );
   }
 
   Widget _buildContextCard(bool isWide) {
+    return ExpansionTile(
+      key: const ValueKey<String>('time-clock-location-details'),
+      tilePadding: EdgeInsets.zero,
+      expandedAlignment: Alignment.centerLeft,
+      expandedCrossAxisAlignment: CrossAxisAlignment.start,
+      childrenPadding: const EdgeInsets.only(top: 8, bottom: 12),
+      minTileHeight: 40,
+      title: const Text('Detalhes de localização'),
+      children: [_buildContextDetails(isWide)],
+    );
+  }
+
+  Widget _buildContextDetails(bool isWide) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final lastLocation = _lastRegisteredLocation;
 
     if (_isLoadingState) {
-      return WorkspaceSectionCard(
-        child: isWide
-            ? Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: [
-                  const SizedBox(
-                    width: 240,
-                    child: _InfoFlag(label: 'Permissão', value: 'Carregando'),
-                  ),
-                  const SizedBox(
-                    width: 240,
-                    child: _InfoFlag(
-                      label: 'Última coordenada',
-                      value: 'Carregando',
-                    ),
-                  ),
-                  const SizedBox(
-                    width: 240,
-                    child: _InfoFlag(label: 'Precisão', value: 'Carregando'),
-                  ),
-                  const SizedBox(
-                    width: 240,
-                    child: _InfoFlag(label: 'Modo', value: 'Carregando'),
-                  ),
-                ],
-              )
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: const [
-                  _InfoFlag(label: 'Permissão', value: 'Carregando'),
-                  SizedBox(height: 12),
-                  _InfoFlag(label: 'Última coordenada', value: 'Carregando'),
-                  SizedBox(height: 12),
-                  _InfoFlag(label: 'Precisão', value: 'Carregando'),
-                  SizedBox(height: 12),
-                  _InfoFlag(label: 'Modo', value: 'Carregando'),
-                ],
-              ),
-      );
-    }
-
-    if (_hasLoadError) {
-      return WorkspaceSectionCard(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Contexto operacional',
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Sem dados para exibir enquanto a API não responde.',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return WorkspaceSectionCard(
-      child: isWide
+      return isWide
           ? Wrap(
-              spacing: 12,
-              runSpacing: 12,
+              spacing: 8,
+              runSpacing: 8,
               children: [
-                _InfoFlag(label: 'Permissão', value: _locationStatusLabel()),
-                _InfoFlag(
-                  label: 'Última coordenada',
-                  value: lastLocation == null
-                      ? 'Aguardando batida'
-                      : '${_formatCoordinate(lastLocation.latitude)}, ${_formatCoordinate(lastLocation.longitude)}',
+                const SizedBox(
+                  width: 200,
+                  child: _InfoFlag(label: 'Permissão', value: 'Carregando'),
                 ),
-                _InfoFlag(
-                  label: 'Precisão',
-                  value: lastLocation == null
-                      ? '--'
-                      : _formatAccuracy(lastLocation.accuracyMeters),
+                const SizedBox(
+                  width: 200,
+                  child: _InfoFlag(
+                    label: 'Última coordenada',
+                    value: 'Carregando',
+                  ),
                 ),
-                const _InfoFlag(label: 'Modo', value: 'Presencial rastreado'),
+                const SizedBox(
+                  width: 200,
+                  child: _InfoFlag(label: 'Precisão', value: 'Carregando'),
+                ),
+                const SizedBox(
+                  width: 200,
+                  child: _InfoFlag(label: 'Modo', value: 'Carregando'),
+                ),
               ],
             )
           : Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _InfoFlag(label: 'Permissão', value: _locationStatusLabel()),
-                const SizedBox(height: 12),
-                _InfoFlag(
-                  label: 'Última coordenada',
-                  value: lastLocation == null
-                      ? 'Aguardando batida'
-                      : '${_formatCoordinate(lastLocation.latitude)}, ${_formatCoordinate(lastLocation.longitude)}',
-                ),
-                const SizedBox(height: 12),
-                _InfoFlag(
-                  label: 'Precisão',
-                  value: lastLocation == null
-                      ? '--'
-                      : _formatAccuracy(lastLocation.accuracyMeters),
-                ),
-                const SizedBox(height: 12),
-                const _InfoFlag(label: 'Modo', value: 'Presencial rastreado'),
+              children: const [
+                _InfoFlag(label: 'Permissão', value: 'Carregando'),
+                SizedBox(height: 8),
+                _InfoFlag(label: 'Última coordenada', value: 'Carregando'),
+                SizedBox(height: 8),
+                _InfoFlag(label: 'Precisão', value: 'Carregando'),
+                SizedBox(height: 8),
+                _InfoFlag(label: 'Modo', value: 'Carregando'),
               ],
+            );
+    }
+
+    if (_hasLoadError) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Contexto operacional',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
             ),
-    );
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Sem dados para exibir enquanto a API não responde.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      );
+    }
+
+    return isWide
+        ? Wrap(
+            spacing: 32,
+            runSpacing: 16,
+            children: [
+              _InfoFlag(label: 'Permissão', value: _locationStatusLabel()),
+              _InfoFlag(
+                label: 'Última coordenada',
+                value: lastLocation == null
+                    ? 'Aguardando batida'
+                    : '${_formatCoordinate(lastLocation.latitude)}, ${_formatCoordinate(lastLocation.longitude)}',
+              ),
+              _InfoFlag(
+                label: 'Precisão',
+                value: lastLocation == null
+                    ? '--'
+                    : _formatAccuracy(lastLocation.accuracyMeters),
+              ),
+              const _InfoFlag(label: 'Modo', value: 'Presencial rastreado'),
+            ],
+          )
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _InfoFlag(label: 'Permissão', value: _locationStatusLabel()),
+              const SizedBox(height: 8),
+              _InfoFlag(
+                label: 'Última coordenada',
+                value: lastLocation == null
+                    ? 'Aguardando batida'
+                    : '${_formatCoordinate(lastLocation.latitude)}, ${_formatCoordinate(lastLocation.longitude)}',
+              ),
+              const SizedBox(height: 8),
+              _InfoFlag(
+                label: 'Precisão',
+                value: lastLocation == null
+                    ? '--'
+                    : _formatAccuracy(lastLocation.accuracyMeters),
+              ),
+              const SizedBox(height: 8),
+              const _InfoFlag(label: 'Modo', value: 'Presencial rastreado'),
+            ],
+          );
   }
 }
 
@@ -1025,85 +1204,45 @@ class _TimelineTile extends StatelessWidget {
     final mm = record.timestamp.minute.toString().padLeft(2, '0');
     final location = record.location;
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 42,
-          height: 42,
-          decoration: BoxDecoration(
-            color: AppTheme.accent.withValues(alpha: 0.14),
-            border: Border.all(color: AppTheme.accent.withValues(alpha: 0.24)),
-          ),
-          child: Icon(record.icon, size: 20),
-        ),
-        const SizedBox(width: 14),
+    return ExpansionTile(
+      key: ObjectKey(record),
+      // The parent owns separators; ExpansionTile must not add its own.
+      shape: const Border(),
+      collapsedShape: const Border(),
+      tilePadding: EdgeInsets.zero,
+      minTileHeight: 40,
+      childrenPadding: const EdgeInsets.fromLTRB(28, 0, 16, 12),
+      leading: Icon(record.icon, size: 20, color: colorScheme.primary),
+      title: Row(children: [
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                record.title,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                record.detail,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                  height: 1.45,
-                ),
-              ),
-              if (location != null) ...[
-                const SizedBox(height: 8),
-                Text(
-                  'Lat ${location.latitude.toStringAsFixed(5)} | Long ${location.longitude.toStringAsFixed(5)}',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Precisão estimada ${location.accuracyMeters.toStringAsFixed(0)} m',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ],
-          ),
+            child: Text(record.title,
+                style: theme.textTheme.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w700))),
+        const SizedBox(width: 8),
+        Text('$hh:$mm',
+            style: theme.textTheme.titleMedium
+                ?.copyWith(fontWeight: FontWeight.w700)),
+      ]),
+      children: [
+        Align(alignment: Alignment.centerLeft, child: Text(record.detail)),
+        PunchWorkContext(
+          type: record.type,
+          projectId: record.projectId,
+          projectName: record.projectName,
+          workLog: record.workLog,
         ),
-        const SizedBox(width: 12),
-        Text(
-          '$hh:$mm',
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
-        ),
+        if (location != null) ...[
+          const SizedBox(height: 8),
+          Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                  'Lat ${location.latitude.toStringAsFixed(5)} | Long ${location.longitude.toStringAsFixed(5)}')),
+          Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                  'Precisão estimada ${location.accuracyMeters.toStringAsFixed(0)} m')),
+        ],
       ],
-    );
-  }
-}
-
-class _LoadingBar extends StatelessWidget {
-  const _LoadingBar({this.width, this.height = 12});
-
-  final double? width;
-  final double height;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Container(
-      width: width,
-      height: height,
-      decoration: BoxDecoration(
-        color: colorScheme.outlineVariant.withValues(alpha: 0.35),
-      ),
     );
   }
 }
@@ -1113,37 +1252,98 @@ class _LoadingTimelineItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Row(
+    return const Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          width: 42,
-          height: 42,
-          decoration: BoxDecoration(
-            color: colorScheme.outlineVariant.withValues(alpha: 0.25),
-            border: Border.all(
-              color: colorScheme.outlineVariant.withValues(alpha: 0.4),
-            ),
-          ),
-        ),
-        const SizedBox(width: 14),
-        const Expanded(
+        WorkspaceSkeleton(width: 34, height: 34),
+        SizedBox(width: 10),
+        Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _LoadingBar(width: 150, height: 16),
-              SizedBox(height: 8),
-              _LoadingBar(width: double.infinity, height: 12),
+              WorkspaceSkeleton(width: 150, height: 14),
               SizedBox(height: 6),
-              _LoadingBar(width: 220, height: 12),
+              WorkspaceSkeleton(height: 10),
             ],
           ),
         ),
-        const SizedBox(width: 12),
-        const _LoadingBar(width: 40, height: 16),
+        SizedBox(width: 8),
+        WorkspaceSkeleton(width: 40, height: 14),
       ],
+    );
+  }
+}
+
+class _TimeClockMetric {
+  const _TimeClockMetric({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+}
+
+class _TimeClockMetricTile extends StatelessWidget {
+  const _TimeClockMetricTile({required this.metric, required this.loading});
+
+  final _TimeClockMetric metric;
+  final bool loading;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Semantics(
+      container: true,
+      label: loading
+          ? '${metric.label}: carregando'
+          : '${metric.label}: ${metric.value}',
+      child: ExcludeSemantics(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: <Widget>[
+              Icon(
+                metric.icon,
+                size: 18,
+                color: colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Text(
+                      metric.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      metric.value,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -1158,31 +1358,18 @@ class _InfoFlag extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: colorScheme.surface.withValues(alpha: 0.8),
-        border: Border.all(color: colorScheme.outlineVariant),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: theme.textTheme.labelLarge?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label,
+            style: theme.textTheme.labelLarge
+                ?.copyWith(color: colorScheme.onSurfaceVariant)),
+        const SizedBox(height: 4),
+        Text(value,
+            style: theme.textTheme.titleMedium
+                ?.copyWith(fontWeight: FontWeight.w700)),
+      ],
     );
   }
 }

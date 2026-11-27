@@ -1,0 +1,152 @@
+{
+  "schema_version": 6,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      "backend/app/config.py",
+      "backend/app/api/routes/audit.py",
+      "backend/app/services/audit_export.py",
+      "backend/tests/test_audit_export.py",
+      "frontend/lib/core/network/api_client.dart",
+      "frontend/lib/core/network/touchin_api.dart",
+      "frontend/lib/features/admin/presentation/admin_audit_page.dart",
+      "frontend/test/admin_audit_export_test.dart",
+      "docs/contracts/audit-export-limit-issue-113-v2.polis.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "backend/tests/test_audit_export.py",
+      "frontend/test/admin_audit_export_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Enforce an immutable 1 MiB hard ceiling for authenticated audit CSV downloads so configuration cannot re-enable whole-response browser buffering risk, while preserving the authorized filter scope.",
+    "requirements": [
+      {
+        "id": "REQ-113-LIMIT-01",
+        "statement": "The backend enforces an effective maximum CSV byte size no greater than 1 MiB before returning any CSV bytes and reports the exact matching row count and effective limit when over the ceiling; lower positive configuration values are supported."
+      },
+      {
+        "id": "REQ-113-LIMIT-02",
+        "statement": "An export exactly at the effective byte ceiling succeeds; an export one byte above it is rejected without a CSV body. Configured values above 1 MiB never raise the effective ceiling."
+      },
+      {
+        "id": "REQ-113-LIMIT-03",
+        "statement": "Over-limit feedback tells the user how many rows matched and the maximum file size, and asks them to narrow filters."
+      },
+      {
+        "id": "REQ-113-LIMIT-04",
+        "statement": "Authorization, company scope, applied filters, order, CSV columns and encoding remain identical."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-113-LIMIT-01",
+        "statement": "At the configured maximum size the authenticated export returns the complete CSV; one byte above returns a bounded error with exact count and limit, no CSV bytes.",
+        "requirements": [
+          "REQ-113-LIMIT-01",
+          "REQ-113-LIMIT-02"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-113-LIMIT-02",
+        "statement": "A user holding audit.read sees a localized over-limit message with count and limit; the same endpoint continues to reject unauthorized users and exclude other tenants.",
+        "requirements": [
+          "REQ-113-LIMIT-03",
+          "REQ-113-LIMIT-04"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-113-LIMIT-01",
+        "statement": "No company selector or permission bypass is introduced; request filters and authenticated company scope are unchanged."
+      },
+      {
+        "id": "INV-113-LIMIT-02",
+        "statement": "The effective export ceiling is always at most 1 MiB, regardless of environment configuration."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-113-LIMIT-01",
+        "statement": "The server silently truncates an export or returns a partial CSV as if complete."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-113-LIMIT-01",
+        "statement": "Existing authenticated audit export filters and server-configured byte ceiling."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-113-LIMIT-01",
+        "statement": "Complete CSV within the byte ceiling, or a bounded over-limit error including exact matching row count and limit."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-113-LIMIT-01",
+        "statement": "Oversize exports fail with HTTP 413 before CSV delivery; no partial file is downloaded."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "bc71403abf3be6cda104316f4b8c14277a205944",
+    "base_tree": "8646738eff37b025f5f5c6c56cd4332801a7cbfd",
+    "policy_sha256": "5563facc34ae2a1a07cf7ec7ec2f115cb8d250c49dd6e2bd5c7a3de4c977d450",
+    "specification_sha256": "5f97fb2116f42764fa0c855e29534c1ef975bae252b9c6606508a21c95813171"
+  },
+  "behavior": {
+    "argv": [
+      "python",
+      "-m",
+      "pytest",
+      "tests/test_audit_export.py",
+      "-q"
+    ],
+    "cwd": "backend",
+    "timeout_seconds": 300,
+    "environment": {
+      "mode": "inherit"
+    }
+  },
+  "affected": {
+    "argv": [
+      "python",
+      "scripts/polis_tests.py"
+    ],
+    "cwd": ".",
+    "timeout_seconds": 1200,
+    "environment": {
+      "mode": "inherit"
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "python",
+        "-m",
+        "pytest",
+        "tests/test_audit_export.py",
+        "-q"
+      ],
+      "cwd": "backend",
+      "timeout_seconds": 300,
+      "environment": {
+        "mode": "inherit"
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "FAILED"
+    ]
+  }
+}

@@ -1,0 +1,180 @@
+{
+  "schema_version": 6,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      "frontend/lib/features/admin/presentation/admin_employees_page.dart",
+      "frontend/lib/features/admin/presentation/admin_employees_page_widgets.dart",
+      "frontend/test/admin_employees_page_test.dart",
+      "docs/contracts/admin-employee-profile-rounded-v1.polis.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/admin_employees_page_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Round only the indicated selected employee profile surfaces, preserving behavior and layout.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "Use radius 8 for profile icon, profile badges, overview icons and detail tabs; radius 12 for overview cards and registration panel."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "Preserve existing behavior, colors, layout, semantics, interactions, selected states and internal divider; do not change shared pill callers outside the profile."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "Widget regression covers each surface, both themes, tabs and interaction at desktop and mobile widths."
+      },
+      {
+        "id": "REQ-004",
+        "statement": "Store a byte-identical copy of the locked contract at the declared contract path."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "Requested profile surfaces use the specified radii in both themes and responsive layouts.",
+        "requirements": [
+          "REQ-001",
+          "REQ-003"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "Tab selection and edit interactions continue to function, and registration divider remains.",
+        "requirements": [
+          "REQ-002",
+          "REQ-003"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-003",
+        "statement": "The committed-scope contract copy equals the locked bytes.",
+        "requirements": [
+          "REQ-004"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "Unrelated pill uses remain unchanged and no behavior, layout, colors or data are altered."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "Requested profile surfaces retain square corners or unrelated components are rounded."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "Selected profile screenshot and existing employee detail widgets."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "Rounded selected profile surfaces and regression coverage."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "Widget regression fails when any specified radius or interaction is incorrect."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "f6a5e17c1841ac77d931a3f8675f3d52983e4bd9",
+    "base_tree": "d5e8e5a93e66cf368285a225612f4c43b27401d1",
+    "policy_sha256": "7714a10ab2b65f58941086f500de93fa62fc6acb6fd59d8b39292980364774dd",
+    "specification_sha256": "72a9185fd261129749d2f834aea59c4719681767eef2b41327414972769a04b4"
+  },
+  "behavior": {
+    "argv": [
+      "python3",
+      "-c",
+      "from pathlib import Path; import sys; a=Path('docs/contracts/admin-employee-profile-rounded-v1.polis.json'); print('contract_present' if a.is_file() else 'contract_missing'); sys.exit(0 if a.is_file() else 1)"
+    ],
+    "cwd": ".",
+    "timeout_seconds": 30,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "--exclude-tags",
+      "canonical-golden",
+      "--reporter",
+      "expanded",
+      "--plain-name",
+      "profile surface radii",
+      "test/admin_employees_page_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "--exclude-tags",
+        "canonical-golden",
+        "--reporter",
+        "expanded",
+        "--plain-name",
+        "profile surface radii",
+        "test/admin_employees_page_test.dart"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 600,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "profile_surface_radius"
+    ]
+  }
+}

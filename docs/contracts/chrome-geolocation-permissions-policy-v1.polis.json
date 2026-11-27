@@ -1,0 +1,159 @@
+{
+  "schema_version": 6,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      "docs/contracts/chrome-geolocation-permissions-policy-v1.polis.json",
+      "frontend/vercel.json",
+      "frontend/test/browser/first_paint_smoke.mjs"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/browser/first_paint_smoke.mjs"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Stop Chrome from blocking the same-origin app's geolocation API while keeping geolocation unavailable to cross-origin documents and keeping camera and microphone disabled.",
+    "requirements": [
+      {
+        "id": "REQ-GEO-1",
+        "statement": "The deployed frontend Permissions-Policy allows geolocation only for same-origin documents; camera and microphone remain disabled."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-GEO-1",
+        "statement": "The Vercel Permissions-Policy value is exactly `camera=(), microphone=(), geolocation=(self)`.",
+        "requirements": [
+          "REQ-GEO-1"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-GEO-2",
+        "statement": "The existing Chrome browser smoke test fails when geolocation is disallowed by the configured policy and passes with the same-origin allowlist.",
+        "requirements": [
+          "REQ-GEO-1"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-GEO-1",
+        "statement": "Do not grant geolocation to cross-origin documents or wildcard origins."
+      },
+      {
+        "id": "INV-GEO-2",
+        "statement": "Keep camera and microphone disabled and do not change geolocation collection, storage, or backend behavior."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-GEO-1",
+        "statement": "The frontend Permissions-Policy blocks geolocation for the same-origin application or grants it to cross-origin documents."
+      },
+      {
+        "id": "FORB-GEO-2",
+        "statement": "Camera or microphone permissions are enabled."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-GEO-1",
+        "statement": "The frontend deployment response headers in frontend/vercel.json."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-GEO-1",
+        "statement": "A same-origin geolocation policy that removes Chrome's policy violation without broadening cross-origin access."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-GEO-1",
+        "statement": "The Chrome smoke regression fails with permissions_policy_geolocation_self when the policy does not match the required same-origin-only value."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "6ccc86131e68fd175c569f174a14809cd6323e8e",
+    "base_tree": "93cf975ea3a25aa9c472bc8a685d742f68e039dc",
+    "policy_sha256": "7714a10ab2b65f58941086f500de93fa62fc6acb6fd59d8b39292980364774dd",
+    "specification_sha256": "f0581b6afd8e2491349a3957ca9db86a0b2b44ef5e002dfbad24acc28219aae7"
+  },
+  "behavior": {
+    "argv": [
+      "bash",
+      "-c",
+      "flutter build web --release \u0026\u0026 node test/browser/first_paint_smoke.mjs"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 900,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP",
+        "TOUCHIN_CHROME",
+        "TOUCHIN_CHROME_NO_SANDBOX"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "bash",
+      "-c",
+      "flutter build web --release \u0026\u0026 node test/browser/first_paint_smoke.mjs"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 900,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP",
+        "TOUCHIN_CHROME",
+        "TOUCHIN_CHROME_NO_SANDBOX"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "bash",
+        "-c",
+        "flutter build web --release \u0026\u0026 node test/browser/first_paint_smoke.mjs"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 900,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP",
+          "TOUCHIN_CHROME",
+          "TOUCHIN_CHROME_NO_SANDBOX"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "permissions_policy_geolocation_self"
+    ]
+  }
+}

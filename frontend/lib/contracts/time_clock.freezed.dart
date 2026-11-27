@@ -15,7 +15,9 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$CreatePunchRequest {
   PunchType get type;
+  String? get projectId;
   PunchLocationSnapshot? get location;
+  WorkLogPayload? get workLog;
 
   /// Create a copy of CreatePunchRequest
   /// with the given fields replaced by the non-null parameter values.
@@ -31,16 +33,20 @@ mixin _$CreatePunchRequest {
         (other.runtimeType == runtimeType &&
             other is CreatePunchRequest &&
             (identical(other.type, type) || other.type == type) &&
+            (identical(other.projectId, projectId) ||
+                other.projectId == projectId) &&
             (identical(other.location, location) ||
-                other.location == location));
+                other.location == location) &&
+            (identical(other.workLog, workLog) || other.workLog == workLog));
   }
 
   @override
-  int get hashCode => Object.hash(runtimeType, type, location);
+  int get hashCode =>
+      Object.hash(runtimeType, type, projectId, location, workLog);
 
   @override
   String toString() {
-    return 'CreatePunchRequest(type: $type, location: $location)';
+    return 'CreatePunchRequest(type: $type, projectId: $projectId, location: $location, workLog: $workLog)';
   }
 }
 
@@ -50,7 +56,11 @@ abstract mixin class $CreatePunchRequestCopyWith<$Res> {
           CreatePunchRequest value, $Res Function(CreatePunchRequest) _then) =
       _$CreatePunchRequestCopyWithImpl;
   @useResult
-  $Res call({PunchType type, PunchLocationSnapshot? location});
+  $Res call(
+      {PunchType type,
+      String? projectId,
+      PunchLocationSnapshot? location,
+      WorkLogPayload? workLog});
 
   $PunchLocationSnapshotCopyWith<$Res>? get location;
 }
@@ -69,17 +79,27 @@ class _$CreatePunchRequestCopyWithImpl<$Res>
   @override
   $Res call({
     Object? type = null,
+    Object? projectId = freezed,
     Object? location = freezed,
+    Object? workLog = freezed,
   }) {
     return _then(_self.copyWith(
       type: null == type
           ? _self.type
           : type // ignore: cast_nullable_to_non_nullable
               as PunchType,
+      projectId: freezed == projectId
+          ? _self.projectId
+          : projectId // ignore: cast_nullable_to_non_nullable
+              as String?,
       location: freezed == location
           ? _self.location
           : location // ignore: cast_nullable_to_non_nullable
               as PunchLocationSnapshot?,
+      workLog: freezed == workLog
+          ? _self.workLog
+          : workLog // ignore: cast_nullable_to_non_nullable
+              as WorkLogPayload?,
     ));
   }
 
@@ -191,14 +211,16 @@ extension CreatePunchRequestPatterns on CreatePunchRequest {
 
   @optionalTypeArgs
   TResult maybeWhen<TResult extends Object?>(
-    TResult Function(PunchType type, PunchLocationSnapshot? location)?
+    TResult Function(PunchType type, String? projectId,
+            PunchLocationSnapshot? location, WorkLogPayload? workLog)?
         $default, {
     required TResult orElse(),
   }) {
     final _that = this;
     switch (_that) {
       case _CreatePunchRequest() when $default != null:
-        return $default(_that.type, _that.location);
+        return $default(
+            _that.type, _that.projectId, _that.location, _that.workLog);
       case _:
         return orElse();
     }
@@ -219,12 +241,15 @@ extension CreatePunchRequestPatterns on CreatePunchRequest {
 
   @optionalTypeArgs
   TResult when<TResult extends Object?>(
-    TResult Function(PunchType type, PunchLocationSnapshot? location) $default,
+    TResult Function(PunchType type, String? projectId,
+            PunchLocationSnapshot? location, WorkLogPayload? workLog)
+        $default,
   ) {
     final _that = this;
     switch (_that) {
       case _CreatePunchRequest():
-        return $default(_that.type, _that.location);
+        return $default(
+            _that.type, _that.projectId, _that.location, _that.workLog);
       case _:
         throw StateError('Unexpected subclass');
     }
@@ -244,13 +269,15 @@ extension CreatePunchRequestPatterns on CreatePunchRequest {
 
   @optionalTypeArgs
   TResult? whenOrNull<TResult extends Object?>(
-    TResult? Function(PunchType type, PunchLocationSnapshot? location)?
+    TResult? Function(PunchType type, String? projectId,
+            PunchLocationSnapshot? location, WorkLogPayload? workLog)?
         $default,
   ) {
     final _that = this;
     switch (_that) {
       case _CreatePunchRequest() when $default != null:
-        return $default(_that.type, _that.location);
+        return $default(
+            _that.type, _that.projectId, _that.location, _that.workLog);
       case _:
         return null;
     }
@@ -260,12 +287,18 @@ extension CreatePunchRequestPatterns on CreatePunchRequest {
 /// @nodoc
 
 class _CreatePunchRequest extends CreatePunchRequest {
-  const _CreatePunchRequest({required this.type, this.location}) : super._();
+  const _CreatePunchRequest(
+      {required this.type, this.projectId, this.location, this.workLog})
+      : super._();
 
   @override
   final PunchType type;
   @override
+  final String? projectId;
+  @override
   final PunchLocationSnapshot? location;
+  @override
+  final WorkLogPayload? workLog;
 
   /// Create a copy of CreatePunchRequest
   /// with the given fields replaced by the non-null parameter values.
@@ -281,16 +314,20 @@ class _CreatePunchRequest extends CreatePunchRequest {
         (other.runtimeType == runtimeType &&
             other is _CreatePunchRequest &&
             (identical(other.type, type) || other.type == type) &&
+            (identical(other.projectId, projectId) ||
+                other.projectId == projectId) &&
             (identical(other.location, location) ||
-                other.location == location));
+                other.location == location) &&
+            (identical(other.workLog, workLog) || other.workLog == workLog));
   }
 
   @override
-  int get hashCode => Object.hash(runtimeType, type, location);
+  int get hashCode =>
+      Object.hash(runtimeType, type, projectId, location, workLog);
 
   @override
   String toString() {
-    return 'CreatePunchRequest(type: $type, location: $location)';
+    return 'CreatePunchRequest(type: $type, projectId: $projectId, location: $location, workLog: $workLog)';
   }
 }
 
@@ -302,7 +339,11 @@ abstract mixin class _$CreatePunchRequestCopyWith<$Res>
       __$CreatePunchRequestCopyWithImpl;
   @override
   @useResult
-  $Res call({PunchType type, PunchLocationSnapshot? location});
+  $Res call(
+      {PunchType type,
+      String? projectId,
+      PunchLocationSnapshot? location,
+      WorkLogPayload? workLog});
 
   @override
   $PunchLocationSnapshotCopyWith<$Res>? get location;
@@ -322,17 +363,27 @@ class __$CreatePunchRequestCopyWithImpl<$Res>
   @pragma('vm:prefer-inline')
   $Res call({
     Object? type = null,
+    Object? projectId = freezed,
     Object? location = freezed,
+    Object? workLog = freezed,
   }) {
     return _then(_CreatePunchRequest(
       type: null == type
           ? _self.type
           : type // ignore: cast_nullable_to_non_nullable
               as PunchType,
+      projectId: freezed == projectId
+          ? _self.projectId
+          : projectId // ignore: cast_nullable_to_non_nullable
+              as String?,
       location: freezed == location
           ? _self.location
           : location // ignore: cast_nullable_to_non_nullable
               as PunchLocationSnapshot?,
+      workLog: freezed == workLog
+          ? _self.workLog
+          : workLog // ignore: cast_nullable_to_non_nullable
+              as WorkLogPayload?,
     ));
   }
 

@@ -1,0 +1,141 @@
+{
+  "schema_version": 6,
+  "kind": "behavior_preserving",
+  "scope": {
+    "allowed_paths": [
+      "docs/contracts/project-selector-height-follow-up-v1.polis.json",
+      "frontend/lib/features/projects/presentation/project_kanban_page.dart",
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Record the unresolved project-selector visual height mismatch as future work without changing runtime behavior.",
+    "requirements": [
+      {
+        "id": "REQ-SELECTOR-TODO-01",
+        "statement": "A TODO adjacent to the Kanban project selector must mark its visible height mismatch with neighboring controls on mobile and desktop as unresolved future work."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-SELECTOR-TODO-01",
+        "statement": "One concise TODO comment immediately above the selector construction states that its visible height still appears mismatched with adjacent controls on mobile and desktop; no runtime code or tests change.",
+        "requirements": [
+          "REQ-SELECTOR-TODO-01"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-SELECTOR-TODO-DOC-01",
+        "statement": "docs/contracts/project-selector-height-follow-up-v1.polis.json is byte-for-byte identical to the locked contract.",
+        "requirements": [
+          "REQ-SELECTOR-TODO-01"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-SELECTOR-TODO-01",
+        "statement": "The project selector's value, options, visual rendering, selection callback, accessibility semantics, and all other runtime behavior remain unchanged."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-SELECTOR-TODO-01",
+        "statement": "The TODO changes runtime behavior, claims the visual mismatch is fixed, or omits either mobile or desktop from the follow-up note."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-SELECTOR-TODO-01",
+        "statement": "The existing Kanban project selector implementation and the user's reported visual discrepancy."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-SELECTOR-TODO-01",
+        "statement": "A code comment recording the selector-height discrepancy for future resolution."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-SELECTOR-TODO-01",
+        "statement": "Any runtime change or missing mobile/desktop scope violates the requested documentation-only outcome."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "0a718ec701487f8ebe047f9324635a33075f4888",
+    "base_tree": "c3139b9e9421735601c2160d81949fd311dc7c51",
+    "policy_sha256": "7714a10ab2b65f58941086f500de93fa62fc6acb6fd59d8b39292980364774dd",
+    "specification_sha256": "c7b8b6a701d77821b60668a0203f03d20775e760742de5c0865058e3e6f89e59"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/features/projects/presentation/project_kanban_page_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/features/projects/presentation/project_kanban_page_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "green_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "test/features/projects/presentation/project_kanban_page_test.dart"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 600,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    }
+  }
+}

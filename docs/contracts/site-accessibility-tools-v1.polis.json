@@ -1,0 +1,137 @@
+{
+  "schema_version": 6,
+  "kind": "feature",
+  "scope": {
+    "allowed_paths": [
+      "frontend/lib/main.dart",
+      "frontend/lib/features/shared/presentation/widgets/accessibility_tools.dart",
+      "frontend/test/accessibility_tools_test.dart",
+      "docs/contracts/site-accessibility-tools-v1.polis.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/accessibility_tools_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Provide site-wide, keyboard-accessible controls for text scaling and reduced motion that remain usable on narrow viewports.",
+    "requirements": [
+      {
+        "id": "REQ-1",
+        "statement": "The site exposes a clearly named accessibility control and an operable panel to adjust text size, reduce animations, and restore defaults."
+      },
+      {
+        "id": "REQ-2",
+        "statement": "Accessibility settings apply throughout the site and the control remains accessible and responsive at mobile and desktop widths."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-1",
+        "statement": "Widget tests verify the named launcher, text scaling controls, reduce-animation toggle, reset behavior, and semantic state.",
+        "requirements": [
+          "REQ-1"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-2",
+        "statement": "Widget tests verify adjusted MediaQuery settings and fit at a 320-pixel viewport; CUA verifies the rendered panel in the browser.",
+        "requirements": [
+          "REQ-2"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-1",
+        "statement": "Default text scaling and animation behavior are unchanged until the visitor adjusts a setting."
+      },
+      {
+        "id": "INV-2",
+        "statement": "Accessibility tools do not navigate away from or obscure the underlying page when closed."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORBID-1",
+        "statement": "Accessibility controls are unavailable to keyboard or screen-reader users."
+      },
+      {
+        "id": "FORBID-2",
+        "statement": "The compact viewport causes horizontal overflow in the accessibility panel."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-1",
+        "statement": "User activation of the global accessibility launcher and panel controls."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-1",
+        "statement": "Site-wide MediaQuery text scaling and reduced-animation preference."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-1",
+        "statement": "If the panel is dismissed, current session settings remain active and the page remains usable."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "ca9b776ddac1920872af36907d9bcbdd5217434e",
+    "base_tree": "4dcd5c171f7482b4e3959c091559d53db4a4417e",
+    "policy_sha256": "5563facc34ae2a1a07cf7ec7ec2f115cb8d250c49dd6e2bd5c7a3de4c977d450",
+    "specification_sha256": "94d46710bda516587ee263d03261d248d34a4b56ed5e0ae1a9ee88816813e7aa"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/accessibility_tools_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 300,
+    "environment": {
+      "mode": "inherit"
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/accessibility_tools_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 300,
+    "environment": {
+      "mode": "inherit"
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "test/accessibility_tools_test.dart"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 300,
+      "environment": {
+        "mode": "inherit"
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "accessibility_tools.dart"
+    ]
+  }
+}

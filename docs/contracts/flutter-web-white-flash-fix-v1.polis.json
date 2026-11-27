@@ -1,0 +1,238 @@
+{
+  "schema_version": 5,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      "docs/contracts/flutter-web-white-flash-fix-v1.polis.json",
+      ".polis/policy.json",
+      "scripts/polis_tests.py",
+      "scripts/run_polis_gates.py",
+      "scripts/tests/test_run_polis_gates.py",
+      ".github/workflows/ci.yml",
+      "frontend/web/index.html",
+      "frontend/vercel.json",
+      "frontend/test/browser/first_paint_smoke.mjs",
+      "frontend/test/core/theme/theme_mode_controller_test.dart",
+      "frontend/lib/core/theme/theme_mode_controller.dart",
+      "frontend/lib/core/theme/theme_surface_sync_stub.dart",
+      "frontend/lib/core/theme/theme_surface_sync_web.dart",
+      "frontend/test/widget_test.dart"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/widget_test.dart",
+      "frontend/test/browser/first_paint_smoke.mjs",
+      "frontend/test/core/theme/theme_mode_controller_test.dart",
+      "scripts/tests/test_run_polis_gates.py"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v1",
+  "specification": {
+    "objective": "Eliminate the white flash in the TouchIn Flutter Web first paint, reloads, and page transitions without hiding loading failures, delaying startup, or changing existing application behavior.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "The browser must paint an opaque initial surface before Flutter downloads, initializes, reads the saved theme, or mounts flutter-view. Its colors must match the application's dark (#161616) and light (#FAFAF7) scaffold backgrounds."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "The pre-Flutter surface must follow the previously synchronized light, dark, or system visual hint on reloads; system mode must respond to the browser's light/dark preference. When a legacy secure preference exists without the new visual hint, the first paint must use the default dark fallback and reconcile after the asynchronous secure preference read, because that encrypted preference cannot be synchronously decoded before Flutter starts."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "FlutterSecureStorage remains authoritative for theme preference. Once it loads, the controller must reconcile the browser's initial visual hint. Subsequent theme choices should preview immediately without persisting the reload hint until the corresponding secure write succeeds. Failed writes must restore the last confirmed theme and later rapid choices must not be overwritten by stale failures."
+      },
+      {
+        "id": "REQ-004",
+        "statement": "Initial auth-session resolution must retain its real loading indicator. Navigation between Flutter pages must use the existing themed, opaque Scaffold surfaces without a white intermediate frame."
+      },
+      {
+        "id": "REQ-005",
+        "statement": "Keep route behavior, authentication, visual design, mobile/desktop targets, CSP constraints, package dependencies, and backend behavior unchanged."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "The web document assigns the dark application background directly to the root and body before loading Flutter, including when the JavaScript application has not started.",
+        "requirements": ["REQ-001"],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "A cold load and reload start with a nonwhite opaque background in dark mode; light mode starts with #FAFAF7; system mode uses prefers-color-scheme without an intermediate white surface.",
+        "requirements": ["REQ-001", "REQ-002"],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-003",
+        "statement": "The early visual hint uses a minimal inline script with a matching explicit SHA-256 script-src CSP hash, without an additional blocking network request, and safely falls back to the default dark theme when browser storage is unavailable.",
+        "requirements": ["REQ-002", "REQ-005"],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-004",
+        "statement": "The Flutter theme controller synchronizes the browser theme after secure-preference loading and upon theme changes, and non-web targets remain buildable.",
+        "requirements": ["REQ-003", "REQ-005"],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-005",
+        "statement": "Widget regression coverage checks opaque themed Scaffold backgrounds during login-to-registration navigation and return, including an intermediate transition frame.",
+        "requirements": ["REQ-004"],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-006",
+        "statement": "Flutter tests and the web release build complete; the generated HTML contains the early theme bootstrap and no obsolete full-screen white loader overlay. A headless Chrome smoke test verifies actual screenshot pixels for first paint, slow resources, reload, theme modes, migration fallback and route changes, using a bounded screencast to sample additional compositor frames without claiming exhaustive detection of one-frame flashes.",
+        "requirements": ["REQ-001", "REQ-004", "REQ-005"],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-007",
+        "statement": "Tests cover queued rapid theme choices, pending and rejected secure writes, immediate reload during an uncommitted visual preview, rollback to the last confirmed theme, failed secure reads, and unavailability of browser storage. Error diagnostics state only the operation and do not disclose preference contents or exception text.",
+        "requirements": ["REQ-002", "REQ-003", "REQ-005"],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-008",
+        "statement": "Under blocked localStorage access, the browser smoke must verify that Flutter mounts the functional login UI while storage remains blocked. GitHub Actions must build Flutter Web and run that Chrome visual smoke using commands from the checked-in POLIS policy; an invalid inline bootstrap CSP hash must fail validation.",
+        "requirements": ["REQ-001", "REQ-004", "REQ-005"],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-009",
+        "statement": "The GitHub Actions POLIS policy adapter must enforce each gate's timeout_seconds, terminate its spawned process and descendants if the deadline expires, return a nonzero timeout result, and keep non-timeout exit status, working directory, and the clean environment intact.",
+        "requirements": ["REQ-005"],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "ThemeModeController and FlutterSecureStorage remain the source of truth; the web theme hint is only a first-paint optimization."
+      },
+      {
+        "id": "INV-002",
+        "statement": "The MaterialApp, startup auth FutureBuilder, standard MaterialPageRoute transitions, and application feature screens retain their behavior."
+      },
+      {
+        "id": "INV-003",
+        "statement": "The baseline dark and light colors match AppTheme. No animation delay, indefinite overlay, or suppression of loading/errors is introduced."
+      },
+      {
+        "id": "INV-004",
+        "statement": "This schema-v5 document is an unsealed draft created after implementation began; it must never be represented as a locked schema-v6 POLIS contract or proof of a past start/capture-red. A future strict workflow requires a new clean baseline and genuine evidence."
+      },
+      {
+        "id": "INV-005",
+        "statement": "The browser may immediately preview a newly chosen theme, but the first-paint hint for later loads is only committed after FlutterSecureStorage confirms success. Browser-storage restrictions never delay initialization."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "The browser paints its default white background while waiting for Flutter initialization."
+      },
+      {
+        "id": "FORB-002",
+        "statement": "A stale white HTML loading overlay covers the page before or after the app first frame."
+      },
+      {
+        "id": "FORB-003",
+        "statement": "An artificial timer, hidden application, or forced opacity mask conceals stalled resources, bootstrap exceptions, or application errors."
+      },
+      {
+        "id": "FORB-004",
+        "statement": "The browser-only theme hint replaces the secure theme preference as the authoritative setting."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "The Flutter Web HTML document, its loader script, and the browser's first-paint background before main.dart.js executes."
+      },
+      {
+        "id": "IN-002",
+        "statement": "The persisted Flutter theme preference, optional browser visual hint, and system preferred color scheme."
+      },
+      {
+        "id": "IN-003",
+        "statement": "Initial auth-session restoration and MaterialPageRoute navigation between login and registration."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "An immediately painted theme-compatible HTML surface and a matching Flutter root surface."
+      },
+      {
+        "id": "OUT-002",
+        "statement": "A browser visual hint synchronized with the authoritative Flutter theme and safe on platforms without JavaScript interop."
+      },
+      {
+        "id": "OUT-003",
+        "statement": "Regression coverage for themed backgrounds during authentication navigation."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "When browser storage is blocked or its hint is missing, first paint uses the dark application background; the Flutter preference is applied when available."
+      },
+      {
+        "id": "FAIL-002",
+        "statement": "Failures in Flutter initialization or resource loading remain observable and are not hidden by an indefinite covering overlay."
+      },
+      {
+        "id": "FAIL-003",
+        "statement": "If the critical HTML paint, inline theme bootstrap or matching CSP hash is absent, the declared Red-to-Green regression command exits nonzero and prints touchin_first_paint_unprotected."
+      },
+      {
+        "id": "FAIL-004",
+        "statement": "For an existing encrypted light-theme preference with no prior visual hint, the first navigation after deployment can transition dark to light once when Flutter decrypts it; repeated loads will use the reconciled hint. Recovering the ciphertext before Flutter/WebCrypto without asynchronous work is unsupported."
+      },
+      {
+        "id": "FAIL-005",
+        "statement": "Failure to read secure storage uses the dark app default; failure to write secure storage reverts to the most recent confirmed choice. Browser localStorage failures leave the first paint operational and emit a bounded generic read/write warning without exposing values or exception messages. Chrome screencast may miss a single compositor frame due to throttling or capture loss."
+      }
+    ]
+  },
+  "behavior": {
+    "argv": ["flutter", "test"],
+    "cwd": "frontend",
+    "timeout_seconds": 1200,
+    "environment": {
+      "mode": "clean",
+      "pass": ["PATH", "HOME", "TMPDIR", "TMP", "TEMP"]
+    }
+  },
+  "affected": {
+    "argv": ["flutter", "test", "test/widget_test.dart"],
+    "cwd": "frontend",
+    "timeout_seconds": 300,
+    "environment": {
+      "mode": "clean",
+      "pass": ["PATH", "HOME", "TMPDIR", "TMP", "TEMP"]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "python3",
+        "-c",
+        "from pathlib import Path; import sys, hashlib, base64; html=Path('frontend/web/index.html').read_text(); script=html.split('<script>',1)[1].split('</script>',1)[0] if '<script>' in html else ''; csp=Path('frontend/vercel.json').read_text(); digest='sha256-'+base64.b64encode(hashlib.sha256(script.encode()).digest()).decode(); ok='--touchin-background' in html and 'background-color: var(--touchin-background)' in html and 'touchinSetThemeMode' in script and digest in csp and 'theme_bootstrap.js' not in html; print('touchin_first_paint_themed' if ok else 'touchin_first_paint_unprotected'); sys.exit(0 if ok else 1)"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 30,
+      "environment": {
+        "mode": "clean",
+        "pass": ["PATH", "HOME", "TMPDIR", "TMP", "TEMP"]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": ["touchin_first_paint_unprotected"]
+  }
+}

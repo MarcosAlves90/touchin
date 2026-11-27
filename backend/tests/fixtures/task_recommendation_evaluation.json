@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "description": "Synthetic Portuguese and software-work-log examples; no production or personal data.",
+  "cases": [
+    {
+      "id": "auth-refresh-paraphrase",
+      "query": "Corrigi o problema em que atualizar a página desconectava o usuário.",
+      "relevant_ids": ["session-state-reload", "expired-token-refresh"],
+      "candidates": [
+        {"id": "session-state-reload", "text": "Estado de autenticação desaparece após recarregar o navegador."},
+        {"id": "expired-token-refresh", "text": "Renovar tokens expirados e manter a sessão ativa."},
+        {"id": "login-layout", "text": "Ajustar espaçamento e alinhamento do formulário de login."},
+        {"id": "email-copy", "text": "Revisar o texto do e-mail de boas-vindas."}
+      ]
+    },
+    {
+      "id": "address-exact",
+      "query": "Atualizei o endereço cadastrado do cliente.",
+      "relevant_ids": ["edit-customer-address"],
+      "candidates": [
+        {"id": "edit-customer-address", "text": "Editar endereço cadastrado do cliente."},
+        {"id": "reset-password", "text": "Permitir redefinição de senha pela tela de login."},
+        {"id": "audit-export", "text": "Exportar eventos de auditoria em CSV."},
+        {"id": "dark-theme", "text": "Aplicar tema escuro ao painel de navegação."}
+      ]
+    },
+    {
+      "id": "time-report-accent",
+      "query": "Conferi o relatório mensal de horas trabalhadas.",
+      "relevant_ids": ["monthly-worked-hours"],
+      "candidates": [
+        {"id": "monthly-worked-hours", "text": "Relatório mensal de horas e jornada da equipe."},
+        {"id": "work-log-export", "text": "Exportar descrições de atividades por período."},
+        {"id": "employee-phone", "text": "Atualizar telefone do cadastro do funcionário."},
+        {"id": "project-kanban", "text": "Ordenar cartões na coluna do Kanban."}
+      ]
+    },
+    {
+      "id": "session-renewal-synonym",
+      "query": "Investiguei a sessão que termina quando o token é renovado.",
+      "relevant_ids": ["token-renewal-race"],
+      "candidates": [
+        {"id": "token-renewal-race", "text": "Evitar logout durante a renovação do token de acesso."},
+        {"id": "project-color", "text": "Permitir personalizar a cor do projeto."},
+        {"id": "employee-shift", "text": "Editar o turno esperado do funcionário."},
+        {"id": "kanban-column", "text": "Criar e renomear colunas do quadro."}
+      ]
+    },
+    {
+      "id": "no-match",
+      "query": "Pesquisei uma falha de áudio no dispositivo de teste.",
+      "relevant_ids": [],
+      "candidates": [
+        {"id": "csv-export", "text": "Exportar eventos de auditoria em CSV."},
+        {"id": "new-kanban-column", "text": "Criar uma coluna personalizada no Kanban."},
+        {"id": "email-password-reset", "text": "Enviar e-mail para redefinir senha."},
+        {"id": "update-work-shift", "text": "Alterar o horário esperado de trabalho."}
+      ]
+    }
+  ]
+}

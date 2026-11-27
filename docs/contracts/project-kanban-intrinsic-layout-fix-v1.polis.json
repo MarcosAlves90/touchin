@@ -1,0 +1,230 @@
+{
+  "schema_version": 4,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      "frontend/lib/features/projects/presentation/project_kanban_page.dart",
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart",
+      "docs/contracts/project-kanban-intrinsic-layout-fix-v1.polis.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Fix the reconstructed Kanban page's intrinsic-layout crash by removing the invalid SliverFillRemaining(hasScrollBody:false) boundary above a LayoutBuilder-based board. Replace only the page-level fill mechanism with a bounded flex layout while preserving the rebuilt SDK-only board, controller, server-authoritative synchronization, raw-pointer drag model, inner slivers, and dependency set.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "ProjectKanbanPage must not place the LayoutBuilder-based ProjectKanbanBoard under SliverFillRemaining(hasScrollBody:false), because that sliver may request intrinsic dimensions and LayoutBuilder explicitly does not support intrinsic measurement."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "The page-level content must use one bounded flex layout: project toolbar followed by Expanded board content inside the already bounded Scaffold body. The board itself remains responsible for its horizontal/vertical scrolling."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "ProjectKanbanBoard's rebuilt architecture remains unchanged: SDK-only CustomScrollView/SliverFixedExtentList surfaces, owned ScrollControllers, stable identities, raw Listener pointer drag intent, and no Draggable/DragTarget/ReorderableListView legacy mechanism."
+      },
+      {
+        "id": "REQ-004",
+        "statement": "No external dependency, backend contract, API endpoint, persistence behavior, authorization rule, Kanban controller synchronization semantics, or browser-specific renderer workaround may be added or changed."
+      },
+      {
+        "id": "REQ-005",
+        "statement": "Regression coverage must exercise the reconstructed one-column/zero-card page at a desktop viewport, assert that SliverFillRemaining is absent from the page composition, ProjectKanbanBoard is present with positive geometry, and no rendering exception is emitted."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "frontend/lib/features/projects/presentation/project_kanban_page.dart contains no SliverFillRemaining and no page-level CustomScrollView around the toolbar/board pair.",
+        "requirements": [
+          "REQ-001",
+          "REQ-002"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "The page body lays out the toolbar, a fixed gap, and Expanded(_buildBoardContent()) under the existing LayoutBuilder/Padding boundary.",
+        "requirements": [
+          "REQ-002"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-003",
+        "statement": "project_kanban_board.dart remains unchanged and still contains CustomScrollView, SliverFixedExtentList, Listener, ScrollController, and globalToLocal while excluding Draggable, DragTarget, LongPressDraggable, ReorderableListView, and ListView.",
+        "requirements": [
+          "REQ-003"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-004",
+        "statement": "frontend/pubspec.yaml, backend, API, controller and web bootstrap files are outside scope and unchanged.",
+        "requirements": [
+          "REQ-004"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-005",
+        "statement": "The page widget test contains an intrinsic-layout regression case that asserts no SliverFillRemaining, positive ProjectKanbanBoard geometry, and tester.takeException() == null for the one-column/zero-card fixture.",
+        "requirements": [
+          "REQ-005"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "The rebuilt ProjectKanbanController remains the sole Kanban presentation-state owner."
+      },
+      {
+        "id": "INV-002",
+        "statement": "The server remains authoritative for persistent board ordering; expectedVersion and 409 reload semantics are unchanged."
+      },
+      {
+        "id": "INV-003",
+        "statement": "No package dependency is added; pubspec dependency bytes remain unchanged."
+      },
+      {
+        "id": "INV-004",
+        "statement": "Inner board slivers remain valid because they are laid out under finite Expanded constraints rather than queried for page-level intrinsic height."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "SliverFillRemaining remains in ProjectKanbanPage around the rebuilt board."
+      },
+      {
+        "id": "FORB-002",
+        "statement": "The fix replaces the rebuilt board with a legacy ListView/Draggable/DragTarget/ReorderableListView implementation."
+      },
+      {
+        "id": "FORB-003",
+        "statement": "A renderer/browser workaround or external dependency is introduced to mask the layout assertion."
+      },
+      {
+        "id": "FORB-004",
+        "statement": "The board is given an arbitrary hard-coded viewport height solely to silence intrinsic measurement."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "Runtime failure from Flutter Web: 'LayoutBuilder does not support returning intrinsic dimensions' with SliverFillRemaining at project_kanban_page.dart:114 during performLayout."
+      },
+      {
+        "id": "IN-002",
+        "statement": "The rebuilt ProjectKanbanBoard root is a LayoutBuilder and the page wraps _buildBoardContent in SliverFillRemaining(hasScrollBody:false)."
+      },
+      {
+        "id": "IN-003",
+        "statement": "The previous rebuild target tree is 83ad2b74027369e4de0f256dba74966fbba3a089 and contains no external Kanban package dependency."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "A page layout that supplies finite flex constraints directly to ProjectKanbanBoard without intrinsic sizing."
+      },
+      {
+        "id": "OUT-002",
+        "statement": "A focused regression test for the exact intrinsic-layout crash."
+      },
+      {
+        "id": "OUT-003",
+        "statement": "No changes to board mechanics, persistent state, API contracts, dependencies, or renderer policy."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "If the page still contains SliverFillRemaining, the regression command fails with kanban_intrinsic_conflict_present."
+      },
+      {
+        "id": "FAIL-002",
+        "statement": "If runtime tests still report an exception after this structural conflict is removed, the next diagnosis must use the new stack trace rather than reintroducing intrinsic or renderer workarounds."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "0558a90e698421f56ee61f3648a6f31905afc028",
+    "base_tree": "83ad2b74027369e4de0f256dba74966fbba3a089",
+    "policy_sha256": "cb60d7751236c799472a2e7166df0637c20f183f26a61900706bbdb69232ab34",
+    "specification_sha256": "013a2c637eda87b97f24f78653754e3517b43699a6bf5f9749cbeae7656eca79"
+  },
+  "behavior": {
+    "argv": [
+      "python3",
+      "-c",
+      "from pathlib import Path; import sys; page=Path('frontend/lib/features/projects/presentation/project_kanban_page.dart').read_text(); board=Path('frontend/lib/features/projects/presentation/widgets/project_kanban_board.dart').read_text(); test=Path('frontend/test/features/projects/presentation/project_kanban_page_test.dart').read_text(); conflict='SliverFillRemaining(' in page; target=('Expanded(' in page and 'child: _buildBoardContent()' in page and 'CustomScrollView(' not in page and 'CustomScrollView(' in board and 'SliverFixedExtentList(' in board and 'Listener(' in board and 'globalToLocal' in board and 'intrinsic layout' in test.lower()); print('kanban_intrinsic_conflict_present' if conflict else ('kanban_intrinsic_layout_ok' if target else 'kanban_intrinsic_target_incomplete')); sys.exit(1 if conflict or not target else 0)"
+    ],
+    "cwd": ".",
+    "timeout_seconds": 30,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "python3",
+      "-c",
+      "from pathlib import Path; import sys; page=Path('frontend/lib/features/projects/presentation/project_kanban_page.dart').read_text(); board=Path('frontend/lib/features/projects/presentation/widgets/project_kanban_board.dart').read_text(); test=Path('frontend/test/features/projects/presentation/project_kanban_page_test.dart').read_text(); conflict='SliverFillRemaining(' in page; target=('Expanded(' in page and 'child: _buildBoardContent()' in page and 'CustomScrollView(' not in page and 'CustomScrollView(' in board and 'SliverFixedExtentList(' in board and 'Listener(' in board and 'globalToLocal' in board and 'intrinsic layout' in test.lower()); print('kanban_intrinsic_conflict_present' if conflict else ('kanban_intrinsic_layout_ok' if target else 'kanban_intrinsic_target_incomplete')); sys.exit(1 if conflict or not target else 0)"
+    ],
+    "cwd": ".",
+    "timeout_seconds": 30,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "python3",
+        "-c",
+        "from pathlib import Path; import sys; page=Path('frontend/lib/features/projects/presentation/project_kanban_page.dart').read_text(); board=Path('frontend/lib/features/projects/presentation/widgets/project_kanban_board.dart').read_text(); conflict='SliverFillRemaining(' in page and 'LayoutBuilder(' in board; print('kanban_intrinsic_conflict_present' if conflict else 'kanban_intrinsic_conflict_absent'); sys.exit(1 if conflict else 0)"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 30,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "kanban_intrinsic_conflict_present"
+    ]
+  }
+}

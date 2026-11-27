@@ -1,0 +1,245 @@
+{
+  "schema_version": 4,
+  "kind": "feature",
+  "scope": {
+    "allowed_paths": [
+      "frontend/lib/features/projects/presentation/project_kanban_page.dart",
+      "frontend/lib/features/projects/presentation/widgets/task_editor_dialog.dart",
+      "frontend/lib/features/shared/presentation/widgets/workspace_editor_dialog.dart",
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart",
+      "frontend/test/features/projects/presentation/project_tasks_page_test.dart",
+      "docs/contracts/project-kanban-modal-layout-cleanup-v1.polis.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart",
+      "frontend/test/features/projects/presentation/project_tasks_page_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Simplify the working Kanban presentation by removing redundant page and board chrome, compacting project context, and standardizing task and column editing on one reusable TouchIn workspace dialog using the site's existing input decoration conventions without changing Kanban behavior or dependencies.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "Column creation and rename must use the same reusable workspace editor dialog pattern as task creation and editing."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "Task editor inputs must follow the site's existing InputDecorationTheme conventions and remove the custom prefix-icon treatment that makes the fields visually inconsistent."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "The outer decorative card around the board section must be removed so ProjectKanbanBoard is laid out directly in the available content area."
+      },
+      {
+        "id": "REQ-004",
+        "statement": "The current-project section must be materially more compact, retaining project selection, refresh, column/card/team metrics, and responsive behavior while removing duplicated project identity/description chrome."
+      },
+      {
+        "id": "REQ-005",
+        "statement": "The redundant in-content page title and description above the project context must be removed on desktop and compact layouts."
+      },
+      {
+        "id": "REQ-006",
+        "statement": "No backend, API, controller, Kanban persistence, drag mechanism, package dependency, or global theme contract may change."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "A public WorkspaceEditorDialog component provides the shared square responsive header/body/actions shell, ProjectTaskEditorDialog composes it, and both new-column and rename-column flows call the same WorkspaceEditorDialog-backed prompt.",
+        "requirements": [
+          "REQ-001"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "ProjectTaskEditorDialog uses standard TextFormField and DropdownButtonFormField decorations without prefixIcon overrides while preserving labels, validation limits, task type, parent task, and TaskDraft output.",
+        "requirements": [
+          "REQ-002"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-003",
+        "statement": "_buildBoardContent no longer wraps ProjectKanbanBoard in the previous surfaceContainerHighest Material card/padding shell; loading/error/progress behavior remains available.",
+        "requirements": [
+          "REQ-003"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-004",
+        "statement": "The project overview is a compact responsive strip identified by kanban-project-overview, with project selector, refresh action, and three compact metrics; focused UI coverage bounds its desktop height below 120 logical pixels.",
+        "requirements": [
+          "REQ-004"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-005",
+        "statement": "The strings 'Kanban do projeto', its explanatory page subtitle, and 'PROJETO ATUAL' are no longer rendered in the page body; Kanban identity remains in the accent navigation bar and board header.",
+        "requirements": [
+          "REQ-005"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-006",
+        "statement": "pubspec, AppTheme, ProjectKanbanController, ProjectKanbanBoard, backend, contracts, and network APIs remain unchanged.",
+        "requirements": [
+          "REQ-006"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "The working ProjectKanbanBoard implementation, raw-pointer drag behavior, stable identities, and server-authoritative mutations remain byte-for-byte unchanged."
+      },
+      {
+        "id": "INV-002",
+        "statement": "Task editor validation limits and returned TaskDraft semantics remain unchanged."
+      },
+      {
+        "id": "INV-003",
+        "statement": "The shared editor dialog keeps square corners, finite responsive constraints, and finite primary-action sizing."
+      },
+      {
+        "id": "INV-004",
+        "statement": "Phone/tablet/desktop layout remains finite and the existing compact-card behavior is preserved."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "A new dependency, renderer workaround, intrinsic sizing primitive, or alternate drag implementation is introduced."
+      },
+      {
+        "id": "FORB-002",
+        "statement": "Column editing retains a separate AlertDialog visual system from task editing."
+      },
+      {
+        "id": "FORB-003",
+        "statement": "Task field decorations hard-code a second input visual language instead of inheriting the application InputDecorationTheme."
+      },
+      {
+        "id": "FORB-004",
+        "statement": "Removing decorative containers also removes loading, mutation progress, error, refresh, project selection, or board status behavior."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "Current feature/tasks-kanban tree 7eae2f853aed72aefed306c5d4eb78ac81a9be3b where the Kanban is functional and responsive."
+      },
+      {
+        "id": "IN-002",
+        "statement": "User-provided screenshots show the current task modal and redundant page title area, and request shared column/task modals, standard site inputs, a lighter board section, compact project context, and removal of the top body titles."
+      },
+      {
+        "id": "IN-003",
+        "statement": "Existing project-management forms establish standard site input usage through AppTheme InputDecorationTheme without per-field prefix icons."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "One reusable workspace editor shell shared by task and column editors."
+      },
+      {
+        "id": "OUT-002",
+        "statement": "A lighter Kanban body with compact project context and no redundant page-heading block or outer board card."
+      },
+      {
+        "id": "OUT-003",
+        "statement": "Task fields visually aligned with the existing project-management input pattern."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "With only the focused regression tests installed on the baseline, the regression command exits 1 and prints kanban_modal_layout_cleanup_missing."
+      },
+      {
+        "id": "FAIL-002",
+        "statement": "Any Flutter compile/layout failure after application is authoritative and must be fixed without changing the protected domain/board architecture."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "388784703b380c8cf59b395dec44f5c226cb3e8d",
+    "base_tree": "7eae2f853aed72aefed306c5d4eb78ac81a9be3b",
+    "policy_sha256": "cb60d7751236c799472a2e7166df0637c20f183f26a61900706bbdb69232ab34",
+    "specification_sha256": "de09817333fe09d068a51a96831c22990477fe11accdc652a9c3f3a49126f8ab"
+  },
+  "behavior": {
+    "argv": [
+      "python3",
+      "-c",
+      "from pathlib import Path; import sys; page=Path('frontend/lib/features/projects/presentation/project_kanban_page.dart').read_text(); task=Path('frontend/lib/features/projects/presentation/widgets/task_editor_dialog.dart').read_text(); shared=Path('frontend/lib/features/shared/presentation/widgets/workspace_editor_dialog.dart'); kt=Path('frontend/test/features/projects/presentation/project_kanban_page_test.dart').read_text(); pt=Path('frontend/test/features/projects/presentation/project_tasks_page_test.dart').read_text(); red=('column editor reuses the workspace editor dialog' in kt and 'task editor reuses workspace dialog and standard inputs' in pt); impl=(shared.exists() and 'class WorkspaceEditorDialog extends StatelessWidget' in shared.read_text() and 'return WorkspaceEditorDialog(' in task and 'prefixIcon:' not in task and 'builder: (dialogContext) =\u003e WorkspaceEditorDialog(' in page and \"'Kanban do projeto'\" not in page and \"'PROJETO ATUAL'\" not in page and \"key: const ValueKey\u003cString\u003e('kanban-project-overview')\" in page and 'color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.34)' not in page); print('cleanup_tests_not_installed' if not red else ('kanban_modal_layout_cleanup_ready' if impl else 'kanban_modal_layout_cleanup_missing')); sys.exit(0 if (not red or impl) else 1)"
+    ],
+    "cwd": ".",
+    "timeout_seconds": 30,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "python3",
+      "-c",
+      "from pathlib import Path; import sys; page=Path('frontend/lib/features/projects/presentation/project_kanban_page.dart').read_text(); task=Path('frontend/lib/features/projects/presentation/widgets/task_editor_dialog.dart').read_text(); shared=Path('frontend/lib/features/shared/presentation/widgets/workspace_editor_dialog.dart'); kt=Path('frontend/test/features/projects/presentation/project_kanban_page_test.dart').read_text(); pt=Path('frontend/test/features/projects/presentation/project_tasks_page_test.dart').read_text(); red=('column editor reuses the workspace editor dialog' in kt and 'task editor reuses workspace dialog and standard inputs' in pt); impl=(shared.exists() and 'class WorkspaceEditorDialog extends StatelessWidget' in shared.read_text() and 'return WorkspaceEditorDialog(' in task and 'prefixIcon:' not in task and 'builder: (dialogContext) =\u003e WorkspaceEditorDialog(' in page and \"'Kanban do projeto'\" not in page and \"'PROJETO ATUAL'\" not in page and \"key: const ValueKey\u003cString\u003e('kanban-project-overview')\" in page and 'color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.34)' not in page); print('cleanup_tests_not_installed' if not red else ('kanban_modal_layout_cleanup_ready' if impl else 'kanban_modal_layout_cleanup_missing')); sys.exit(0 if (not red or impl) else 1)"
+    ],
+    "cwd": ".",
+    "timeout_seconds": 30,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "python3",
+        "-c",
+        "from pathlib import Path; import sys; page=Path('frontend/lib/features/projects/presentation/project_kanban_page.dart').read_text(); task=Path('frontend/lib/features/projects/presentation/widgets/task_editor_dialog.dart').read_text(); shared=Path('frontend/lib/features/shared/presentation/widgets/workspace_editor_dialog.dart'); kt=Path('frontend/test/features/projects/presentation/project_kanban_page_test.dart').read_text(); pt=Path('frontend/test/features/projects/presentation/project_tasks_page_test.dart').read_text(); red=('column editor reuses the workspace editor dialog' in kt and 'task editor reuses workspace dialog and standard inputs' in pt); impl=(shared.exists() and 'class WorkspaceEditorDialog extends StatelessWidget' in shared.read_text() and 'return WorkspaceEditorDialog(' in task and 'prefixIcon:' not in task and 'builder: (dialogContext) =\u003e WorkspaceEditorDialog(' in page and \"'Kanban do projeto'\" not in page and \"'PROJETO ATUAL'\" not in page and \"key: const ValueKey\u003cString\u003e('kanban-project-overview')\" in page and 'color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.34)' not in page); print('cleanup_tests_not_installed' if not red else ('kanban_modal_layout_cleanup_ready' if impl else 'kanban_modal_layout_cleanup_missing')); sys.exit(0 if (not red or impl) else 1)"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 30,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "kanban_modal_layout_cleanup_missing"
+    ]
+  }
+}

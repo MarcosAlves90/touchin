@@ -1,0 +1,270 @@
+{
+  "schema_version": 4,
+  "kind": "feature",
+  "scope": {
+    "allowed_paths": [
+      ".polis/policy.json",
+      "frontend/lib/features/projects/presentation/kanban_controller.dart",
+      "frontend/lib/features/projects/presentation/project_kanban_page.dart",
+      "frontend/lib/features/projects/presentation/widgets/project_kanban_board.dart",
+      "frontend/test/features/projects/presentation/kanban_controller_test.dart",
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart",
+      "docs/contracts/project-kanban-performance-loading-v1.polis.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/features/projects/presentation/kanban_controller_test.dart",
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Remove redundant Kanban/project context from the accent navbar, replace board-loading spinners with responsive static skeletons, reduce avoidable rebuild/allocation/paint work on the Kanban page and drag path, and bootstrap a repository POLIS policy that mirrors the existing backend+frontend complete-test CI command without changing Kanban persistence semantics or adding dependencies.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "The accent top navigation must retain menu access and TOUCHIN branding but render neither a Kanban title nor the selected project name."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "Whenever the project snapshot/board is loading, the board region must render responsive static skeleton lanes/cards instead of a centered CircularProgressIndicator."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "Controller notifications must no longer rebuild the static Scaffold, Drawer, and top navigation; only the controller-driven page body should rebuild."
+      },
+      {
+        "id": "REQ-004",
+        "statement": "Raw-pointer drag motion must update the floating preview independently and rebuild the board only when the resolved drop target changes, while preserving the existing custom pointer drag/drop semantics."
+      },
+      {
+        "id": "REQ-005",
+        "statement": "Kanban scrolling and paint work must keep fixed-extent virtualization while adding bounded cache extents and explicit repaint boundaries without reintroducing Draggable, DragTarget, ReorderableListView, or external packages."
+      },
+      {
+        "id": "REQ-006",
+        "statement": "Controller project/member/task collection getters must return stable immutable snapshots instead of allocating a new unmodifiable list on every read."
+      },
+      {
+        "id": "REQ-007",
+        "statement": "The repository must gain .polis/policy.json using Project Policy schema v3, standard validation, and a complete-test command that runs backend pytest followed by frontend flutter test, matching the current CI test intent."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "A keyed kanban-topbar contains TOUCHIN and no Kanban/project context, with regression coverage inspecting the topbar subtree.",
+        "requirements": [
+          "REQ-001"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "A delayed board API shows exactly one kanban-board-skeleton, no ProjectKanbanBoard and no CircularProgressIndicator in the board-loading state, then swaps to the live board after completion.",
+        "requirements": [
+          "REQ-002"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-003",
+        "statement": "ProjectKanbanPage places _KanbanTopBar outside the AnimatedBuilder and the builder rebuilds only _buildPageBody.",
+        "requirements": [
+          "REQ-003"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-004",
+        "statement": "ProjectKanbanBoard owns a ValueNotifier\u003cOffset\u003e drag pointer and ValueListenableBuilder preview; pointer moves with an unchanged target return without setState.",
+        "requirements": [
+          "REQ-004"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-005",
+        "statement": "Horizontal/vertical scroll views use bounded cacheExtent values, child delegates disable automatic repaint boundaries, and explicit RepaintBoundary nodes isolate board/lane/card/preview paint work.",
+        "requirements": [
+          "REQ-005"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-006",
+        "statement": "Projects, projectMembers, and tasks return stable list identities across unchanged reads and throw on mutation attempts because snapshots are frozen when assigned.",
+        "requirements": [
+          "REQ-006"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-007",
+        "statement": ".polis/policy.json validates as schema v3/standard and its test.complete command contains both pytest and flutter test.",
+        "requirements": [
+          "REQ-007"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "Backend endpoints, API contracts, server-authoritative mutation ordering, optimistic concurrency/version checks, conflict reload semantics, stable card/column IDs, and permissions remain unchanged."
+      },
+      {
+        "id": "INV-002",
+        "statement": "The existing square TouchIn visual language, compact project overview, compact 144px cards, responsive breakpoints, dialogs, and no-external-dependency constraint remain unchanged."
+      },
+      {
+        "id": "INV-003",
+        "statement": "SliverFixedExtentList virtualization, persistent scroll controllers, raw Listener pointer handling, and existing drop-target resolution remain the Kanban rendering/interaction foundation."
+      },
+      {
+        "id": "INV-004",
+        "statement": "The repository CI workflow is not modified; the new POLIS policy documents its complete backend/frontend test intent rather than replacing CI."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "Navbar still displays Kanban or the selected project name."
+      },
+      {
+        "id": "FORB-002",
+        "statement": "Board loading falls back to a spinner-only state or an animated shimmer that continuously repaints the page."
+      },
+      {
+        "id": "FORB-003",
+        "statement": "Every pointer-move event triggers a full ProjectKanbanBoard setState regardless of whether the drop target changed."
+      },
+      {
+        "id": "FORB-004",
+        "statement": "Performance work changes persistence timing to optimistic local reordering, weakens conflict handling, adds dependencies, or restores previously rejected Flutter drag/reorder primitives."
+      },
+      {
+        "id": "FORB-005",
+        "statement": "The committed POLIS policy silently omits the repository's existing backend or frontend complete tests."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "Current feature/tasks-kanban commit 455e6e5b9cc3fa2e65aa62d635ed426727e0c9d9 with tree 315aa0fa2fe315229d28e6aef2917447b33906d5."
+      },
+      {
+        "id": "IN-002",
+        "statement": "Current ProjectKanbanPage rebuilds its full Scaffold/topbar on every ProjectKanbanController notification and shows a centered CircularProgressIndicator while isLoadingBoard is true."
+      },
+      {
+        "id": "IN-003",
+        "statement": "Current raw pointer drag calls setState for every PointerMoveEvent, rebuilding lanes/cards even when the resolved drop target has not changed."
+      },
+      {
+        "id": "IN-004",
+        "statement": "Current ProjectKanbanController getters allocate List.unmodifiable wrappers on each projects/projectMembers/tasks read, while CI runs pytest and flutter test and the repository has no committed POLIS policy."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "Identity-only TOUCHIN navbar and responsive static board skeleton loading state."
+      },
+      {
+        "id": "OUT-002",
+        "statement": "Narrower controller rebuild boundary, lower drag-move rebuild frequency, explicit repaint isolation/cache bounds, and stable immutable snapshot lists."
+      },
+      {
+        "id": "OUT-003",
+        "statement": "Committed .polis/policy.json defining the repository complete-test gate for future POLIS deliveries."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "With only the focused regression tests installed on the baseline, the regression command exits 1 and prints kanban_performance_loading_missing."
+      },
+      {
+        "id": "FAIL-002",
+        "statement": "Any Flutter compile/layout/test failure remains authoritative; because Flutter is unavailable in the packaging environment, the artifact must not claim those tests executed locally."
+      },
+      {
+        "id": "FAIL-003",
+        "statement": "If the new standard repository POLIS policy is used in an environment without pytest or Flutter, its complete-test gate fails rather than silently degrading validation."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "455e6e5b9cc3fa2e65aa62d635ed426727e0c9d9",
+    "base_tree": "315aa0fa2fe315229d28e6aef2917447b33906d5",
+    "policy_sha256": "cb60d7751236c799472a2e7166df0637c20f183f26a61900706bbdb69232ab34",
+    "specification_sha256": "0660d8a3a505f581e5b68ff5707af72f6939e695d0b37ae41b524a82cd02a527"
+  },
+  "behavior": {
+    "argv": [
+      "python3",
+      "-c",
+      "from pathlib import Path; import json, sys; page=Path('frontend/lib/features/projects/presentation/project_kanban_page.dart').read_text(); board=Path('frontend/lib/features/projects/presentation/widgets/project_kanban_board.dart').read_text(); controller=Path('frontend/lib/features/projects/presentation/kanban_controller.dart').read_text(); pt=Path('frontend/test/features/projects/presentation/project_kanban_page_test.dart').read_text(); ct=Path('frontend/test/features/projects/presentation/kanban_controller_test.dart').read_text(); policy_path=Path('.polis/policy.json'); red=(\"ValueKey\u003cString\u003e('kanban-board-skeleton')\" in pt and 'keeps the static chrome outside controller-driven rebuilds' in pt and 'reuses immutable snapshot lists between unchanged reads' in ct); policy_ok=False; policy=json.loads(policy_path.read_text()) if policy_path.exists() else {}; gates=policy.get('gates',[]); test_gate=next((g for g in gates if g.get('id')=='test.complete'),{}); argv=' '.join(test_gate.get('command',{}).get('argv',[])); policy_ok=(policy.get('schema_version')==3 and policy.get('validation_level')=='standard' and test_gate.get('mode')=='command' and 'pytest' in argv and 'flutter test' in argv); start=page.find('class _KanbanTopBar'); end=page.find('class _KanbanMetricsStrip', start); topbar=page[start:end] if start\u003e=0 and end\u003estart else ''; impl=(\"key: const ValueKey\u003cString\u003e('kanban-topbar')\" in topbar and 'projectName' not in topbar and \"'Kanban'\" not in topbar and 'class _KanbanBoardSkeleton extends StatelessWidget' in page and \"key: const ValueKey\u003cString\u003e('kanban-board-skeleton')\" in page and 'builder: (context, _) =\u003e _buildPageBody()' in page and page.find('_KanbanTopBar(') \u003c page.find('AnimatedBuilder(') and 'ValueNotifier\u003cOffset\u003e _dragPointer' in board and 'ValueListenableBuilder\u003cOffset\u003e' in board and 'cacheExtent: laneWidth' in board and 'cacheExtent: _cardExtent * 2' in board and board.count('addRepaintBoundaries: false') \u003e= 2 and 'List\u003cProjectSummary\u003e get projects =\u003e _projects;' in controller and 'List\u003cProjectMemberSummary\u003e get projectMembers =\u003e _projectMembers;' in controller and 'List\u003cTaskRecord\u003e get tasks =\u003e _tasks;' in controller and 'List\u003cProjectSummary\u003e.unmodifiable(projects)' in controller and policy_ok); print('kanban_performance_tests_not_installed' if not red else ('kanban_performance_loading_ready' if impl else 'kanban_performance_loading_missing')); sys.exit(0 if (not red or impl) else 1)"
+    ],
+    "cwd": ".",
+    "timeout_seconds": 30,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "python3",
+      "-c",
+      "from pathlib import Path; import json, sys; page=Path('frontend/lib/features/projects/presentation/project_kanban_page.dart').read_text(); board=Path('frontend/lib/features/projects/presentation/widgets/project_kanban_board.dart').read_text(); controller=Path('frontend/lib/features/projects/presentation/kanban_controller.dart').read_text(); pt=Path('frontend/test/features/projects/presentation/project_kanban_page_test.dart').read_text(); ct=Path('frontend/test/features/projects/presentation/kanban_controller_test.dart').read_text(); policy_path=Path('.polis/policy.json'); red=(\"ValueKey\u003cString\u003e('kanban-board-skeleton')\" in pt and 'keeps the static chrome outside controller-driven rebuilds' in pt and 'reuses immutable snapshot lists between unchanged reads' in ct); policy_ok=False; policy=json.loads(policy_path.read_text()) if policy_path.exists() else {}; gates=policy.get('gates',[]); test_gate=next((g for g in gates if g.get('id')=='test.complete'),{}); argv=' '.join(test_gate.get('command',{}).get('argv',[])); policy_ok=(policy.get('schema_version')==3 and policy.get('validation_level')=='standard' and test_gate.get('mode')=='command' and 'pytest' in argv and 'flutter test' in argv); start=page.find('class _KanbanTopBar'); end=page.find('class _KanbanMetricsStrip', start); topbar=page[start:end] if start\u003e=0 and end\u003estart else ''; impl=(\"key: const ValueKey\u003cString\u003e('kanban-topbar')\" in topbar and 'projectName' not in topbar and \"'Kanban'\" not in topbar and 'class _KanbanBoardSkeleton extends StatelessWidget' in page and \"key: const ValueKey\u003cString\u003e('kanban-board-skeleton')\" in page and 'builder: (context, _) =\u003e _buildPageBody()' in page and page.find('_KanbanTopBar(') \u003c page.find('AnimatedBuilder(') and 'ValueNotifier\u003cOffset\u003e _dragPointer' in board and 'ValueListenableBuilder\u003cOffset\u003e' in board and 'cacheExtent: laneWidth' in board and 'cacheExtent: _cardExtent * 2' in board and board.count('addRepaintBoundaries: false') \u003e= 2 and 'List\u003cProjectSummary\u003e get projects =\u003e _projects;' in controller and 'List\u003cProjectMemberSummary\u003e get projectMembers =\u003e _projectMembers;' in controller and 'List\u003cTaskRecord\u003e get tasks =\u003e _tasks;' in controller and 'List\u003cProjectSummary\u003e.unmodifiable(projects)' in controller and policy_ok); print('kanban_performance_tests_not_installed' if not red else ('kanban_performance_loading_ready' if impl else 'kanban_performance_loading_missing')); sys.exit(0 if (not red or impl) else 1)"
+    ],
+    "cwd": ".",
+    "timeout_seconds": 30,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "python3",
+        "-c",
+        "from pathlib import Path; import json, sys; page=Path('frontend/lib/features/projects/presentation/project_kanban_page.dart').read_text(); board=Path('frontend/lib/features/projects/presentation/widgets/project_kanban_board.dart').read_text(); controller=Path('frontend/lib/features/projects/presentation/kanban_controller.dart').read_text(); pt=Path('frontend/test/features/projects/presentation/project_kanban_page_test.dart').read_text(); ct=Path('frontend/test/features/projects/presentation/kanban_controller_test.dart').read_text(); policy_path=Path('.polis/policy.json'); red=(\"ValueKey\u003cString\u003e('kanban-board-skeleton')\" in pt and 'keeps the static chrome outside controller-driven rebuilds' in pt and 'reuses immutable snapshot lists between unchanged reads' in ct); policy_ok=False; policy=json.loads(policy_path.read_text()) if policy_path.exists() else {}; gates=policy.get('gates',[]); test_gate=next((g for g in gates if g.get('id')=='test.complete'),{}); argv=' '.join(test_gate.get('command',{}).get('argv',[])); policy_ok=(policy.get('schema_version')==3 and policy.get('validation_level')=='standard' and test_gate.get('mode')=='command' and 'pytest' in argv and 'flutter test' in argv); start=page.find('class _KanbanTopBar'); end=page.find('class _KanbanMetricsStrip', start); topbar=page[start:end] if start\u003e=0 and end\u003estart else ''; impl=(\"key: const ValueKey\u003cString\u003e('kanban-topbar')\" in topbar and 'projectName' not in topbar and \"'Kanban'\" not in topbar and 'class _KanbanBoardSkeleton extends StatelessWidget' in page and \"key: const ValueKey\u003cString\u003e('kanban-board-skeleton')\" in page and 'builder: (context, _) =\u003e _buildPageBody()' in page and page.find('_KanbanTopBar(') \u003c page.find('AnimatedBuilder(') and 'ValueNotifier\u003cOffset\u003e _dragPointer' in board and 'ValueListenableBuilder\u003cOffset\u003e' in board and 'cacheExtent: laneWidth' in board and 'cacheExtent: _cardExtent * 2' in board and board.count('addRepaintBoundaries: false') \u003e= 2 and 'List\u003cProjectSummary\u003e get projects =\u003e _projects;' in controller and 'List\u003cProjectMemberSummary\u003e get projectMembers =\u003e _projectMembers;' in controller and 'List\u003cTaskRecord\u003e get tasks =\u003e _tasks;' in controller and 'List\u003cProjectSummary\u003e.unmodifiable(projects)' in controller and policy_ok); print('kanban_performance_tests_not_installed' if not red else ('kanban_performance_loading_ready' if impl else 'kanban_performance_loading_missing')); sys.exit(0 if (not red or impl) else 1)"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 30,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "kanban_performance_loading_missing"
+    ]
+  }
+}

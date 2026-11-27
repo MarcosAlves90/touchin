@@ -18,6 +18,9 @@ def test_project_permissions_by_role():
     employee_permissions = get_permissions_for_role("employee")
     assert "projects.read" in employee_permissions
     assert "projects.create" not in employee_permissions
+    assert "projects.update" not in employee_permissions
+    assert "projects.delete" not in employee_permissions
+    assert "projects.assign" not in employee_permissions
 
     manager_permissions = get_permissions_for_role("manager")
     assert "projects.read" in manager_permissions
@@ -46,3 +49,17 @@ def test_time_clock_management_permissions_start_at_manager():
 
     super_admin_permissions = get_permissions_for_role("super_admin")
     assert "time_clock.manage" in super_admin_permissions
+
+
+def test_task_permissions_by_role():
+    employee_permissions = get_permissions_for_role("employee")
+    assert "tasks.create" not in employee_permissions
+    assert "tasks.update" not in employee_permissions
+    assert "tasks.members.self" in employee_permissions
+    assert "tasks.members.manage" not in employee_permissions
+
+    manager_permissions = get_permissions_for_role("manager")
+    assert "tasks.create" in manager_permissions
+    assert "tasks.update" in manager_permissions
+    assert "tasks.members.self" in manager_permissions
+    assert "tasks.members.manage" in manager_permissions

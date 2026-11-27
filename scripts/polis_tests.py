@@ -1,0 +1,76 @@
+"""Run the existing backend and Flutter test suites without a shell command string."""
+
+from pathlib import Path
+import os
+import shutil
+import subprocess
+import sys
+
+# POLIS hashes source before gates execute. Prevent imports here and in the
+# subprocesses below from writing .pyc files during the validation window.
+sys.dont_write_bytecode = True
+
+from run_polis_gates import flutter_test_environment, prepare_command
+
+
+ROOT = Path(__file__).resolve().parent.parent
+BACKEND = ROOT / "backend"
+FRONTEND = ROOT / "frontend"
+
+virtual_env_python = BACKEND / ".venv" / (
+    "Scripts/python.exe" if sys.platform == "win32" else "bin/python"
+)
+backend_python = str(virtual_env_python) if virtual_env_python.is_file() else sys.executable
+flutter_executable = shutil.which("flutter.bat") or shutil.which("flutter") or "flutter"
+# Keep coverage collection serial so each flutter_tester finishes before the
+# next test file starts. CI and POLIS must use the same test-runner settings.
+
+for name, command, directory in (
+    (
+        "POLIS CI adapter",
+        [sys.executable, "-B", "-m", "unittest", "discover", "-s", "scripts/tests", "-v"],
+        ROOT,
+    ),
+    (
+        "backend",
+        [
+            backend_python,
+            "-B",
+            "-m",
+            "pytest",
+            "--cov=app",
+            "--cov-report=term-missing",
+            "--cov-report=xml:coverage/coverage.xml",
+            "--cov-report=html:coverage/html",
+        ],
+        BACKEND,
+    ),
+    (
+        "frontend (production default)",
+        [flutter_executable, "test", "test/developer_preview_entry_test.dart"],
+        FRONTEND,
+    ),
+    (
+        "frontend",
+        [
+            flutter_executable,
+            "test",
+            "--coverage",
+            "--dart-define=TOUCHIN_FRONTEND_DEV_MODE=true",
+            "--exclude-tags",
+            "canonical-golden",
+            "--concurrency=1",
+            "--reporter",
+            "expanded",
+        ],
+        FRONTEND,
+    ),
+):
+    print(f"POLIS tests: {name}", flush=True)
+    env = dict(os.environ)
+    if directory == FRONTEND:
+        env = flutter_test_environment(env)
+    command = prepare_command(command, env)
+    result = subprocess.run(command, cwd=directory, env=env, check=False)
+    if result.returncode != 0:
+        sys.exit(result.returncode)

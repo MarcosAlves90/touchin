@@ -1,0 +1,172 @@
+{
+  "schema_version": 4,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      "frontend/lib/features/admin/presentation/admin_employees_page_widgets.dart",
+      "frontend/test/admin_contrast_test.dart",
+      "docs/contracts/team-selection-border-v6.polis.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/admin_contrast_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Supersede team-normal-surfaces-v5 selected employee border: equal 2px accessible semantic yellow in normal and high contrast.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "Selected employee card uses the theme semantic yellow indicator with 2px border in both contrast modes, minimum 3:1 against card and adjacent composited panel."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "Preserve unselected border, selection semantics, keyboard focus and activation, light/dark and mobile/desktop behavior."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "Run full affected widget test files, archive v6 lock byte-identically."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "At both sizes and brightnesses, selected border uses semantic indicator with width 2 and at least 3:1 against card and adjacent panel; semantics and keyboard work.",
+        "requirements": [
+          "REQ-001",
+          "REQ-002"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "Full contrast and employee widget suites execute, preserving global toggle and interaction.",
+        "requirements": [
+          "REQ-002",
+          "REQ-003"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-003",
+        "statement": "Archived v6 contract is byte-identical to external lock.",
+        "requirements": [
+          "REQ-003"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "Unselected borders, focus, selection, semantics and unrelated surfaces remain unchanged."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "Selected border differs in width by contrast mode or lacks accessible contrast."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "Employee list and profile widgets and global theme."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "Normalized scoped surfaces and regression coverage."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "Widget regression fails on missing selected semantic yellow border."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "820791357a0ab40478ba55e67f699bbf2afda632",
+    "base_tree": "54c242cc064676026fe5f440376b54860ee1ed33",
+    "policy_sha256": "7714a10ab2b65f58941086f500de93fa62fc6acb6fd59d8b39292980364774dd",
+    "specification_sha256": "3c149925de01681050313f20bbf81ef63f09a9d9eb8488e750dfd2901a572dbb"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "--reporter",
+      "expanded",
+      "test/admin_contrast_test.dart",
+      "test/admin_employees_page_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "--reporter",
+      "expanded",
+      "test/admin_contrast_test.dart",
+      "test/admin_employees_page_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "--reporter",
+        "expanded",
+        "test/admin_contrast_test.dart",
+        "test/admin_employees_page_test.dart"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 600,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "Employee selection border must use accessible theme yellow"
+    ]
+  }
+}

@@ -1,12 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:bunchin_flutter/core/config/app_config.dart';
+import 'package:touchin_flutter/core/config/app_config.dart';
 
 void main() {
-  test('uses the official API as the default base URL', () {
+  test('uses the local API by default; Android release sets its URL at build time', () {
     expect(
       AppConfig.apiBaseUrl,
-      'https://self-bunchin-app.onrender.com/api/v1',
+      'http://localhost:8071/api/v1',
     );
   });
 }

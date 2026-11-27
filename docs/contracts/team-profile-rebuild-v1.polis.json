@@ -1,0 +1,171 @@
+{
+  "schema_version": 6,
+  "kind": "feature",
+  "scope": {
+    "allowed_paths": [
+      "frontend/lib/features/admin/presentation/admin_employees_page_widgets.dart",
+      "frontend/test/admin_employees_page_test.dart",
+      "docs/contracts/team-profile-rebuild-v1.polis.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/admin_employees_page_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Recompose selected employee profile to emphasize identity before status and preserve existing actions and information.",
+    "requirements": [
+      {
+        "id": "REQ-01",
+        "statement": "Present employee identity prominently before status and work mode in a responsive profile header inspired by the TouchIn reference."
+      },
+      {
+        "id": "REQ-02",
+        "statement": "Preserve employee data, status, work mode, actions, accessibility, light and dark themes and responsive behavior."
+      },
+      {
+        "id": "REQ-03",
+        "statement": "Persist the exact locked contract in docs/contracts/team-profile-rebuild-v1.polis.json."
+      },
+      {
+        "id": "REQ-04",
+        "statement": "Preserve the pending-adjustment indicator at 320 logical pixels and 200 percent text scaling without new indicator overflow."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-01",
+        "statement": "A widget regression verifies selected employee name appears before status, including mobile layout and the edit action without exceptions.",
+        "requirements": [
+          "REQ-01",
+          "REQ-02"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-02",
+        "statement": "Existing team tests and configured project gates pass and the stored contract equals the lock byte-for-byte.",
+        "requirements": [
+          "REQ-02",
+          "REQ-03"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-03",
+        "statement": "At 320 pixels and 200 percent text scaling the pending-adjustment pill, icon and accessible label remain within its bounds without new layout errors; only the known mobile-header overflow is excluded.",
+        "requirements": [
+          "REQ-02",
+          "REQ-04"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-01",
+        "statement": "Do not alter APIs, employee data, authorization, navigation, actions or theme persistence."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-01",
+        "statement": "Controls or content disappear, overflow or become inaccessible in supported responsive layouts."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-01",
+        "statement": "Existing team page, widget tests and supplied design reference."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-01",
+        "statement": "Responsive employee profile presentation and regression evidence."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-01",
+        "statement": "The profile identity hierarchy regression fails on baseline geometry and passes after rebuilding."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "e0640fd384b9cc26be7cc09c00015701d6cbcca0",
+    "base_tree": "7376618168cd81e2bad85c8114dd72cd01eea888",
+    "policy_sha256": "7714a10ab2b65f58941086f500de93fa62fc6acb6fd59d8b39292980364774dd",
+    "specification_sha256": "b5e335248a7a130e9a673ed9b58c86958c55bafcc94e76425776c63030de2356"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/admin_employees_page_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 300,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/admin_employees_page_test.dart",
+      "test/admin_contrast_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "test/admin_employees_page_test.dart",
+        "--plain-name",
+        "profile identity hierarchy"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 300,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "profile_identity_hierarchy"
+    ]
+  }
+}

@@ -1,0 +1,381 @@
+import 'dart:math' as math;
+
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_navigation.dart';
+import 'package:touchin_flutter/theme/app_theme.dart';
+
+double _luminance(Color color) {
+  double channel(double component) {
+    final value = component / 255;
+    return value <= 0.04045
+        ? value / 12.92
+        : math.pow((value + 0.055) / 1.055, 2.4).toDouble();
+  }
+
+  return 0.2126 * channel((color.r * 255).roundToDouble()) +
+      0.7152 * channel((color.g * 255).roundToDouble()) +
+      0.0722 * channel((color.b * 255).roundToDouble());
+}
+
+double _contrast(Color foreground, Color background) {
+  final a = _luminance(foreground);
+  final b = _luminance(background);
+  return (math.max(a, b) + 0.05) / (math.min(a, b) + 0.05);
+}
+
+ThemeData _testTheme(Brightness brightness) {
+  final dark = brightness == Brightness.dark;
+  return ThemeData(
+    colorScheme: ColorScheme.fromSeed(
+      seedColor: AppTheme.accent,
+      brightness: brightness,
+      surface: Color(dark ? 0xFF1F1F1F : 0xFFFFFFFF),
+      onPrimary: Color(dark ? 0xFF412B00 : 0xFF2C1800),
+      surfaceContainerHighest: Color(dark ? 0xFF2A2A2A : 0xFFF1EFE8),
+    ),
+    extensions: <ThemeExtension<dynamic>>[
+      dark ? WorkspaceNavigationColors.dark : WorkspaceNavigationColors.light,
+    ],
+  );
+}
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  testWidgets('workspace navigation rounds interactive surfaces', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(420, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.lightTheme,
+        home: Scaffold(
+          body: Column(
+            children: <Widget>[
+              WorkspaceMobileHeader(
+                currentRoute: '/time-clock',
+                onOpenDrawer: () {},
+              ),
+              const Expanded(
+                child: WorkspaceNavigationPanel(currentRoute: '/kanban'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    const reason = 'navigation_rounded_corners';
+    const brandKey = ValueKey<String>('workspace-mobile-brand-block');
+    final brand = find.byKey(brandKey);
+    expect(
+      (tester.widget<Container>(brand).decoration! as BoxDecoration).color,
+      AppTheme.lightTheme.colorScheme.surface,
+      reason: 'navigation_brand_surface',
+    );
+    expect(
+      (tester.widget<Container>(brand).decoration! as BoxDecoration)
+          .borderRadius,
+      BorderRadius.circular(8),
+      reason: reason,
+    );
+
+    final markIcon = find.descendant(
+      of: brand,
+      matching: find.byIcon(Icons.fingerprint_rounded),
+    );
+    final markBox = find.ancestor(
+      of: markIcon,
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is Container &&
+            widget.decoration is BoxDecoration &&
+            (widget.decoration! as BoxDecoration).color == AppTheme.accent,
+      ),
+    );
+    expect(
+      (tester.widget<Container>(markBox).decoration! as BoxDecoration)
+          .borderRadius,
+      BorderRadius.circular(8),
+      reason: reason,
+    );
+    expect(
+      (tester.widget<Container>(markBox).decoration! as BoxDecoration).color,
+      AppTheme.accent,
+      reason: 'navigation_brand_mark_accent',
+    );
+    expect(
+      tester.widget<Icon>(markIcon).color,
+      AppTheme.lightTheme.colorScheme.onPrimary,
+    );
+
+    final header = find.byKey(
+      const ValueKey<String>('workspace-mobile-header'),
+    );
+    final activeLabel = find.descendant(
+      of: header,
+      matching: find.text('Bater Ponto'),
+    );
+    final navigation = WorkspaceNavigationColors.of(AppTheme.lightTheme);
+    final activeBadge = find.ancestor(
+      of: activeLabel,
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is Container &&
+            widget.decoration is BoxDecoration &&
+            (widget.decoration! as BoxDecoration).color ==
+                navigation.selectedContainer,
+      ),
+    );
+    expect(activeBadge, findsOneWidget);
+    expect(
+      (tester.widget<Container>(activeBadge).decoration! as BoxDecoration)
+          .borderRadius,
+      BorderRadius.circular(8),
+      reason: reason,
+    );
+
+    final panel = find.byType(WorkspaceNavigationPanel);
+    final itemBackgrounds = tester.widgetList<AnimatedContainer>(
+      find.descendant(of: panel, matching: find.byType(AnimatedContainer)),
+    );
+    expect(itemBackgrounds, isNotEmpty, reason: reason);
+    for (final background in itemBackgrounds) {
+      expect(
+        (background.decoration! as BoxDecoration).borderRadius,
+        BorderRadius.circular(8),
+        reason: reason,
+      );
+    }
+
+    final itemInkWells = tester.widgetList<InkWell>(
+      find.descendant(of: panel, matching: find.byType(InkWell)),
+    );
+    expect(itemInkWells, isNotEmpty, reason: reason);
+    for (final item in itemInkWells) {
+      expect(item.borderRadius, BorderRadius.circular(8), reason: reason);
+    }
+  });
+
+  for (final brightness in Brightness.values) {
+    final label = brightness.name;
+    ThemeData theme() => _testTheme(brightness);
+
+    testWidgets('$label collapsed rail highlights the active destination',
+        (tester) async {
+      final data = theme();
+      await tester.binding.setSurfaceSize(const Size(88, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(MaterialApp(
+        theme: data,
+        home: Scaffold(
+          body: SizedBox(
+            width: 88,
+            height: 900,
+            child: WorkspaceNavigationPanel(
+              collapsed: true,
+              currentRoute: '/kanban',
+              onToggleCollapse: () {},
+            ),
+          ),
+        ),
+      ));
+
+      final indicator = find.byKey(
+        const ValueKey<String>('workspace-navigation-active-indicator'),
+      );
+      expect(indicator, findsOneWidget);
+      expect(tester.getSize(indicator), const Size(3, 24));
+      expect(
+        (tester.widget<AnimatedContainer>(indicator).decoration!
+                as BoxDecoration)
+            .color,
+        WorkspaceNavigationColors.of(data).focusRing,
+      );
+      expect(find.byTooltip('Kanban'), findsOneWidget);
+      expect(find.bySemanticsLabel('Kanban'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    test('$label navigation tokens meet WCAG AA against composed surfaces', () {
+      final data = theme();
+      final navigation = WorkspaceNavigationColors.of(data);
+      final surface = data.colorScheme.surface;
+      final hover = Color.alphaBlend(navigation.hoverOverlay, surface);
+
+      expect(
+        _contrast(navigation.itemForeground, surface),
+        greaterThanOrEqualTo(4.5),
+        reason: '$label unselected item text',
+      );
+      expect(
+        _contrast(navigation.itemForeground, hover),
+        greaterThanOrEqualTo(4.5),
+        reason: '$label hovered item text',
+      );
+      expect(
+        _contrast(
+          navigation.selectedForeground,
+          navigation.selectedContainer,
+        ),
+        greaterThanOrEqualTo(4.5),
+        reason: '$label selected item text',
+      );
+      expect(
+        _contrast(navigation.focusRing, surface),
+        greaterThanOrEqualTo(3),
+        reason: '$label focus indicator against panel',
+      );
+      expect(
+        _contrast(navigation.focusRing, navigation.selectedContainer),
+        greaterThanOrEqualTo(3),
+        reason: '$label focus indicator against selected item',
+      );
+
+      final brandBackground = data.colorScheme.surface;
+      expect(
+        _contrast(data.colorScheme.onSurface, brandBackground),
+        greaterThanOrEqualTo(4.5),
+        reason: '$label brand wordmark',
+      );
+      expect(
+        _contrast(data.colorScheme.onSurfaceVariant, brandBackground),
+        greaterThanOrEqualTo(4.5),
+        reason: '$label brand subtitle',
+      );
+      expect(
+        _contrast(data.colorScheme.onPrimary, AppTheme.accent),
+        greaterThanOrEqualTo(3),
+        reason: '$label fingerprint mark',
+      );
+    });
+
+    testWidgets('$label panel renders the selected and unselected tokens',
+        (tester) async {
+      final data = theme();
+      await tester.binding.setSurfaceSize(const Size(420, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: data,
+          home: const Scaffold(
+            body: SizedBox(
+              width: 360,
+              height: 900,
+              child: WorkspaceNavigationPanel(currentRoute: '/kanban'),
+            ),
+          ),
+        ),
+      );
+
+      final navigation = WorkspaceNavigationColors.of(data);
+      final brand = find.byType(WorkspaceNavigationBrand);
+      final brandSurface = find.descendant(
+        of: brand,
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Container &&
+              widget.decoration is BoxDecoration &&
+              (widget.decoration! as BoxDecoration).color ==
+                  data.colorScheme.surface,
+        ),
+      );
+      expect(brandSurface, findsOneWidget);
+      expect(
+        tester.widget<Text>(find.text('TOUCHIN')).style?.color,
+        data.colorScheme.onSurface,
+      );
+      expect(
+        tester.widget<Text>(find.text('CONTROLE DE PONTO')).style?.color,
+        data.colorScheme.onSurfaceVariant,
+      );
+      final fingerprint = find.descendant(
+        of: brand,
+        matching: find.byIcon(Icons.fingerprint_rounded),
+      );
+      expect(
+        tester.widget<Icon>(fingerprint).color,
+        data.colorScheme.onPrimary,
+      );
+      final markBox = find.ancestor(
+        of: fingerprint,
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Container &&
+              widget.decoration is BoxDecoration &&
+              (widget.decoration! as BoxDecoration).color ==
+                  data.colorScheme.primary,
+        ),
+      );
+      expect(markBox, findsOneWidget);
+      expect(
+        (tester.widget<Container>(markBox).decoration! as BoxDecoration)
+            .borderRadius,
+        BorderRadius.circular(8),
+      );
+      final selectedText = tester.widget<Text>(find.text('Kanban'));
+      final unselectedText = tester.widget<Text>(find.text('Bater Ponto'));
+      expect(selectedText.style!.color, navigation.selectedForeground);
+      expect(unselectedText.style!.color, navigation.itemForeground);
+
+      final selectedDecoration = tester
+          .widget<AnimatedContainer>(
+            find.ancestor(
+              of: find.text('Kanban'),
+              matching: find.byType(AnimatedContainer),
+            ),
+          )
+          .decoration! as BoxDecoration;
+      expect(selectedDecoration.color, navigation.selectedContainer);
+    });
+
+    testWidgets('$label collapsed brand uses theme surface colors',
+        (tester) async {
+      final data = theme();
+      await tester.pumpWidget(MaterialApp(
+        theme: data,
+        home: Scaffold(
+          body: SizedBox(
+            width: 88,
+            height: 140,
+            child: WorkspaceNavigationBrand(
+              collapsed: true,
+              onToggleCollapse: () {},
+            ),
+          ),
+        ),
+      ));
+
+      final brand = find.byType(WorkspaceNavigationBrand);
+      final brandSurface = find.descendant(
+        of: brand,
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Container &&
+              widget.decoration is BoxDecoration &&
+              (widget.decoration! as BoxDecoration).color ==
+                  data.colorScheme.surface,
+        ),
+      );
+      expect(brandSurface, findsOneWidget);
+      final fingerprint = find.descendant(
+        of: brand,
+        matching: find.byIcon(Icons.fingerprint_rounded),
+      );
+      expect(
+        tester.widget<Icon>(fingerprint).color,
+        data.colorScheme.onPrimary,
+      );
+      final expandButton = find.ancestor(
+        of: find.byTooltip('Expandir navegação'),
+        matching: find.byType(IconButton),
+      );
+      expect(
+        (tester.widget<IconButton>(expandButton).icon as Icon).color,
+        data.colorScheme.onSurface,
+      );
+    });
+  }
+}

@@ -3,7 +3,18 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import uuid4
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    event,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base, utcnow
@@ -11,6 +22,7 @@ from app.db import Base, utcnow
 _CASCADE_ALL_DELETE_ORPHAN = "all, delete-orphan"
 _COL_COMPANIES_ID = "companies.id"
 _COL_EMPLOYEES_ID = "employees.id"
+_COL_PROJECTS_ID = "projects.id"
 
 
 def generate_id() -> str:
@@ -96,6 +108,10 @@ class Employee(Base):
         back_populates="employee",
         cascade=_CASCADE_ALL_DELETE_ORPHAN,
     )
+    task_links: Mapped[list["TaskEmployee"]] = relationship(
+        back_populates="employee",
+        cascade=_CASCADE_ALL_DELETE_ORPHAN,
+    )
 
 
 class Project(Base):
@@ -105,6 +121,9 @@ class Project(Base):
     company_id: Mapped[str] = mapped_column(ForeignKey(_COL_COMPANIES_ID), index=True)
     name_ciphertext: Mapped[str] = mapped_column(Text)
     description_ciphertext: Mapped[str | None] = mapped_column(Text, nullable=True)
+    task_employee_limit: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    next_card_number: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    kanban_version: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     status: Mapped[str] = mapped_column(String(32), default="active", index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(
@@ -119,6 +138,18 @@ class Project(Base):
         cascade=_CASCADE_ALL_DELETE_ORPHAN,
     )
     punches: Mapped[list["Punch"]] = relationship(back_populates="project")
+    tasks: Mapped[list["Task"]] = relationship(
+        back_populates="project",
+        cascade=_CASCADE_ALL_DELETE_ORPHAN,
+    )
+    task_creation_requests: Mapped[list["TaskCreationRequest"]] = relationship(
+        back_populates="project",
+        cascade=_CASCADE_ALL_DELETE_ORPHAN,
+    )
+    kanban_columns: Mapped[list["KanbanColumn"]] = relationship(
+        back_populates="project",
+        cascade=_CASCADE_ALL_DELETE_ORPHAN,
+    )
 
 
 class EmployeeProject(Base):
@@ -130,7 +161,7 @@ class EmployeeProject(Base):
         index=True,
     )
     project_id: Mapped[str] = mapped_column(
-        ForeignKey("projects.id"),
+        ForeignKey(_COL_PROJECTS_ID),
         primary_key=True,
         index=True,
     )
@@ -138,6 +169,105 @@ class EmployeeProject(Base):
 
     employee: Mapped[Employee] = relationship(back_populates="project_links")
     project: Mapped[Project] = relationship(back_populates="employee_links")
+
+
+class KanbanColumn(Base):
+    __tablename__ = "kanban_columns"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=generate_id)
+    project_id: Mapped[str] = mapped_column(ForeignKey(_COL_PROJECTS_ID), index=True)
+    name_ciphertext: Mapped[str] = mapped_column(Text)
+    position: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=utcnow,
+        onupdate=utcnow,
+    )
+
+    project: Mapped[Project] = relationship(back_populates="kanban_columns")
+    tasks: Mapped[list["Task"]] = relationship(back_populates="kanban_column")
+
+
+class Task(Base):
+    __tablename__ = "tasks"
+    __table_args__ = (
+        CheckConstraint(
+            "parent_task_id IS NULL OR parent_task_id <> id",
+            name="ck_task_not_self_parent",
+        ),
+        UniqueConstraint("project_id", "card_number", name="uq_task_card_number_per_project"),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=generate_id)
+    project_id: Mapped[str] = mapped_column(ForeignKey(_COL_PROJECTS_ID), index=True)
+    parent_task_id: Mapped[str | None] = mapped_column(
+        ForeignKey("tasks.id"),
+        nullable=True,
+        index=True,
+    )
+    card_number: Mapped[int] = mapped_column(Integer)
+    kanban_column_id: Mapped[str] = mapped_column(ForeignKey("kanban_columns.id"), index=True)
+    kanban_position: Mapped[int] = mapped_column(Integer)
+    revision: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    name_ciphertext: Mapped[str] = mapped_column(Text)
+    description_ciphertext: Mapped[str] = mapped_column(Text)
+    type: Mapped[str] = mapped_column(String(32), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=utcnow,
+        onupdate=utcnow,
+    )
+
+    project: Mapped[Project] = relationship(back_populates="tasks")
+    kanban_column: Mapped[KanbanColumn] = relationship(back_populates="tasks")
+    parent: Mapped["Task | None"] = relationship(
+        remote_side="Task.id",
+        back_populates="children",
+        foreign_keys=[parent_task_id],
+    )
+    children: Mapped[list["Task"]] = relationship(
+        back_populates="parent",
+        foreign_keys=[parent_task_id],
+    )
+    employee_links: Mapped[list["TaskEmployee"]] = relationship(
+        back_populates="task",
+        cascade=_CASCADE_ALL_DELETE_ORPHAN,
+    )
+
+
+class TaskCreationRequest(Base):
+    __tablename__ = "task_creation_requests"
+
+    project_id: Mapped[str] = mapped_column(ForeignKey(_COL_PROJECTS_ID), primary_key=True)
+    actor_user_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    request_key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    payload_digest: Mapped[str] = mapped_column(String(64))
+    task_id: Mapped[str] = mapped_column(String(64))
+    response_ciphertext: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    project: Mapped[Project] = relationship(back_populates="task_creation_requests")
+
+
+class TaskEmployee(Base):
+    __tablename__ = "task_employees"
+
+    task_id: Mapped[str] = mapped_column(
+        ForeignKey("tasks.id", ondelete="CASCADE"),
+        primary_key=True,
+        index=True,
+    )
+    employee_id: Mapped[str] = mapped_column(
+        ForeignKey(_COL_EMPLOYEES_ID, ondelete="CASCADE"),
+        primary_key=True,
+        index=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    task: Mapped[Task] = relationship(back_populates="employee_links")
+    employee: Mapped[Employee] = relationship(back_populates="task_links")
 
 
 class UserAccount(Base):
@@ -174,11 +304,14 @@ class UserAccount(Base):
 
 class Punch(Base):
     __tablename__ = "punches"
+    __table_args__ = (
+        Index("ix_punches_employee_timestamp_id", "employee_id", "timestamp", "id"),
+    )
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=generate_id)
     company_id: Mapped[str] = mapped_column(ForeignKey(_COL_COMPANIES_ID), index=True)
     employee_id: Mapped[str] = mapped_column(ForeignKey(_COL_EMPLOYEES_ID), index=True)
-    project_id: Mapped[str | None] = mapped_column(ForeignKey("projects.id"), nullable=True, index=True)
+    project_id: Mapped[str | None] = mapped_column(ForeignKey(_COL_PROJECTS_ID), nullable=True, index=True)
     type: Mapped[str] = mapped_column(String(32))
     timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
     detail_ciphertext: Mapped[str] = mapped_column(Text)
@@ -189,6 +322,90 @@ class Punch(Base):
     employee: Mapped[Employee] = relationship(back_populates="punches")
     project: Mapped[Project | None] = relationship(back_populates="punches")
 
+
+
+class WorkLogTask(Base):
+    __tablename__ = "work_log_tasks"
+    work_log_id: Mapped[str] = mapped_column(ForeignKey("work_logs.id", ondelete="CASCADE"), primary_key=True)
+    task_id: Mapped[str] = mapped_column(ForeignKey("tasks.id", ondelete="CASCADE"), primary_key=True)
+
+
+class WorkLog(Base):
+    __tablename__ = "work_logs"
+    __table_args__ = (
+        Index("ix_work_logs_company_project_start_time", "company_id", "project_id", "start_time"),
+    )
+    
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=generate_id)
+    company_id: Mapped[str] = mapped_column(ForeignKey(_COL_COMPANIES_ID), index=True)
+    # A WorkLog is an immutable historical fact. Deleting a live employee or
+    # punch detaches the source reference without deleting accounted work.
+    employee_id: Mapped[str | None] = mapped_column(
+        ForeignKey(_COL_EMPLOYEES_ID, ondelete="SET NULL"), nullable=True, index=True,
+    )
+    # Stable pseudonymous reference for historical employee-filtered reports.
+    # It is deliberately not a foreign key, so retention survives deletion.
+    employee_id_snapshot: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    project_id: Mapped[str | None] = mapped_column(ForeignKey(_COL_PROJECTS_ID), nullable=True, index=True)
+    punch_id: Mapped[str | None] = mapped_column(
+        ForeignKey("punches.id", ondelete="SET NULL"), nullable=True, index=True,
+    )
+
+    start_time: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    end_time: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    duration_seconds: Mapped[int] = mapped_column(Integer)
+    description_ciphertext: Mapped[str] = mapped_column(Text)
+    task_snapshots_ciphertext: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    punch: Mapped[Punch | None] = relationship()
+    tasks: Mapped[list[Task]] = relationship(secondary="work_log_tasks")
+
+
+class CompanyAISettings(Base):
+    __tablename__ = "company_ai_settings"
+    __table_args__ = (UniqueConstraint("company_id", name="uq_company_ai_settings_company"),)
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=generate_id)
+    company_id: Mapped[str] = mapped_column(
+        ForeignKey(_COL_COMPANIES_ID, ondelete="CASCADE"), index=True
+    )
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    provider_base_url: Mapped[str] = mapped_column(String(2048), default="")
+    model_id: Mapped[str] = mapped_column(String(200), default="")
+    api_key_ciphertext: Mapped[str | None] = mapped_column(Text, nullable=True)
+    privacy_acknowledged_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    revision: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class TaskRecommendationQuota(Base):
+    __tablename__ = "task_recommendation_quotas"
+
+    company_id: Mapped[str] = mapped_column(
+        ForeignKey(_COL_COMPANIES_ID, ondelete="CASCADE"), primary_key=True
+    )
+    scope: Mapped[str] = mapped_column(String(70), primary_key=True)
+    bucket_hour: Mapped[int] = mapped_column(Integer)
+    attempts: Mapped[int] = mapped_column(Integer)
+
+
+class AuditEvent(Base):
+    __tablename__ = 'audit_events'
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    company_id: Mapped[str] = mapped_column(ForeignKey('companies.id', ondelete='CASCADE'), index=True)
+    actor_user_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    project_id: Mapped[str | None] = mapped_column(ForeignKey('projects.id', ondelete='SET NULL'), nullable=True, index=True)
+    action: Mapped[str] = mapped_column(String, index=True)
+    entity_type: Mapped[str] = mapped_column(String)
+    entity_id: Mapped[str] = mapped_column(String, index=True)
+    result: Mapped[str] = mapped_column(String)
+    metadata_payload: Mapped[str | None] = mapped_column(String, nullable=True)
+    correlation_id: Mapped[str | None] = mapped_column(String, nullable=True)
 
 class AuthSession(Base):
     __tablename__ = "auth_sessions"
@@ -202,3 +419,61 @@ class AuthSession(Base):
     last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     user: Mapped[UserAccount] = relationship(back_populates="sessions")
+
+
+class PasswordResetToken(Base):
+    __tablename__ = "password_reset_tokens"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=generate_id)
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("user_accounts.id", ondelete="CASCADE"), index=True
+    )
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class PasswordResetThrottle(Base):
+    __tablename__ = "password_reset_throttles"
+
+    # HMAC(scope, identifier, hour). Never persist email/IP in cleartext.
+    bucket_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    bucket_hour: Mapped[int] = mapped_column(Integer, index=True)
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class LoginAttemptThrottle(Base):
+    __tablename__ = "login_attempt_throttles"
+
+    # HMAC(scope, identifier, UTC hour). Never persist email/IP in cleartext.
+    bucket_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    bucket_hour: Mapped[int] = mapped_column(Integer, index=True)
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+@event.listens_for(Project, "init")
+def _initialize_project_kanban_column(
+    project: Project,
+    _args: tuple[object, ...],
+    kwargs: dict[str, object],
+) -> None:
+    """Create the required initial Kanban column for newly constructed projects."""
+    if kwargs.get("kanban_columns"):
+        return
+
+    from app.config import get_settings
+    from app.crypto import FieldCipher
+
+    secret = get_settings().encryption_secret
+    if secret is None:
+        raise RuntimeError("TOUCHIN_ENCRYPTION_SECRET is required.")
+    field_cipher = FieldCipher(secret)
+    project.kanban_columns.append(
+        KanbanColumn(
+            name_ciphertext=field_cipher.encrypt("A fazer") or "",
+            position=0,
+        ),
+    )

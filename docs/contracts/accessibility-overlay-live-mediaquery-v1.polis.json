@@ -1,0 +1,178 @@
+{
+  "schema_version": 6,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      "docs/contracts/accessibility-overlay-live-mediaquery-v1.polis.json",
+      "frontend/lib/features/shared/presentation/widgets/accessibility_tools.dart",
+      "frontend/test/accessibility_tools_test.dart"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/accessibility_tools_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Keep the site-wide accessibility overlay's inherited MediaQuery live after mount so viewport, keyboard insets, platform text scaling, and reduced-motion changes propagate without resetting accessibility-tool state.",
+    "requirements": [
+      {
+        "id": "REQ-1",
+        "statement": "When an ancestor MediaQuery changes after AccessibilityTools mounts, descendants in its retained overlay receive the new viewport size and viewInsets."
+      },
+      {
+        "id": "REQ-2",
+        "statement": "Platform text scaling changes propagate through the overlay and compose with the user's existing accessibility text-size adjustment."
+      },
+      {
+        "id": "REQ-3",
+        "statement": "Ancestor reduced-motion changes propagate through the overlay, while the AccessibilityTools state and open-panel/text-size preference remain intact."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-1",
+        "statement": "A widget regression updates an ancestor MediaQuery after the overlay has mounted and asserts descendants see the new size and keyboard insets.",
+        "requirements": [
+          "REQ-1"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-2",
+        "statement": "The same regression verifies a changed platform TextScaler composes with the retained 110% user setting, and checks the updated inherited disableAnimations value.",
+        "requirements": [
+          "REQ-2",
+          "REQ-3"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-3",
+        "statement": "The panel remains open at 110% after the ancestor update, and the focused accessibility test suite passes.",
+        "requirements": [
+          "REQ-3"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-1",
+        "statement": "Do not change the overlay's intended position, accessibility controls, or behavior settings; make the inherited platform MediaQuery live inside the retained entry."
+      },
+      {
+        "id": "INV-2",
+        "statement": "Do not change unrelated app overlays, dialogs, authentication flows, or workspace layouts."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORBID-1",
+        "statement": "The retained overlay uses a MediaQuery snapshot captured at initial build after an ancestor size, viewInsets, text-scaling, or reduced-motion update."
+      },
+      {
+        "id": "FORBID-2",
+        "statement": "Refreshing inherited MediaQuery values discards the user's text-size setting or closes the accessibility panel."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-1",
+        "statement": "The live inherited MediaQuery supplied by MaterialApp and the active platform viewport/keyboard/accessibility settings."
+      },
+      {
+        "id": "IN-2",
+        "statement": "AccessibilityTools' existing text-size, reduced-motion, and panel-open state."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-1",
+        "statement": "Overlay descendants receive current inherited media values while accessibility-tool preferences remain composed and intact."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-1",
+        "statement": "On the locked baseline the focused regression fails with the literal reason accessibility_overlay_keeps_live_media_query; missing dependencies or a test-discovery error are not valid Red evidence."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "e4d5766796f47d74eab18ea8092de3e7a3cadc98",
+    "base_tree": "b6e724ebcb8ef7571d28f7dbe1fc3defe320f23e",
+    "policy_sha256": "5563facc34ae2a1a07cf7ec7ec2f115cb8d250c49dd6e2bd5c7a3de4c977d450",
+    "specification_sha256": "a5acc3d5b2552d2bdc803e8288bf7e937cc91ca75c1da88c7c36ea16bbddf817"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/accessibility_tools_test.dart",
+      "--plain-name",
+      "accessibility overlay follows ancestor media query changes while retaining state"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/accessibility_tools_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "test/accessibility_tools_test.dart",
+        "--plain-name",
+        "accessibility overlay follows ancestor media query changes while retaining state"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 600,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "accessibility_overlay_keeps_live_media_query"
+    ]
+  }
+}

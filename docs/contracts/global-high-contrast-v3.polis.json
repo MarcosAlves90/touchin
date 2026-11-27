@@ -1,0 +1,156 @@
+{
+  "schema_version": 6,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      "docs/contracts/global-high-contrast-v3.polis.json",
+      "frontend/lib/theme/app_theme.dart",
+      "frontend/lib/features/projects/presentation/project_tasks_page.dart",
+      "frontend/test/global_high_contrast_v3_test.dart"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/global_high_contrast_v3_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Supersedes global-high-contrast-v2: correct disabled button contrast, active project status, and normal field focus without changing normal appearance.",
+    "requirements": [
+      {
+        "id": "REQ-01",
+        "statement": "High contrast disabled buttons on authentication cards are visibly distinct from their card and enabled state with legible text in light and dark."
+      },
+      {
+        "id": "REQ-02",
+        "statement": "Active project status has at least 4.5:1 text contrast in high contrast in light and dark while normal appearance is preserved."
+      },
+      {
+        "id": "REQ-03",
+        "statement": "Normal fields retain original accent focus, including team; high contrast focus is at least 3:1 and keyboard usable on team and another screen."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-01",
+        "statement": "Real rendered authentication buttons, project status, and fields on team and another screen are covered in light and dark including keyboard semantics and required contrast.",
+        "requirements": [
+          "REQ-01",
+          "REQ-02",
+          "REQ-03"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-02",
+        "statement": "docs/contracts/global-high-contrast-v3.polis.json is byte-identical to the lock.",
+        "requirements": [
+          "REQ-01"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-01",
+        "statement": "Preserve normal appearance and audit-specific theming."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-01",
+        "statement": "Insufficient high contrast or changed regular input focus."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-01",
+        "statement": "Theme brightness, accessibility mode, and UI state."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-01",
+        "statement": "Accessible controls and project status."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-01",
+        "statement": "Regression tests fail when requirements are violated."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "285011e9bfaad7bc3ea6bf1a1c0a860d89d8733c",
+    "base_tree": "90974dce013d056a4317b6540505c119abfd335c",
+    "policy_sha256": "7714a10ab2b65f58941086f500de93fa62fc6acb6fd59d8b39292980364774dd",
+    "specification_sha256": "294d5f19b7c6c9c5df69089562b44f9f252c66b2260cf0ba43307e8ac0b01e6d"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/global_high_contrast_v3_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 360,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/global_high_contrast_v3_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 360,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "test/global_high_contrast_v3_test.dart"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 360,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "contrast_v3_regression"
+    ]
+  }
+}

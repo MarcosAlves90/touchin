@@ -1,324 +1,65 @@
-# Bunchin App
+# TouchIn
 
-<p align="left">
-  <img alt="CI" src="https://img.shields.io/github/actions/workflow/status/MarcosAlves90/self-bunchin-app/ci.yml?branch=main&label=CI">
-  <img alt="Flutter" src="https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter&logoColor=white">
-  <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-0.115.x-009688?logo=fastapi&logoColor=white">
-  <img alt="Python" src="https://img.shields.io/badge/Python-3.x-3776AB?logo=python&logoColor=white">
-  <img alt="PostgreSQL" src="https://img.shields.io/badge/PostgreSQL-15-4169E1?logo=postgresql&logoColor=white">
-  <img alt="SQLite" src="https://img.shields.io/badge/SQLite-dev-003B57?logo=sqlite&logoColor=white">
-  <img alt="License" src="https://img.shields.io/badge/license-Proprietary-red">
-</p>
-
-Sistema de ponto eletrônico e gestão de equipe com frontend em Flutter e backend em FastAPI. O foco do repositório é um fluxo corporativo enxuto, com autenticação por token opaco, proteção de dados sensíveis em nível de aplicação e uma base pensada para evoluir sem acoplamento desnecessário.
-
-## Visão Geral
-
-O Bunchin App reúne:
-
-- app Flutter para operação diária, autenticação, configurações e time tracking
-- API FastAPI para autenticação, funcionários, projetos, admin e ponto
-- persistência local com SQLite em desenvolvimento e PostgreSQL em ambientes superiores
-- criptografia de PII antes da persistência e sessões rastreáveis por token hash
-
-Para detalhes da API e dos contratos do backend, veja [backend/README.md](backend/README.md).
+Aplicação web para registro de jornada e gestão de equipes. O TouchIn reúne
+registro de ponto com política de localização por funcionário, projetos e
+tarefas, Kanban/backlog e trilha de auditoria. Veja os [fluxos do produto](docs/PRODUCT.md).
 
 ## Arquitetura
 
 ```mermaid
 flowchart LR
-  subgraph App["Flutter app"]
-    Auth[Auth]
-    Admin[Admin]
-    Settings[Settings]
-    Time[Time tracking]
-  end
-
-  subgraph Api["FastAPI backend"]
-    Routes[api/routes]
-    Services[services]
-    Domain[domain]
-    Authz[authorization]
-    Boot[bootstrap / seed]
-  end
-
-  DB[(SQLite / PostgreSQL)]
-  Mail[Brevo]
-
-  App -->|HTTPS JSON| Api
-  Routes --> Services
-  Services --> Domain
-  Services --> Authz
-  Boot --> DB
-  Api --> DB
-  Api --> Mail
+  Browser[Navegador] --> App[Frontend Flutter]
+  App -->|JSON /api/v1| API[API FastAPI]
+  API --> DB[(SQLite local ou PostgreSQL)]
 ```
 
-## Diagramas Úteis
+O CI usa Python 3.12 para FastAPI, SQLAlchemy e Pydantic, e Flutter/Dart
+para a interface. Versões e ferramentas estão no [guia de desenvolvimento](docs/DEVELOPMENT.md).
 
-### Fluxo de autenticação
+## Início rápido
 
-```mermaid
-sequenceDiagram
-  autonumber
-  actor User as Usuário
-  participant App as Flutter app
-  participant Api as FastAPI
-  participant Db as Banco
-
-  User->>App: Informa email e senha
-  App->>Api: POST /auth/login
-  Api->>Db: Valida credenciais e cria sessão
-  Db-->>Api: Token hash persistido
-  Api-->>App: Access token opaco
-  App-->>User: Usuário autenticado
-  User->>App: Logout
-  App->>Api: POST /auth/logout
-  Api->>Db: Revoga sessão atual
-```
-
-Observação de sessão:
-
-- `keepConnected=true` pede o TTL longo no backend.
-- `keepConnected=false` pede o TTL curto, mas a sessão ainda fica armazenada localmente e pode ser reaproveitada até `expiresAt`.
-- `POST /api/v1/auth/logout` continua sendo o caminho para revogação imediata.
-
-### Fluxo de ponto
-
-```mermaid
-flowchart TD
-  Start([Usuário abre a área de ponto]) --> Action{Qual ação?}
-  Action -->|Clock-in| In[Registrar entrada]
-  Action -->|Pause| Pause[Registrar pausa]
-  Action -->|Return| Back[Registrar retorno]
-  Action -->|Clock-out| Out[Registrar saída]
-
-  In --> Api1[POST/PUT na API de time clock]
-  Pause --> Api2[POST/PUT na API de time clock]
-  Back --> Api3[POST/PUT na API de time clock]
-  Out --> Api4[POST/PUT na API de time clock]
-
-  Api1 --> Db[(Persistência)]
-  Api2 --> Db
-  Api3 --> Db
-  Api4 --> Db
-  Db --> View[Histórico paginado de ponto]
-```
-
-### Mapa do repositório
-
-```mermaid
-flowchart LR
-  Root["self-bunchin-app"]
-  Root --> Frontend["frontend/"]
-  Root --> Backend["backend/"]
-  Root --> Docs["CONTEXT.md + README.md"]
-
-  Frontend --> UI["lib/features/*"]
-  Frontend --> Core["lib/core/*"]
-  Frontend --> Tests["test/"]
-
-  Backend --> Api["app/api/*"]
-  Backend --> Domain["app/domain/*"]
-  Backend --> Services["app/services/*"]
-  Backend --> Db["app/models.py + database_schema.py"]
-  Backend --> Seed["app/seed.py"]
-  Backend --> Tests2["tests/"]
-```
-
-## Recursos Principais
-
-| Área | O que cobre |
-| --- | --- |
-| Autenticação | Login, logout, sessão persistida e revogação individual |
-| Ponto | Clock-in, clock-out, pausa, retorno e histórico paginado |
-| Gestão de equipe | CRUD de funcionários, vínculo com projetos e regras por papel |
-| Admin | Operação interna com permissões separadas |
-| Configurações | Tema global com modos claro, escuro e seguir sistema |
-| E-mail transacional | Fluxos de convite, redefinição e boas-vindas via Brevo |
-| Segurança | PII criptografada, token opaco com hash e CORS configurável |
-
-## Stack
-
-### Backend
-
-| Tecnologia | Uso |
-| --- | --- |
-| Python | Linguagem principal |
-| FastAPI | API REST |
-| SQLAlchemy | ORM |
-| Pydantic | Schemas e validação |
-| Cryptography | AES-GCM para PII |
-| Pytest | Testes |
-| SQLite | Banco local |
-| PostgreSQL | Banco de produção/staging |
-
-### Frontend
-
-| Tecnologia | Uso |
-| --- | --- |
-| Flutter | UI mobile/web |
-| Dart | Linguagem |
-| Freezed | Modelos imutáveis |
-| Build Runner | Geração de código |
-| Flutter Secure Storage | Persistência segura |
-| Geolocator | Geolocalização |
-| HTTP | Cliente HTTP |
-| Google Fonts | Tipografia |
-
-## Estrutura
-
-```text
-backend/
-  app/
-    api/
-    domain/
-    schemas/
-    services/
-    main.py
-    bootstrap.py
-    database_schema.py
-  tests/
-  .env.example
-  requirements.txt
-
-frontend/
-  lib/
-    core/
-    features/
-    theme/
-    main.dart
-  test/
-  pubspec.yaml
-```
-
-## Início Rápido
-
-### Backend
+Para explorar a interface **sem backend, banco ou conta**, use a
+[prévia offline](docs/DEVELOPER_PREVIEW.md). Para rodar o app normal,
+siga os passos abaixo (macOS/Linux; no Windows, veja o
+[guia para PowerShell](docs/DEVELOPMENT.md#preparar-o-backend)).
 
 ```bash
 cd backend
-python -m venv .venv
-.venv/bin/activate
-pip install -r requirements.txt
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
 cp .env.example .env
-uvicorn app.main:app --reload
+# Edite .env antes de iniciar: use dois segredos locais distintos e uma senha de seed própria.
+python -m uvicorn app.main:app --reload --port 8071
 ```
 
-### Frontend
+Em outro terminal, a partir da raiz do repositório:
 
 ```bash
 cd frontend
 flutter pub get
-dart run build_runner build
-flutter run -d web-server --dart-define=API_BASE_URL=http://localhost:8071/api/v1
+flutter run -d web-server --web-port 8080
 ```
 
-## Deploy no Vercel
-
-O frontend pode ser publicado como site estático no Vercel usando o diretório `frontend/` como root do projeto.
-
-### Configuração esperada
-
-- Root Directory: `frontend`
-- Build Command: `bash scripts/vercel-build.sh`
-- Output Directory: `build/web`
-- Environment Variable: `API_BASE_URL` com a URL pública oficial da API, por exemplo `https://self-bunchin-app.onrender.com/api/v1`
-
-## Publicação Android
-
-O versionamento de release do app está concentrado em `frontend/`:
-
-- `frontend/pubspec.yaml` define a versão técnica do build (`x.y.z+build`)
-- `frontend/release/catalog.json` define a linha de release e o nome humano da versão completa
-- `frontend/android/app/build.gradle.kts` lê signing de release de `frontend/android/key.properties`
-
-Regras atuais:
-
-- `1.y.z` pertence à linha `Woodpecker`
-- `2.y.z` pertence à linha `Atlas`
-- o `x` de `x.y.z` define o nome da linha da release
-- o nome completo de uma release segue o padrão `Bunchin <x.y.z>-<linha>`
-- a estrutura já reserva pontos de expansão para iOS e web no futuro
-
-Fluxo de publicação:
-
-```bash
-cd frontend
-cp android/key.properties.example android/key.properties
-# preencha os segredos do keystore
-dart run scripts/release_info.dart validate
-flutter build appbundle --release --dart-define=API_BASE_URL=https://self-bunchin-app.onrender.com/api/v1
-flutter build apk --release --dart-define=API_BASE_URL=https://self-bunchin-app.onrender.com/api/v1
-```
-
-Automação no GitHub:
-
-- pushes em branches `release/**` rodam `.github/workflows/android-release.yml`
-- o workflow valida o catálogo, roda `flutter test`, gera `app-release.aab` e `app-release.apk`, cria a tag `vX.Y.Z` e publica uma GitHub pre-release
-- se a tag já existir, o workflow falha e exige bump em `frontend/pubspec.yaml`
-- o workflow exige os secrets `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_PASSWORD` e `ANDROID_KEY_ALIAS`
-
-- O backend precisa permitir o origin do domínio do Vercel em `BUNCHIN_ALLOWED_ORIGINS`
-
-O build script baixa o Flutter SDK quando necessário, gera o web build e falha com mensagem clara se o `API_BASE_URL` não estiver definido no ambiente do Vercel.
-
-## Configuração
-
-As variáveis mais importantes são:
-
-- `BUNCHIN_TOKEN_SECRET`
-- `BUNCHIN_ENCRYPTION_SECRET`
-- `BUNCHIN_ALLOWED_ORIGINS`
-- `BUNCHIN_ENFORCE_HTTPS`
-- `BUNCHIN_SEED_ON_STARTUP`
-- `BUNCHIN_SEED_ADMIN_PASSWORD`
-- `BUNCHIN_BREVO_API_KEY`
-- `BUNCHIN_BREVO_SENDER_EMAIL`
-- `BUNCHIN_BREVO_SENDER_NAME`
-- `BUNCHIN_BREVO_WELCOME_ENABLED`
-- `API_BASE_URL` para o frontend web publicado no Vercel, apontando para `https://self-bunchin-app.onrender.com/api/v1`
-
-O backend também documenta seed, autenticação, permissões e endpoints em [backend/README.md](backend/README.md).
-
-## API
-
-- Base path: `/api/v1`
-- Formato: JSON
-- Autenticação: `Authorization: Bearer <token>`
-- Erros: `{"detail":"mensagem"}`
-
-Rotas principais:
-
-- `/auth/login`
-- `/auth/logout`
-- `/employees`
-- `/projects`
-- `/time-clock`
-- `/time-clock/me?page=&limit=`
-- `/time-clock/employees/{employee_id}/punches?page=&limit=`
-- `/admin`
-
-## Validação
-
-O CI do repositório executa:
-
-- `pytest` em `backend/`
-- `flutter test` em `frontend/`
-
-Comandos úteis localmente:
-
-```bash
-cd backend && pytest
-cd frontend && flutter test
-cd frontend && dart format lib test
-```
+Abra `http://localhost:8080`. O frontend abre no modo normal e aponta para
+`http://localhost:8071/api/v1` por padrão. A API interativa fica em
+`http://127.0.0.1:8071/docs`.
 
 ## Documentação
 
-- [backend/README.md](backend/README.md) - detalhes da API, seed e permissões
-- [CONTEXT.md](CONTEXT.md) - regras e contexto compartilhado do projeto
+- [Índice da documentação](docs/README.md)
+- [Desenvolvimento, testes e POLIS](docs/DEVELOPMENT.md)
+- [Deploy e configuração por ambiente](docs/DEPLOYMENT.md)
+- [API, configuração do backend e permissões](backend/README.md)
+- [Contexto e arquitetura do projeto](CONTEXT.md)
+
+## Publicação Android
+
+Consulte o [catálogo e o fluxo de publicação](frontend/release/README.md) para gerar
+APK e AAB assinados da branch Android.
 
 ## Licença
 
-Uso proprietário. Consulte o repositório ou o time responsável para detalhes de distribuição.
+O repositório não contém um arquivo `LICENSE` para o projeto. Consulte os
+responsáveis antes de reutilizar ou redistribuir o código. Atribuições de
+recursos de terceiros são mantidas junto a esses recursos.

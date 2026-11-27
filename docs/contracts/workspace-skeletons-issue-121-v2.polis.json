@@ -1,0 +1,263 @@
+{
+  "schema_version": 6,
+  "kind": "feature",
+  "scope": {
+    "allowed_paths": [
+      "frontend/lib/main.dart",
+      "frontend/lib/features/admin/presentation/admin_audit_page.dart",
+      "frontend/lib/features/admin/presentation/admin_employees_page.dart",
+      "frontend/lib/features/auth/presentation/widgets/auth_form_widgets.dart",
+      "frontend/lib/features/projects/presentation/project_kanban_page.dart",
+      "frontend/lib/features/projects/presentation/project_tasks_page.dart",
+      "frontend/lib/features/shared/presentation/widgets/workspace_editor_dialog.dart",
+      "frontend/lib/features/shared/presentation/widgets/workspace_skeleton.dart",
+      "frontend/lib/features/time_tracking/presentation/time_clock_page.dart",
+      "frontend/lib/features/time_tracking/presentation/work_log_dialog.dart",
+      "frontend/test/admin_audit_page_test.dart",
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart",
+      "frontend/test/features/projects/presentation/project_tasks_page_test.dart",
+      "frontend/test/features/shared/presentation/widgets/workspace_skeleton_test.dart",
+      "frontend/test/features/time_tracking/presentation/time_clock_page_test.dart",
+      "frontend/test/loading_spinner_audit_test.dart",
+      "docs/contracts/workspace-skeletons-issue-121-v2.polis.json",
+      "frontend/test/issue121_visual_entrypoint.dart",
+      "docs/validation/issue-121/README.md",
+      "docs/validation/issue-121/project-tasks-responsive.webm"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/admin_audit_page_test.dart",
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart",
+      "frontend/test/features/projects/presentation/project_tasks_page_test.dart",
+      "frontend/test/features/shared/presentation/widgets/workspace_skeleton_test.dart",
+      "frontend/test/features/time_tracking/presentation/time_clock_page_test.dart",
+      "frontend/test/loading_spinner_audit_test.dart",
+      "frontend/test/issue121_visual_entrypoint.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Replace ordinary in-app content-loading spinners with reusable accessible animated skeletons while preserving startup, submission, routing, authorization and existing loading/error/empty behavior.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "One shared configurable skeleton primitive supports composable shapes, one animation controller per loading region, system reduced motion, theme colors, text scaling and responsive widths."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "Route-session and Kanban skeletons reuse the shared primitive without changing their layout, keys or board rendering foundation."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "Every ordinary content-loading spinner in Audit, Employees, Kanban, Projects/Tasks, time tracking and work-log task lists is replaced by a content-shaped skeleton."
+      },
+      {
+        "id": "REQ-004",
+        "statement": "Action submissions use disabled controls with accessible pending text/status and never use a content skeleton or spinner."
+      },
+      {
+        "id": "REQ-005",
+        "statement": "Workspace shell/navigation remains mounted; existing success, empty, error, retry, pagination, auth/revocation behavior and API contracts are preserved."
+      },
+      {
+        "id": "REQ-006",
+        "statement": "Skeleton regions expose one live announcement; decorative blocks are hidden from assistive technology; reduced motion stops animation and leaves no running ticker."
+      },
+      {
+        "id": "REQ-007",
+        "statement": "No dependency is added; only startup splash retains the CircularProgressIndicator, with the #113 audit export LinearProgressIndicator as its narrowly documented action-progress exception."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "A shared primitive and region are reused by all migrated surfaces and route-session/Kanban skeletons.",
+        "requirements": [
+          "REQ-001",
+          "REQ-002",
+          "REQ-003"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "Loading to success/empty/error remains usable and preserves scoped retry/pagination and workspace shell.",
+        "requirements": [
+          "REQ-002",
+          "REQ-003",
+          "REQ-005"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-003",
+        "statement": "Reduced motion renders a static skeleton without a running ticker; animated regions use one controller; decorative blocks are excluded and the region label appears once.",
+        "requirements": [
+          "REQ-001",
+          "REQ-006"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-004",
+        "statement": "Representative production ProjectTasksPage loading state is visually inspected at desktop and mobile browser viewports using a reproducible harness; responsive layout has no observed horizontal overflow.",
+        "requirements": [
+          "REQ-001",
+          "REQ-003"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-005",
+        "statement": "Only the startup splash CircularProgressIndicator and narrowly contextualized audit-export LinearProgressIndicator remain; no added dependency or altered API contract.",
+        "requirements": [
+          "REQ-004",
+          "REQ-005",
+          "REQ-007"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-006",
+        "statement": "Flutter analysis, focused and full test suites, build/smoke where available, git diff check, and complete diff review pass.",
+        "requirements": [
+          "REQ-001",
+          "REQ-002",
+          "REQ-003",
+          "REQ-004",
+          "REQ-005",
+          "REQ-006",
+          "REQ-007"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-007",
+        "statement": "A repeatable browser harness renders the production ProjectTasksPage with a pending API response and retains the desktop/mobile visual inspection evidence.",
+        "requirements": [
+          "REQ-001",
+          "REQ-003",
+          "REQ-005"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "Circular progress remains exclusively for cold-start server waiting; action pending states use disabled controls and accessible status."
+      },
+      {
+        "id": "INV-002",
+        "statement": "API contracts, auth/revocation, existing loading/error/empty/retry/pagination semantics, and Kanban board rendering behavior do not change."
+      },
+      {
+        "id": "INV-003",
+        "statement": "No external dependency is introduced; current workspace visual language and responsive behavior are preserved."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "Ordinary in-app content loading uses a circular/refresh/Cupertino spinner."
+      },
+      {
+        "id": "FORB-002",
+        "statement": "Submission is represented by a misleading skeleton or inaccessible pending state."
+      },
+      {
+        "id": "FORB-003",
+        "statement": "Reduced motion leaves an active animation ticker or decorative blocks exposed to assistive technology."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "Current content loading regions, their surrounding workspace shell, and accessible labels."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "Reusable skeleton regions and page-specific skeleton compositions with preserved loading transitions."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "If any ordinary content loading indicator remains outside the startup splash and the narrowly scoped audit export progress action, the source inventory regression exits nonzero and identifies the offending path/token."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "c887d0dbaf299555327555dae53b3a59c57af8b0",
+    "base_tree": "de33b96d7e4f8fb1f4b3285bc4784e35a985acc4",
+    "policy_sha256": "5563facc34ae2a1a07cf7ec7ec2f115cb8d250c49dd6e2bd5c7a3de4c977d450",
+    "specification_sha256": "edec08d37d18a2f11049de2be82558eb22a95ddda18d2a89fb2135320ad81ca5"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 1200,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/loading_spinner_audit_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 300,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "test/loading_spinner_audit_test.dart"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 300,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "Some tests failed"
+    ]
+  }
+}

@@ -1,0 +1,170 @@
+{
+  "schema_version": 6,
+  "kind": "behavior_preserving",
+  "scope": {
+    "allowed_paths": [
+      "frontend/test/admin_contrast_test.dart",
+      "frontend/test/admin_employees_page_test.dart",
+      "docs/contracts/team-normal-surfaces-v3.polis.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/admin_contrast_test.dart",
+      "frontend/test/admin_employees_page_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Supersede team-normal-surfaces-v2 as current specification: preserve implemented soft normal selection and strong high contrast while correcting obsolete tests and covering actual global contrast toggle and keyboard activation.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "Correct obsolete selected-background assertions to actual theme tokens while preserving contrast thresholds and covering light and dark."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "Verify employee selection differences, high contrast, real global toggle and Enter keyboard activation without changing runtime behavior."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "Store byte-identical locked v3 contract; v3 supersedes v2."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "Selected employee text retains at least 4.5 contrast against actual selected surface in both themes; selected and unselected surfaces differ, and high-contrast selection remains strong.",
+        "requirements": [
+          "REQ-001",
+          "REQ-002"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "Real global contrast toggle and Enter activation are exercised in employee UI.",
+        "requirements": [
+          "REQ-002"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-003",
+        "statement": "Archived v3 contract equals locked contract bytes.",
+        "requirements": [
+          "REQ-003"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "All existing content contrast limits, runtime behavior and accessibility remain unchanged."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "Contrast thresholds are removed or weakened, or high contrast is weakened."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "Employee list and profile widgets and global theme."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "Normalized scoped surfaces and regression coverage."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "Widget regression fails if employee surfaces use wrong theme colors."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "8cd6ca490bd5df54bcffd698b08e215b4aa544ef",
+    "base_tree": "42e264934270176f00cae7f91e87974c2bdd9d4f",
+    "policy_sha256": "7714a10ab2b65f58941086f500de93fa62fc6acb6fd59d8b39292980364774dd",
+    "specification_sha256": "104b0b2137b803dcf0036cd8fff28955d58e00536218ae0c0adef16ad43e20da"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "--reporter",
+      "expanded",
+      "--plain-name",
+      "team selected v2",
+      "test/admin_employees_page_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "--reporter",
+      "expanded",
+      "test/admin_contrast_test.dart",
+      "test/admin_employees_page_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "green_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "--reporter",
+        "expanded",
+        "--plain-name",
+        "team selected v2",
+        "test/admin_employees_page_test.dart"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 600,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    }
+  }
+}

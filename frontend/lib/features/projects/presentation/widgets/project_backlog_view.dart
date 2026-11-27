@@ -1,0 +1,1105 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:touchin_flutter/contracts/kanban.dart';
+import 'package:touchin_flutter/contracts/project.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_editor_dialog.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_instant_select_field.dart';
+import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_toolbar.dart';
+import 'package:touchin_flutter/theme/workspace_menu_style.dart';
+
+class ProjectBacklogView extends StatefulWidget {
+  const ProjectBacklogView({
+    super.key,
+    required this.board,
+    this.matchedCardIds,
+    this.sharedSearchField,
+    this.sharedSearchQuery = '',
+    required this.projectName,
+    required this.projectMembers,
+    required this.canManageStructure,
+    required this.canManageCards,
+    required this.canManageAssignees,
+    required this.canMoveCards,
+    required this.isBusy,
+    required this.onManageColumns,
+    required this.onCreateColumn,
+    required this.onCreateCard,
+    required this.onMoveCard,
+    required this.onEditCard,
+    required this.onDeleteCard,
+    required this.onManageAssignees,
+    required this.onOpenDetails,
+  });
+
+  final KanbanBoard board;
+  final Set<String>? matchedCardIds;
+  final Widget? sharedSearchField;
+  final String sharedSearchQuery;
+  final String projectName;
+  final List<ProjectMemberSummary> projectMembers;
+  final bool canManageStructure;
+  final bool canManageCards;
+  final bool canManageAssignees;
+  final bool canMoveCards;
+  final bool isBusy;
+  final VoidCallback onManageColumns;
+  final VoidCallback onCreateColumn;
+  final ValueChanged<KanbanColumn> onCreateCard;
+  final void Function(String taskId, String columnId, int index) onMoveCard;
+  final ValueChanged<KanbanCard> onEditCard;
+  final ValueChanged<KanbanCard> onDeleteCard;
+  final ValueChanged<KanbanCard> onManageAssignees;
+  final ValueChanged<KanbanCard> onOpenDetails;
+
+  @override
+  State<ProjectBacklogView> createState() => _ProjectBacklogViewState();
+}
+
+class _ProjectBacklogViewState extends State<ProjectBacklogView> {
+  static const int _pageSize = 50;
+  String _query = '';
+  String _status = '';
+  String _assignee = '';
+  String _sort = 'kanban';
+  bool _sortAscending = true;
+  int _page = 0;
+  final TextEditingController _searchController = TextEditingController();
+  final ScrollController _tableScroll = ScrollController();
+  final ScrollController _horizontalTableScroll = ScrollController();
+  final Map<String, String> _columnFilters = <String, String>{};
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _tableScroll.dispose();
+    _horizontalTableScroll.dispose();
+    super.dispose();
+  }
+
+  void _resetPage() {
+    _page = 0;
+    if (_tableScroll.hasClients) _tableScroll.jumpTo(0);
+  }
+
+  bool _sameCardIds(Set<String>? left, Set<String>? right) {
+    if (identical(left, right)) return true;
+    if (left == null || right == null || left.length != right.length) {
+      return false;
+    }
+    return left.containsAll(right);
+  }
+
+  void _changePage(int page) {
+    setState(() => _page = page);
+    if (_tableScroll.hasClients) _tableScroll.jumpTo(0);
+  }
+
+  @override
+  void didUpdateWidget(covariant ProjectBacklogView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.board.projectId != oldWidget.board.projectId) {
+      _query = '';
+      _searchController.clear();
+      _status = '';
+      _assignee = '';
+      _sort = 'kanban';
+      _sortAscending = true;
+      _columnFilters.clear();
+      _resetPage();
+    } else if (widget.sharedSearchQuery != oldWidget.sharedSearchQuery ||
+        !_sameCardIds(widget.matchedCardIds, oldWidget.matchedCardIds)) {
+      _resetPage();
+    }
+    if (!widget.board.columns.any((column) => column.id == _status)) {
+      _status = '';
+    }
+    if (!widget.projectMembers
+        .any((member) => member.employeeId == _assignee)) {
+      _assignee = '';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ordered = <({KanbanColumn column, KanbanCard card})>[
+      for (final column in widget.board.columns)
+        for (final card in column.cards) (column: column, card: card),
+    ]..sort(_compare);
+    final byId = <String, KanbanCard>{
+      for (final row in ordered) row.card.id: row.card,
+    };
+    final positionById = <String, int>{
+      for (final column in widget.board.columns)
+        for (var index = 0; index < column.cards.length; index++)
+          column.cards[index].id: index,
+    };
+    final ids = ordered.map((row) => row.card.id).toSet();
+    final children = <String, List<({KanbanColumn column, KanbanCard card})>>{};
+    for (final row in ordered) {
+      final parent = row.card.parentTaskId;
+      if (parent != null && ids.contains(parent)) {
+        children.putIfAbsent(parent, () => []).add(row);
+      }
+    }
+    final rows = <({KanbanColumn column, KanbanCard card, int depth})>[];
+    final visited = <String>{};
+    void visit(({KanbanColumn column, KanbanCard card}) row, int depth) {
+      final pending = <({KanbanColumn column, KanbanCard card, int depth})>[
+        (column: row.column, card: row.card, depth: depth),
+      ];
+      while (pending.isNotEmpty) {
+        final current = pending.removeLast();
+        if (!visited.add(current.card.id)) continue;
+        if (_matches(current.card, current.column)) {
+          rows.add(current);
+        }
+        // Push in reverse to preserve sibling order in depth-first traversal.
+        for (final child in (children[current.card.id] ?? []).reversed) {
+          pending.add((
+            column: child.column,
+            card: child.card,
+            depth: current.depth + 1,
+          ));
+        }
+      }
+    }
+
+    for (final row in ordered) {
+      if (!ids.contains(row.card.parentTaskId)) visit(row, 0);
+    }
+    // Defensive fallback for legacy orphaned/cyclic hierarchy snapshots.
+    for (final row in ordered) {
+      if (!visited.contains(row.card.id)) visit(row, 0);
+    }
+    final total = widget.board.columns.fold<int>(
+      0,
+      (sum, column) => sum + column.cards.length,
+    );
+    // Sorting and filtering always cover the full board; only visible widgets
+    // are paginated. The Kanban position and parent ID stay unchanged.
+    final pageCount = (rows.length + _pageSize - 1) ~/ _pageSize;
+    _page = _page.clamp(0, pageCount == 0 ? 0 : pageCount - 1);
+    final visibleRows = rows.skip(_page * _pageSize).take(_pageSize);
+
+    return Column(
+      key: const ValueKey<String>('project-backlog-view'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        _buildToolbar(rows.length, total, _page, pageCount),
+        const SizedBox(height: 10),
+        Expanded(
+          child: rows.isEmpty
+              ? Center(
+                  child: Text(
+                    widget.board.columns.isEmpty
+                        ? 'Este projeto não possui colunas.'
+                        : total == 0
+                            ? 'Nenhum card neste projeto.'
+                            : 'Nenhum card corresponde aos filtros.',
+                  ),
+                )
+              : LayoutBuilder(builder: (context, constraints) {
+                  final theme = Theme.of(context);
+                  final colors = theme.colorScheme;
+                  final compact = constraints.maxWidth < 1100;
+                  if (constraints.maxWidth < 600) {
+                    return _buildMobileRows(
+                      visibleRows,
+                      positionById,
+                      byId,
+                    );
+                  }
+                  return DecoratedBox(
+                    key: const ValueKey<String>('backlog-table-surface'),
+                    decoration: BoxDecoration(
+                      color: colors.surface,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: colors.outlineVariant),
+                    ),
+                    child: Semantics(
+                      label:
+                          'Tabela do backlog. Use as setas para rolar na horizontal.',
+                      child: Focus(
+                        key: const ValueKey<String>('backlog-table-focus'),
+                        onKeyEvent: (_, event) {
+                          if (event is! KeyDownEvent ||
+                              !_horizontalTableScroll.hasClients) {
+                            return KeyEventResult.ignored;
+                          }
+                          final delta = switch (event.logicalKey) {
+                            LogicalKeyboardKey.arrowRight => 56.0,
+                            LogicalKeyboardKey.arrowLeft => -56.0,
+                            _ => null,
+                          };
+                          if (delta == null) return KeyEventResult.ignored;
+                          final position = _horizontalTableScroll.position;
+                          _horizontalTableScroll.jumpTo(
+                            (position.pixels + delta)
+                                .clamp(0.0, position.maxScrollExtent)
+                                .toDouble(),
+                          );
+                          return KeyEventResult.handled;
+                        },
+                        child: Scrollbar(
+                          key: const ValueKey<String>(
+                              'backlog-horizontal-scrollbar'),
+                          controller: _horizontalTableScroll,
+                          thumbVisibility: true,
+                          interactive: true,
+                          scrollbarOrientation: ScrollbarOrientation.bottom,
+                          child: SingleChildScrollView(
+                            controller: _horizontalTableScroll,
+                            scrollDirection: Axis.horizontal,
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                minWidth: constraints.maxWidth - 2,
+                                maxHeight: constraints.maxHeight,
+                              ),
+                              child: SingleChildScrollView(
+                                key: const ValueKey<String>(
+                                    'backlog-table-scroll'),
+                                controller: _tableScroll,
+                                child: DataTable(
+                                  key: const ValueKey<String>('backlog-table'),
+                                  horizontalMargin: 20,
+                                  columnSpacing: 20,
+                                  dataRowMinHeight: 56,
+                                  dataRowMaxHeight: 60,
+                                  headingRowHeight: 52,
+                                  headingRowColor: WidgetStatePropertyAll(
+                                      colors.surfaceContainerLow),
+                                  headingTextStyle:
+                                      theme.textTheme.labelMedium?.copyWith(
+                                    color: colors.onSurfaceVariant,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  dataTextStyle: theme.textTheme.bodySmall,
+                                  dividerThickness: 0.5,
+                                  columns: <DataColumn>[
+                                    DataColumn(label: _header('number', '#')),
+                                    DataColumn(
+                                        label: _header('title', 'Título')),
+                                    DataColumn(
+                                        label: _header('status', 'Status')),
+                                    DataColumn(
+                                        label: _header(
+                                            'assignees', 'Responsáveis')),
+                                    DataColumn(label: Text('Ações')),
+                                    if (!compact)
+                                      for (final field in <(String, String)>[
+                                        ('description', 'Descrição'),
+                                        ('project', 'Projeto'),
+                                        ('created', 'Criado'),
+                                        ('updated', 'Atualizado'),
+                                      ])
+                                        DataColumn(
+                                            label: _header(field.$1, field.$2)),
+                                  ],
+                                  rows: <DataRow>[
+                                    for (final row in visibleRows)
+                                      DataRow(
+                                        key: ValueKey<String>(
+                                            'backlog-card-${row.card.id}'),
+                                        cells: <DataCell>[
+                                          DataCell(Text(
+                                            '#${row.card.cardNumber}',
+                                            style: theme.textTheme.labelMedium
+                                                ?.copyWith(
+                                                    color: colors.primary),
+                                          )),
+                                          DataCell(SizedBox(
+                                            width: compact ? 180 : 280,
+                                            child: Row(children: <Widget>[
+                                              Expanded(
+                                                child: Padding(
+                                                  padding: EdgeInsets.only(
+                                                      left: row.depth
+                                                              .clamp(0, 5) *
+                                                          8.0),
+                                                  child: Row(children: <Widget>[
+                                                    if (row.depth > 0)
+                                                      Padding(
+                                                        padding:
+                                                            const EdgeInsets
+                                                                .only(right: 6),
+                                                        child: Tooltip(
+                                                          key: ValueKey<String>(
+                                                              'hierarchy-indicator-${row.card.id}'),
+                                                          message:
+                                                              'Subtarefa de ${byId[row.card.parentTaskId]!.name}',
+                                                          child: Icon(
+                                                            Icons
+                                                                .subdirectory_arrow_right_rounded,
+                                                            size: 17,
+                                                            color:
+                                                                colors.primary,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    Expanded(
+                                                        child: Tooltip(
+                                                      message: _cardTooltip(
+                                                        row.card,
+                                                      ),
+                                                      child: InkWell(
+                                                        onTap: () => widget
+                                                            .onOpenDetails(
+                                                                row.card),
+                                                        child: Text(
+                                                          row.card.name,
+                                                          maxLines: 1,
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
+                                                          style: theme.textTheme
+                                                              .bodySmall
+                                                              ?.copyWith(
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w600),
+                                                        ),
+                                                      ),
+                                                    )),
+                                                  ]),
+                                                ),
+                                              ),
+                                            ]),
+                                          )),
+                                          DataCell(Container(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 10, vertical: 6),
+                                            decoration: BoxDecoration(
+                                              color: colors.primaryContainer
+                                                  .withValues(alpha: .45),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                            child: Text(
+                                              row.column.name,
+                                              key: ValueKey<String>(
+                                                  'backlog-status-${row.card.id}'),
+                                              style: theme.textTheme.labelMedium
+                                                  ?.copyWith(
+                                                      color: colors.onSurface),
+                                            ),
+                                          )),
+                                          DataCell(
+                                            SizedBox(
+                                              width: 150,
+                                              child: Text(
+                                                _assigneesLabel(row.card),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ),
+                                          DataCell(_cardActions(
+                                            row.card,
+                                            row.column,
+                                            positionById[row.card.id]!,
+                                          )),
+                                          if (!compact)
+                                            DataCell(SizedBox(
+                                              width: 220,
+                                              child: Tooltip(
+                                                message: row.card.description,
+                                                child: Text(
+                                                  row.card.description,
+                                                  style: theme
+                                                      .textTheme.bodySmall
+                                                      ?.copyWith(
+                                                          color: colors
+                                                              .onSurfaceVariant),
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            )),
+                                          if (!compact)
+                                            DataCell(Text(
+                                                'Projeto: ${widget.projectName}')),
+                                          if (!compact)
+                                            DataCell(Text(_shortDate(
+                                                row.card.createdAt))),
+                                          if (!compact)
+                                            DataCell(Text(_shortDate(
+                                                row.card.updatedAt))),
+                                        ],
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMobileRows(
+    Iterable<({KanbanColumn column, KanbanCard card, int depth})> rows,
+    Map<String, int> positionById,
+    Map<String, KanbanCard> byId,
+  ) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return DecoratedBox(
+      key: const ValueKey<String>('backlog-mobile-list'),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colors.outlineVariant),
+      ),
+      child: Semantics(
+        label: 'Lista de tarefas do backlog',
+        child: ListView.separated(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          itemCount: rows.length,
+          separatorBuilder: (_, __) => Divider(
+            height: 1,
+            color: colors.outlineVariant,
+          ),
+          itemBuilder: (context, index) {
+            final row = rows.elementAt(index);
+            final card = row.card;
+            final parent =
+                card.parentTaskId == null ? null : byId[card.parentTaskId];
+            return Padding(
+              key: ValueKey<String>('backlog-mobile-card-${card.id}'),
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Row(
+                children: <Widget>[
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => widget.onOpenDetails(card),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Row(children: <Widget>[
+                              Text(
+                                '#${card.cardNumber}',
+                                style: theme.textTheme.labelMedium?.copyWith(
+                                  color: colors.primary,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Tooltip(
+                                  message: _cardTooltip(card),
+                                  child: Text(
+                                    card.name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ]),
+                            const SizedBox(height: 5),
+                            Row(children: <Widget>[
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: colors.primaryContainer.withValues(
+                                    alpha: .45,
+                                  ),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  row.column.name,
+                                  key: ValueKey<String>(
+                                    'backlog-status-${card.id}',
+                                  ),
+                                  style: theme.textTheme.labelSmall,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  _assigneesLabel(card),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: colors.onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                              if (parent != null)
+                                Tooltip(
+                                  message: 'Subtarefa de ${parent.name}',
+                                  child: Icon(
+                                    Icons.subdirectory_arrow_right_rounded,
+                                    size: 17,
+                                    color: colors.primary,
+                                  ),
+                                ),
+                            ]),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  _cardActions(
+                    card,
+                    row.column,
+                    positionById[card.id]!,
+                    shortLabels: true,
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildToolbar(int visible, int total, int page, int pageCount) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final buttonStyle = workspaceToolbarActionStyle(theme);
+    final searchField = widget.sharedSearchField ??
+        TextField(
+          key: const ValueKey<String>('backlog-search'),
+          controller: _searchController,
+          decoration: const InputDecoration(
+            hintText: 'Buscar por título ou #número',
+            prefixIcon: Icon(Icons.search_rounded, size: 18),
+            constraints: BoxConstraints.tightFor(height: 48),
+            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          ),
+          onChanged: (value) => setState(() {
+            _query = value.trim();
+            _resetPage();
+          }),
+        );
+    final controls = <({int flex, double width, Widget child})>[
+      (
+        flex: 10,
+        width: 180,
+        child: WorkspaceInstantSelectField<String>(
+          key: const ValueKey<String>('backlog-status-filter'),
+          value: _status,
+          semanticLabel: 'Status',
+          decoration: _filterDecoration(Icons.view_kanban_outlined),
+          options: <WorkspaceSelectOption<String>>[
+            const WorkspaceSelectOption(value: '', label: 'Todos os status'),
+            ...widget.board.columns.map((column) => WorkspaceSelectOption(
+                  value: column.id,
+                  label: column.name,
+                )),
+          ],
+          onChanged: (value) => setState(() {
+            _status = value ?? '';
+            _resetPage();
+          }),
+        ),
+      ),
+      (
+        flex: 10,
+        width: 180,
+        child: WorkspaceInstantSelectField<String>(
+          key: const ValueKey<String>('backlog-assignee-filter'),
+          value: _assignee,
+          semanticLabel: 'Responsável',
+          decoration: _filterDecoration(Icons.person_outline_rounded),
+          options: <WorkspaceSelectOption<String>>[
+            const WorkspaceSelectOption(value: '', label: 'Todos'),
+            ...widget.projectMembers.map((member) => WorkspaceSelectOption(
+                  value: member.employeeId,
+                  label: member.employeeName,
+                )),
+          ],
+          onChanged: (value) => setState(() {
+            _assignee = value ?? '';
+            _resetPage();
+          }),
+        ),
+      ),
+      (
+        flex: 10,
+        width: 210,
+        child: WorkspaceInstantSelectField<String>(
+          key: const ValueKey<String>('backlog-sort'),
+          value: _sort,
+          semanticLabel: 'Ordenar',
+          decoration: _filterDecoration(Icons.sort_rounded),
+          options: const <WorkspaceSelectOption<String>>[
+            WorkspaceSelectOption(value: 'kanban', label: 'Ordem do Kanban'),
+            WorkspaceSelectOption(value: 'number', label: 'Número'),
+            WorkspaceSelectOption(value: 'title', label: 'Título'),
+            WorkspaceSelectOption(value: 'description', label: 'Descrição'),
+            WorkspaceSelectOption(value: 'status', label: 'Status'),
+            WorkspaceSelectOption(value: 'assignees', label: 'Responsáveis'),
+            WorkspaceSelectOption(value: 'project', label: 'Projeto'),
+            WorkspaceSelectOption(value: 'created', label: 'Criação'),
+            WorkspaceSelectOption(
+                value: 'updated', label: 'Atualização recente'),
+          ],
+          onChanged: (value) => setState(() {
+            _sort = value ?? 'kanban';
+            _sortAscending = _sort != 'updated';
+            _resetPage();
+          }),
+        ),
+      ),
+      if (widget.canManageStructure)
+        (
+          flex: 7,
+          width: 190,
+          child: OutlinedButton.icon(
+            style: buttonStyle,
+            onPressed: widget.isBusy ? null : widget.onManageColumns,
+            icon: const Icon(Icons.view_column_outlined),
+            label: const Text('Gerenciar colunas',
+                maxLines: 1, overflow: TextOverflow.ellipsis),
+          ),
+        ),
+      if (widget.canManageStructure)
+        (
+          flex: 7,
+          width: 150,
+          child: OutlinedButton.icon(
+            style: buttonStyle,
+            onPressed: widget.isBusy ? null : widget.onCreateColumn,
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('Novo status',
+                maxLines: 1, overflow: TextOverflow.ellipsis),
+          ),
+        ),
+      if (widget.canManageCards && widget.board.columns.isNotEmpty)
+        (
+          flex: 7,
+          width: 140,
+          child: FilledButton.icon(
+            style: buttonStyle,
+            onPressed: widget.isBusy
+                ? null
+                : () => widget.onCreateCard(widget.board.columns.first),
+            icon: const Icon(Icons.add_task_rounded),
+            label: const Text('Novo card',
+                maxLines: 1, overflow: TextOverflow.ellipsis),
+          ),
+        ),
+    ];
+
+    return WorkspaceFilterSection(
+      key: const ValueKey<String>('workspace-task-filter-section'),
+      surfaceKey: const ValueKey<String>('backlog-toolbar'),
+      compact: true,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      headingIcon: Icons.task_alt_rounded,
+      title: 'Tarefas do projeto',
+      description: 'Encontre e organize as tarefas do projeto',
+      searchField: searchField,
+      filters: LayoutBuilder(
+        builder: (context, constraints) {
+          final fillsWidth = constraints.maxWidth >= 1100;
+          final row = Row(
+            children: <Widget>[
+              for (var index = 0; index < controls.length; index++) ...<Widget>[
+                if (fillsWidth)
+                  Expanded(
+                    flex: controls[index].flex,
+                    child: SizedBox(height: 48, child: controls[index].child),
+                  )
+                else
+                  SizedBox(
+                    width: controls[index].width,
+                    height: 48,
+                    child: controls[index].child,
+                  ),
+                if (index != controls.length - 1) const SizedBox(width: 8),
+              ],
+            ],
+          );
+          if (fillsWidth) return SizedBox(height: 48, child: row);
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: SizedBox(height: 48, child: row),
+          );
+        },
+      ),
+      footer: LayoutBuilder(
+        builder: (context, constraints) {
+          final count = Text(
+            '$visible de $total cards',
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: colors.onSurfaceVariant,
+            ),
+          );
+          if (pageCount <= 1) return count;
+          final textScale = MediaQuery.textScalerOf(context).scale(1);
+          final narrow = constraints.maxWidth < 400 * textScale;
+          final pager = Row(
+            mainAxisSize: narrow ? MainAxisSize.max : MainAxisSize.min,
+            children: <Widget>[
+              IconButton(
+                key: const ValueKey<String>('backlog-page-previous'),
+                tooltip: 'Página anterior',
+                visualDensity: VisualDensity.standard,
+                onPressed: page == 0 ? null : () => _changePage(page - 1),
+                icon: const Icon(Icons.chevron_left_rounded),
+              ),
+              if (narrow)
+                Expanded(
+                  child: Text(
+                    'Página ${page + 1} de $pageCount',
+                    key: const ValueKey<String>('backlog-page-label'),
+                    textAlign: TextAlign.center,
+                  ),
+                )
+              else
+                Text('Página ${page + 1} de $pageCount',
+                    key: const ValueKey<String>('backlog-page-label')),
+              IconButton(
+                key: const ValueKey<String>('backlog-page-next'),
+                tooltip: 'Próxima página',
+                visualDensity: VisualDensity.standard,
+                onPressed:
+                    page == pageCount - 1 ? null : () => _changePage(page + 1),
+                icon: const Icon(Icons.chevron_right_rounded),
+              ),
+            ],
+          );
+          if (narrow) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                count,
+                pager,
+              ],
+            );
+          }
+          return Row(children: <Widget>[count, const Spacer(), pager]);
+        },
+      ),
+    );
+  }
+
+  InputDecoration _filterDecoration(IconData icon) => InputDecoration(
+        isDense: true,
+        visualDensity: VisualDensity.standard,
+        constraints: const BoxConstraints.tightFor(height: 48),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+        prefixIcon: Icon(icon, size: 17),
+        prefixIconConstraints:
+            const BoxConstraints(minWidth: 36, minHeight: 48),
+        suffixIconConstraints:
+            const BoxConstraints(minWidth: 36, minHeight: 48),
+      );
+
+  Widget _header(String field, String label) {
+    final colors = Theme.of(context).colorScheme;
+    return PopupMenuButton<String>(
+      key: ValueKey<String>('backlog-header-$field'),
+      tooltip: 'Filtrar ou ordenar $label',
+      popUpAnimationStyle: AnimationStyle.noAnimation,
+      color: WorkspaceMenuStyle.surface(colors),
+      shape: WorkspaceMenuStyle.shape(colors),
+      onSelected: (action) {
+        if (action == 'filter') {
+          _filterColumn(field, label);
+        } else {
+          setState(() {
+            if (action == 'clear') {
+              _columnFilters.remove(field);
+            } else {
+              _sort = field;
+              _sortAscending = action == 'asc';
+            }
+            _resetPage();
+          });
+        }
+      },
+      itemBuilder: (_) => <PopupMenuEntry<String>>[
+        const PopupMenuItem(value: 'asc', child: Text('Ordenar crescente')),
+        const PopupMenuItem(value: 'desc', child: Text('Ordenar decrescente')),
+        const PopupMenuItem(value: 'filter', child: Text('Filtrar coluna')),
+        if (_columnFilters.containsKey(field))
+          const PopupMenuItem(value: 'clear', child: Text('Limpar filtro')),
+      ],
+      child: Row(mainAxisSize: MainAxisSize.min, children: <Widget>[
+        Text(label),
+        const SizedBox(width: 6),
+        Icon(
+            _sort == field
+                ? (_sortAscending
+                    ? Icons.arrow_upward_rounded
+                    : Icons.arrow_downward_rounded)
+                : Icons.unfold_more_rounded,
+            size: 14),
+        if (_columnFilters.containsKey(field))
+          const Icon(Icons.filter_alt_outlined, size: 14),
+      ]),
+    );
+  }
+
+  Future<void> _filterColumn(String field, String label) async {
+    var value = _columnFilters[field] ?? '';
+    final result = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => WorkspaceEditorDialog(
+        title: 'Filtrar $label',
+        subtitle: 'Filtre os cards por este campo.',
+        icon: Icons.filter_alt_outlined,
+        primaryLabel: 'Aplicar filtro',
+        onPrimary: () => Navigator.of(dialogContext).pop(value.trim()),
+        child: TextFormField(
+          initialValue: value,
+          decoration: const InputDecoration(labelText: 'Valor'),
+          onChanged: (text) => value = text,
+        ),
+      ),
+    );
+    if (!mounted || result == null) return;
+    setState(() {
+      if (result.isEmpty) {
+        _columnFilters.remove(field);
+      } else {
+        _columnFilters[field] = result;
+      }
+      _resetPage();
+    });
+  }
+
+  String _cardTooltip(KanbanCard card) => card.description.trim().isEmpty
+      ? card.name
+      : '${card.name}\n${card.description}';
+
+  String _assigneesLabel(KanbanCard card) => card.assignees.isEmpty
+      ? 'Sem responsáveis'
+      : card.assignees.map((item) => item.employeeName).join(', ');
+
+  String _fieldValue(KanbanCard card, String field, [KanbanColumn? column]) =>
+      switch (field) {
+        'number' => '#${card.cardNumber}',
+        'title' => card.name,
+        'description' => card.description,
+        'status' => column?.name ?? '',
+        'assignees' => _assigneesLabel(card),
+        'project' => widget.projectName,
+        'created' => _shortDate(card.createdAt),
+        'updated' => _shortDate(card.updatedAt),
+        _ => '',
+      };
+
+  bool get _canReorder =>
+      widget.canMoveCards &&
+      _sort == 'kanban' &&
+      _sortAscending &&
+      widget.matchedCardIds == null &&
+      _query.isEmpty &&
+      _status.isEmpty &&
+      _assignee.isEmpty &&
+      _columnFilters.isEmpty;
+
+  void _onCardAction(
+    String action,
+    KanbanCard card,
+    KanbanColumn column,
+    int position,
+  ) {
+    switch (action) {
+      case 'details':
+        widget.onOpenDetails(card);
+      case 'up':
+        widget.onMoveCard(card.id, column.id, position - 1);
+      case 'down':
+        widget.onMoveCard(card.id, column.id, position + 2);
+      case 'edit':
+        widget.onEditCard(card);
+      case 'delete':
+        widget.onDeleteCard(card);
+      case 'assignees':
+        widget.onManageAssignees(card);
+    }
+  }
+
+  Widget _cardActions(
+    KanbanCard card,
+    KanbanColumn column,
+    int position, {
+    bool shortLabels = false,
+  }) {
+    final colors = Theme.of(context).colorScheme;
+    final labels = (
+      details: shortLabels
+          ? 'Abrir detalhes'
+          : 'Abrir detalhes de #${card.cardNumber}',
+      edit: shortLabels ? 'Editar tarefa' : 'Editar #${card.cardNumber}',
+      delete: shortLabels ? 'Excluir tarefa' : 'Excluir #${card.cardNumber}',
+      assignees: shortLabels
+          ? 'Gerenciar responsáveis'
+          : 'Responsáveis de #${card.cardNumber}',
+    );
+    return PopupMenuButton<String>(
+      tooltip: 'Mais ações para #${card.cardNumber}',
+      color: WorkspaceMenuStyle.surface(colors),
+      shape: WorkspaceMenuStyle.shape(colors),
+      enabled: !widget.isBusy,
+      onSelected: (action) => _onCardAction(action, card, column, position),
+      itemBuilder: (_) {
+        final canMoveMenu = _canReorder && column.cards.length > 1;
+        final canManage = widget.canManageCards;
+        final canManagePeople = widget.canManageAssignees;
+        return <PopupMenuEntry<String>>[
+          PopupMenuItem(
+            value: 'details',
+            child: ListTile(
+              dense: true,
+              leading: const Icon(Icons.open_in_new_rounded),
+              title: Text(labels.details),
+            ),
+          ),
+          if (canMoveMenu || canManage || canManagePeople)
+            const PopupMenuDivider(),
+          if (canMoveMenu) ...<PopupMenuEntry<String>>[
+            PopupMenuItem(
+              value: 'up',
+              enabled: position > 0,
+              child: const ListTile(
+                dense: true,
+                leading: Icon(Icons.arrow_upward_rounded),
+                title: Text('Mover para cima'),
+              ),
+            ),
+            PopupMenuItem(
+              value: 'down',
+              enabled: position < column.cards.length - 1,
+              child: const ListTile(
+                dense: true,
+                leading: Icon(Icons.arrow_downward_rounded),
+                title: Text('Mover para baixo'),
+              ),
+            ),
+          ],
+          if (canMoveMenu && (canManage || canManagePeople))
+            const PopupMenuDivider(),
+          if (canManage) ...<PopupMenuEntry<String>>[
+            PopupMenuItem(
+              value: 'edit',
+              child: ListTile(
+                dense: true,
+                leading: const Icon(Icons.edit_outlined),
+                title: Text(labels.edit),
+              ),
+            ),
+            PopupMenuItem(
+              value: 'delete',
+              child: ListTile(
+                dense: true,
+                leading: const Icon(Icons.delete_outline_rounded),
+                title: Text(labels.delete),
+              ),
+            ),
+          ],
+          if (canManage && canManagePeople) const PopupMenuDivider(),
+          if (canManagePeople)
+            PopupMenuItem(
+              value: 'assignees',
+              child: ListTile(
+                dense: true,
+                leading: const Icon(Icons.people_outline_rounded),
+                title: Text(labels.assignees),
+              ),
+            ),
+        ];
+      },
+      icon: shortLabels ? null : const Icon(Icons.more_horiz_rounded),
+      child: shortLabels
+          ? const SizedBox(
+              width: 48,
+              height: 48,
+              child: Icon(Icons.more_horiz_rounded),
+            )
+          : null,
+    );
+  }
+
+  bool _matches(KanbanCard card, KanbanColumn column) {
+    if (widget.matchedCardIds != null &&
+        !widget.matchedCardIds!.contains(card.id)) {
+      return false;
+    }
+    for (final filter in _columnFilters.entries) {
+      final value = filter.value.toLowerCase();
+      if (filter.key == 'number') {
+        final number = int.tryParse(value.replaceFirst('#', '').trim());
+        if (number != card.cardNumber) return false;
+      } else if (!_fieldValue(card, filter.key, column)
+          .toLowerCase()
+          .contains(value)) {
+        return false;
+      }
+    }
+    if (_status.isNotEmpty && _status != column.id) {
+      return false;
+    }
+    if (_assignee.isNotEmpty &&
+        !card.assignees.any((item) => item.employeeId == _assignee)) {
+      return false;
+    }
+    if (_query.isEmpty) {
+      return true;
+    }
+    if (_query.startsWith('#')) {
+      final number = int.tryParse(_query.substring(1).trim());
+      return number != null && card.cardNumber == number;
+    }
+    final query = _query;
+    final number = int.tryParse(query);
+    return card.name.toLowerCase().contains(query.toLowerCase()) ||
+        (number != null
+            ? card.cardNumber == number
+            : card.cardNumber.toString().contains(query));
+  }
+
+  int _compare(
+    ({KanbanColumn column, KanbanCard card}) a,
+    ({KanbanColumn column, KanbanCard card}) b,
+  ) {
+    final result = switch (_sort) {
+      'number' => a.card.cardNumber.compareTo(b.card.cardNumber),
+      'created' => a.card.createdAt.compareTo(b.card.createdAt),
+      'updated' => a.card.updatedAt.compareTo(b.card.updatedAt),
+      'title' ||
+      'description' ||
+      'status' ||
+      'assignees' ||
+      'project' =>
+        _fieldValue(a.card, _sort, a.column)
+            .toLowerCase()
+            .compareTo(_fieldValue(b.card, _sort, b.column).toLowerCase()),
+      _ => a.column.position != b.column.position
+          ? a.column.position.compareTo(b.column.position)
+          : a.card.kanbanPosition.compareTo(b.card.kanbanPosition),
+    };
+    if (result != 0) return _sortAscending ? result : -result;
+    // Sorting must preserve an unambiguous order for equal values across pages.
+    final columnOrder = a.column.position.compareTo(b.column.position);
+    if (columnOrder != 0) return columnOrder;
+    final cardOrder = a.card.kanbanPosition.compareTo(b.card.kanbanPosition);
+    if (cardOrder != 0) return cardOrder;
+    return a.card.id.compareTo(b.card.id);
+  }
+
+  String _shortDate(DateTime value) {
+    final date = value.toLocal().toIso8601String();
+    return date.length >= 16
+        ? date.substring(0, 16).replaceFirst('T', ' ')
+        : date;
+  }
+}

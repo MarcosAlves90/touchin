@@ -1,0 +1,158 @@
+{
+  "schema_version": 6,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      "docs/contracts/kanban-toolbar-action-alignment-v2.polis.json",
+      "frontend/lib/features/projects/presentation/widgets/project_kanban_board.dart",
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/features/projects/presentation/project_kanban_page_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Keep the mobile Kanban title at the left and align the column navigation and create-column controls to the right without wrapping.",
+    "requirements": [
+      {
+        "id": "REQ-KANBAN-TOOLBAR-ALIGN-01",
+        "statement": "At compact widths, the board title remains left-aligned while the complete column navigation and create-column action group is right-aligned when it fits; if space is insufficient, preserve the single horizontal row and allow horizontal scrolling."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-KANBAN-TOOLBAR-ALIGN-01",
+        "statement": "A widget test at 390px verifies the title aligns to the toolbar's left edge and the final action aligns to its right edge when the row fits, with no layout exception.",
+        "requirements": [
+          "REQ-KANBAN-TOOLBAR-ALIGN-01"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-KANBAN-TOOLBAR-ALIGN-02",
+        "statement": "Existing compact-width tests continue to verify the title and actions share one horizontal scroll view at 320px and 360px; desktop layout and action behavior remain unchanged.",
+        "requirements": [
+          "REQ-KANBAN-TOOLBAR-ALIGN-01"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-KANBAN-TOOLBAR-ALIGN-DOC-01",
+        "statement": "docs/contracts/kanban-toolbar-action-alignment-v2.polis.json is byte-for-byte identical to the locked contract.",
+        "requirements": [
+          "REQ-KANBAN-TOOLBAR-ALIGN-01"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-KANBAN-TOOLBAR-ALIGN-01",
+        "statement": "Preserve navigation callbacks, create-column permissions and busy-state disabling, accessible tooltips, and 48-by-48 minimum tap targets."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-KANBAN-TOOLBAR-ALIGN-01",
+        "statement": "On mobile, the action group is not right-aligned when the full row fits, or the title and actions wrap or become clipped without horizontal scrolling when it does not fit."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-KANBAN-TOOLBAR-ALIGN-01",
+        "statement": "Viewport width, available project columns, permissions, and Kanban busy state."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-KANBAN-TOOLBAR-ALIGN-01",
+        "statement": "A mobile Kanban toolbar with the title left-aligned and actions right-aligned in one scrollable row."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-KANBAN-TOOLBAR-ALIGN-01",
+        "statement": "The focused widget test fails with kanban_mobile_toolbar_right_alignment if the title and action group do not align to the respective toolbar edges when they fit."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "71e7516e5c9417c9ca52e1040210f4e910c20666",
+    "base_tree": "78737ce325efead20a37ad0992a01191637de5f9",
+    "policy_sha256": "7714a10ab2b65f58941086f500de93fa62fc6acb6fd59d8b39292980364774dd",
+    "specification_sha256": "9d6dce3d9d9081baca485c956ed27c7903fc10297ecbf316add86be0aa8bd255"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/features/projects/presentation/project_kanban_page_test.dart",
+      "--plain-name",
+      "mobile Kanban toolbar aligns title left and actions right when they fit"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 360,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/features/projects/presentation/project_kanban_page_test.dart",
+      "test/features/projects/presentation/project_kanban_board_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "test/features/projects/presentation/project_kanban_page_test.dart",
+        "--plain-name",
+        "mobile Kanban toolbar aligns title left and actions right when they fit"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 360,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "kanban_mobile_toolbar_right_alignment"
+    ]
+  }
+}

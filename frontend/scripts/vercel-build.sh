@@ -65,4 +65,8 @@ if [[ -n "${API_BASE_URL:-}" ]]; then
   build_args+=(--dart-define="API_BASE_URL=${API_BASE_URL}")
 fi
 
+if [[ "${TOUCHIN_FRONTEND_DEV_MODE:-}" == "true" ]]; then
+  build_args+=(--dart-define=TOUCHIN_FRONTEND_DEV_MODE=true)
+fi
+
 flutter "${build_args[@]}"

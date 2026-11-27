@@ -1,0 +1,229 @@
+{
+  "schema_version": 6,
+  "kind": "defect",
+  "scope": {
+    "allowed_paths": [
+      "frontend/lib/features/shared/presentation/widgets/workspace_shell.dart",
+      "frontend/test/features/shared/presentation/widgets/workspace_shell_test.dart",
+      "docs/contracts/issue-120-sidebar-transition-stability-v1.polis.json"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/features/shared/presentation/widgets/workspace_shell_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Correct the issue #120 desktop-sidebar transition: avoid intermediate-width RenderFlex overflows and the repeated main-content relayout that makes toggling feel sluggish, while retaining the established 360px/88px modes and all navigation behavior.",
+    "requirements": [
+      {
+        "id": "REQ-001",
+        "statement": "At desktop widths, toggling the shared sidebar still changes between the 360px expanded panel and the 88px icon-only rail, and the main content receives the final available width."
+      },
+      {
+        "id": "REQ-002",
+        "statement": "The sidebar width changes directly to its final value without an intermediate width animation; expanded labels and brand controls must never be laid out inside the 88px rail during a transition."
+      },
+      {
+        "id": "REQ-003",
+        "statement": "Collapse and expansion emit no Flutter RenderFlex/layout exception, and do not relayout the main content on successive width-animation frames."
+      },
+      {
+        "id": "REQ-004",
+        "statement": "All other issue #120 behavior remains unchanged: authorized destinations, active-route indication, accessibility, keyboard focus, session-scoped state, Kanban navigation, and the mobile drawer. This contract supersedes only the optional sidebar-width animation behavior described by issue-120-collapsible-sidebar-v1."
+      },
+      {
+        "id": "REQ-005",
+        "statement": "A focused widget regression test toggles both modes with animations enabled, verifies immediate final widths and reclaimed content width, and asserts that tester.takeException() is null."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-001",
+        "statement": "The regression test passes for collapse and expansion without RenderFlex overflow; after a frame the sidebar is exactly 88px or 360px, never an intermediate width.",
+        "requirements": [
+          "REQ-001",
+          "REQ-002",
+          "REQ-003",
+          "REQ-005"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-002",
+        "statement": "The regression test confirms the content pane immediately gets the width corresponding to the selected sidebar mode.",
+        "requirements": [
+          "REQ-001",
+          "REQ-003",
+          "REQ-005"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-003",
+        "statement": "The existing workspace-shell test suite still verifies accessible controls, authorized destinations, breakpoints, and state retention across Kanban navigation.",
+        "requirements": [
+          "REQ-004"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-001",
+        "statement": "The collapse state remains user-triggered and session-scoped; authorization and destination ordering remain owned by the existing navigation model."
+      },
+      {
+        "id": "INV-002",
+        "statement": "The mobile drawer and its layout are not modified."
+      },
+      {
+        "id": "INV-003",
+        "statement": "No width animation means no intermediate geometry and no per-frame width-driven relayout of the workspace content."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-001",
+        "statement": "Expanded labels, selected-route indicators, or brand controls are laid out within the collapsed 88px rail."
+      },
+      {
+        "id": "FORB-002",
+        "statement": "A toggle emits a RenderFlex overflow or leaves the main content with a stale/intermediate width."
+      },
+      {
+        "id": "FORB-003",
+        "statement": "The fix changes mobile navigation, route behavior, authorization, or session-scoped collapse state."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-001",
+        "statement": "The current shared desktop sidebar mode, viewport width, and user toggle action."
+      },
+      {
+        "id": "IN-002",
+        "statement": "The selected workspace route, including a selected navigation item during expansion."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-001",
+        "statement": "The final sidebar mode and corresponding main-content width in a single layout update."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-001",
+        "statement": "The focused widget regression fails if either toggle produces an intermediate width, wrong content width, or any Flutter rendering exception."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "ad7b8dc9c11df87d9e2acab0536f3249555c79a1",
+    "base_tree": "14ac397aafba36ec7fb3eaa888cc15a43b132d6a",
+    "policy_sha256": "7714a10ab2b65f58941086f500de93fa62fc6acb6fd59d8b39292980364774dd",
+    "specification_sha256": "747d26ffa64c4ba4a3460239e3802cb19c9982e9d3f464042ae6d5cbbea5f17b"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "--exclude-tags",
+      "canonical-golden",
+      "--reporter",
+      "expanded",
+      "--plain-name",
+      "desktop sidebar transitions immediately without layout overflow",
+      "test/features/shared/presentation/widgets/workspace_shell_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP",
+        "SystemRoot",
+        "COMSPEC",
+        "PATHEXT",
+        "USERPROFILE",
+        "LOCALAPPDATA",
+        "PYTHONUTF8",
+        "PYTHONIOENCODING"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "--exclude-tags",
+      "canonical-golden",
+      "test/features/shared/presentation/widgets/workspace_shell_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP",
+        "SystemRoot",
+        "COMSPEC",
+        "PATHEXT",
+        "USERPROFILE",
+        "LOCALAPPDATA",
+        "PYTHONUTF8",
+        "PYTHONIOENCODING"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "--exclude-tags",
+        "canonical-golden",
+        "--reporter",
+        "expanded",
+        "--plain-name",
+        "desktop sidebar transitions immediately without layout overflow",
+        "test/features/shared/presentation/widgets/workspace_shell_test.dart"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 600,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP",
+          "SystemRoot",
+          "COMSPEC",
+          "PATHEXT",
+          "USERPROFILE",
+          "LOCALAPPDATA",
+          "PYTHONUTF8",
+          "PYTHONIOENCODING"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "desktop sidebar transitions immediately without layout overflow"
+    ]
+  }
+}

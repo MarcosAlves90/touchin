@@ -30,14 +30,20 @@ Android usa `versionName` e `versionCode` vindos do Flutter, e release signing f
 
 ## Automação GitHub
 
+O ID de instalação continua sendo `com.bunchin.app` para atualizar o APK já publicado.
+O endpoint oficial é passado por `API_BASE_URL` no build Android; o app em
+desenvolvimento mantém o padrão local. Use `release/notes/vX.Y.Z.md` para notas
+específicas de uma versão (relativo a `frontend/`).
+
 Pushes em branches `release/**` acionam `.github/workflows/android-release.yml`.
 
 O workflow:
 
 - valida `frontend/release/catalog.json`
-- roda `flutter test`
+- testa a inicialização com modo normal e roda a suíte Flutter com a prévia habilitada, exceto os goldens do job canônico
 - monta `build/app/outputs/bundle/release/app-release.aab`
 - monta `build/app/outputs/flutter-apk/app-release.apk`
+- verifica versão, pacote, permissões, API, assinatura do AAB e certificado do APK em relação à release anterior
 - cria a tag `vX.Y.Z`
 - publica uma GitHub Release pre-release com o nome completo da versão
 

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from sqlalchemy import select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.crypto import FieldCipher, lookup_digest
+from app.db import begin_serialized_write
 from app.domain.employee_read import (
     employee_or_404,
     get_employee as read_employee,
@@ -13,7 +14,7 @@ from app.domain.employee_read import (
 )
 from app.domain.identity import normalize_email
 from app.errors import DomainError, ErrorKind
-from app.models import Employee, UserAccount
+from app.models import Employee, Project, Task, TaskEmployee, UserAccount, WorkLog
 from app.schemas.employee import EmployeeDraftPayload, EmployeeProfileResponse
 from app.security import generate_temp_password, hash_password
 from app.services.auth import AuthenticatedContext
@@ -83,7 +84,9 @@ def create_employee(
     company_id: str,
     payload: EmployeeDraftPayload,
     timezone_name: str,
+    actor_user_id: str | None = None,
 ) -> tuple[EmployeeProfileResponse, str]:
+    from app.services.audit import AuditService
     cipher = _cipher()
     status_value = _status_value(payload)
     normalized_email = _normalized_email(payload)
@@ -126,6 +129,16 @@ def create_employee(
         employee=employee,
     )
     db.add_all([employee, user])
+    db.flush()
+    AuditService.log_action(
+        db,
+        company_id=company_id,
+        actor_user_id=actor_user_id,
+        action="employee.created",
+        entity_type="employee",
+        entity_id=employee.id,
+        result="success"
+    )
     db.commit()
     db.refresh(employee)
     return (
@@ -161,6 +174,7 @@ def update_employee(
     payload: EmployeeDraftPayload,
     timezone_name: str,
 ) -> EmployeeProfileResponse:
+    from app.services.audit import AuditService
     cipher = _cipher()
     status_value = _status_value(payload)
     employee = employee_or_404(db, company_id=company_id, employee_id=employee_id)
@@ -185,6 +199,14 @@ def update_employee(
         if linked_account.role == "admin" and not (context.user.role == "admin" and is_self_edit):
             raise DomainError(ErrorKind.forbidden, "Admin profiles can only be edited by the admin account itself.")
 
+    # Validate access-role changes before touching employee fields so rejected
+    # requests cannot leave partial mutations in the session/transaction.
+    if payload.access_role is not None:
+        if linked_account is None:
+            raise DomainError(ErrorKind.bad_request, "Employee account not found.")
+        if linked_account.role == "admin":
+            raise DomainError(ErrorKind.forbidden, "Admin role cannot be changed.")
+
     employee.name_ciphertext = cipher.encrypt(payload.name) or ""
     employee.role_ciphertext = cipher.encrypt(payload.role) or ""
     employee.department_ciphertext = cipher.encrypt(payload.department) or ""
@@ -208,11 +230,18 @@ def update_employee(
         linked_account.email_ciphertext = cipher.encrypt(normalized_email) or ""
         linked_account.email_hash = email_hash
     if payload.access_role is not None:
-        if linked_account is None:
-            raise DomainError(ErrorKind.bad_request, "Employee account not found.")
-        if linked_account.role == "admin":
-            raise DomainError(ErrorKind.forbidden, "Admin role cannot be changed.")
+        assert linked_account is not None
         linked_account.role = _access_role_value(payload)
+    
+    AuditService.log_action(
+        db,
+        company_id=company_id,
+        actor_user_id=context.user.id,
+        action="employee.updated",
+        entity_type="employee",
+        entity_id=employee.id,
+        result="success"
+    )
     db.commit()
     return read_employee(
         db,
@@ -227,8 +256,34 @@ def delete_employee(
     *,
     company_id: str,
     employee_id: str,
+    actor_user_id: str | None = None,
 ) -> None:
-    employee = employee_or_404(db, company_id=company_id, employee_id=employee_id)
+    from app.services.audit import AuditService
+    begin_serialized_write(db)
+    # Lock projects in a deterministic order before deleting task membership.
+    # Task/kanban writes lock the same Project row, so removals and card writes
+    # cannot interleave without invalidating their shared board version.
+    project_query = select(Project).where(
+        Project.company_id == company_id,
+    ).order_by(Project.id)
+    if db.bind is not None and db.bind.dialect.name != "sqlite":
+        project_query = project_query.with_for_update()
+    projects = {project.id: project for project in db.scalars(project_query).all()}
+    affected_ids = set(db.scalars(
+        select(Task.project_id)
+        .join(TaskEmployee, TaskEmployee.task_id == Task.id)
+        .where(TaskEmployee.employee_id == employee_id)
+    ).all())
+    employee_query = select(Employee).where(
+        Employee.company_id == company_id, Employee.id == employee_id,
+    )
+    if db.bind is not None and db.bind.dialect.name != "sqlite":
+        employee_query = employee_query.with_for_update()
+    employee = db.scalar(employee_query)
+    if employee is None:
+        raise DomainError(ErrorKind.not_found, "Employee not found.")
+    for project_id in affected_ids:
+        projects[project_id].kanban_version += 1
 
     linked_accounts = db.scalars(
         select(UserAccount).where(
@@ -239,5 +294,25 @@ def delete_employee(
     for account in linked_accounts:
         db.delete(account)
 
+    # Work logs represent completed, accountable work; retain their encrypted
+    # description, task snapshot, project and duration when removing live staff.
+    # This detachment is in the SAME transaction as account/punch deletion.
+    db.execute(update(WorkLog).where(
+        WorkLog.company_id == company_id,
+        WorkLog.employee_id == employee_id,
+    ).values(
+        employee_id_snapshot=func.coalesce(WorkLog.employee_id_snapshot, WorkLog.employee_id),
+        employee_id=None,
+        punch_id=None,
+    ))
     db.delete(employee)
+    AuditService.log_action(
+        db,
+        company_id=company_id,
+        actor_user_id=actor_user_id,
+        action="employee.deleted",
+        entity_type="employee",
+        entity_id=employee.id,
+        result="success"
+    )
     db.commit()

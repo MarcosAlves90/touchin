@@ -1,0 +1,223 @@
+{
+  "schema_version": 6,
+  "kind": "feature",
+  "scope": {
+    "allowed_paths": [
+      "docs/contracts/workspace-visual-consistency-v1.polis.json",
+      "frontend/lib/features/shared/presentation/widgets/workspace_shell.dart",
+      "frontend/lib/features/shared/presentation/widgets/workspace_instant_select_field.dart",
+      "frontend/lib/features/admin/presentation/admin_employees_page.dart",
+      "frontend/lib/features/admin/presentation/admin_employees_page_widgets.dart",
+      "frontend/lib/features/admin/presentation/admin_audit_page.dart",
+      "frontend/lib/features/admin/presentation/admin_audit_page_widgets.dart",
+      "frontend/lib/features/projects/presentation/project_tasks_page.dart",
+      "frontend/lib/features/projects/presentation/widgets/project_kanban_board.dart",
+      "frontend/lib/features/projects/presentation/widgets/project_backlog_view.dart",
+      "frontend/lib/features/time_tracking/presentation/time_clock_page.dart",
+      "frontend/lib/features/settings/presentation/settings_page.dart",
+      "frontend/test/features/shared/presentation/widgets/workspace_visual_components_test.dart",
+      "frontend/test/features/projects/presentation/accessibility_projects_kanban_board_test.dart",
+      "frontend/test/features/projects/presentation/project_backlog_view_test.dart",
+      "frontend/test/admin_audit_page_test.dart",
+      "frontend/test/admin_employees_page_test.dart",
+      "frontend/test/features/projects/presentation/project_tasks_page_test.dart",
+      "frontend/test/features/time_tracking/presentation/time_clock_accessibility_test.dart",
+      "frontend/test/features/settings/presentation/theme_settings_page_test.dart"
+    ]
+  },
+  "test_scope": {
+    "allowed_paths": [
+      "frontend/test/features/shared/presentation/widgets/workspace_visual_components_test.dart",
+      "frontend/test/features/projects/presentation/accessibility_projects_kanban_board_test.dart",
+      "frontend/test/features/projects/presentation/project_backlog_view_test.dart",
+      "frontend/test/admin_audit_page_test.dart",
+      "frontend/test/admin_employees_page_test.dart",
+      "frontend/test/features/projects/presentation/project_tasks_page_test.dart",
+      "frontend/test/features/time_tracking/presentation/time_clock_accessibility_test.dart",
+      "frontend/test/features/settings/presentation/theme_settings_page_test.dart"
+    ]
+  },
+  "development_method": "strict_sdd_tdd_v2",
+  "specification": {
+    "objective": "Make the authenticated workspace UI feel like one coherent product by reusing existing shared visual components and correcting compact interaction targets while preserving feature-specific workflows.",
+    "requirements": [
+      {
+        "id": "REQ-UI-CONSISTENCY-01",
+        "statement": "Use one responsive, accessible WorkspaceHeader pattern for time clock, settings, employee administration, project administration, and audit pages; descriptions may be omitted without leaving blank layout, and actions wrap without overflow."
+      },
+      {
+        "id": "REQ-UI-CONSISTENCY-02",
+        "statement": "Use one shared WorkspaceMetricCard for the equivalent metric tiles in employee administration, project administration, and time clock, with consistent icon, label, value, helper, typography, and surface treatment."
+      },
+      {
+        "id": "REQ-UI-CONSISTENCY-03",
+        "statement": "Interactive compact controls in Kanban, backlog, and audit expose at least 48 by 48 logical-pixel hit targets without unnecessarily enlarging icon glyphs or changing actions."
+      },
+      {
+        "id": "REQ-UI-CONSISTENCY-04",
+        "statement": "Validate shared components and affected pages for semantic headings, responsive layout, enlarged text, and both light and dark themes."
+      }
+    ],
+    "acceptance_criteria": [
+      {
+        "id": "AC-UI-CONSISTENCY-01",
+        "statement": "Shared header and metric components render without overflow at narrow widths and 200% text scaling, and their labels remain available to semantics.",
+        "requirements": [
+          "REQ-UI-CONSISTENCY-01",
+          "REQ-UI-CONSISTENCY-02",
+          "REQ-UI-CONSISTENCY-04"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-UI-CONSISTENCY-02",
+        "statement": "Admin employee, project, time-clock, settings, and audit pages use the shared header; employee and project KPI tiles use WorkspaceMetricCard.",
+        "requirements": [
+          "REQ-UI-CONSISTENCY-01",
+          "REQ-UI-CONSISTENCY-02"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-UI-CONSISTENCY-03",
+        "statement": "Kanban, backlog, and audit compact interactive targets meet the 48 px minimum in automated widget tests.",
+        "requirements": [
+          "REQ-UI-CONSISTENCY-03"
+        ],
+        "proof": "regression"
+      },
+      {
+        "id": "AC-UI-CONSISTENCY-04",
+        "statement": "All affected widget tests and workspace validation gates pass without changing API, authorization, or persisted behavior.",
+        "requirements": [
+          "REQ-UI-CONSISTENCY-04"
+        ],
+        "proof": "regression"
+      }
+    ],
+    "invariants": [
+      {
+        "id": "INV-UI-CONSISTENCY-01",
+        "statement": "Keep the existing brand palette, square-corner visual language, workspace shell, semantic color meanings, and feature-specific table, time-clock, and Kanban layouts."
+      },
+      {
+        "id": "INV-UI-CONSISTENCY-02",
+        "statement": "Keep all existing user-visible labels, data, callbacks, permission checks, loading and error behavior, and route behavior unchanged except for layout semantics and hit-target bounds."
+      },
+      {
+        "id": "INV-UI-CONSISTENCY-03",
+        "statement": "Do not add dependencies or change backend, API, authentication, authorization, or data persistence."
+      }
+    ],
+    "forbidden_states": [
+      {
+        "id": "FORB-UI-CONSISTENCY-01",
+        "statement": "Equivalent workspace page headers and metric cards continue to use separate duplicated visuals, or compact actions remain below the 48 px accessibility target."
+      },
+      {
+        "id": "FORB-UI-CONSISTENCY-02",
+        "statement": "Feature-specific workflows are forced into a generic layout that clips controls or loses their distinct meaning."
+      }
+    ],
+    "inputs": [
+      {
+        "id": "IN-UI-CONSISTENCY-01",
+        "statement": "Workspace route, viewport width, text scaling, theme brightness, and control state."
+      }
+    ],
+    "outputs": [
+      {
+        "id": "OUT-UI-CONSISTENCY-01",
+        "statement": "Consistent shared page headers and metric cards, accessible compact controls, and responsive semantic presentation."
+      }
+    ],
+    "failure_semantics": [
+      {
+        "id": "FAIL-UI-CONSISTENCY-01",
+        "statement": "A widget test fails with a labeled target-size mismatch or layout/semantics assertion when the workspace contract is violated."
+      }
+    ]
+  },
+  "baseline_lock": {
+    "git_object_format": "sha1",
+    "base_commit": "dec2d11d5fdf49fea9d759a29bfacb47676f300b",
+    "base_tree": "407ef461972ef0c420bbfee31d62d37bad5b99ee",
+    "policy_sha256": "5563facc34ae2a1a07cf7ec7ec2f115cb8d250c49dd6e2bd5c7a3de4c977d450",
+    "specification_sha256": "d92c1b2d9559b85513d5c38e9ff1655b55a79781bf4ed994d0ed6cc97dbe9e09"
+  },
+  "behavior": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/features/projects/presentation/accessibility_projects_kanban_board_test.dart",
+      "--plain-name",
+      "board actions use accessible 48 pixel targets"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 360,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "affected": {
+    "argv": [
+      "flutter",
+      "test",
+      "test/features/shared/presentation/widgets/workspace_visual_components_test.dart",
+      "test/features/projects/presentation/accessibility_projects_kanban_board_test.dart",
+      "test/features/projects/presentation/project_backlog_view_test.dart",
+      "test/admin_audit_page_test.dart",
+      "test/admin_employees_page_test.dart",
+      "test/features/projects/presentation/project_tasks_page_test.dart",
+      "test/features/time_tracking/presentation/time_clock_accessibility_test.dart",
+      "test/features/settings/presentation/theme_settings_page_test.dart"
+    ],
+    "cwd": "frontend",
+    "timeout_seconds": 600,
+    "environment": {
+      "mode": "clean",
+      "pass": [
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "TMP",
+        "TEMP"
+      ]
+    }
+  },
+  "regression": {
+    "mode": "red_green",
+    "command": {
+      "argv": [
+        "flutter",
+        "test",
+        "test/features/projects/presentation/accessibility_projects_kanban_board_test.dart",
+        "--plain-name",
+        "board actions use accessible 48 pixel targets"
+      ],
+      "cwd": "frontend",
+      "timeout_seconds": 360,
+      "environment": {
+        "mode": "clean",
+        "pass": [
+          "PATH",
+          "HOME",
+          "TMPDIR",
+          "TMP",
+          "TEMP"
+        ]
+      }
+    },
+    "baseline_exit_code": 1,
+    "baseline_output_contains": [
+      "board_target_minimum_48px"
+    ]
+  }
+}
