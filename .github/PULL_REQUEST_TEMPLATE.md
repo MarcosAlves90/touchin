@@ -24,7 +24,7 @@ Describe what should happen after these changes.
 
 ## Screenshots / Evidence
 
-Add screenshots, videos, logs, or other evidence when relevant.
+For UI changes, embed real browser screenshots using fictional data. Include the viewport and any accessibility settings relevant to the change. For nonvisual changes, describe the verification or link to test evidence.
 
 ## Risks / Impact
 
@@ -35,7 +35,7 @@ Mention any known risks, affected areas, regressions to watch for, or compatibil
 - [ ] Changes were tested locally.
 - [ ] Existing behavior was not unintentionally affected.
 - [ ] Relevant tests were added or updated.
-- [ ] Documentation was updated if needed.
+- [ ] Documentation was updated if needed and checked against the implementation.
 - [ ] No unrelated changes are included.
 
 ## Additional Notes

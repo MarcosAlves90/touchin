@@ -1,15 +1,14 @@
 # Fotografias da autenticação
 
-Os painéis de marca das quatro páginas de autenticação utilizam fotografias
-publicadas no Cloudinary pelo proprietário do projeto. As URLs utilizadas no
-aplicativo são centralizadas em `AuthBrandImages`, em
-`lib/features/auth/presentation/widgets/auth_shell.dart`.
+Os painéis de marca da autenticação usam quatro fotografias hospedadas no
+Cloudinary. As URLs do app ficam em `AuthBrandImages`, em
+[`auth_shell.dart`](../lib/features/auth/presentation/widgets/auth_shell.dart).
 
 | Tela | ID público do Cloudinary | Fotógrafo original |
 | --- | --- | --- |
 | Login | `login_a7de1w.jpg` | E Vos |
 | Cadastro | `cadastro_q0zfus.jpg` | Leon Rohrwild |
-| Recuperação de senha | `recuperacao-de-senha_snzc6m.jpg` | Caroline Badran |
+| Solicitação e confirmação de recuperação | `recuperacao-de-senha_snzc6m.jpg` | Caroline Badran |
 | Troca obrigatória de senha | `troca-obrigatoria-de-senha_apzwxa.jpg` | David Kristianto |
 
 Originais publicados sob a [licença Unsplash](https://unsplash.com/license):
@@ -24,4 +23,5 @@ formato compatível com o navegador, preservar mais detalhes e limitar a largura
 de transferência a 1920 pixels sem ampliar originais menores. Não há arquivos
 fotográficos no bundle Flutter. O painel com imagem é construído apenas quando
 a largura disponível é de pelo menos 920 pixels. Se a imagem remota não carregar,
-o fundo escuro do painel permanece visível, preservando o contraste do conteúdo.
+o fundo escuro do painel permanece visível. A CSP permite a origem de imagens
+`res.cloudinary.com` em [`vercel.json`](../vercel.json).
