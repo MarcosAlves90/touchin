@@ -37,6 +37,8 @@ específicas de uma versão (relativo a `frontend/`).
 
 Pushes em branches `release/**` acionam `.github/workflows/android-release.yml`.
 
+O workflow usa Flutter 3.47.2 com Java 17 e o Gradle versionado.
+
 O workflow:
 
 - valida `frontend/release/catalog.json`
