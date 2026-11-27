@@ -135,6 +135,16 @@ void main() {
       type: PunchType.checkIn,
       timestamp: timestamp,
       detail: 'Registro de teste',
+      projectId: 'atlas',
+      projectName: 'Projeto Atlas',
+      workLog: const PunchWorkLog(
+        projectId: 'atlas',
+        projectName: 'Projeto Atlas',
+        tasks: [
+          PunchTask(name: 'Revisar checklist', id: 'task-1', cardNumber: 17),
+          PunchTask(name: 'Validar relatório'),
+        ],
+      ),
       location: PunchLocationSnapshot(
           latitude: -23.5,
           longitude: -46.6,
@@ -155,6 +165,11 @@ void main() {
       await tester.tap(find.text('09:00').last);
       await tester.pumpAndSettle();
       expect(find.text('Registro de teste'), findsOneWidget);
+      expect(find.text('Projeto: Projeto Atlas'), findsOneWidget);
+      expect(find.text('Tarefas selecionadas'), findsOneWidget);
+      expect(find.text('• #17 · Revisar checklist'), findsOneWidget);
+      expect(find.byTooltip('ID: task-1'), findsOneWidget);
+      expect(find.text('• Validar relatório'), findsOneWidget);
       expect(find.text('Lat -23.50000 | Long -46.60000'), findsOneWidget);
       expect(find.text('Precisão estimada 12 m'), findsOneWidget);
       expect(tester.takeException(), isNull, reason: 'width $width');

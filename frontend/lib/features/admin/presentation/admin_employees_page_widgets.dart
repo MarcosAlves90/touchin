@@ -1675,17 +1675,11 @@ class _ManagedPunchTile extends StatelessWidget {
                     height: 1.25,
                   ),
                 ),
-                if (punch.projectId != null && punch.projectId!.isNotEmpty) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    'Projeto: ${punch.projectId}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
+                PunchWorkContext(
+                  projectId: punch.projectId,
+                  projectName: punch.projectName,
+                  workLog: punch.workLog,
+                ),
               ],
             ),
           ),

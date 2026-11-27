@@ -17,6 +17,9 @@ mixin _$PunchRecord {
   PunchType get type;
   DateTime get timestamp;
   String get detail;
+  String? get projectId;
+  String? get projectName;
+  PunchWorkLog? get workLog;
   PunchLocationSnapshot? get location;
 
   /// Create a copy of PunchRecord
@@ -35,17 +38,22 @@ mixin _$PunchRecord {
             (identical(other.timestamp, timestamp) ||
                 other.timestamp == timestamp) &&
             (identical(other.detail, detail) || other.detail == detail) &&
+            (identical(other.projectId, projectId) ||
+                other.projectId == projectId) &&
+            (identical(other.projectName, projectName) ||
+                other.projectName == projectName) &&
+            (identical(other.workLog, workLog) || other.workLog == workLog) &&
             (identical(other.location, location) ||
                 other.location == location));
   }
 
   @override
-  int get hashCode =>
-      Object.hash(runtimeType, type, timestamp, detail, location);
+  int get hashCode => Object.hash(runtimeType, type, timestamp, detail,
+      projectId, projectName, workLog, location);
 
   @override
   String toString() {
-    return 'PunchRecord(type: $type, timestamp: $timestamp, detail: $detail, location: $location)';
+    return 'PunchRecord(type: $type, timestamp: $timestamp, detail: $detail, projectId: $projectId, projectName: $projectName, workLog: $workLog, location: $location)';
   }
 }
 
@@ -59,6 +67,9 @@ abstract mixin class $PunchRecordCopyWith<$Res> {
       {PunchType type,
       DateTime timestamp,
       String detail,
+      String? projectId,
+      String? projectName,
+      PunchWorkLog? workLog,
       PunchLocationSnapshot? location});
 
   $PunchLocationSnapshotCopyWith<$Res>? get location;
@@ -79,6 +90,9 @@ class _$PunchRecordCopyWithImpl<$Res> implements $PunchRecordCopyWith<$Res> {
     Object? type = null,
     Object? timestamp = null,
     Object? detail = null,
+    Object? projectId = freezed,
+    Object? projectName = freezed,
+    Object? workLog = freezed,
     Object? location = freezed,
   }) {
     return _then(_self.copyWith(
@@ -94,6 +108,18 @@ class _$PunchRecordCopyWithImpl<$Res> implements $PunchRecordCopyWith<$Res> {
           ? _self.detail
           : detail // ignore: cast_nullable_to_non_nullable
               as String,
+      projectId: freezed == projectId
+          ? _self.projectId
+          : projectId // ignore: cast_nullable_to_non_nullable
+              as String?,
+      projectName: freezed == projectName
+          ? _self.projectName
+          : projectName // ignore: cast_nullable_to_non_nullable
+              as String?,
+      workLog: freezed == workLog
+          ? _self.workLog
+          : workLog // ignore: cast_nullable_to_non_nullable
+              as PunchWorkLog?,
       location: freezed == location
           ? _self.location
           : location // ignore: cast_nullable_to_non_nullable
@@ -209,7 +235,13 @@ extension PunchRecordPatterns on PunchRecord {
 
   @optionalTypeArgs
   TResult maybeWhen<TResult extends Object?>(
-    TResult Function(PunchType type, DateTime timestamp, String detail,
+    TResult Function(
+            PunchType type,
+            DateTime timestamp,
+            String detail,
+            String? projectId,
+            String? projectName,
+            PunchWorkLog? workLog,
             PunchLocationSnapshot? location)?
         $default, {
     required TResult orElse(),
@@ -217,8 +249,8 @@ extension PunchRecordPatterns on PunchRecord {
     final _that = this;
     switch (_that) {
       case _PunchRecord() when $default != null:
-        return $default(
-            _that.type, _that.timestamp, _that.detail, _that.location);
+        return $default(_that.type, _that.timestamp, _that.detail,
+            _that.projectId, _that.projectName, _that.workLog, _that.location);
       case _:
         return orElse();
     }
@@ -239,15 +271,21 @@ extension PunchRecordPatterns on PunchRecord {
 
   @optionalTypeArgs
   TResult when<TResult extends Object?>(
-    TResult Function(PunchType type, DateTime timestamp, String detail,
+    TResult Function(
+            PunchType type,
+            DateTime timestamp,
+            String detail,
+            String? projectId,
+            String? projectName,
+            PunchWorkLog? workLog,
             PunchLocationSnapshot? location)
         $default,
   ) {
     final _that = this;
     switch (_that) {
       case _PunchRecord():
-        return $default(
-            _that.type, _that.timestamp, _that.detail, _that.location);
+        return $default(_that.type, _that.timestamp, _that.detail,
+            _that.projectId, _that.projectName, _that.workLog, _that.location);
       case _:
         throw StateError('Unexpected subclass');
     }
@@ -267,15 +305,21 @@ extension PunchRecordPatterns on PunchRecord {
 
   @optionalTypeArgs
   TResult? whenOrNull<TResult extends Object?>(
-    TResult? Function(PunchType type, DateTime timestamp, String detail,
+    TResult? Function(
+            PunchType type,
+            DateTime timestamp,
+            String detail,
+            String? projectId,
+            String? projectName,
+            PunchWorkLog? workLog,
             PunchLocationSnapshot? location)?
         $default,
   ) {
     final _that = this;
     switch (_that) {
       case _PunchRecord() when $default != null:
-        return $default(
-            _that.type, _that.timestamp, _that.detail, _that.location);
+        return $default(_that.type, _that.timestamp, _that.detail,
+            _that.projectId, _that.projectName, _that.workLog, _that.location);
       case _:
         return null;
     }
@@ -289,6 +333,9 @@ class _PunchRecord extends PunchRecord {
       {required this.type,
       required this.timestamp,
       required this.detail,
+      this.projectId,
+      this.projectName,
+      this.workLog,
       this.location})
       : super._();
 
@@ -298,6 +345,12 @@ class _PunchRecord extends PunchRecord {
   final DateTime timestamp;
   @override
   final String detail;
+  @override
+  final String? projectId;
+  @override
+  final String? projectName;
+  @override
+  final PunchWorkLog? workLog;
   @override
   final PunchLocationSnapshot? location;
 
@@ -318,17 +371,22 @@ class _PunchRecord extends PunchRecord {
             (identical(other.timestamp, timestamp) ||
                 other.timestamp == timestamp) &&
             (identical(other.detail, detail) || other.detail == detail) &&
+            (identical(other.projectId, projectId) ||
+                other.projectId == projectId) &&
+            (identical(other.projectName, projectName) ||
+                other.projectName == projectName) &&
+            (identical(other.workLog, workLog) || other.workLog == workLog) &&
             (identical(other.location, location) ||
                 other.location == location));
   }
 
   @override
-  int get hashCode =>
-      Object.hash(runtimeType, type, timestamp, detail, location);
+  int get hashCode => Object.hash(runtimeType, type, timestamp, detail,
+      projectId, projectName, workLog, location);
 
   @override
   String toString() {
-    return 'PunchRecord(type: $type, timestamp: $timestamp, detail: $detail, location: $location)';
+    return 'PunchRecord(type: $type, timestamp: $timestamp, detail: $detail, projectId: $projectId, projectName: $projectName, workLog: $workLog, location: $location)';
   }
 }
 
@@ -344,6 +402,9 @@ abstract mixin class _$PunchRecordCopyWith<$Res>
       {PunchType type,
       DateTime timestamp,
       String detail,
+      String? projectId,
+      String? projectName,
+      PunchWorkLog? workLog,
       PunchLocationSnapshot? location});
 
   @override
@@ -365,6 +426,9 @@ class __$PunchRecordCopyWithImpl<$Res> implements _$PunchRecordCopyWith<$Res> {
     Object? type = null,
     Object? timestamp = null,
     Object? detail = null,
+    Object? projectId = freezed,
+    Object? projectName = freezed,
+    Object? workLog = freezed,
     Object? location = freezed,
   }) {
     return _then(_PunchRecord(
@@ -380,6 +444,18 @@ class __$PunchRecordCopyWithImpl<$Res> implements _$PunchRecordCopyWith<$Res> {
           ? _self.detail
           : detail // ignore: cast_nullable_to_non_nullable
               as String,
+      projectId: freezed == projectId
+          ? _self.projectId
+          : projectId // ignore: cast_nullable_to_non_nullable
+              as String?,
+      projectName: freezed == projectName
+          ? _self.projectName
+          : projectName // ignore: cast_nullable_to_non_nullable
+              as String?,
+      workLog: freezed == workLog
+          ? _self.workLog
+          : workLog // ignore: cast_nullable_to_non_nullable
+              as PunchWorkLog?,
       location: freezed == location
           ? _self.location
           : location // ignore: cast_nullable_to_non_nullable
