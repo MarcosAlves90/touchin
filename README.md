@@ -40,7 +40,9 @@ flutter pub get
 flutter run -d web-server --web-port 8080
 ```
 
-O app usa `http://localhost:8071/api/v1` por padrão em desenvolvimento. O `.env.example` contém valores de demonstração: substitua-os por segredos locais e nunca os reutilize fora de desenvolvimento. A API interativa fica em `http://127.0.0.1:8071/docs`.
+O comando abre o app normal e usa `http://localhost:8071/api/v1` por padrão.
+Para ativar a [prévia offline](docs/DEVELOPER_PREVIEW.md), use
+`--dart-define=TOUCHIN_FRONTEND_DEV_MODE=true`. O `.env.example` contém valores de demonstração: substitua-os por segredos locais e nunca os reutilize fora de desenvolvimento. A API interativa fica em `http://127.0.0.1:8071/docs`.
 
 ## Documentação
 

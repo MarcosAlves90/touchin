@@ -45,6 +45,7 @@ def run_coverage(
                 [
                     "timeout", "--signal=TERM", "--kill-after=30s", "15m",
                     "flutter", "test", "--no-pub", "--coverage",
+                    "--dart-define=TOUCHIN_FRONTEND_DEV_MODE=true",
                     f"--coverage-path={trace}",
                     "--exclude-tags", "canonical-golden",
                     "--concurrency=1", "--reporter", "expanded",

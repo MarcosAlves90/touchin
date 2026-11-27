@@ -46,11 +46,17 @@ for name, command, directory in (
         BACKEND,
     ),
     (
+        "frontend (production default)",
+        [flutter_executable, "test", "test/developer_preview_entry_test.dart"],
+        FRONTEND,
+    ),
+    (
         "frontend",
         [
             flutter_executable,
             "test",
             "--coverage",
+            "--dart-define=TOUCHIN_FRONTEND_DEV_MODE=true",
             "--exclude-tags",
             "canonical-golden",
             "--concurrency=1",
@@ -62,7 +68,7 @@ for name, command, directory in (
 ):
     print(f"POLIS tests: {name}", flush=True)
     env = dict(os.environ)
-    if name == "frontend":
+    if directory == FRONTEND:
         env = flutter_test_environment(env)
     command = prepare_command(command, env)
     result = subprocess.run(command, cwd=directory, env=env, check=False)

@@ -35,6 +35,7 @@ class FrontendCoverageTests(unittest.TestCase):
                 self.assertIn("--concurrency=1", args)
                 self.assertIn("canonical-golden", args)
                 self.assertIn("--no-pub", args)
+                self.assertIn("--dart-define=TOUCHIN_FRONTEND_DEV_MODE=true", args)
                 trace = next(arg.partition("=")[2] for arg in args
                              if arg.startswith("--coverage-path="))
                 Path(trace).write_text("TN:\nSF:lib/a.dart\nLF:1\nLH:1\nend_of_record\n")

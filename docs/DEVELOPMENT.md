@@ -47,6 +47,10 @@ flutter pub get
 flutter run -d web-server --web-port 8080
 ```
 
+O comando acima abre o aplicativo normal, mesmo quando o Flutter compila
+em debug. Para abrir a [prévia offline](DEVELOPER_PREVIEW.md), acrescente
+`--dart-define=TOUCHIN_FRONTEND_DEV_MODE=true`. Essa opção não muda a URL da API.
+
 O endereço local padrão do frontend é `http://localhost:8071/api/v1`, definido em `lib/core/config/app_config.dart`. Por isso, o comando local do backend acima usa a porta `8071`. Para usar outra URL, passe `--dart-define=API_BASE_URL=https://host/api/v1` ao comando de build/run. As origens locais padrão incluem a porta `8080`; para outras origens, confira `TOUCHIN_ALLOWED_ORIGINS` e a política CORS em `backend/app/main.py`.
 
 ## Testes e análise

@@ -1,18 +1,20 @@
 # Prévia de desenvolvimento offline
 
-Na pasta `frontend`, execute o Flutter em **debug**, sem preparar backend,
+Na pasta `frontend`, ative a prévia explicitamente, sem preparar backend,
 banco, conta, segredos ou arquivos `.env`:
 
 ```powershell
 flutter pub get
-flutter run -d chrome
+flutter run -d chrome --dart-define=TOUCHIN_FRONTEND_DEV_MODE=true
 ```
 
 Escolha **Entrar na prévia de desenvolvimento**. Essa escolha aparece antes
-da restauração de qualquer sessão real, inclusive ao abrir um link como
-`/#/kanban` ou `/#/projects`. **Abrir login normal** abre o fluxo autenticado
-habitual e requer o ambiente real. Profile e release abrem diretamente esse
-fluxo habitual; não possuem entrada nem ativação de prévia por URL.
+da restauração de qualquer sessão real, inclusive em `/#/kanban` ou
+`/#/projects`. **Abrir login normal** segue para o app habitual e exige
+o ambiente real. Sem a variável, com `false` ou com qualquer valor diferente
+de `true`, o app abre diretamente no fluxo habitual, sem prévia por URL.
+A regra vale em debug, profile e release; para ver a prévia em um build
+otimizado local, use `flutter build web --release --dart-define=TOUCHIN_FRONTEND_DEV_MODE=true`.
 
 O selo **PRÉVIA LOCAL** identifica a identidade fictícia. O botão **Controles**
 abre um painel lateral rolável, que pode ser fechado sem cobrir o conteúdo.
@@ -64,11 +66,13 @@ O preview e suas validações são locais; não é necessário publicar ou fazer
 ## Verificação automatizada
 
 ```powershell
-flutter test test/developer_preview_entry_test.dart test/dev_preview/preview_test.dart
+flutter test test/developer_preview_entry_test.dart
+flutter test --dart-define=TOUCHIN_FRONTEND_DEV_MODE=true test/developer_preview_entry_test.dart test/dev_preview
 ```
 
 Inclui testes com HTTP real bloqueado, sessão real pré-existente preservada,
 contratos e referências das fixtures, alterações locais, descarte de operações
 pendentes, telas reais de loading/erro e painel estreito. Probes em processos
-Dart separados comprovam a rejeição da ativação com `dart.vm.product` e
-`dart.vm.profile`. A suíte completa e demais gates seguem `.polis/policy.json`.
+Dart separados exercitam a variável ausente, falsa, inválida e verdadeira,
+inclusive com os sinalizadores de profile e release. A suíte completa e
+demais gates seguem `.polis/policy.json`.

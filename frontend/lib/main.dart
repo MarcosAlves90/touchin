@@ -4,6 +4,7 @@ import 'package:touchin_flutter/contracts/auth.dart';
 import 'package:touchin_flutter/core/network/api_client.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
 import 'package:touchin_flutter/core/network/app_dependencies.dart';
+import 'package:touchin_flutter/dev_preview/preview_build_mode.dart';
 import 'package:touchin_flutter/dev_preview/preview_launcher.dart';
 import 'package:touchin_flutter/core/storage/token_storage.dart';
 import 'package:touchin_flutter/core/navigation/workspace_router.dart';
@@ -17,14 +18,13 @@ import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_s
 import 'package:touchin_flutter/startup_ascii_orb.dart';
 import 'package:touchin_flutter/theme/app_theme.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:touchin_flutter/features/time_tracking/application/punch_location_service.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await ThemeModeController.instance.load();
-  runApp(kDebugMode ? const PreviewLauncher() : const MyApp());
+  runApp(developerPreviewAvailable ? const PreviewLauncher() : const MyApp());
 }
 
 class MyApp extends StatefulWidget {

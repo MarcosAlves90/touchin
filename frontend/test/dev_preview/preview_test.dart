@@ -25,6 +25,12 @@ import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_s
 import 'package:touchin_flutter/features/time_tracking/presentation/time_clock_page.dart';
 
 void main() {
+  if (!developerPreviewAvailable) {
+    test('preview scenarios need TOUCHIN_FRONTEND_DEV_MODE=true', () {},
+        skip: 'Run with --dart-define=TOUCHIN_FRONTEND_DEV_MODE=true.');
+    return;
+  }
+
   late PreviewController controller;
   late PreviewFixtures fixtures;
   late PreviewTokenStorage storage;
@@ -40,22 +46,6 @@ void main() {
   });
   tearDown(() {
     if (!controller.isDisposed) controller.dispose();
-  });
-
-  test('compile-time debug guard rejects both product and profile activation',
-      () async {
-    expect(developerPreviewAvailable, isTrue);
-    for (final mode in ['product', 'profile']) {
-      final result = await Process.run(
-          'dart',
-          [
-            '-Ddart.vm.$mode=true',
-            'test/dev_preview/build_mode_probe.dart',
-          ],
-          runInShell: Platform.isWindows);
-      expect(result.exitCode, 0, reason: '${result.stdout}\n${result.stderr}');
-      expect(result.stdout, contains('PREVIEW_BLOCKED'));
-    }
   });
 
   test('unsupported AI settings never enqueue simulated requests', () async {

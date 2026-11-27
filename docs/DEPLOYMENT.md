@@ -10,6 +10,13 @@ O repositório versiona a configuração do frontend em `frontend/vercel.json` e
 
 No ambiente de build do Vercel, `API_BASE_URL` é obrigatória. Informe a URL pública base da API incluindo `/api/v1`, sem acrescentar um recurso como `/audit-events`. O script transforma a variável em `--dart-define` do Flutter; portanto, uma alteração requer novo build/deploy do frontend. O backend deve aceitar a origem do site em `TOUCHIN_ALLOWED_ORIGINS`.
 
+O frontend usa modo de produção por padrão, sem tela de prévia de
+desenvolvimento. Somente `TOUCHIN_FRONTEND_DEV_MODE=true` no ambiente de
+**build** ativa a prévia, inclusive em builds release do Vercel. Deixe essa
+variável ausente em produção; se necessária, limite-a a um ambiente de teste.
+O script converte a variável em `--dart-define`. Mudar o valor exige um novo
+build e não altera a URL da API nem o `TOUCHIN_ENV` do backend.
+
 O script usa o Flutter stable no diretório `FLUTTER_HOME` ou no cache padrão `~/.cache/flutter-sdk`. Se o diretório escolhido não contém `bin/flutter`, ele baixa o release stable atual do Flutter. O comportamento está definido em `frontend/scripts/vercel-build.sh`.
 
 ## Backend e ambientes
