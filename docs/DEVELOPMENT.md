@@ -10,8 +10,8 @@
 ## Preparar o backend
 
 Para desenvolver e inspecionar a interface sem backend, conta ou `.env`,
-use a [prévia de desenvolvimento offline](DEVELOPER_PREVIEW.md) disponível
-no fluxo Flutter debug.
+use a [prévia de desenvolvimento offline](DEVELOPER_PREVIEW.md). Ela é opt-in
+no build, não um efeito automático de debug.
 
 Na raiz do repositório:
 
@@ -21,7 +21,8 @@ python3 -m venv .venv
 source .venv/bin/activate
 python3 -m pip install -r requirements.txt
 cp .env.example .env
-uvicorn app.main:app --reload --port 8071
+# Edite .env: use dois segredos locais distintos e defina sua senha de seed.
+python -m uvicorn app.main:app --reload --port 8071
 ```
 
 No PowerShell, execute a sequência completa a partir da raiz do repositório:
@@ -32,10 +33,11 @@ py -3.12 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
 Copy-Item .env.example .env
+# Edite .env: use dois segredos locais distintos e defina sua senha de seed.
 python -m uvicorn app.main:app --reload --port 8071
 ```
 
-O arquivo de exemplo contém placeholders adequados apenas para desenvolvimento local. A API responde em `http://127.0.0.1:8071`; health check: `/api/v1/health`; documentação interativa: `/docs`.
+Copie `.env.example` somente no primeiro setup; não substitua um `.env` existente. Com o seed ligado, a API inicializa o schema e preenche os [dados de demonstração](../backend/app/seed.py) faltantes. Contas novas de seed usam a senha local escolhida em `TOUCHIN_SEED_ADMIN_PASSWORD`; mudar essa variável não redefine senhas existentes. A API responde em `http://127.0.0.1:8071`; health check: `/api/v1/health`; documentação interativa: `/docs`.
 
 ## Preparar o frontend
 
@@ -51,7 +53,7 @@ O comando acima abre o aplicativo normal, mesmo quando o Flutter compila
 em debug. Para abrir a [prévia offline](DEVELOPER_PREVIEW.md), acrescente
 `--dart-define=TOUCHIN_FRONTEND_DEV_MODE=true`. Essa opção não muda a URL da API.
 
-O endereço local padrão do frontend é `http://localhost:8071/api/v1`, definido em `lib/core/config/app_config.dart`. Por isso, o comando local do backend acima usa a porta `8071`. Para usar outra URL, passe `--dart-define=API_BASE_URL=https://host/api/v1` ao comando de build/run. As origens locais padrão incluem a porta `8080`; para outras origens, confira `TOUCHIN_ALLOWED_ORIGINS` e a política CORS em `backend/app/main.py`.
+O endereço local padrão do frontend é `http://localhost:8071/api/v1`, definido em `lib/core/config/app_config.dart`. Por isso, o comando local do backend acima usa a porta `8071`. Para usar outra URL, passe `--dart-define=API_BASE_URL=https://host/api/v1` ao comando de build/run. Abra `http://localhost:8080`. O backend admite origens locais de `localhost` e `127.0.0.1` pela [política CORS](../backend/app/main.py); acrescente outras origens com `TOUCHIN_ALLOWED_ORIGINS`.
 
 ## Testes e análise
 
@@ -59,11 +61,12 @@ Execute os testes focados dentro dos respectivos diretórios:
 
 ```bash
 (cd backend && python -m pytest -q)
-(cd frontend && flutter test)
+(cd frontend && flutter test test/developer_preview_entry_test.dart)
+(cd frontend && flutter test --dart-define=TOUCHIN_FRONTEND_DEV_MODE=true --exclude-tags canonical-golden)
 (cd frontend && dart analyze lib test)
 ```
 
-No PowerShell, com a venv do backend ativada, rode `python -m pytest -q` dentro de `backend`; no frontend, rode `flutter test` e `dart analyze lib test` dentro de `frontend`.
+No PowerShell, execute os comandos nos respectivos diretórios, sem o wrapper `(cd ... && ...)`. O teste isolado de entrada verifica o padrão sem o flag; a segunda execução cobre a prévia. Os [goldens canônicos](../frontend/test/goldens/rounded_workspace_navigation/README.md) comparam pixels no Ubuntu com Flutter 3.47.2. Para cobertura de concorrência, use os bancos descartáveis do [job PostgreSQL](../.github/workflows/ci.yml); testes SQLite não substituem aquele job.
 
 Para a validação de gates usada pelo repositório, instale a mesma versão do CI e execute a policy:
 
@@ -84,7 +87,7 @@ O [workflow CI](../.github/workflows/ci.yml) roda em pull requests, em pushes à
 - **Windows, nos PRs:** validação da policy POLIS, testes do adaptador de comandos, análise estática via POLIS e testes focados de navegação Flutter.
 - **Windows, na `main` e em execução manual:** gates completos `test.complete`, `lint`, `build` e `smoke`. Para rodá-los antes do merge, abra **Actions → CI → Run workflow** e selecione a branch do PR. Regressões exclusivas de Windows fora dos testes focados podem só aparecer nessa execução completa.
 
-## Estrutura da documentação
+## Referências
 
 - [README](../README.md): visão geral e início rápido.
 - [Backend](../backend/README.md): configuração e áreas da API.

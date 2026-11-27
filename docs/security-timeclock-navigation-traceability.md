@@ -1,5 +1,7 @@
 # Implementação integrada: #72, #70, #77, #81 e #83
 
+> Registro histórico da implementação e dos testes das issues listadas. Para os procedimentos vigentes, consulte o [índice da documentação](README.md).
+
 ## Base, escopo e evidência
 
 Branch de trabalho: `fix/security-timeclock-navigation`. Base auditada: `8d640c800c7db32a5dba66b89afb000743c2c781`, commit confirmado como `main` pública de `MarcosAlves90/touchin` em 2026-10-25. A evidência histórica das issues é `77db759355f248559d34fe4331be1d8bb31182d2`; os cinco relatos e seus comentários foram lidos integralmente antes de aplicar mudanças. A política commitada `.polis/policy.json` usa POLIS 6.12.0, schema 3, com gates `test.complete`, `lint`, `build` e `smoke`.

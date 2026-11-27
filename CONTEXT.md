@@ -1,7 +1,7 @@
 # CONTEXT.md — TouchIn
 
-- Última atualização: 2026-10-25
-- Versão do documento: 1.2.3
+- Última atualização: 2026-11-27
+- Versão do documento: 1.3.0
 
 ---
 
@@ -9,14 +9,14 @@
 
 TouchIn é uma aplicação web para registro de ponto e gestão de equipes, com frontend Flutter e backend FastAPI.
 
-- Capacidades: autenticação, jornada/ponto, funcionários, projetos, tarefas, Kanban e funções administrativas.
-- [Frontend](./frontend), [backend](./backend), [documentação](./docs) e [início rápido](./README.md).
+- Capacidades: autenticação, jornada/ponto, gestão de equipes e projetos, Kanban/backlog, busca de tarefas, sugestões opcionais e auditoria. Veja os [fluxos do produto](./docs/PRODUCT.md).
+- [Frontend](./frontend), [backend](./backend), [documentação](./docs/README.md) e [início rápido](./README.md).
 
 ## 2. Stack Tecnológica
 
 | Tecnologia | Referência versionada | Papel |
 |---|---|---|
-| Flutter/Dart | Flutter stable no CI; intervalo Dart em `frontend/pubspec.yaml` | Frontend web |
+| Flutter/Dart | Flutter stable no CI; goldens canônicos em 3.47.2; intervalo Dart em `frontend/pubspec.yaml` | Frontend web |
 | Python | 3.12 no CI; restrições em `backend/requirements.txt` | Backend e gates POLIS |
 | FastAPI, SQLAlchemy, Pydantic | Restrições em `backend/requirements.txt` | API e persistência |
 | SQLite | URL padrão em `backend/app/config.py` | Banco local |
@@ -36,9 +36,9 @@ As versões/ranges completos devem ser lidos nos manifests e no workflow de CI, 
 ```text
 backend/app/       API, domínio, serviços e persistência
 backend/tests/     testes do backend
-frontend/lib/      app Flutter
+frontend/lib/      UI, contratos, comunicação com API e prévia offline
 frontend/test/     testes do frontend
-docs/              relatórios e contratos POLIS versionados
+docs/              guias, contratos POLIS e evidências históricas
 .polis/            policy de validação do repositório
 ```
 
@@ -58,13 +58,13 @@ Consulte os diretórios atuais antes de assumir que este mapa enumera todos os m
 - O frontend consulta a API em `/api/v1`; endereço local e configuração web estão em `frontend/lib/core/config/app_config.dart` e [docs/DEVELOPMENT.md](./docs/DEVELOPMENT.md).
 - O módulo de ponto expõe ações `checkIn`, `breakStart`, `breakEnd` e `checkOut`; a API e suas regras atuais são a fonte de verdade.
 - Setup de build web e limites de deploy estão em [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md). O repositório não define URLs de produção.
-- Recuperação pública de senha utiliza solicitação indistinguível, token com prazo de 30 minutos, confirmação de uso único e revogação transacional de sessões. O link é gerado pelo serviço Brevo conforme `TOUCHIN_PASSWORD_RESET_URL`.
+- Recuperação pública de senha utiliza solicitação indistinguível, token com prazo de 30 minutos, confirmação de uso único e revogação transacional de sessões. O backend monta o link a partir de `TOUCHIN_PASSWORD_RESET_URL` e solicita o envio ao Brevo.
 - Os históricos `WorkLog` sobrevivem à exclusão de batidas e funcionários por referência histórica independente. Operações de ponto e edições administrativas usam as regras de serialização e integridade em `backend/app/services/time_clock.py`.
-- O frontend reutiliza o contexto autenticado entre rotas e revalida o token ao voltar ao aplicativo, periodicamente e após rejeição autenticada, sem perder os contratos de skeletons de conteúdo introduzidos nas issues #112 e #121.
+- O frontend reutiliza o contexto autenticado entre rotas e revalida o token ao voltar ao aplicativo, periodicamente e após rejeição autenticada, conforme a política de sessão do frontend.
 
 ## 7. Decisões Arquiteturais
 
-Este arquivo é um resumo, não um registro de ADR. Contratos de mudança aprovados ficam em [`docs/contracts/`](./docs/contracts/). Confira o contrato e o código atuais antes de tratar uma especificação histórica como comportamento presente.
+Este arquivo é um resumo, não um registro de ADR. Especificações de mudanças, inclusive drafts históricos, ficam em [`docs/contracts/`](./docs/contracts/). Confira o contrato e o código atuais antes de tratar uma especificação histórica como comportamento presente.
 
 ## 8. Segurança
 
@@ -78,21 +78,25 @@ Este arquivo é um resumo, não um registro de ADR. Contratos de mudança aprova
 
 | Ambiente | Estado confirmado no repositório |
 |---|---|
-| Desenvolvimento local | `.env.example` usa SQLite. Os comandos atuais estão em `docs/DEVELOPMENT.md`. |
+| Desenvolvimento local | `.env.example` usa SQLite. A prévia offline do frontend é ativada explicitamente no build por `TOUCHIN_FRONTEND_DEV_MODE=true`; não depende de `TOUCHIN_ENV` do backend. |
 | CI | `.github/workflows/ci.yml` define Python 3.12, Flutter stable e os jobs de teste/gates. |
-| Staging/produção | URLs e provedor do backend não estão definidos nos arquivos inspecionados; confirme no ambiente de deploy. |
+| Staging/produção | Há configuração versionada do frontend Vercel. URLs de ambiente e provedor do backend não são definidos por esses arquivos. Veja [Deploy](./docs/DEPLOYMENT.md). |
 
 ## 10. Integrações Externas
 
-O código de configuração prevê integração de e-mail Brevo por `TOUCHIN_BREVO_*`. Credenciais e remetentes reais pertencem à configuração segura de cada ambiente; não são documentados aqui.
+- **Brevo:** envio de e-mails configurado por `TOUCHIN_BREVO_*`.
+- **Embeddings:** integração opcional por empresa, independente da busca textual do Kanban. Veja [recomendações semânticas](./docs/ai-task-recommendations.md).
+- **Cloudinary:** imagens remotas da autenticação; veja [atribuições](./frontend/docs/auth-images.md).
+
+Credenciais reais ficam na configuração segura do ambiente, não no Git.
 
 ## 11. Padrões de API
 
 - Prefixo: `/api/v1`.
 - Health público implementado: `GET /api/v1/health`.
-- Áreas de rota: `/auth`, `/employees`, `/projects` (inclui tarefas, Kanban e relatórios), `/time-clock`, `/audit-events` e `/admin`.
-- `/docs` e `/openapi.json` são expostos pelo FastAPI durante execução local.
-- Métodos, schemas e autenticação por operação devem ser consultados no OpenAPI e nas rotas em `backend/app/api/routes/`.
+- Áreas de rota: `/auth`, `/employees`, `/projects` (inclui tarefas, Kanban, relatórios e sugestões), `/time-clock`, `/audit-events` e `/admin`.
+- FastAPI expõe `/docs`, `/redoc` e `/openapi.json`.
+- Consulte o OpenAPI para métodos/schemas, e as [rotas e dependências](./backend/README.md#rotas) para as verificações de autorização. Erros de domínio usam `detail` e opcionalmente `code`.
 
 ## 12. Regras de Negócio
 
@@ -107,7 +111,7 @@ As regras de ponto, autorização, escopo empresarial e validação estão nas r
 
 ## 14. Pendências Técnicas
 
-Este documento não é a fonte de status do backlog. Issues e contratos devem ser consultados para confirmar pendências; esta auditoria não revalidou o backlog técnico completo.
+Consulte as issues e os PRs para status do backlog. Contratos e relatórios históricos não comprovam que uma pendência ainda esteja aberta.
 
 ## 15. Glossário
 

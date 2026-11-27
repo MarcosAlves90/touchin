@@ -22,9 +22,11 @@ on the canonical CI runner.
 | `mobile-light.png` | 390 × 844 | `8544530fad47f0820e62df4d4d44a396eaa949df49a6c11155af88f0b822b` |
 | `mobile-dark.png` | 390 × 844 | `1ed4282989aa34f05e20c339d79e676a2ab7850b4c6fd2956efe9f362af7cbd8` |
 
-To compare the four images from `frontend/` with Flutter 3.47.2 on Ubuntu:
+The [Frontend visual goldens job](../../../../.github/workflows/ci.yml) uses
+Flutter 3.47.2 on Ubuntu. To reproduce from `frontend/` with that SDK:
 
 ```sh
+flutter pub get
 flutter test --tags canonical-golden
 ```
 

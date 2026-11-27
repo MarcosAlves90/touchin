@@ -2,6 +2,8 @@
 
 Data: 18 de outubro de 2026.
 
+> Os resultados e as limitações abaixo correspondem à revisão da issue #64, não a uma auditoria da versão atual. Veja [o guia de desenvolvimento](DEVELOPMENT.md) para os testes vigentes.
+
 Referência: [issue #64](https://github.com/MarcosAlves90/touchin/issues/64).
 Critérios de referência: [WCAG 2.2](https://www.w3.org/TR/WCAG22/),
 especialmente 1.3.1 (informação e relações), 1.4.10 (refluxo),

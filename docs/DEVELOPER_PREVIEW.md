@@ -61,7 +61,9 @@ gravado no armazenamento de sessões, e sessões reais existentes são preservad
 
 **Sair da prévia**, o ícone de fechar e o logout do workspace retornam à
 escolha inicial. Para usar o ambiente real, escolha então **Abrir login normal**.
-O preview e suas validações são locais; não é necessário publicar ou fazer deploy.
+Não é preciso publicar nem fazer deploy para usar a prévia. Um build que
+incorpora o flag também exibe o launcher após deploy; mantenha o flag ausente
+em produção. Use dados fictícios ao compartilhar prints.
 
 ## Verificação automatizada
 
@@ -75,4 +77,4 @@ contratos e referências das fixtures, alterações locais, descarte de operaç�
 pendentes, telas reais de loading/erro e painel estreito. Probes em processos
 Dart separados exercitam a variável ausente, falsa, inválida e verdadeira,
 inclusive com os sinalizadores de profile e release. A suíte completa e
-demais gates seguem `.polis/policy.json`.
+demais gates seguem [a policy POLIS](../.polis/policy.json).

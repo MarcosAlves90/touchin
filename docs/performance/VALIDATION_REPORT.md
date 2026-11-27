@@ -5,6 +5,8 @@ Branch: `perf/optimization-findings`
 Scope: read-only behavior for point history/last punch and monthly WorkLog report; model and schema upgrade of the composite WorkLog index.
 Environment: macOS, Python 3.14, SQLite tests; **isolated local PostgreSQL 18.6**. No staging or production profiling performed.
 
+> Historical branch validation. Results and merge recommendation below apply to the recorded candidate, not the current main branch. See the [documentation index](../README.md) for current guidance.
+
 ## Decision
 
 **Merge: ready, subject to normal review of this branch's uncommitted changes.**

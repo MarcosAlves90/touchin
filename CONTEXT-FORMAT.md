@@ -12,7 +12,7 @@
 - alinhar humanos e agentes de IA
 - reduzir ambiguidade técnica
 - acelerar onboarding
-- servir como fonte única de verdade para regras, arquitetura e decisões
+- resumir regras, arquitetura e decisões com referências ao código e aos guias vigentes
 
 ---
 
@@ -150,11 +150,12 @@ Se uma seção não se aplicar ao projeto, remova a seção em vez de deixá-la 
 ## 5. Regras de Manutenção
 
 1. `CONTEXT.md` deve refletir o estado atual do projeto.
-2. Se uma regra mudar, atualize `CONTEXT.md` primeiro.
+2. Se uma regra mudar, atualize o guia afetado e, quando pertinente, o resumo em `CONTEXT.md`. Se houver divergência, verifique o código, a configuração ou o teste que define o comportamento.
 3. Prefira remover informação obsoleta a acumular texto antigo.
 4. Use datas em decisões e mudanças importantes.
 5. Evite duplicar a mesma informação em múltiplos lugares.
-6. Se o arquivo crescer demais, considere dividir a documentação por domínio.
+6. Se o arquivo crescer demais, divida a documentação por domínio e mantenha o [índice](docs/README.md) atualizado.
+7. Mantenha contratos, baselines e relatórios datados como registros históricos; não reatribua seus resultados a uma versão atual.
 
 ---
 
