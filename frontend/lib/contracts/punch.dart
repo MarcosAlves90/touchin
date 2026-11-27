@@ -7,7 +7,14 @@ part 'punch.freezed.dart';
 
 enum ShiftStatus { checkedOut, working, onBreak }
 
-enum PunchType { checkIn, breakStart, breakEnd, checkOut }
+enum PunchType {
+  checkIn,
+  breakStart,
+  breakEnd,
+  checkOut;
+
+  bool get supportsWorkContext => this == breakStart || this == checkOut;
+}
 
 ShiftStatus shiftStatusFromApi(String value) {
   return switch (value) {

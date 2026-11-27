@@ -1426,7 +1426,7 @@ class _ManagedPunchEditorDialogState extends State<_ManagedPunchEditorDialog> {
         type: _type,
         timestamp: _timestamp,
         detail: _detailController.text.trim(),
-        projectId: _projectIdController.text.trim().isEmpty
+        projectId: !_type.supportsWorkContext || _projectIdController.text.trim().isEmpty
             ? null
             : _projectIdController.text.trim(),
       ),
@@ -1529,15 +1529,17 @@ class _ManagedPunchEditorDialogState extends State<_ManagedPunchEditorDialog> {
                       return null;
                     },
                   ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _projectIdController,
-                    decoration: const InputDecoration(
-                      labelText: 'Projeto opcional',
-                      hintText: 'ID do projeto',
-                      prefixIcon: Icon(Icons.folder_open_rounded),
+                  if (_type.supportsWorkContext) ...[
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _projectIdController,
+                      decoration: const InputDecoration(
+                        labelText: 'Projeto opcional',
+                        hintText: 'ID do projeto',
+                        prefixIcon: Icon(Icons.folder_open_rounded),
+                      ),
                     ),
-                  ),
+                  ],
                   const SizedBox(height: 24),
                   LayoutBuilder(
                     builder: (context, constraints) {
@@ -1676,6 +1678,7 @@ class _ManagedPunchTile extends StatelessWidget {
                   ),
                 ),
                 PunchWorkContext(
+                  type: punch.type,
                   projectId: punch.projectId,
                   projectName: punch.projectName,
                   workLog: punch.workLog,

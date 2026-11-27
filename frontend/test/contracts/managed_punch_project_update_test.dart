@@ -33,11 +33,27 @@ void main() {
 
   test('editing preserves and trims a nonempty project', () {
     final draft = ManagedPunchDraft(
-      type: PunchType.checkIn,
+      type: PunchType.breakStart,
       timestamp: timestamp,
       detail: 'Entrada',
       projectId: '  projeto-valido  ',
     );
     expect(draft.toUpdateApiJson()['projectId'], 'projeto-valido');
+  });
+
+  test('entry and return omit work context even for a stale draft', () {
+    for (final type in [PunchType.checkIn, PunchType.breakEnd]) {
+      final simple = CreatePunchRequest(
+        type: type,
+        projectId: 'projeto-antigo',
+        workLog: const WorkLogPayload(description: 'Antigo', taskIds: ['tarefa']),
+      ).toApiJson();
+      expect(simple, {'type': punchTypeToApi(type)});
+      final draft = ManagedPunchDraft(
+        type: type, timestamp: timestamp, detail: 'Manual', projectId: 'projeto-antigo',
+      );
+      expect(draft.toCreateApiJson().containsKey('projectId'), isFalse);
+      expect(draft.toUpdateApiJson()['projectId'], isNull);
+    }
   });
 }

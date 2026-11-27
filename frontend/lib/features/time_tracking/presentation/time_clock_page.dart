@@ -1206,6 +1206,9 @@ class _TimelineTile extends StatelessWidget {
 
     return ExpansionTile(
       key: ObjectKey(record),
+      // The parent owns separators; ExpansionTile must not add its own.
+      shape: const Border(),
+      collapsedShape: const Border(),
       tilePadding: EdgeInsets.zero,
       minTileHeight: 40,
       childrenPadding: const EdgeInsets.fromLTRB(28, 0, 16, 12),
@@ -1223,6 +1226,7 @@ class _TimelineTile extends StatelessWidget {
       children: [
         Align(alignment: Alignment.centerLeft, child: Text(record.detail)),
         PunchWorkContext(
+          type: record.type,
           projectId: record.projectId,
           projectName: record.projectName,
           workLog: record.workLog,

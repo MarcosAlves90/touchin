@@ -440,6 +440,9 @@ def test_explicit_null_project_does_not_inherit_previous_project(client: TestCli
 
     check_in = client.post(path, headers=headers, json={"type": "checkIn", "projectId": project["id"]})
     assert check_in.status_code == 200, check_in.text
+    with SessionLocal() as db:
+        db.scalar(select(Punch).where(Punch.employee_id == "emp-04")).project_id = project["id"]
+        db.commit()
     break_start = client.post(path, headers=headers, json={
         "type": "breakStart", "projectId": None,
         "workLog": {"description": "Sem projeto agora", "taskIds": []},
@@ -459,18 +462,31 @@ def test_omitted_project_does_not_restore_revoked_previous_assignment(client: Te
     admin_headers = login_headers(client)
     project = _create_project(client, admin_headers, name="Former assignment")
     member_path = f"/api/v1/projects/{project['id']}/members"
-    assert client.post(member_path, headers=admin_headers, json={"employeeId": "emp-04"}).status_code in (200, 201)
+    assigned = client.post(member_path, headers=admin_headers, json={"employeeId": "emp-04"})
+    assert assigned.status_code in (200, 201), assigned.text
+    task = _create_task(client, admin_headers, project["id"])
     headers = login_headers_for(client, email=JOAO_EMAIL, password=TEST_SEED_SECRET)
     path = "/api/v1/time-clock/me/punches"
-    assert client.post(path, headers=headers, json={"type": "checkIn", "projectId": project["id"]}).status_code == 200
-    assert client.delete(f"{member_path}/emp-04", headers=admin_headers).status_code == 204
-
-    response = client.post(path, headers=headers, json={
-        "type": "breakStart",
-        "workLog": {"description": "Trabalho após desvinculação", "taskIds": []},
+    assert client.post(path, headers=headers, json={"type": "checkIn"}).status_code == 200
+    pause = client.post(path, headers=headers, json={
+        "type": "breakStart", "projectId": project["id"],
+        "workLog": {"description": "Atividade anterior", "taskIds": [task["id"]]},
     })
-    assert response.status_code == 200, response.text
-    assert response.json()["projectId"] is None
+    assert pause.status_code == 200, pause.text
+
+    # Unlike an opening punch, a real, active project from a pause remains
+    # eligible for the legacy fallback, so the on-break restriction applies.
+    checkout = {"type": "checkOut"}
+    before_revocation = client.post(path, headers=headers, json=checkout)
+    assert before_revocation.status_code == 400, before_revocation.text
+    assert "Encerre a pausa primeiro." in before_revocation.json()["detail"]
+
+    assert client.delete(f"{member_path}/emp-04", headers=admin_headers).status_code == 204
+    after_revocation = client.post(path, headers=headers, json=checkout)
+    assert after_revocation.status_code == 200, after_revocation.text
+    assert after_revocation.json()["projectId"] is None
+    assert after_revocation.json()["workLog"] is None
+
 
 
 def test_project_work_log_still_requires_tasks_and_authorized_project(client: TestClient):

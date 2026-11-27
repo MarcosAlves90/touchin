@@ -21,6 +21,10 @@ class PunchType(str, Enum):
     break_end = "breakEnd"
     check_out = "checkOut"
 
+    @property
+    def supports_work_context(self) -> bool:
+        return self in (PunchType.break_start, PunchType.check_out)
+
 
 class PunchLocationSnapshotPayload(CamelModel):
     latitude: float = Field(ge=-90, le=90)

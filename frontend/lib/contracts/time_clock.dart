@@ -130,7 +130,7 @@ class ManagedPunchDraft {
       'type': punchTypeToApi(type),
       'timestamp': timestamp.toUtc().toIso8601String(),
       'detail': detail,
-      if (projectId != null && projectId!.trim().isNotEmpty)
+      if (type.supportsWorkContext && projectId != null && projectId!.trim().isNotEmpty)
         'projectId': projectId!.trim(),
       if (location != null) 'location': location!.toApiJson(),
     };
@@ -143,7 +143,7 @@ class ManagedPunchDraft {
       'detail': detail,
       // Managed edits are complete form submissions. Explicit null clears the
       // old project; omitting this key would retain the previous association.
-      'projectId': projectId == null || projectId!.trim().isEmpty
+      'projectId': !type.supportsWorkContext || projectId == null || projectId!.trim().isEmpty
           ? null
           : projectId!.trim(),
       if (location != null) 'location': location!.toApiJson(),
@@ -186,11 +186,11 @@ abstract class CreatePunchRequest with _$CreatePunchRequest {
   JsonMap toApiJson() {
     return {
       'type': punchTypeToApi(type),
-      if (projectId != null && projectId!.trim().isNotEmpty)
+      if (type.supportsWorkContext && projectId != null && projectId!.trim().isNotEmpty)
         'projectId': projectId!.trim(),
-      if (projectId == null && workLog != null) 'projectId': null,
+      if (type.supportsWorkContext && projectId == null && workLog != null) 'projectId': null,
       if (location != null) 'location': location!.toApiJson(),
-      if (workLog != null) 'workLog': workLog!.toApiJson(),
+      if (type.supportsWorkContext && workLog != null) 'workLog': workLog!.toApiJson(),
     };
   }
 }
