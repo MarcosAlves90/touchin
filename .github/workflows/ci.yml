@@ -144,6 +144,9 @@ jobs:
       - name: Install LCOV report generator
         run: sudo apt-get update && sudo apt-get install --no-install-recommends --yes lcov
 
+      - name: Verify frontend defaults to production
+        run: flutter test --no-pub test/developer_preview_entry_test.dart
+
       - name: Run frontend tests
         id: flutter_suite
         # Hosted Linux flutter_tester consistently SIGSEGVs after ~280 tests

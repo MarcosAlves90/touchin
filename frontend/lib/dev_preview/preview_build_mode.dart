@@ -1,10 +1,10 @@
-// Same compile-time boundary as Flutter's kDebugMode, kept Dart-only so the
-// product/profile rejection can also be executed in separate compiled probes.
-const developerPreviewAvailable = !bool.fromEnvironment('dart.vm.product') &&
-    !bool.fromEnvironment('dart.vm.profile');
+// TouchIn's environment is independent of Flutter's compilation mode.
+const developerPreviewAvailable =
+    bool.fromEnvironment('TOUCHIN_FRONTEND_DEV_MODE');
 
 void requireDeveloperPreview() {
   if (!developerPreviewAvailable) {
-    throw UnsupportedError('Developer preview requires a Flutter debug build.');
+    throw UnsupportedError(
+        'Developer preview requires TOUCHIN_FRONTEND_DEV_MODE=true.');
   }
 }

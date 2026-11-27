@@ -18,6 +18,12 @@ const _project = ProjectDraft(
 );
 
 void main() {
+  if (!developerPreviewAvailable) {
+    test('preview scenarios need TOUCHIN_FRONTEND_DEV_MODE=true', () {},
+        skip: 'Run with --dart-define=TOUCHIN_FRONTEND_DEV_MODE=true.');
+    return;
+  }
+
   late PreviewController controller;
   late PreviewFixtures fixtures;
   late PreviewApi api;
