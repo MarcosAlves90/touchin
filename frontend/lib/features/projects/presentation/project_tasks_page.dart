@@ -777,64 +777,91 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
       );
     }
 
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
     final project = _controller.selectedProject!;
+    final canLeave = _controller.canManageOwnTaskMembership &&
+        !_controller.isLoadingMembers &&
+        _controller.membersError == null &&
+        _controller.currentEmployeeIsMember;
     final participantCount = _participantCount;
+    final limit = project.taskEmployeeLimit;
+    final capacityUnit = limit == 1 ? 'vaga' : 'vagas';
     final occupancyDescription = participantCount == null
         ? 'Ocupação ainda não confirmada.'
-        : '$participantCount de ${project.taskEmployeeLimit} vaga(s) ocupada(s).';
+        : '$participantCount de $limit $capacityUnit em uso.';
     return WorkspaceSectionCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          WorkspaceHeader(
-            title: 'Participantes de ${task.name}',
-            description: occupancyDescription,
-            maxContentWidth: 520,
-            actions: <Widget>[
-              if (_controller.canManageOwnTaskMembership &&
-                  !_controller.isLoadingMembers &&
-                  _controller.membersError == null &&
-                  _controller.currentEmployeeIsMember)
-                OutlinedButton.icon(
-                  onPressed: _controller.isMutating
-                      ? null
-                      : () => _runAction(
-                            _controller.leaveSelectedTask,
-                            successMessage: 'Você saiu da tarefa.',
-                          ),
-                  icon: const Icon(Icons.logout_rounded),
-                  label: const Text('Sair da tarefa'),
-                )
-              else if (_controller.canJoinSelectedTask)
-                FilledButton.tonalIcon(
-                  onPressed: _controller.isMutating
-                      ? null
-                      : () => _runAction(
-                            _controller.joinSelectedTask,
-                            successMessage: 'Você entrou na tarefa.',
-                          ),
-                  icon: const Icon(Icons.person_add_alt_1_rounded),
-                  label: const Text('Entrar na tarefa'),
-                ),
-              if (_controller.canManageMembership)
-                OutlinedButton.icon(
-                  onPressed: _controller.isMutating ||
-                          _controller.isLoadingMembers ||
-                          _controller.membersError != null ||
-                          _controller.isLoadingProjectMembers ||
-                          _controller.projectMembersError != null
-                      ? null
-                      : _openAddMemberDialog,
-                  icon: const Icon(Icons.group_add_outlined),
-                  label: const Text('Adicionar membro'),
-                ),
-            ],
+          Theme(
+            data: theme.copyWith(
+              textTheme: theme.textTheme.copyWith(
+                headlineMedium: theme.textTheme.titleLarge,
+                bodyLarge: theme.textTheme.bodyMedium,
+              ),
+            ),
+            child: WorkspaceHeader(
+              title: 'Participantes',
+              description: occupancyDescription,
+              maxContentWidth: 620,
+              actions: <Widget>[
+                if (canLeave)
+                  OutlinedButton.icon(
+                    onPressed: _controller.isMutating
+                        ? null
+                        : () => _runAction(
+                              _controller.leaveSelectedTask,
+                              successMessage: 'Você saiu da tarefa.',
+                            ),
+                    icon: const Icon(Icons.logout_rounded),
+                    label: const Text('Sair da tarefa'),
+                  )
+                else if (_controller.canJoinSelectedTask)
+                  FilledButton.tonalIcon(
+                    onPressed: _controller.isMutating
+                        ? null
+                        : () => _runAction(
+                              _controller.joinSelectedTask,
+                              successMessage: 'Você entrou na tarefa.',
+                            ),
+                    icon: const Icon(Icons.person_add_alt_1_rounded),
+                    label: const Text('Entrar na tarefa'),
+                  ),
+                if (_controller.canManageMembership)
+                  OutlinedButton.icon(
+                    onPressed: _controller.isMutating ||
+                            _controller.isLoadingMembers ||
+                            _controller.membersError != null ||
+                            _controller.isLoadingProjectMembers ||
+                            _controller.projectMembersError != null
+                        ? null
+                        : _openAddMemberDialog,
+                    icon: const Icon(Icons.group_add_outlined),
+                    label: const Text('Adicionar membro'),
+                  ),
+              ],
+            ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 12),
+          Text(
+            'Tarefa selecionada',
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: colors.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            task.name,
+            key: const ValueKey<String>('participants-task-name'),
+            style: theme.textTheme.titleSmall,
+            softWrap: true,
+          ),
+          const SizedBox(height: 12),
           if (!_controller.canManageMembership)
             const _InfoBanner(
               message:
-                  'Você pode entrar ou sair da tarefa, mas somente gestores podem adicionar ou remover outras pessoas.',
+                  'Somente gestores podem adicionar ou remover outras pessoas.',
             ),
           if (_controller.isLoadingMembers)
             const Padding(
@@ -857,41 +884,74 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
             )
           else
             Column(
-              children: _controller.taskMembers.map((member) {
-                final isCurrent =
-                    member.employeeId == _controller.currentEmployeeId;
-                return ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: CircleAvatar(
-                    child: Text(_initials(member.employeeName)),
+              key: const ValueKey<String>('task-participant-list'),
+              children: [
+                for (final member in _controller.taskMembers) ...[
+                  Divider(height: 1, color: colors.outlineVariant),
+                  _buildParticipantRow(
+                    member,
+                    showSelfRemoval: !canLeave,
                   ),
-                  title: Text(member.employeeName),
-                  subtitle: Text(
-                    isCurrent
-                        ? 'Você • ${member.employeeId}'
-                        : member.employeeId,
+                ],
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildParticipantRow(
+    TaskMemberSummary member, {
+    required bool showSelfRemoval,
+  }) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final isCurrent = member.employeeId == _controller.currentEmployeeId;
+    final identifier =
+        isCurrent ? 'Você · ${member.employeeId}' : member.employeeId;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          ExcludeSemantics(
+            child: CircleAvatar(
+              radius: 18,
+              backgroundColor: colors.secondaryContainer,
+              foregroundColor: colors.onSecondaryContainer,
+              child: Text(_initials(member.employeeName)),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(member.employeeName, style: theme.textTheme.titleSmall),
+                const SizedBox(height: 2),
+                Text(
+                  identifier,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colors.onSurfaceVariant,
                   ),
-                  trailing: _controller.canManageMembership
-                      ? IconButton(
-                          tooltip: isCurrent
-                              ? 'Sair da tarefa'
-                              : 'Remover da tarefa',
-                          onPressed: _controller.isMutating
-                              ? null
-                              : () => _runAction(
-                                    () => _controller
-                                        .removeMemberFromSelectedTask(
-                                      member.employeeId,
-                                    ),
-                                    successMessage: isCurrent
-                                        ? 'Você saiu da tarefa.'
-                                        : 'Membro removido da tarefa.',
-                                  ),
-                          icon: const Icon(Icons.person_remove_outlined),
-                        )
-                      : null,
-                );
-              }).toList(),
+                ),
+              ],
+            ),
+          ),
+          if (_controller.canManageMembership && (!isCurrent || showSelfRemoval))
+            IconButton(
+              tooltip: isCurrent ? 'Sair da tarefa' : 'Remover da tarefa',
+              onPressed: _controller.isMutating
+                  ? null
+                  : () => _runAction(
+                        () => _controller.removeMemberFromSelectedTask(
+                          member.employeeId,
+                        ),
+                        successMessage: isCurrent
+                            ? 'Você saiu da tarefa.'
+                            : 'Membro removido da tarefa.',
+                      ),
+              icon: const Icon(Icons.person_remove_outlined),
             ),
         ],
       ),

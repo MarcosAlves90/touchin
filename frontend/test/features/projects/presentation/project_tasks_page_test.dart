@@ -93,7 +93,9 @@ void main() {
     expect(find.byTooltip('Editar tarefa'), findsNWidgets(2));
     await tester.tap(find.text('Tarefa 11'));
     await tester.pumpAndSettle();
-    expect(find.text('Participantes de Tarefa 11'), findsOneWidget);
+    expect(tester.widget<Text>(find.byKey(
+      const ValueKey<String>('participants-task-name'),
+    )).data, 'Tarefa 11');
     await tester.ensureVisible(find.byTooltip('Página anterior'));
     await tester.tap(find.byTooltip('Página anterior'));
     await tester.pumpAndSettle();
@@ -121,7 +123,9 @@ void main() {
       await tester.ensureVisible(second);
       await tester.tap(second);
       await tester.pumpAndSettle();
-      expect(find.text('Participantes de Testar integração'), findsOneWidget);
+      expect(tester.widget<Text>(find.byKey(
+        const ValueKey<String>('participants-task-name'),
+      )).data, 'Testar integração');
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
     }
@@ -225,6 +229,49 @@ void main() {
       expect(find.text('Adicionar ao projeto'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
+    }
+  });
+
+  testWidgets('participants match neighboring typography and fit narrow layouts',
+      (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    for (final (width, scale) in [(1440.0, 1.0), (768.0, 1.0), (390.0, 1.0), (320.0, 1.5)]) {
+      await tester.binding.setSurfaceSize(Size(width, 2300));
+      final theme = AppTheme.darkTheme;
+      await tester.pumpWidget(MaterialApp(
+        theme: scale > 1 ? AppTheme.highContrastTheme(theme) : theme,
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(scale)),
+          child: child!,
+        ),
+        home: ProjectTasksPage(api: _ParticipantLayoutApi()),
+      ));
+      await tester.pumpAndSettle();
+
+      final title = find.text('Participantes');
+      final card = find.ancestor(of: title, matching: find.byType(WorkspaceSectionCard)).first;
+      final taskName = find.byKey(const ValueKey<String>('participants-task-name'));
+      final access = find.text('Acesso ao projeto');
+      final occupancy = find.text('2 de 2 vagas em uso.');
+      final leave = find.text('Sair da tarefa');
+      final add = find.text('Adicionar membro');
+      final remove = find.byTooltip('Remover da tarefa');
+      final cardBounds = tester.getRect(card);
+      expect(tester.widget<Text>(title).style, tester.widget<Text>(access).style);
+      final accessHeader = tester.widget<WorkspaceHeader>(find.byWidgetPredicate((widget) => widget is WorkspaceHeader && widget.title == 'Acesso ao projeto'));
+      expect(tester.widget<Text>(occupancy).style, tester.widget<Text>(find.text(accessHeader.description)).style);
+      expect(tester.widget<Text>(taskName).data, _longTaskName);
+      expect(tester.getTopLeft(taskName).dy, greaterThan(tester.getBottomLeft(title).dy));
+      expect(find.textContaining('emp-02'), findsWidgets);
+      expect(find.byTooltip('Sair da tarefa'), findsNothing);
+      for (final target in [taskName, leave, add, remove]) {
+        expect(target, findsOneWidget);
+        final rect = tester.getRect(target);
+        expect(rect.left, greaterThanOrEqualTo(cardBounds.left));
+        expect(rect.right, lessThanOrEqualTo(cardBounds.right));
+      }
+      expect(tester.takeException(), isNull, reason: 'width=$width scale=$scale');
+      await tester.pumpWidget(const SizedBox.shrink());
     }
   });
 
@@ -463,7 +510,7 @@ void main() {
     await tester.pumpAndSettle();
     await Future.wait([refreshingAccess, refreshingParticipants]);
     expect(find.text(countPending), findsNothing);
-    expect(find.text('2 de 2 vaga(s) ocupada(s).'), findsOneWidget);
+    expect(find.text('2 de 2 vagas em uso.'), findsOneWidget);
     expect(find.text('2 participante(s) na tarefa atual.'), findsOneWidget);
     expect(find.textContaining('1 tarefa(s)'), findsOneWidget);
     expect(find.text('2/2'), findsOneWidget);
@@ -945,7 +992,7 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: ProjectTasksPage(api: api)));
     await tester.pumpAndSettle();
 
-    expect(find.text('2 de 2 vaga(s) ocupada(s).'), findsOneWidget);
+    expect(find.text('2 de 2 vagas em uso.'), findsOneWidget);
     expect(find.text('Entrar na tarefa'), findsNothing);
     expect(find.text('Sair da tarefa'), findsNothing);
     expect(api.joinCalls, 0);
@@ -963,7 +1010,7 @@ void main() {
 
     expect(api.joinCalls, 1);
     expect(find.text('Sair da tarefa'), findsOneWidget);
-    expect(find.text('1 de 2 vaga(s) ocupada(s).'), findsOneWidget);
+    expect(find.text('1 de 2 vagas em uso.'), findsOneWidget);
   });
   testWidgets('task editor reuses workspace dialog and standard inputs',
       (tester) async {
@@ -1166,6 +1213,24 @@ class _LongTasksApi extends _FakeProjectTasksApi {
     TaskRecord(id: 'task-child', projectId: projectId, parentTaskId: 'task-long',
       name: 'Subtarefa', description: 'Descrição curta', type: TaskType.bug,
       createdAt: DateTime(2026, 9, 9), updatedAt: DateTime(2026, 9, 9)),
+  ];
+}
+
+class _ParticipantLayoutApi extends _LongTasksApi {
+  @override
+  Future<List<TaskMemberSummary>> listTaskMembers(String projectId, String taskId) async => [
+    TaskMemberSummary(
+      employeeId: 'emp-02',
+      taskId: taskId,
+      employeeName: 'Caio Martins',
+      createdAt: DateTime(2026, 9, 9),
+    ),
+    TaskMemberSummary(
+      employeeId: 'emp-05',
+      taskId: taskId,
+      employeeName: 'Ana Carolina de Castro Ramos Monteiro',
+      createdAt: DateTime(2026, 9, 9),
+    ),
   ];
 }
 
