@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.config import get_settings
 from app.crypto import FieldCipher
 from app.db import ensure_utc
+from app.domain.work_log_tasks import read_task_snapshots
 from app.errors import DomainError, ErrorKind
 from app.models import Employee, EmployeeProject, Project
 from app.schemas.project import ProjectMemberSummary, ProjectResponse, ProjectStatus
@@ -243,11 +244,12 @@ def generate_monthly_work_logs_report(
     ).yield_per(200)
 
     for log in logs_result:
-        decrypted_snapshots = field_cipher.decrypt(log.task_snapshots_ciphertext)
-        try:
-            tasks = json.loads(decrypted_snapshots or "[]")
-        except json.JSONDecodeError:
-            tasks = [field_cipher.decrypt(t.name_ciphertext) or "" for t in log.tasks]
+        snapshots = read_task_snapshots(log.task_snapshots_ciphertext, cipher=field_cipher)
+        tasks = (
+            [task.name for task in snapshots]
+            if snapshots is not None
+            else [field_cipher.decrypt(t.name_ciphertext) or "" for t in log.tasks]
+        )
 
         local_start_time = ensure_utc(log.start_time).astimezone(company_zone)
         local_end_time = ensure_utc(log.end_time).astimezone(company_zone)

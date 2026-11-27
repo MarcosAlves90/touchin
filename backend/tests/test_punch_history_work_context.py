@@ -60,6 +60,10 @@ def test_employee_and_team_history_show_the_same_historical_tasks(client, closin
     original = closed.json()["workLog"]
     assert original["projectName"] == "Projeto Atlas"
     assert set(original["taskNames"]) == {"Revisar checklist", "Validar relatório"}
+    assert {task["id"]: (task["name"], task["cardNumber"]) for task in original["tasks"]} == {
+        "history-task-1": ("Revisar checklist", 1),
+        "history-task-2": ("Validar relatório", 2),
+    }
     assert "description" not in original
 
     with SessionLocal() as db:
@@ -104,6 +108,19 @@ def test_employee_and_team_history_show_the_same_historical_tasks(client, closin
     current = client.get(f"{ROOT}/me?limit=1", headers=employee_headers).json()["records"][0]
     assert current["projectName"] == "Projeto Horizonte"
     assert current["workLog"] == original
+
+    # Existing name-only snapshots must not get a guessed ID from a renamed or
+    # deleted task. A still-linked task with the same unique name keeps its ID.
+    with SessionLocal() as db:
+        db.get(Task, "history-task-1").name_ciphertext = cipher.encrypt("Revisar checklist")
+        source = db.query(WorkLog).filter_by(employee_id="emp-04").one()
+        source.task_snapshots_ciphertext = cipher.encrypt('["Revisar checklist","Validar relatório"]')
+        db.commit()
+    legacy = client.get(f"{TEAM_HISTORY}?limit=1", headers=admin_headers).json()["records"][0]
+    assert legacy["workLog"]["tasks"] == [
+        {"name": "Revisar checklist", "id": "history-task-1", "cardNumber": 1},
+        {"name": "Validar relatório", "id": None, "cardNumber": None},
+    ]
 
     # Old punches without a linked log remain readable; no unrelated tasks are inferred.
     old = client.get(f"{TEAM_HISTORY}?page=2&limit=1", headers=admin_headers).json()["records"][0]

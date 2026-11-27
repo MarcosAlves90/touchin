@@ -29,10 +29,17 @@ class PunchLocationSnapshotPayload(CamelModel):
     captured_at: datetime
 
 
+class PunchTaskResponse(CamelModel):
+    name: str
+    id: str | None = None
+    card_number: int | None = None
+
+
 class PunchWorkLogResponse(CamelModel):
     project_id: str | None = None
     project_name: str | None = None
     task_names: list[str] = Field(default_factory=list)
+    tasks: list[PunchTaskResponse] = Field(default_factory=list)
 
 
 class PunchRecordResponse(CamelModel):

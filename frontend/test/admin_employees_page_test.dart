@@ -325,7 +325,10 @@ void main() {
                       workLog: const PunchWorkLog(
                         projectId: 'atlas',
                         projectName: 'Projeto Atlas',
-                        taskNames: ['Revisar checklist', 'Validar relatório'],
+                        tasks: [
+                          PunchTask(name: 'Revisar checklist', id: 'task-1', cardNumber: 17),
+                          PunchTask(name: 'Validar relatório', id: 'legacy-42'),
+                        ],
                       ),
                       location: null,
                     )
@@ -391,8 +394,9 @@ void main() {
             expect(find.text('Projeto: Projeto Horizonte'), findsOneWidget);
             expect(find.text('Projeto das atividades: Projeto Atlas'), findsOneWidget);
             expect(find.text('Tarefas selecionadas'), findsOneWidget);
-            expect(find.text('• Revisar checklist'), findsOneWidget);
-            expect(find.text('• Validar relatório'), findsOneWidget);
+            expect(find.text('• #17 · Revisar checklist'), findsOneWidget);
+            expect(find.byTooltip('ID: task-1'), findsOneWidget);
+            expect(find.text('• Validar relatório (ID: legacy-42)'), findsOneWidget);
             final menu = find.byIcon(Icons.more_horiz_rounded).last;
             await tester.ensureVisible(menu);
             final punchMenu = tester.widget<PopupMenuButton>(

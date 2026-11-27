@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import json
+from collections import Counter, defaultdict
 from collections.abc import Sequence
 from math import ceil
 
@@ -18,13 +18,15 @@ from app.domain.time_clock import (
     group_today_records,
 )
 from app.errors import DomainError, ErrorKind
-from app.models import Employee, Project, Punch, WorkLog
+from app.domain.work_log_tasks import read_task_snapshots
+from app.models import Employee, Project, Punch, Task, WorkLog, WorkLogTask
 from app.schemas.punch import (
     ManagedPunchPageResponse,
     ManagedPunchRecordResponse,
     PunchLocationSnapshotPayload,
     PunchRecordResponse,
     PunchType,
+    PunchTaskResponse,
     PunchWorkLogResponse,
     TimeClockEmployeeSummary,
     TimeClockStateResponse,
@@ -54,16 +56,6 @@ def _decrypt_optional(cipher: FieldCipher, ciphertext: str | None) -> str:
         return cipher.decrypt(ciphertext) or ""
     except (InvalidToken, UnicodeError):
         return ""
-
-
-def _task_names(log: WorkLog, cipher: FieldCipher) -> list[str]:
-    try:
-        titles = json.loads(_decrypt_optional(cipher, log.task_snapshots_ciphertext) or "[]")
-    except json.JSONDecodeError:
-        return []
-    if not isinstance(titles, list):
-        return []
-    return [title.strip() for title in titles if isinstance(title, str) and title.strip()]
 
 
 def _record_contexts(
@@ -98,6 +90,44 @@ def _record_contexts(
         ):
             project_names[project_id] = _decrypt_optional(cipher, encrypted_name).strip() or None
 
+    snapshots = {
+        log.id: read_task_snapshots(log.task_snapshots_ciphertext, cipher=cipher) or []
+        for log in logs.values()
+    }
+    legacy_log_ids = [
+        log_id for log_id, tasks in snapshots.items() if any(task.id is None for task in tasks)
+    ]
+    legacy_matches = defaultdict(list)
+    for offset in range(0, len(legacy_log_ids), 400):
+        rows = db.execute(
+            select(WorkLogTask.work_log_id, Task.id, Task.card_number, Task.name_ciphertext)
+            .join(Task, Task.id == WorkLogTask.task_id)
+            .join(WorkLog, WorkLog.id == WorkLogTask.work_log_id)
+            .join(Project, Project.id == Task.project_id)
+            .where(
+                WorkLogTask.work_log_id.in_(legacy_log_ids[offset:offset + 400]),
+                Task.project_id == WorkLog.project_id,
+                Project.company_id == company_id,
+            ),
+        )
+        for log_id, task_id, card_number, encrypted_name in rows:
+            name = _decrypt_optional(cipher, encrypted_name).strip()
+            if name:
+                legacy_matches[log_id, name].append((task_id, card_number))
+
+    for log_id in legacy_log_ids:
+        titles = Counter(task.name for task in snapshots[log_id])
+        resolved = []
+        for task in snapshots[log_id]:
+            matches = legacy_matches.get((log_id, task.name), [])
+            # Old snapshots stored names without IDs; never guess when names
+            # are duplicated, renamed or the underlying link is gone.
+            if task.id is None and titles[task.name] == 1 and len(matches) == 1:
+                task_id, card_number = matches[0]
+                task = PunchTaskResponse(name=task.name, id=task_id, card_number=card_number)
+            resolved.append(task)
+        snapshots[log_id] = resolved
+
     def context_for(record: Punch):
         log = logs.get(record.id)
         return (
@@ -105,7 +135,8 @@ def _record_contexts(
             PunchWorkLogResponse(
                 project_id=log.project_id if log.project_id in project_names else None,
                 project_name=project_names.get(log.project_id or ""),
-                task_names=_task_names(log, cipher),
+                task_names=[task.name for task in snapshots[log.id]],
+                tasks=snapshots[log.id],
             ) if log is not None else None,
         )
 

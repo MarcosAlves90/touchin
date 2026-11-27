@@ -27,7 +27,12 @@ class PunchWorkContext extends StatelessWidget {
     final logProject = _projectLabel(workLog?.projectName, workLog?.projectId);
     final differentLogProject =
         logProject != null && workLog?.projectId != projectId;
-    final tasks = workLog?.taskNames ?? const <String>[];
+    final savedTasks = workLog?.tasks ?? const <PunchTask>[];
+    final tasks = savedTasks.isNotEmpty
+        ? savedTasks
+        : (workLog?.taskNames ?? const <String>[])
+            .map((name) => PunchTask(name: name))
+            .toList(growable: false);
     if (project == null && !differentLogProject && tasks.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -51,11 +56,25 @@ class PunchWorkContext extends StatelessWidget {
             for (final task in tasks)
               Padding(
                 padding: const EdgeInsets.only(top: 2),
-                child: Text('• $task', style: theme.textTheme.bodySmall),
+                child: _taskLine(task, theme.textTheme.bodySmall),
               ),
           ],
         ],
       ),
     );
+  }
+
+  Widget _taskLine(PunchTask task, TextStyle? style) {
+    final number = task.cardNumber;
+    final id = task.id;
+    final label = number != null
+        ? '#$number · ${task.name}'
+        : id != null
+            ? '${task.name} (ID: $id)'
+            : task.name;
+    final text = Text('• $label', style: style);
+    return id != null && number != null
+        ? Tooltip(message: 'ID: $id', child: text)
+        : text;
   }
 }

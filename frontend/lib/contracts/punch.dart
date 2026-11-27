@@ -41,28 +41,50 @@ String punchTypeToApi(PunchType value) {
   };
 }
 
+class PunchTask {
+  const PunchTask({required this.name, this.id, this.cardNumber});
+
+  final String name;
+  final String? id;
+  final int? cardNumber;
+
+  factory PunchTask.fromJson(JsonMap json) {
+    return PunchTask(
+      name: requireString(json, 'name'),
+      id: optionalString(json, 'id'),
+      cardNumber: json['cardNumber'] == null ? null : requireInt(json, 'cardNumber'),
+    );
+  }
+}
+
 class PunchWorkLog {
   const PunchWorkLog({
     this.projectId,
     this.projectName,
     this.taskNames = const [],
+    this.tasks = const [],
   });
 
   final String? projectId;
   final String? projectName;
   final List<String> taskNames;
+  final List<PunchTask> tasks;
 
   static PunchWorkLog? fromRecordJson(JsonMap json) {
     final raw = json['workLog'];
     if (raw == null) return null;
     final data = requireJsonMap(raw, 'workLog');
     final names = requireJsonList(data['taskNames'] ?? const [], 'taskNames');
+    final tasks = requireJsonList(data['tasks'] ?? const [], 'tasks');
     return PunchWorkLog(
       projectId: optionalString(data, 'projectId'),
       projectName: optionalString(data, 'projectName'),
       taskNames: List<String>.unmodifiable(
         names.whereType<String>().where((name) => name.trim().isNotEmpty),
       ),
+      tasks: List<PunchTask>.unmodifiable(tasks.map(
+        (item) => PunchTask.fromJson(requireJsonMap(item, 'tasks[]')),
+      )),
     );
   }
 }

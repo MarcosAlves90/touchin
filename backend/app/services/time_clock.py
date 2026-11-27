@@ -316,8 +316,12 @@ def create_punch(
         if duration_seconds < 0:
             duration_seconds = 0
             
-        task_titles = [cipher.decrypt(t.name_ciphertext) or "" for t in tasks_for_log]
-        task_snapshots_ciphertext = cipher.encrypt(json.dumps(task_titles)) or ""
+        task_snapshots = [
+            {"id": task.id, "cardNumber": task.card_number,
+             "name": cipher.decrypt(task.name_ciphertext) or ""}
+            for task in tasks_for_log
+        ]
+        task_snapshots_ciphertext = cipher.encrypt(json.dumps(task_snapshots)) or ""
             
         work_log = WorkLog(
             company_id=employee.company_id,
