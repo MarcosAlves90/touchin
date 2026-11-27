@@ -488,47 +488,51 @@ class WorkspaceNavigationDrawer extends StatelessWidget {
         ),
       ),
       backgroundColor: colors.surface,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          const WorkspaceNavigationBrand(),
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              children: <Widget>[
-                _AvailableWorkspaceDestinations(
-                  builder: (context, destinations) => Column(
-                    children: <Widget>[
-                      for (final destination in destinations)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 2),
-                          child: WorkspaceNavigationItem(
-                            icon: destination.icon,
-                            label: destination.label,
-                            selected: activeRoute == destination.route,
-                            onPressed: () =>
-                                _navigateTo(context, destination.route),
+      // Keep the drawer surface edge-to-edge, but inset its interactive content.
+      child: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            const WorkspaceNavigationBrand(),
+            Expanded(
+              child: ListView(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                children: <Widget>[
+                  _AvailableWorkspaceDestinations(
+                    builder: (context, destinations) => Column(
+                      children: <Widget>[
+                        for (final destination in destinations)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 2),
+                            child: WorkspaceNavigationItem(
+                              icon: destination.icon,
+                              label: destination.label,
+                              selected: activeRoute == destination.route,
+                              onPressed: () =>
+                                  _navigateTo(context, destination.route),
+                            ),
                           ),
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                Divider(color: colors.outlineVariant),
-                const SizedBox(height: 10),
-                WorkspaceNavigationItem(
-                  icon: Icons.logout_rounded,
-                  label: 'Sair do Sistema',
-                  selected: false,
-                  foreground: colors.error,
-                  onPressed: () async {
-                    await onLogoutRequested(context);
-                  },
-                ),
-              ],
+                  const SizedBox(height: 12),
+                  Divider(color: colors.outlineVariant),
+                  const SizedBox(height: 10),
+                  WorkspaceNavigationItem(
+                    icon: Icons.logout_rounded,
+                    label: 'Sair do Sistema',
+                    selected: false,
+                    foreground: colors.error,
+                    onPressed: () async {
+                      await onLogoutRequested(context);
+                    },
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
