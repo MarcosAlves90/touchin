@@ -41,7 +41,7 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
     _controller = widget.controller ?? ProjectTasksController(api: widget.api);
     _ownsController = widget.controller == null;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _controller.start();
+      if (mounted) _controller.start();
     });
   }
 
@@ -66,6 +66,34 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
     );
   }
 
+  int? get _taskCount => _controller.isLoadingTasks || _controller.tasksError != null
+      ? null
+      : _controller.tasks.length;
+
+  int? get _accessCount =>
+      _controller.isLoadingProjectMembers || _controller.projectMembersError != null
+          ? null
+          : _controller.projectMembers.length;
+
+  int? get _participantCount =>
+      _controller.isLoadingMembers || _controller.membersError != null
+          ? null
+          : _controller.taskMembers.length;
+
+  String get _taskSummaryName {
+    if (_controller.isLoadingTasks) return 'Carregando…';
+    if (_controller.tasksError != null) return 'Indisponível';
+    return _controller.selectedTask?.name ?? 'Nenhuma';
+  }
+
+  String get _taskListSummary {
+    if (_controller.isLoadingTasks) return 'Carregando tarefas…';
+    if (_controller.tasksError != null) return 'Tarefas indisponíveis.';
+    return 'Selecione uma tarefa para consultar participantes.';
+  }
+
+  String _countLabel(int? count) => count?.toString() ?? '—';
+
   Widget _buildSidebar() {
     final project = _controller.selectedProject;
     final task = _controller.selectedTask;
@@ -74,7 +102,9 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
         WorkspaceSummaryStripe(
           label: 'Projetos',
           value:
-              _controller.isLoading ? '...' : '${_controller.projects.length}',
+              _controller.isLoading || _controller.loadError != null
+                  ? '—'
+                  : '${_controller.projects.length}',
           helper: 'Projetos ativos disponíveis para a empresa atual.',
         ),
         WorkspaceSummaryStripe(
@@ -82,14 +112,14 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
           value: project?.name ?? 'Nenhum',
           helper: project == null
               ? 'Selecione ou crie um projeto para começar.'
-              : '${_controller.tasks.length} tarefa(s) • limite ${project.taskEmployeeLimit} por tarefa',
+              : '${_countLabel(_taskCount)} tarefa(s) • limite ${project.taskEmployeeLimit} por tarefa',
         ),
         WorkspaceSummaryStripe(
           label: 'Tarefa selecionada',
-          value: task?.name ?? 'Nenhuma',
-          helper: task == null
-              ? 'Selecione uma tarefa para consultar participantes.'
-              : '${_controller.taskMembers.length} participante(s) na tarefa atual.',
+          value: _taskSummaryName,
+          helper: task == null || _taskCount == null
+              ? _taskListSummary
+              : '${_countLabel(_participantCount)} participante(s) na tarefa atual.',
         ),
       ],
     );
@@ -229,9 +259,10 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
     final project = _controller.selectedProject;
     final task = _controller.selectedTask;
     final colors = Theme.of(context).colorScheme;
-    final occupancy = project == null || task == null
+    final participantCount = _participantCount;
+    final occupancy = project == null || task == null || _taskCount == null || participantCount == null
         ? '—'
-        : '${_controller.taskMembers.length}/${project.taskEmployeeLimit}';
+        : '$participantCount/${project.taskEmployeeLimit}';
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -249,14 +280,12 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
           _ProjectMetricItem(
             icon: Icons.account_tree_outlined,
             label: 'Tarefas',
-            value: project == null ? '—' : _controller.tasks.length.toString(),
+            value: _countLabel(project == null ? null : _taskCount),
           ),
           _ProjectMetricItem(
             icon: Icons.groups_2_outlined,
             label: 'Acessos',
-            value: project == null
-                ? '—'
-                : _controller.projectMembers.length.toString(),
+            value: _countLabel(project == null ? null : _accessCount),
           ),
           _ProjectMetricItem(
             icon: Icons.group_work_outlined,
@@ -465,7 +494,7 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
                     child: _ProjectOverviewCard(
                       icon: Icons.account_tree_outlined,
                       label: 'Tarefas',
-                      value: _controller.tasks.length.toString(),
+                      value: _countLabel(_taskCount),
                     ),
                   ),
                   SizedBox(
@@ -473,7 +502,7 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
                     child: _ProjectOverviewCard(
                       icon: Icons.groups_2_outlined,
                       label: 'Acessos',
-                      value: _controller.projectMembers.length.toString(),
+                      value: _countLabel(_accessCount),
                     ),
                   ),
                   SizedBox(
@@ -489,7 +518,7 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
                     child: _ProjectOverviewCard(
                       icon: Icons.task_alt_outlined,
                       label: 'Tarefa atual',
-                      value: _controller.selectedTask?.name ?? 'Nenhuma',
+                      value: _taskSummaryName,
                     ),
                   ),
                 ],
@@ -533,7 +562,9 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
               actions: <Widget>[
                 if (_controller.canManageProjects)
                   FilledButton.tonalIcon(
-                    onPressed: _controller.isMutating
+                    onPressed: _controller.isMutating ||
+                            _controller.isLoadingProjectMembers ||
+                            _controller.projectMembersError != null
                         ? null
                         : _openAddProjectMemberDialog,
                     icon: const Icon(Icons.person_add_alt_1_rounded),
@@ -655,7 +686,9 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
               actions: <Widget>[
                 if (_controller.canManageTasks)
                   FilledButton.tonalIcon(
-                    onPressed: _controller.isMutating ? null : _openCreateTask,
+                    onPressed: _controller.isMutating || _controller.isLoadingTasks
+                        ? null
+                        : _openCreateTask,
                     icon: const Icon(Icons.add_task_rounded),
                     label: const Text('Nova tarefa'),
                   ),
@@ -735,27 +768,32 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
 
   Widget _buildMembershipCard() {
     final task = _controller.selectedTask;
+    if (_taskCount == null) return const SizedBox.shrink();
     if (task == null) {
-      return const _EmptyCard(
+      return _EmptyCard(
         icon: Icons.group_outlined,
         title: 'Selecione uma tarefa',
-        description:
-            'Escolha uma tarefa acima para consultar e gerenciar seus participantes.',
+        description: _taskListSummary,
       );
     }
 
     final project = _controller.selectedProject!;
+    final participantCount = _participantCount;
+    final occupancyDescription = participantCount == null
+        ? 'Ocupação ainda não confirmada.'
+        : '$participantCount de ${project.taskEmployeeLimit} vaga(s) ocupada(s).';
     return WorkspaceSectionCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           WorkspaceHeader(
             title: 'Participantes de ${task.name}',
-            description:
-                '${_controller.taskMembers.length} de ${project.taskEmployeeLimit} vaga(s) ocupada(s).',
+            description: occupancyDescription,
             maxContentWidth: 520,
             actions: <Widget>[
               if (_controller.canManageOwnTaskMembership &&
+                  !_controller.isLoadingMembers &&
+                  _controller.membersError == null &&
                   _controller.currentEmployeeIsMember)
                 OutlinedButton.icon(
                   onPressed: _controller.isMutating
@@ -780,8 +818,13 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
                 ),
               if (_controller.canManageMembership)
                 OutlinedButton.icon(
-                  onPressed:
-                      _controller.isMutating ? null : _openAddMemberDialog,
+                  onPressed: _controller.isMutating ||
+                          _controller.isLoadingMembers ||
+                          _controller.membersError != null ||
+                          _controller.isLoadingProjectMembers ||
+                          _controller.projectMembersError != null
+                      ? null
+                      : _openAddMemberDialog,
                   icon: const Icon(Icons.group_add_outlined),
                   label: const Text('Adicionar membro'),
                 ),
@@ -968,16 +1011,18 @@ class _ProjectTasksPageState extends State<ProjectTasksPage> {
   }
 
   Future<void> _openAddProjectMemberDialog() async {
+    final projectId = _controller.selectedProjectId;
     final employeeId = await showDialog<String>(
       context: context,
       builder: (_) => _AddProjectMemberDialog(
-        employees: _controller.employees,
+        loadEmployees: _controller.listEmployeesForProjectAccess,
         existingEmployeeIds: _controller.projectMembers
             .map((member) => member.employeeId)
             .toSet(),
       ),
     );
-    if (employeeId == null) {
+    if (!mounted || employeeId == null ||
+        projectId != _controller.selectedProjectId) {
       return;
     }
     await _runAction(
@@ -1693,11 +1738,11 @@ class _ProjectEditorDialogState extends State<_ProjectEditorDialog> {
 
 class _AddProjectMemberDialog extends StatefulWidget {
   const _AddProjectMemberDialog({
-    required this.employees,
+    required this.loadEmployees,
     required this.existingEmployeeIds,
   });
 
-  final List<EmployeeProfile> employees;
+  final Future<List<EmployeeProfile>> Function() loadEmployees;
   final Set<String> existingEmployeeIds;
 
   @override
@@ -1708,10 +1753,56 @@ class _AddProjectMemberDialog extends StatefulWidget {
 class _AddProjectMemberDialogState extends State<_AddProjectMemberDialog> {
   final _formKey = GlobalKey<FormState>();
   String? _selectedEmployeeId;
+  late Future<List<EmployeeProfile>> _employees;
+
+  @override
+  void initState() {
+    super.initState();
+    _employees = widget.loadEmployees();
+  }
+
+  Widget _statusDialog(Widget content, {bool canRetry = false}) => AlertDialog(
+        title: const Text('Adicionar ao projeto'),
+        content: content,
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancelar'),
+          ),
+          if (canRetry)
+            TextButton(
+              onPressed: () {
+                final request = widget.loadEmployees();
+                setState(() {
+                  _employees = request;
+                });
+              },
+              child: const Text('Tentar novamente'),
+            ),
+        ],
+      );
 
   @override
   Widget build(BuildContext context) {
-    final availableEmployees = widget.employees
+    return FutureBuilder<List<EmployeeProfile>>(
+      future: _employees,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return _statusDialog(const Text('Carregando funcionários…'));
+        }
+        if (snapshot.hasError) {
+          return _statusDialog(
+            const Text('Não foi possível carregar os funcionários.'),
+            canRetry: true,
+          );
+        }
+        return _picker(context, snapshot.requireData);
+      },
+    );
+  }
+
+  Widget _picker(BuildContext context, List<EmployeeProfile> employees) {
+    final availableEmployees = employees
         .where(
           (employee) => !widget.existingEmployeeIds.contains(employee.id),
         )

@@ -6,6 +6,7 @@ import 'package:touchin_flutter/contracts/project.dart';
 import 'package:touchin_flutter/contracts/task.dart';
 import 'package:touchin_flutter/core/network/api_client.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
+import 'package:touchin_flutter/features/projects/presentation/project_tasks_controller.dart';
 import 'package:touchin_flutter/features/projects/presentation/project_tasks_page.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_editor_dialog.dart';
 import 'package:touchin_flutter/features/shared/presentation/widgets/workspace_shell.dart';
@@ -383,6 +384,93 @@ void main() {
     expect(b.width, closeTo(a.width, 1), reason: 'project_sections_layout');
     expect(tester.takeException(), isNull);
   });
+  testWidgets('loads the employee directory only in the add dialog and retries',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final api = _DirectoryProjectApi();
+    await tester.pumpWidget(MaterialApp(home: ProjectTasksPage(api: api)));
+    await tester.pumpAndSettle();
+    expect(api.requests, isEmpty);
+
+    final open = find.text('Adicionar ao projeto');
+    await tester.ensureVisible(open);
+    await tester.tap(open);
+    await tester.pumpAndSettle();
+    expect(api.requests, hasLength(1));
+    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(find.textContaining('Carregando funcion'), findsOneWidget);
+
+    api.requests.first.completeError(StateError('offline'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Tentar novamente'));
+    await tester.pumpAndSettle();
+    expect(api.requests, hasLength(2));
+
+    api.requests.last.complete([]);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('possuem acesso'), findsOneWidget);
+    await tester.tap(find.text('Cancelar'));
+    await tester.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('summaries do not claim zero while independent reads are unknown',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 1250));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final api = _PendingSummaryApi();
+    final controller = ProjectTasksController(api: api);
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(MaterialApp(
+      home: ProjectTasksPage(controller: controller),
+    ));
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('Carregando\u2026'), findsWidgets);
+    expect(find.textContaining('0 tarefa(s)'), findsNothing);
+    expect(find.text('0'), findsNothing);
+    expect(find.text('Nenhuma'), findsNothing);
+
+    api.tasksGate.completeError(StateError('tasks offline'));
+    api.accessGate.completeError(StateError('access offline'));
+    await tester.pumpAndSettle();
+    expect(find.text('Indispon\u00edvel'), findsWidgets);
+    expect(find.textContaining('0 tarefa(s)'), findsNothing);
+    expect(find.text('0'), findsNothing);
+
+    final refreshingTasks = controller.reloadTasks();
+    await api.completeTasks();
+    await tester.pump();
+    const countPending = 'Ocupa\u00e7\u00e3o ainda n\u00e3o confirmada.';
+    expect(find.text(countPending), findsOneWidget);
+    expect(find.text('0/2'), findsNothing);
+    expect(find.textContaining('0 participante(s)'), findsNothing);
+    expect(find.text('0'), findsNothing);
+
+    api.participantsGate.completeError(StateError('participants offline'));
+    await tester.pumpAndSettle();
+    await refreshingTasks;
+    expect(find.text(countPending), findsOneWidget);
+    expect(find.text('0/2'), findsNothing);
+    expect(find.textContaining('0 participante(s)'), findsNothing);
+
+    final refreshingAccess = controller.reloadProjectMembers();
+    final refreshingParticipants = controller.reloadMembers();
+    await api.completeRosters();
+    await tester.pumpAndSettle();
+    await Future.wait([refreshingAccess, refreshingParticipants]);
+    expect(find.text(countPending), findsNothing);
+    expect(find.text('2 de 2 vaga(s) ocupada(s).'), findsOneWidget);
+    expect(find.text('2 participante(s) na tarefa atual.'), findsOneWidget);
+    expect(find.textContaining('1 tarefa(s)'), findsOneWidget);
+    expect(find.text('2/2'), findsOneWidget);
+    expect(find.text('Ana Lima'), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('page loading keeps workspace shell and renders skeletons', (
     tester,
   ) async {
@@ -1105,6 +1193,59 @@ class _MultipleTasksApi extends _FakeProjectTasksApi {
           updatedAt: DateTime(2026, 9, 9),
         ),
       ];
+}
+
+class _PendingSummaryApi extends _FakeProjectTasksApi {
+  _PendingSummaryApi()
+      : super(role: 'manager', employeeId: 'emp-02', taskInitiallyFull: true);
+
+  Completer<List<TaskRecord>> tasksGate = Completer<List<TaskRecord>>();
+  Completer<List<ProjectMemberSummary>> accessGate =
+      Completer<List<ProjectMemberSummary>>();
+  Completer<List<TaskMemberSummary>> participantsGate =
+      Completer<List<TaskMemberSummary>>();
+
+  @override
+  Future<List<TaskRecord>> listTasks(String projectId) {
+    if (tasksGate.isCompleted) tasksGate = Completer<List<TaskRecord>>();
+    return tasksGate.future;
+  }
+
+  @override
+  Future<List<ProjectMemberSummary>> listProjectMembers(String projectId) {
+    if (accessGate.isCompleted) accessGate = Completer<List<ProjectMemberSummary>>();
+    return accessGate.future;
+  }
+
+  @override
+  Future<List<TaskMemberSummary>> listTaskMembers(String projectId, String taskId) {
+    if (participantsGate.isCompleted) {
+      participantsGate = Completer<List<TaskMemberSummary>>();
+    }
+    return participantsGate.future;
+  }
+
+  Future<void> completeTasks() async {
+    tasksGate.complete(await super.listTasks('project-01'));
+  }
+
+  Future<void> completeRosters() async {
+    accessGate.complete(await super.listProjectMembers('project-01'));
+    participantsGate.complete(await super.listTaskMembers('project-01', 'task-01'));
+  }
+}
+
+class _DirectoryProjectApi extends _FakeProjectTasksApi {
+  _DirectoryProjectApi() : super(role: 'manager', employeeId: 'emp-03');
+
+  final requests = <Completer<List<EmployeeProfile>>>[];
+
+  @override
+  Future<List<EmployeeProfile>> listEmployees() {
+    final gate = Completer<List<EmployeeProfile>>();
+    requests.add(gate);
+    return gate.future;
+  }
 }
 
 class _DelayedProjectsTasksApi extends _FakeProjectTasksApi {

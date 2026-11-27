@@ -28,7 +28,6 @@ class ProjectTasksController extends ChangeNotifier {
   List<TaskRecord> tasks = <TaskRecord>[];
   List<ProjectMemberSummary> projectMembers = <ProjectMemberSummary>[];
   List<TaskMemberSummary> taskMembers = <TaskMemberSummary>[];
-  List<EmployeeProfile> employees = <EmployeeProfile>[];
   String? selectedProjectId;
   String? selectedTaskId;
   bool isLoading = true;
@@ -42,6 +41,7 @@ class ProjectTasksController extends ChangeNotifier {
   String? projectMembersError;
   String? membersError;
 
+  int _startupRequestVersion = 0;
   int _projectMembersRequestVersion = 0;
   int _tasksRequestVersion = 0;
   int _taskMembersRequestVersion = 0;
@@ -59,6 +59,8 @@ class ProjectTasksController extends ChangeNotifier {
 
   bool get canManageOwnTaskMembership =>
       authContext?.user.hasEmployeeProfile == true &&
+      !isLoadingProjectMembers &&
+      projectMembersError == null &&
       currentEmployeeIsProjectMember;
 
   String? get currentEmployeeId => authContext?.user.employeeId;
@@ -113,39 +115,43 @@ class ProjectTasksController extends ChangeNotifier {
       selectedTaskHasCapacity;
 
   Future<void> start() async {
+    if (_disposed) return;
+    final version = ++_startupRequestVersion;
+    _invalidateProjectScopedRequests();
     isLoading = true;
     loadError = null;
     notifyListeners();
 
     try {
-      authContext = await _api.getAuthContext();
-      if (_disposed) return;
-      projects = await _api.listProjects(status: ProjectStatus.active);
-      if (_disposed) return;
-      if (canManageProjects) {
-        employees = await _api.listEmployees();
-        if (_disposed) return;
-      }
+      final context = await _api.getAuthContext();
+      if (_disposed || version != _startupRequestVersion) return;
+      final activeProjects = await _api.listProjects(status: ProjectStatus.active);
+      if (_disposed || version != _startupRequestVersion) return;
 
-      if (projects.isNotEmpty) {
-        selectedProjectId = projects.first.id;
-        await _loadProjectMembersForSelectedProject(notifyLoading: false);
-        await _loadTasksForSelectedProject(notifyLoading: false);
-      } else {
-        selectedProjectId = null;
-        selectedTaskId = null;
-        tasks = <TaskRecord>[];
-        projectMembers = <ProjectMemberSummary>[];
-        taskMembers = <TaskMemberSummary>[];
-      }
+      authContext = context;
+      projects = activeProjects;
+      _resetProjectSelection(projects.firstOrNull?.id);
       isLoading = false;
-      notifyListeners();
+      await _loadProjectSections();
     } catch (error) {
+      if (_disposed || version != _startupRequestVersion) return;
       isLoading = false;
       loadError =
           _errorMessage(error, 'Não foi possível carregar os projetos.');
       notifyListeners();
     }
+  }
+
+  Future<List<EmployeeProfile>> listEmployeesForProjectAccess() =>
+      _api.listEmployees();
+
+  Future<void> _loadProjectSections() {
+    // Start both reads before publishing the selection. The project list can
+    // render now, and each section leaves its skeleton independently.
+    final members = _loadProjectMembersForSelectedProject(notifyLoading: false);
+    final tasks = _loadTasksForSelectedProject(notifyLoading: false);
+    notifyListeners();
+    return Future.wait<void>([members, tasks]);
   }
 
   Future<void> retry() => start();
@@ -156,6 +162,11 @@ class ProjectTasksController extends ChangeNotifier {
         projectMembersError == null) {
       return;
     }
+    _resetProjectSelection(projectId);
+    await _loadProjectSections();
+  }
+
+  void _resetProjectSelection(String? projectId) {
     _invalidateProjectScopedRequests();
     selectedProjectId = projectId;
     selectedTaskId = null;
@@ -165,12 +176,6 @@ class ProjectTasksController extends ChangeNotifier {
     tasksError = null;
     projectMembersError = null;
     membersError = null;
-    notifyListeners();
-    await _loadProjectMembersForSelectedProject();
-    if (selectedProjectId != projectId) {
-      return;
-    }
-    await _loadTasksForSelectedProject();
   }
 
   Future<void> reloadProjectMembers() =>
@@ -243,25 +248,23 @@ class ProjectTasksController extends ChangeNotifier {
         return;
       }
       tasks = loadedTasks;
+      isLoadingTasks = false;
       if (tasks.isEmpty) {
         selectedTaskId = null;
         taskMembers = <TaskMemberSummary>[];
         _invalidateTaskMemberRequests();
+        notifyListeners();
       } else {
         final currentSelectionStillExists =
             tasks.any((task) => task.id == selectedTaskId);
         if (!currentSelectionStillExists) {
           _invalidateTaskMemberRequests();
+          taskMembers = <TaskMemberSummary>[];
           selectedTaskId = tasks.first.id;
         }
-        await _loadMembersForSelectedTask(notifyLoading: false);
+        // Publish the task list without waiting for the selected task's roster.
+        await _loadMembersForSelectedTask();
       }
-      if (requestVersion != _tasksRequestVersion ||
-          selectedProjectId != projectId) {
-        return;
-      }
-      isLoadingTasks = false;
-      notifyListeners();
     } catch (error) {
       if (requestVersion != _tasksRequestVersion ||
           selectedProjectId != projectId) {
@@ -280,7 +283,7 @@ class ProjectTasksController extends ChangeNotifier {
     }
     _invalidateTaskMemberRequests();
     selectedTaskId = taskId;
-    notifyListeners();
+    taskMembers = <TaskMemberSummary>[];
     await _loadMembersForSelectedTask();
   }
 
@@ -332,17 +335,8 @@ class ProjectTasksController extends ChangeNotifier {
       final created = await _api.createProject(draft);
       if (created.status == ProjectStatus.active) {
         projects = <ProjectSummary>[created, ...projects];
-        _invalidateProjectScopedRequests();
-        selectedProjectId = created.id;
-        selectedTaskId = null;
-        tasks = <TaskRecord>[];
-        projectMembers = <ProjectMemberSummary>[];
-        taskMembers = <TaskMemberSummary>[];
-        tasksError = null;
-        projectMembersError = null;
-        membersError = null;
-        await _loadProjectMembersForSelectedProject(notifyLoading: false);
-        await _loadTasksForSelectedProject(notifyLoading: false);
+        _resetProjectSelection(created.id);
+        await _loadProjectSections();
       }
       return created;
     });
@@ -358,19 +352,8 @@ class ProjectTasksController extends ChangeNotifier {
         projects =
             projects.where((current) => current.id != updated.id).toList();
         if (selectedProjectId == updated.id) {
-          _invalidateProjectScopedRequests();
-          selectedProjectId = projects.isEmpty ? null : projects.first.id;
-          selectedTaskId = null;
-          tasks = <TaskRecord>[];
-          projectMembers = <ProjectMemberSummary>[];
-          taskMembers = <TaskMemberSummary>[];
-          tasksError = null;
-          projectMembersError = null;
-          membersError = null;
-          if (selectedProjectId != null) {
-            await _loadProjectMembersForSelectedProject(notifyLoading: false);
-            await _loadTasksForSelectedProject(notifyLoading: false);
-          }
+          _resetProjectSelection(projects.firstOrNull?.id);
+          await _loadProjectSections();
         }
       } else {
         projects = projects
@@ -386,16 +369,8 @@ class ProjectTasksController extends ChangeNotifier {
       await _api.deleteProject(project.id);
       projects = projects.where((current) => current.id != project.id).toList();
       if (selectedProjectId == project.id) {
-        _invalidateProjectScopedRequests();
-        selectedProjectId = projects.isEmpty ? null : projects.first.id;
-        selectedTaskId = null;
-        tasks = <TaskRecord>[];
-        projectMembers = <ProjectMemberSummary>[];
-        taskMembers = <TaskMemberSummary>[];
-        if (selectedProjectId != null) {
-          await _loadProjectMembersForSelectedProject(notifyLoading: false);
-          await _loadTasksForSelectedProject(notifyLoading: false);
-        }
+        _resetProjectSelection(projects.firstOrNull?.id);
+        await _loadProjectSections();
       }
     });
   }
