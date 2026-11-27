@@ -38,6 +38,10 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          # The default also includes the retired SDK package "tools".
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
 
       - name: Install frontend dependencies
         run: flutter pub get
