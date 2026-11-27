@@ -440,6 +440,9 @@ def test_explicit_null_project_does_not_inherit_previous_project(client: TestCli
 
     check_in = client.post(path, headers=headers, json={"type": "checkIn", "projectId": project["id"]})
     assert check_in.status_code == 200, check_in.text
+    with SessionLocal() as db:
+        db.scalar(select(Punch).where(Punch.employee_id == "emp-04")).project_id = project["id"]
+        db.commit()
     break_start = client.post(path, headers=headers, json={
         "type": "breakStart", "projectId": None,
         "workLog": {"description": "Sem projeto agora", "taskIds": []},
@@ -463,6 +466,13 @@ def test_omitted_project_does_not_restore_revoked_previous_assignment(client: Te
     headers = login_headers_for(client, email=JOAO_EMAIL, password=TEST_SEED_SECRET)
     path = "/api/v1/time-clock/me/punches"
     assert client.post(path, headers=headers, json={"type": "checkIn", "projectId": project["id"]}).status_code == 200
+    from sqlalchemy import select
+    from app.db import SessionLocal
+    from app.models import Punch
+
+    with SessionLocal() as db:
+        db.scalar(select(Punch).where(Punch.employee_id == "emp-04")).project_id = project["id"]
+        db.commit()
     assert client.delete(f"{member_path}/emp-04", headers=admin_headers).status_code == 204
 
     response = client.post(path, headers=headers, json={

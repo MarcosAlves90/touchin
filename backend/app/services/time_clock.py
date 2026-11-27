@@ -221,40 +221,42 @@ def create_punch(
             "Este funcionário precisa enviar dados de localização ao bater ponto.",
         )
 
-    if payload.project_id is not None:
-        validate_project_for_punch(
-            db,
-            company_id=employee.company_id,
-            employee_id=employee.id,
-            project_id=payload.project_id,
-        )
-
-    # Explicit null means "Nenhum"; an omitted key keeps the legacy fallback.
-    active_project_id = (
-        payload.project_id
-        if "project_id" in payload.model_fields_set
-        else (last_punch.project_id if last_punch else None)
-    )
-    if active_project_id and "project_id" not in payload.model_fields_set:
-        try:
+    active_project_id = None
+    if punch_type.supports_work_context:
+        if payload.project_id is not None:
             validate_project_for_punch(
                 db,
                 company_id=employee.company_id,
                 employee_id=employee.id,
-                project_id=active_project_id,
+                project_id=payload.project_id,
             )
-        except DomainError as error:
-            if error.kind not in {ErrorKind.forbidden, ErrorKind.not_found}:
-                raise
-            # Revoked or inactive assignments cannot be carried into new punches.
-            active_project_id = None
+
+        # Explicit null means "Nenhum"; an omitted key keeps the legacy fallback.
+        active_project_id = (
+            payload.project_id
+            if "project_id" in payload.model_fields_set
+            else (last_punch.project_id if last_punch else None)
+        )
+        if active_project_id and "project_id" not in payload.model_fields_set:
+            try:
+                validate_project_for_punch(
+                    db,
+                    company_id=employee.company_id,
+                    employee_id=employee.id,
+                    project_id=active_project_id,
+                )
+            except DomainError as error:
+                if error.kind not in {ErrorKind.forbidden, ErrorKind.not_found}:
+                    raise
+                # Revoked or inactive assignments cannot be carried into new punches.
+                active_project_id = None
 
     if active_project_id or payload.work_log:
         if punch_type == PunchType.check_out and current_status == "onBreak":
             raise DomainError(ErrorKind.bad_request, "Não é possível encerrar a jornada durante uma pausa ao usar apontamento de tarefas. Encerre a pausa primeiro.")
 
     tasks_for_log = []
-    if punch_type in (PunchType.break_start, PunchType.check_out) and current_status == "working":
+    if punch_type.supports_work_context and current_status == "working":
         if not payload.work_log:
             raise DomainError(ErrorKind.bad_request, "O registro de atividades é obrigatório ao sair para o almoço ou encerrar a jornada.")
         
@@ -304,7 +306,7 @@ def create_punch(
     )
     db.add(record)
     
-    if punch_type in (PunchType.break_start, PunchType.check_out) and current_status == "working":
+    if punch_type.supports_work_context and current_status == "working":
         assert last_punch is not None
         start_time = ensure_utc(last_punch.timestamp)
         end_time = ensure_utc(record.timestamp)
@@ -353,19 +355,21 @@ def create_managed_punch(
 ):
     cipher = _cipher()
     employee = _lock_employee_for_punch_write(db, company_id=company_id, employee_id=employee_id)
-    if payload.project_id is not None:
+    punch_type = PunchType(payload.type)
+    project_id = payload.project_id if punch_type.supports_work_context else None
+    if project_id is not None:
         validate_project_for_punch(
             db,
             company_id=company_id,
             employee_id=employee.id,
-            project_id=payload.project_id,
+            project_id=project_id,
         )
 
     record = Punch(
         company_id=company_id,
         employee_id=employee.id,
-        project_id=payload.project_id,
-        type=PunchType(payload.type).value,
+        project_id=project_id,
+        type=punch_type.value,
         timestamp=ensure_utc(payload.timestamp) if payload.timestamp is not None else utcnow(),
         detail_ciphertext=cipher.encrypt(payload.detail) or "",
         location_payload_ciphertext=cipher.encrypt_json(
@@ -412,7 +416,9 @@ def update_managed_punch(
         record.timestamp = ensure_utc(payload.timestamp)
     if "detail" in payload.model_fields_set and payload.detail is not None:
         record.detail_ciphertext = cipher.encrypt(payload.detail) or ""
-    if "project_id" in payload.model_fields_set:
+    if not PunchType(record.type).supports_work_context:
+        record.project_id = None
+    elif "project_id" in payload.model_fields_set:
         if payload.project_id is not None:
             validate_project_for_punch(
                 db,

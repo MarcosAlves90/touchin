@@ -49,7 +49,8 @@ def test_employee_and_team_history_show_the_same_historical_tasks(client, closin
         "type": "checkIn", "projectId": "history-atlas",
     })
     assert opened.status_code == 200, opened.text
-    assert opened.json()["projectName"] == "Projeto Atlas"
+    assert opened.json()["projectId"] is None
+    assert opened.json()["projectName"] is None
     assert opened.json()["workLog"] is None
     closed = client.post(f"{ROOT}/me/punches", headers=employee_headers, json={
         "type": closing_type, "projectId": "history-atlas",
@@ -149,5 +150,88 @@ def test_employee_and_team_history_show_the_same_historical_tasks(client, closin
     # Old punches without a linked log remain readable; no unrelated tasks are inferred.
     old = client.get(f"{TEAM_HISTORY}?page=2&limit=1", headers=admin_headers).json()["records"][0]
     assert old["type"] == "checkIn"
-    assert old["projectName"] == "Projeto Atlas"
+    assert old["projectId"] is None
+    assert old["projectName"] is None
     assert old["workLog"] is None
+
+
+def test_opening_and_return_never_persist_or_expose_work_context(client):
+    cipher = FieldCipher(get_settings().encryption_secret)
+    with SessionLocal() as db:
+        employee = db.get(Employee, "emp-04")
+        employee.requires_location_on_punch = False
+        employee.trusted_device_required = False
+        db.execute(delete(Punch).where(Punch.employee_id == employee.id))
+        project = Project(id="legacy-punch-project", company_id=COMPANY_ID,
+                          name_ciphertext=cipher.encrypt("Projeto legado"))
+        db.add(project)
+        db.add(EmployeeProject(employee=employee, project=project))
+        db.commit()
+
+    employee_headers = login_headers(client, JOAO_EMAIL)
+    admin_headers = login_headers(client, MARINA_EMAIL)
+    employee_path = f"{ROOT}/me/punches"
+
+    def without_context(record):
+        for key in ("projectId", "projectName", "workLog"):
+            assert record[key] is None
+
+    entry = client.post(employee_path, headers=employee_headers, json={
+        "type": "checkIn", "projectId": "ignored-project",
+        "workLog": {"description": "Not applicable", "taskIds": ["ignored-task"]},
+    })
+    assert entry.status_code == 200, entry.text
+    without_context(entry.json())
+
+    pause = client.post(employee_path, headers=employee_headers, json={
+        "type": "breakStart", "projectId": None,
+        "workLog": {"description": "Pausa", "taskIds": []},
+    })
+    assert pause.status_code == 200, pause.text
+    with SessionLocal() as db:
+        records = {p.type: p for p in db.query(Punch).filter_by(employee_id="emp-04")}
+        assert records["checkIn"].project_id is None
+        assert not db.query(WorkLog).filter_by(punch_id=records["checkIn"].id).count()
+        # Historical input immediately preceding a return used to be inherited.
+        records["breakStart"].project_id = "legacy-punch-project"
+        db.commit()
+
+    returned = client.post(employee_path, headers=employee_headers, json={"type": "breakEnd"})
+    assert returned.status_code == 200, returned.text
+    without_context(returned.json())
+
+    with SessionLocal() as db:
+        records = {p.type: p for p in db.query(Punch).filter_by(employee_id="emp-04")}
+        assert records["breakEnd"].project_id is None
+        for kind in ("checkIn", "breakEnd"):
+            records[kind].project_id = "legacy-punch-project"
+        entry_id = records["checkIn"].id
+        db.commit()
+
+    for path, headers in ((f"{ROOT}/me", employee_headers), (TEAM_HISTORY, admin_headers)):
+        response = client.get(path, headers=headers)
+        assert response.status_code == 200, response.text
+        records = {record["type"]: record for record in response.json()["records"]}
+        for kind in ("checkIn", "breakEnd"):
+            without_context(records[kind])
+        assert records["breakStart"]["projectId"] == "legacy-punch-project"
+
+    updated = client.patch(f"{TEAM_HISTORY}/{entry_id}", headers=admin_headers, json={
+        "detail": "Entrada corrigida", "projectId": "legacy-punch-project",
+    })
+    assert updated.status_code == 200, updated.text
+    without_context(updated.json())
+
+    closed = client.post(employee_path, headers=employee_headers, json={
+        "type": "checkOut", "projectId": None,
+        "workLog": {"description": "Fim", "taskIds": []},
+    })
+    assert closed.status_code == 200, closed.text
+    manual = client.post(TEAM_HISTORY, headers=admin_headers, json={
+        "type": "checkIn", "detail": "Entrada manual", "projectId": "legacy-punch-project",
+    })
+    assert manual.status_code == 201, manual.text
+    without_context(manual.json())
+    with SessionLocal() as db:
+        assert db.get(Punch, entry_id).project_id is None
+        assert db.get(Punch, manual.json()["id"]).project_id is None

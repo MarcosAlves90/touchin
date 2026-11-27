@@ -132,7 +132,7 @@ void main() {
     addTearDown(tester.view.reset);
     final timestamp = DateTime(2026, 5, 24, 9);
     final record = PunchRecord(
-      type: PunchType.checkIn,
+      type: PunchType.breakStart,
       timestamp: timestamp,
       detail: 'Registro de teste',
       projectId: 'atlas',
@@ -176,6 +176,68 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     }
     controller.dispose();
+  });
+  testWidgets('adjacent expanded punches share one separator and hide legacy context',
+      (tester) async {
+    tester.view.physicalSize = const Size(1440, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    const openingLog = PunchWorkLog(
+      projectId: 'legacy',
+      projectName: 'Projeto legado',
+      taskNames: ['Tarefa legada'],
+    );
+    final initial = PunchRecord(
+      type: PunchType.checkIn,
+      timestamp: DateTime(2026, 5, 24, 9),
+      detail: 'Entrada sem atividade',
+      projectId: 'legacy',
+      projectName: 'Projeto legado',
+      workLog: openingLog,
+    );
+    final returned = initial.copyWith(
+      type: PunchType.breakEnd,
+      timestamp: DateTime(2026, 5, 24, 13),
+      detail: 'Retorno sem atividade',
+    );
+    final pause = initial.copyWith(
+      type: PunchType.breakStart,
+      timestamp: DateTime(2026, 5, 24, 12),
+      detail: 'Pausa com atividade',
+      projectId: 'atlas',
+      projectName: 'Projeto Atlas',
+      workLog: const PunchWorkLog(
+        projectId: 'atlas', projectName: 'Projeto Atlas', taskNames: ['Revisar'],
+      ),
+    );
+    final controller = _FakeTimeClockController({
+      1: _timelineState(page: 1, records: [returned, pause, initial], totalPages: 1),
+    })..isLoadingState = false;
+    addTearDown(controller.dispose);
+    await controller.loadTimeClockState();
+    await tester.pumpWidget(MaterialApp(home: TimeClockPage(controller: controller)));
+    await tester.pumpAndSettle();
+    for (final time in ['13:00', '12:00', '09:00']) {
+      final tile = find.ancestor(of: find.text(time).last, matching: find.byType(ExpansionTile)).first;
+      final widget = tester.widget<ExpansionTile>(tile);
+      expect(widget.shape, const Border());
+      expect(widget.collapsedShape, const Border());
+      await tester.ensureVisible(tile);
+      await tester.tap(find.descendant(of: tile, matching: find.text(time)));
+      await tester.pumpAndSettle();
+    }
+    expect(find.text('Entrada sem atividade'), findsOneWidget);
+    expect(find.text('Retorno sem atividade'), findsOneWidget);
+    expect(find.text('Pausa com atividade'), findsOneWidget);
+    expect(find.text('Projeto: Projeto legado'), findsNothing);
+    expect(find.textContaining('Tarefa legada'), findsNothing);
+    expect(find.text('Projeto: Projeto Atlas'), findsOneWidget);
+    final list = find.ancestor(
+      of: find.byKey(ObjectKey(returned)),
+      matching: find.byType(Column),
+    ).first;
+    expect(find.descendant(of: list, matching: find.byType(Divider)), findsNWidgets(2));
+    expect(tester.takeException(), isNull);
   });
   testWidgets('history is compact with expandable record and location details',
       (tester) async {

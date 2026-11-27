@@ -278,12 +278,12 @@ def test_punch_accepts_optional_project_only_when_employee_is_linked_to_active_p
     )
     assert no_project_response.status_code == 200
     assert no_project_response.json()["projectId"] is None
-    _clear_employee_punches("emp-04")
 
+    work_log = {"description": "Atendimento", "taskIds": []}
     unlinked_response = client.post(
         "/api/v1/time-clock/me/punches",
         headers=employee_headers,
-        json={"type": "checkIn", "projectId": active_project["id"]},
+        json={"type": "breakStart", "projectId": active_project["id"], "workLog": work_log},
     )
     assert unlinked_response.status_code == 403
 
@@ -292,15 +292,6 @@ def test_punch_accepts_optional_project_only_when_employee_is_linked_to_active_p
         headers=admin_headers,
         json={"employeeId": "emp-04"},
     )
-    valid_response = client.post(
-        "/api/v1/time-clock/me/punches",
-        headers=employee_headers,
-        json={"type": "checkIn", "projectId": active_project["id"]},
-    )
-    assert valid_response.status_code == 200
-    assert valid_response.json()["projectId"] == active_project["id"]
-    _clear_employee_punches("emp-04")
-
     client.post(
         f"/api/v1/projects/{inactive_project['id']}/members",
         headers=admin_headers,
@@ -309,16 +300,33 @@ def test_punch_accepts_optional_project_only_when_employee_is_linked_to_active_p
     inactive_punch_response = client.post(
         "/api/v1/time-clock/me/punches",
         headers=employee_headers,
-        json={"type": "checkIn", "projectId": inactive_project["id"]},
+        json={"type": "breakStart", "projectId": inactive_project["id"], "workLog": work_log},
     )
     assert inactive_punch_response.status_code == 403
 
     missing_response = client.post(
         "/api/v1/time-clock/me/punches",
         headers=employee_headers,
-        json={"type": "checkIn", "projectId": "missing-project"},
+        json={"type": "breakStart", "projectId": "missing-project", "workLog": work_log},
     )
     assert missing_response.status_code == 404
+
+    task = client.post(
+        f"/api/v1/projects/{active_project['id']}/tasks",
+        headers=admin_headers,
+        json={"name": "Atender", "type": "feature", "description": "Atendimento"},
+    )
+    assert task.status_code == 201, task.text
+    work_log["taskIds"] = [task.json()["id"]]
+    valid_response = client.post(
+        "/api/v1/time-clock/me/punches",
+        headers=employee_headers,
+        json={"type": "breakStart", "projectId": active_project["id"], "workLog": work_log},
+    )
+    assert valid_response.status_code == 200
+    assert valid_response.json()["projectId"] == active_project["id"]
+
+
 
 
 def test_project_requires_non_empty_name_and_valid_optional_description(client):

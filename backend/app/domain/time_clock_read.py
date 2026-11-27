@@ -59,6 +59,7 @@ def _decrypt_optional(cipher: FieldCipher, ciphertext: str | None) -> str:
 def _record_contexts(
     db: Session, records: Sequence[Punch], *, cipher: FieldCipher,
 ) -> dict[str, tuple[str | None, PunchWorkLogResponse | None]]:
+    records = [record for record in records if PunchType(record.type).supports_work_context]
     if not records:
         return {}
     company_id = records[0].company_id
@@ -112,14 +113,15 @@ def _record_contexts(
 
 def serialize_record(
     record: Punch, *, cipher: FieldCipher,
-    context: tuple[str | None, PunchWorkLogResponse | None],
+    context: tuple[str | None, PunchWorkLogResponse | None] | None,
 ) -> PunchRecordResponse:
-    project_name, work_log = context
+    has_work_context = PunchType(record.type).supports_work_context
+    project_name, work_log = context if has_work_context and context is not None else (None, None)
     return PunchRecordResponse(
         type=record.type,
         timestamp=ensure_utc(record.timestamp),
         detail=cipher.decrypt(record.detail_ciphertext) or "",
-        project_id=record.project_id,
+        project_id=record.project_id if has_work_context else None,
         project_name=project_name,
         work_log=work_log,
         location=deserialize_location(record.location_payload_ciphertext, cipher=cipher),
@@ -128,7 +130,7 @@ def serialize_record(
 
 def _serialize_managed_record(
     record: Punch, *, cipher: FieldCipher,
-    context: tuple[str | None, PunchWorkLogResponse | None],
+    context: tuple[str | None, PunchWorkLogResponse | None] | None,
 ) -> ManagedPunchRecordResponse:
     return ManagedPunchRecordResponse(
         id=record.id,
@@ -138,11 +140,11 @@ def _serialize_managed_record(
 
 
 def serialize_punch_write(db: Session, record: Punch, *, cipher: FieldCipher) -> PunchRecordResponse:
-    return serialize_record(record, cipher=cipher, context=_record_contexts(db, [record], cipher=cipher)[record.id])
+    return serialize_record(record, cipher=cipher, context=_record_contexts(db, [record], cipher=cipher).get(record.id))
 
 
 def serialize_managed_punch_write(db: Session, record: Punch, *, cipher: FieldCipher) -> ManagedPunchRecordResponse:
-    return _serialize_managed_record(record, cipher=cipher, context=_record_contexts(db, [record], cipher=cipher)[record.id])
+    return _serialize_managed_record(record, cipher=cipher, context=_record_contexts(db, [record], cipher=cipher).get(record.id))
 
 
 def _get_company_employee(db: Session, *, company_id: str, employee_id: str) -> Employee:
@@ -253,7 +255,7 @@ def time_clock_state_page(
         today_break_minutes=calculate_break_minutes(today_records),
         first_check_in_at=first_check_in_at,
         last_punch_at=ensure_utc(last_punch.timestamp) if last_punch else None,
-        records=[serialize_record(record, cipher=cipher, context=contexts[record.id]) for record in page_records],
+        records=[serialize_record(record, cipher=cipher, context=contexts.get(record.id)) for record in page_records],
         records_page=normalized_page,
         records_page_size=normalized_page_size,
         records_total=total_records,
@@ -285,7 +287,7 @@ def list_managed_punches_page(
     )
     contexts = _record_contexts(db, page_records, cipher=cipher)
     return ManagedPunchPageResponse(
-        records=[_serialize_managed_record(record, cipher=cipher, context=contexts[record.id]) for record in page_records],
+        records=[_serialize_managed_record(record, cipher=cipher, context=contexts.get(record.id)) for record in page_records],
         records_page=normalized_page,
         records_page_size=normalized_page_size,
         records_total=total_records,

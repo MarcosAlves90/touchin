@@ -5,11 +5,13 @@ import 'package:touchin_flutter/contracts/punch.dart';
 class PunchWorkContext extends StatelessWidget {
   const PunchWorkContext({
     super.key,
+    required this.type,
     required this.projectId,
     required this.projectName,
     required this.workLog,
   });
 
+  final PunchType type;
   final String? projectId;
   final String? projectName;
   final PunchWorkLog? workLog;
@@ -22,6 +24,7 @@ class PunchWorkContext extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (!type.supportsWorkContext) return const SizedBox.shrink();
     final theme = Theme.of(context);
     final project = _projectLabel(projectName, projectId);
     final logProject = _projectLabel(workLog?.projectName, workLog?.projectId);
