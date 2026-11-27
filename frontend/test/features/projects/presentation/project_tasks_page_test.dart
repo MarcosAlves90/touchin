@@ -383,6 +383,38 @@ void main() {
     expect(b.width, closeTo(a.width, 1), reason: 'project_sections_layout');
     expect(tester.takeException(), isNull);
   });
+  testWidgets('loads the employee directory only in the add dialog and retries',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final api = _DirectoryProjectApi();
+    await tester.pumpWidget(MaterialApp(home: ProjectTasksPage(api: api)));
+    await tester.pumpAndSettle();
+    expect(api.requests, isEmpty);
+
+    final open = find.text('Adicionar ao projeto');
+    await tester.ensureVisible(open);
+    await tester.tap(open);
+    await tester.pumpAndSettle();
+    expect(api.requests, hasLength(1));
+    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(find.textContaining('Carregando funcion'), findsOneWidget);
+
+    api.requests.first.completeError(StateError('offline'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Tentar novamente'));
+    await tester.pumpAndSettle();
+    expect(api.requests, hasLength(2));
+
+    api.requests.last.complete([]);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('possuem acesso'), findsOneWidget);
+    await tester.tap(find.text('Cancelar'));
+    await tester.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('page loading keeps workspace shell and renders skeletons', (
     tester,
   ) async {
@@ -1105,6 +1137,19 @@ class _MultipleTasksApi extends _FakeProjectTasksApi {
           updatedAt: DateTime(2026, 9, 9),
         ),
       ];
+}
+
+class _DirectoryProjectApi extends _FakeProjectTasksApi {
+  _DirectoryProjectApi() : super(role: 'manager', employeeId: 'emp-03');
+
+  final requests = <Completer<List<EmployeeProfile>>>[];
+
+  @override
+  Future<List<EmployeeProfile>> listEmployees() {
+    final gate = Completer<List<EmployeeProfile>>();
+    requests.add(gate);
+    return gate.future;
+  }
 }
 
 class _DelayedProjectsTasksApi extends _FakeProjectTasksApi {

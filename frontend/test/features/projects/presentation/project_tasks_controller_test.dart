@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:touchin_flutter/contracts/auth.dart';
+import 'package:touchin_flutter/contracts/employee.dart';
 import 'package:touchin_flutter/contracts/project.dart';
 import 'package:touchin_flutter/contracts/task.dart';
 import 'package:touchin_flutter/core/network/touchin_api.dart';
@@ -15,6 +16,93 @@ void main() {
     await controller.start();
 
     expect(api.requestedProjectStatus, ProjectStatus.active);
+  });
+
+  test('manager sees projects first and 2000 tasks before either roster', () async {
+    final api = _ControlledProjectApi()
+      ..role = 'manager'
+      ..controlProjectMembers = true
+      ..controlTasks = true
+      ..controlTaskMembers = true;
+    final controller = ProjectTasksController(api: api);
+    addTearDown(controller.dispose);
+
+    final startup = controller.start();
+    await Future<void>.delayed(Duration.zero);
+
+    expect(controller.isLoading, isFalse);
+    expect(controller.selectedProjectId, 'project-a');
+    expect(controller.isLoadingProjectMembers, isTrue);
+    expect(controller.isLoadingTasks, isTrue);
+    expect(api.employeeRequests, 0);
+
+    api.taskCompleters['project-a']!.complete(List.generate(
+      2000, (i) => _task('project-a', 'project-a-$i'),
+    ));
+    await Future<void>.delayed(Duration.zero);
+
+    expect(controller.tasks, hasLength(2000));
+    expect(controller.isLoadingTasks, isFalse);
+    expect(controller.isLoadingProjectMembers, isTrue);
+    expect(controller.isLoadingMembers, isTrue);
+    expect(controller.canJoinSelectedTask, isFalse);
+
+    api.projectMemberCompleters['project-a']!.completeError(StateError('offline'));
+    api.taskMemberCompleters['project-a-0']!.complete([]);
+    await startup;
+    expect(controller.projectMembersError, isNotNull);
+    expect(controller.loadError, isNull);
+    expect(controller.tasks, hasLength(2000));
+    expect(controller.canJoinSelectedTask, isFalse);
+    expect(api.employeeRequests, 0);
+
+    await controller.listEmployeesForProjectAccess();
+    expect(api.employeeRequests, 1);
+  });
+
+  test('ignores a first project response after a complete retry', () async {
+    final a = Completer<List<ProjectSummary>>();
+    final b = Completer<List<ProjectSummary>>();
+    final api = _ControlledProjectApi()..projectResponses.addAll([a, b]);
+    final controller = ProjectTasksController(api: api);
+    addTearDown(controller.dispose);
+
+    final first = controller.start();
+    await Future<void>.delayed(Duration.zero);
+    final retry = controller.retry();
+    await Future<void>.delayed(Duration.zero);
+
+    b.complete([_project('current')]);
+    await retry;
+    a.complete([_project('stale')]);
+    await first;
+
+    expect(controller.selectedProjectId, 'current');
+    expect(controller.tasks.every((task) => task.projectId == 'current'), isTrue);
+    expect(controller.loadError, isNull);
+  });
+
+  test('publishes tasks when member requests fail and isolates retry', () async {
+    final api = _ControlledProjectApi()..controlTaskMembers = true;
+    final controller = ProjectTasksController(api: api);
+    addTearDown(controller.dispose);
+    final startup = controller.start();
+    await Future<void>.delayed(Duration.zero);
+    final first = api.taskMemberCompleters.remove('project-a-task-a')!;
+    first.completeError(StateError('offline'));
+    await startup;
+    expect(controller.membersError, isNotNull);
+    expect(controller.tasksError, isNull);
+    expect(controller.tasks, hasLength(2));
+
+    final retry = controller.reloadMembers();
+    api.taskMemberCompleters['project-a-task-a']!.complete([
+      _taskMember('project-a-task-a', 'emp-current'),
+    ]);
+    await retry;
+
+    expect(controller.membersError, isNull);
+    expect(controller.taskMembers.single.employeeId, 'emp-current');
   });
 
   test('discards stale task member responses after task selection changes', () async {
@@ -109,11 +197,14 @@ void main() {
     api.controlProjectMembers = true;
 
     final switching = controller.selectProject('project-b');
-    await Future<void>.delayed(Duration.zero);
 
     expect(controller.selectedProjectId, 'project-b');
     expect(controller.tasks, isEmpty);
     expect(controller.tasksError, isNull);
+    await Future<void>.delayed(Duration.zero);
+    expect(controller.tasks, hasLength(2));
+    expect(controller.tasks.every((task) => task.projectId == 'project-b'), isTrue);
+    expect(controller.isLoadingProjectMembers, isTrue);
 
     api.projectMemberCompleters['project-b']!.complete(<ProjectMemberSummary>[
       _projectMember('project-b', 'emp-04'),
@@ -217,6 +308,9 @@ void main() {
 
 class _ControlledProjectApi extends TouchInApi {
   ProjectStatus? requestedProjectStatus;
+  String role = 'employee';
+  int employeeRequests = 0;
+  final projectResponses = <Completer<List<ProjectSummary>>>[];
   bool controlTasks = false;
   bool controlProjectMembers = false;
   bool controlTaskMembers = false;
@@ -235,8 +329,8 @@ class _ControlledProjectApi extends TouchInApi {
 
   @override
   Future<AuthContext> getAuthContext() async {
-    return const AuthContext(
-      company: AuthCompanySummary(
+    return AuthContext(
+      company: const AuthCompanySummary(
         id: 'company-01',
         legalName: 'TouchIn Tecnologia LTDA',
         tradeName: 'TouchIn',
@@ -247,7 +341,7 @@ class _ControlledProjectApi extends TouchInApi {
       user: AuthUserSummary(
         id: 'user-01',
         email: 'employee@touchin.com',
-        role: 'employee',
+        role: role,
         employeeId: 'emp-04',
       ),
     );
@@ -256,10 +350,17 @@ class _ControlledProjectApi extends TouchInApi {
   @override
   Future<List<ProjectSummary>> listProjects({ProjectStatus? status}) async {
     requestedProjectStatus = status;
+    if (projectResponses.isNotEmpty) return projectResponses.removeAt(0).future;
     return <ProjectSummary>[
       _project('project-a'),
       _project('project-b'),
     ];
+  }
+
+  @override
+  Future<List<EmployeeProfile>> listEmployees() async {
+    employeeRequests++;
+    return [];
   }
 
   @override
