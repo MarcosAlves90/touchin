@@ -231,12 +231,15 @@ def create_punch(
                 project_id=payload.project_id,
             )
 
-        # Explicit null means "Nenhum"; an omitted key keeps the legacy fallback.
-        active_project_id = (
-            payload.project_id
-            if "project_id" in payload.model_fields_set
-            else (last_punch.project_id if last_punch else None)
-        )
+        # An omitted key may inherit only from a punch that owns work context.
+        # Old check-ins and returns can still have a stale project in storage.
+        active_project_id = payload.project_id
+        if (
+            "project_id" not in payload.model_fields_set
+            and last_punch is not None
+            and PunchType(last_punch.type).supports_work_context
+        ):
+            active_project_id = last_punch.project_id
         if active_project_id and "project_id" not in payload.model_fields_set:
             try:
                 validate_project_for_punch(

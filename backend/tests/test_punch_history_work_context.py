@@ -235,3 +235,59 @@ def test_opening_and_return_never_persist_or_expose_work_context(client):
     with SessionLocal() as db:
         assert db.get(Punch, entry_id).project_id is None
         assert db.get(Punch, manual.json()["id"]).project_id is None
+
+
+@pytest.mark.parametrize(
+    ("opening_type", "closing_type"),
+    [("checkIn", "breakStart"), ("breakEnd", "checkOut")],
+)
+def test_closing_without_project_does_not_inherit_stale_opening_project(
+    client, opening_type, closing_type,
+):
+    cipher = FieldCipher(get_settings().encryption_secret)
+    with SessionLocal() as db:
+        employee = db.get(Employee, "emp-04")
+        employee.requires_location_on_punch = False
+        employee.trusted_device_required = False
+        db.execute(delete(Punch).where(Punch.employee_id == employee.id))
+        project = Project(id="stale-opening", company_id=COMPANY_ID,
+                          name_ciphertext=cipher.encrypt("Projeto legado"))
+        db.add_all([project, EmployeeProject(employee=employee, project=project)])
+        db.commit()
+
+    headers = login_headers(client, JOAO_EMAIL)
+    path = f"{ROOT}/me/punches"
+    entry = client.post(path, headers=headers, json={"type": "checkIn"})
+    assert entry.status_code == 200, entry.text
+    if opening_type == "breakEnd":
+        pause = client.post(path, headers=headers, json={
+            "type": "breakStart", "projectId": None,
+            "workLog": {"description": "Atividades da manha", "taskIds": []},
+        })
+        assert pause.status_code == 200, pause.text
+        returned = client.post(path, headers=headers, json={"type": "breakEnd"})
+        assert returned.status_code == 200, returned.text
+
+    with SessionLocal() as db:
+        opening = db.query(Punch).filter_by(employee_id="emp-04", type=opening_type).one()
+        opening.project_id = "stale-opening"
+        opening_id = opening.id
+        db.commit()
+
+    # No explicit projectId: the persisted value is not a valid fallback.
+    closed = client.post(path, headers=headers, json={
+        "type": closing_type,
+        "workLog": {"description": "Atividades sem projeto", "taskIds": []},
+    })
+    assert closed.status_code == 200, closed.text
+    assert closed.json()["projectId"] is None
+    assert closed.json()["workLog"] == {
+        "projectId": None, "projectName": None, "taskNames": [], "tasks": [],
+    }
+    with SessionLocal() as db:
+        assert db.get(Punch, opening_id).project_id == "stale-opening"
+        punch = db.query(Punch).filter_by(employee_id="emp-04", type=closing_type).one()
+        assert punch.project_id is None
+        log = db.query(WorkLog).filter_by(punch_id=punch.id).one()
+        assert log.project_id is None
+        assert log.tasks == []
