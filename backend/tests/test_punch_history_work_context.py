@@ -291,3 +291,51 @@ def test_closing_without_project_does_not_inherit_stale_opening_project(
         log = db.query(WorkLog).filter_by(punch_id=punch.id).one()
         assert log.project_id is None
         assert log.tasks == []
+
+
+@pytest.mark.parametrize("selection", ["omitted", "null", "assigned"])
+def test_managed_type_change_does_not_restore_stale_return_project(client, selection):
+    cipher = FieldCipher(get_settings().encryption_secret)
+    with SessionLocal() as db:
+        employee = db.get(Employee, "emp-04")
+        db.execute(delete(Punch).where(Punch.employee_id == employee.id))
+        stale = Project(id="stale-return", company_id=COMPANY_ID,
+                        name_ciphertext=cipher.encrypt("Projeto legado sem vinculo"))
+        assigned = Project(id="selected-checkout", company_id=COMPANY_ID,
+                           name_ciphertext=cipher.encrypt("Projeto selecionado"))
+        db.add_all([stale, assigned, EmployeeProject(employee=employee, project=assigned)])
+        db.commit()
+
+    headers = login_headers(client, MARINA_EMAIL)
+    for hour, kind in [(9, "checkIn"), (12, "breakStart"), (13, "breakEnd")]:
+        created = client.post(TEAM_HISTORY, headers=headers, json={
+            "type": kind, "timestamp": f"2026-11-26T{hour:02}:00:00Z",
+            "detail": "Registro manual",
+        })
+        assert created.status_code == 201, created.text
+    returned_id = created.json()["id"]
+    with SessionLocal() as db:
+        db.get(Punch, returned_id).project_id = "stale-return"
+        db.commit()
+
+    path = f"{TEAM_HISTORY}/{returned_id}"
+    rejected = client.patch(path, headers=headers, json={
+        "type": "checkOut", "projectId": "stale-return",
+    })
+    assert rejected.status_code == 403, rejected.text
+    with SessionLocal() as db:
+        assert db.get(Punch, returned_id).type == "breakEnd"
+
+    payload = {"type": "checkOut"}
+    expected = "selected-checkout" if selection == "assigned" else None
+    if selection != "omitted":
+        payload["projectId"] = expected
+    updated = client.patch(path, headers=headers, json=payload)
+    assert updated.status_code == 200, updated.text
+    assert updated.json()["type"] == "checkOut"
+    assert updated.json()["projectId"] == expected
+    assert updated.json()["projectName"] == ("Projeto selecionado" if expected else None)
+    assert updated.json()["workLog"] is None
+    with SessionLocal() as db:
+        assert db.get(Punch, returned_id).project_id == expected
+        assert not db.query(WorkLog).filter_by(punch_id=returned_id).count()

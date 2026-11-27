@@ -412,6 +412,7 @@ def update_managed_punch(
     )
     previous_predecessor = _previous_punch(db, record=record)
     previous_successor = _next_punch(db, record=record)
+    had_work_context = PunchType(record.type).supports_work_context
 
     if "type" in payload.model_fields_set and payload.type is not None:
         record.type = PunchType(payload.type).value
@@ -430,6 +431,9 @@ def update_managed_punch(
                 project_id=payload.project_id,
             )
         record.project_id = payload.project_id
+    elif not had_work_context:
+        # Retyping an opening punch must not expose a stale legacy project.
+        record.project_id = None
     if "location" in payload.model_fields_set:
         record.location_payload_ciphertext = cipher.encrypt_json(
             payload.location.model_dump(mode="json", by_alias=False)
