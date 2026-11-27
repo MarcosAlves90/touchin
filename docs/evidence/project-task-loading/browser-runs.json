@@ -1,0 +1,106 @@
+{
+  "admin-18384": [
+    {
+      "projectsVisibleMs": 3457,
+      "allReadsMs": 3468,
+      "taskListConsumedMs": 2238,
+      "initialReadCount": 5
+    },
+    {
+      "projectsVisibleMs": 3076,
+      "allReadsMs": 3086,
+      "taskListConsumedMs": 2001,
+      "initialReadCount": 5
+    },
+    {
+      "projectsVisibleMs": 3060,
+      "allReadsMs": 3076,
+      "taskListConsumedMs": 1994,
+      "initialReadCount": 5
+    },
+    {
+      "projectsVisibleMs": 3209,
+      "allReadsMs": 3286,
+      "taskListConsumedMs": 1931,
+      "initialReadCount": 5
+    },
+    {
+      "projectsVisibleMs": 3022,
+      "allReadsMs": 3032,
+      "taskListConsumedMs": 1982,
+      "initialReadCount": 5
+    }
+  ],
+  "admin-18385": [
+    {
+      "projectsVisibleMs": 1068,
+      "allReadsMs": 1761,
+      "taskListConsumedMs": 1075,
+      "initialReadCount": 4
+    },
+    {
+      "projectsVisibleMs": 725,
+      "allReadsMs": 1907,
+      "taskListConsumedMs": 1371,
+      "initialReadCount": 4
+    },
+    {
+      "projectsVisibleMs": 1597,
+      "allReadsMs": 1879,
+      "taskListConsumedMs": 941,
+      "initialReadCount": 4
+    },
+    {
+      "projectsVisibleMs": 1743,
+      "allReadsMs": 2126,
+      "taskListConsumedMs": 1079,
+      "initialReadCount": 4
+    },
+    {
+      "projectsVisibleMs": 1300,
+      "allReadsMs": 1356,
+      "taskListConsumedMs": 886,
+      "initialReadCount": 4
+    }
+  ],
+  "employee-18384": [
+    {
+      "projectsVisibleMs": 2032,
+      "allReadsMs": 2039,
+      "taskListConsumedMs": 1296,
+      "initialReadCount": 4
+    },
+    {
+      "projectsVisibleMs": 2681,
+      "allReadsMs": 2720,
+      "taskListConsumedMs": 1719,
+      "initialReadCount": 4
+    },
+    {
+      "projectsVisibleMs": 2047,
+      "allReadsMs": 2056,
+      "taskListConsumedMs": 1313,
+      "initialReadCount": 4
+    }
+  ],
+  "employee-18385": [
+    {
+      "projectsVisibleMs": 1222,
+      "allReadsMs": 1331,
+      "taskListConsumedMs": 864,
+      "initialReadCount": 4
+    },
+    {
+      "projectsVisibleMs": 1193,
+      "allReadsMs": 1352,
+      "taskListConsumedMs": 899,
+      "initialReadCount": 4
+    },
+    {
+      "projectsVisibleMs": 1126,
+      "allReadsMs": 1326,
+      "taskListConsumedMs": 864,
+      "initialReadCount": 4
+    }
+  ]
+}
